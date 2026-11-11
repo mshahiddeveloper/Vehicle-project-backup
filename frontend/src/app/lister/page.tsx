@@ -31,9 +31,11 @@ import {
   Scan,
   Check,
   Edit3,
+  Sparkles,
 } from 'lucide-react';
 import { API_BASE, formatPKR, maskCnic, maskLicense, maskPhone } from '@/lib/api';
 import { SubscriptionPricingSection } from '@/components/SubscriptionPricingSection';
+import { getActiveUser, RegisteredUser } from '@/data/userAuth';
 
 const POPULAR_CAR_SUGGESTIONS = [
   'Toyota Corolla',
@@ -96,8 +98,38 @@ export default function ListerDashboardPage() {
   }, []);
 
   // Lister Data State (Step 1: Your Business)
+  const [currentUser, setCurrentUser] = useState<RegisteredUser | null>(null);
+  const [showSubscriptionRequiredModal, setShowSubscriptionRequiredModal] = useState(false);
   const [businessName, setBusinessName] = useState('Salman Rent a Car & Tours');
   const [operatingCity, setOperatingCity] = useState('Islamabad');
+
+  // Sync with active authenticated registered user
+  useEffect(() => {
+    const user = getActiveUser();
+    if (user && user.role === 'LISTER') {
+      setCurrentUser(user);
+      if (user.businessName) setBusinessName(user.businessName);
+      else if (user.name) setBusinessName(`${user.name} Fleet`);
+      if (user.city) setOperatingCity(user.city);
+      if (user.phone) {
+        setListerPhone(user.phone);
+        setListerWhatsApp(user.phone);
+      }
+      if (user.name) setListerName(user.name);
+
+      // Load user's personal fleet if registered non-demo
+      if (user.id !== 'usr-demo-lister') {
+        try {
+          const userFleet = localStorage.getItem(`safarpk_fleet_${user.id}`);
+          if (userFleet) {
+            setFleetList(JSON.parse(userFleet));
+          } else {
+            setFleetList([]);
+          }
+        } catch (e) {}
+      }
+    }
+  }, []);
   const [operatingArea, setOperatingArea] = useState('F-10 Markaz');
   const [listerAddress, setListerAddress] = useState('Plaza 14, Main Road, F-10 Markaz');
   const [listerWebsite, setListerWebsite] = useState('https://salmanrentacar.pk');
@@ -691,8 +723,15 @@ export default function ListerDashboardPage() {
 
   // Publish Listing Handler (Supporting 3-Step Streamlined Flow)
   const handlePublishVehicle = (isDraft: boolean) => {
+    // If attempting to publish live but user has no active subscription, promote & block
+    if (!isDraft && currentUser && (!currentUser.subscription || currentUser.subscription.status === 'UNSUBSCRIBED')) {
+      setShowSubscriptionRequiredModal(true);
+      return;
+    }
+
     setWizardSubmitting(true);
     setTimeout(() => {
+      const isPending = !isDraft && currentUser?.subscription?.status === 'PENDING_APPROVAL';
       const vehicleImg =
         carPhotoSlots.find((p) => p.url)?.url ||
         uploadedPhotos[0]?.url ||
@@ -705,7 +744,7 @@ export default function ListerDashboardPage() {
         city: personalCity || operatingCity,
         dailyRate: Number(carRentPerDay) || 4500,
         withDriverRate: (Number(carRentPerDay) || 4500) + 2500,
-        status: isDraft ? 'DRAFT' : 'LIVE',
+        status: isDraft ? 'DRAFT' : isPending ? 'PENDING_APPROVAL' : 'LIVE',
         views: 0,
         leads: 0,
         img: vehicleImg,
@@ -719,7 +758,13 @@ export default function ListerDashboardPage() {
         phone: personalPrimaryNumber || listerWhatsApp,
       };
 
-      setFleetList([newVehicle, ...fleetList]);
+      const updated = [newVehicle, ...fleetList];
+      setFleetList(updated);
+      if (currentUser && currentUser.id !== 'usr-demo-lister') {
+        try {
+          localStorage.setItem(`safarpk_fleet_${currentUser.id}`, JSON.stringify(updated));
+        } catch (e) {}
+      }
 
       // Synchronize Lister profile details
       if (shopName) setBusinessName(shopName);
@@ -733,13 +778,15 @@ export default function ListerDashboardPage() {
       setWizardSuccessMsg(
         isDraft
           ? '💾 Saved as Draft in your Fleet Roster!'
+          : isPending
+          ? '⏳ Vehicle Draft Saved! Your subscription payment is pending admin approval. It will go LIVE automatically once approved.'
           : `🎉 Vehicle "${carBrand} ${carModel}" Published & LIVE on SafarPK!`
       );
       setTimeout(() => {
         setWizardSuccessMsg(null);
         setActiveTab('fleet');
         setWizardStep(1);
-      }, 1800);
+      }, 2000);
     }, 700);
   };
 
@@ -792,8 +839,21 @@ export default function ListerDashboardPage() {
               <div>
                 <h3 className="font-bold text-sm text-slate-900">{businessName}</h3>
                 <span className="text-[11px] text-slate-500 block">{listerName} (Manager)</span>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block mt-0.5">
-                  Pro Fleet Plan
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded border inline-block mt-0.5 ${
+                    currentUser?.subscription?.status === 'ACTIVE'
+                      ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                      : currentUser?.subscription?.status === 'PENDING_APPROVAL'
+                      ? 'text-amber-800 bg-amber-50 border-amber-300'
+                      : 'text-rose-700 bg-rose-50 border-rose-200'
+                  }`}
+                >
+                  {currentUser?.subscription?.planName ||
+                    (currentUser?.subscription?.status === 'ACTIVE'
+                      ? 'Pro Fleet Plan'
+                      : currentUser?.subscription?.status === 'PENDING_APPROVAL'
+                      ? 'Pending Approval'
+                      : 'Unsubscribed')}
                 </span>
               </div>
             </div>
@@ -845,6 +905,65 @@ export default function ListerDashboardPage() {
 
         {/* Tab Canvas */}
         <main className="lg:col-span-3 space-y-6">
+          {/* SUBSCRIPTION GATEWAY & PROMOTIONAL BANNER */}
+          {currentUser && (!currentUser.subscription || currentUser.subscription.status === 'UNSUBSCRIBED') && (
+            <div className="p-4 bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-amber-500/10 border-2 border-emerald-600/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <Sparkles className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-extrabold text-sm text-slate-900">
+                      Welcome, {businessName}! Activate Your Fleet Listing Quota
+                    </h4>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">
+                      Subscription Pass Required
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    You can create and manage your vehicle drafts right now. To publish vehicles live on the marketplace and receive direct customer calls, please select an active subscription pass.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('subscription')}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-md transition cursor-pointer shrink-0"
+              >
+                ⚡ Choose Package & Unlock Quota
+              </button>
+            </div>
+          )}
+
+          {currentUser?.subscription?.status === 'PENDING_APPROVAL' && (
+            <div className="p-4 bg-amber-50 border border-amber-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-amber-600 shrink-0 animate-pulse" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-black text-xs text-amber-950">
+                      ⏳ Subscription Payment Under Super Admin Review
+                    </h4>
+                    <span className="px-2 py-0.2 rounded text-[9px] font-bold bg-amber-200 text-amber-900">
+                      Ref: {currentUser.subscription.paymentRef || 'Submitted'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 mt-0.5">
+                    Your payment receipt for &ldquo;{currentUser.subscription.planName}&rdquo; has been submitted. Your vehicles are safely drafted and will go LIVE automatically once approved.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('subscription')}
+                className="px-3.5 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-xl text-xs font-bold shrink-0"
+              >
+                View Status
+              </button>
+            </div>
+          )}
+
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
@@ -2831,6 +2950,74 @@ export default function ListerDashboardPage() {
                 className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUBSCRIPTION REQUIRED MODAL */}
+      {showSubscriptionRequiredModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-start justify-between">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center text-2xl">
+                ⚡
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSubscriptionRequiredModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-700 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div>
+              <h3 className="text-base font-black text-slate-900">
+                Subscription Pass Required to Publish Live
+              </h3>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                Your account is currently unsubscribed. To publish vehicles live on the SafarPK public marketplace and start receiving customer booking calls, please choose a subscription pass.
+              </p>
+            </div>
+
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 space-y-1.5 text-xs text-emerald-950">
+              <div className="flex items-center gap-2 font-bold">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Unlimited direct customer phone & WhatsApp calls</span>
+              </div>
+              <div className="flex items-center gap-2 font-bold">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>0% commission on all rental bookings</span>
+              </div>
+              <div className="flex items-center gap-2 font-bold">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Save drafts anytime; listings go live automatically upon approval</span>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSubscriptionRequiredModal(false);
+                  setActiveTab('subscription');
+                }}
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-md transition cursor-pointer flex items-center justify-center gap-2"
+              >
+                <span>⚡ View Subscription Packages & Apply Promo Code</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSubscriptionRequiredModal(false);
+                  handlePublishVehicle(true);
+                }}
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                💾 Save as Draft Only (Publish Later)
               </button>
             </div>
           </div>

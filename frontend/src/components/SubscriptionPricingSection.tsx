@@ -30,6 +30,11 @@ import {
   validatePromoCode,
   incrementPromoUsage,
 } from '@/data/promoCodes';
+import {
+  getActiveUser,
+  submitSubscriptionPayment,
+  RegisteredUser,
+} from '@/data/userAuth';
 
 interface SubscriptionPricingSectionProps {
   role: 'CAR_RENTAL' | 'DRIVER' | 'PICK_AND_DROP' | 'SHIFTING' | 'PROVIDER';
@@ -61,7 +66,7 @@ export function SubscriptionPricingSection({
     symbol: string;
     currency: string;
     renewsOn: string;
-    status: 'ACTIVE' | 'PENDING_APPROVAL';
+    status: 'UNSUBSCRIBED' | 'PENDING_APPROVAL' | 'ACTIVE' | 'REJECTED';
   }>({
     planName: initialPlanName || (role === 'DRIVER' ? 'Chauffeur Solo Pass' : 'Professional Fleet (15 Vehicles)'),
     maxListings: role === 'DRIVER' ? 1 : 15,
@@ -69,8 +74,24 @@ export function SubscriptionPricingSection({
     symbol: country.symbol || 'Rs',
     currency: country.currency || 'PKR',
     renewsOn: '10 Dec 2026',
-    status: 'ACTIVE',
+    status: 'UNSUBSCRIBED',
   });
+
+  // Sync with real active logged-in user
+  useEffect(() => {
+    const user = getActiveUser();
+    if (user && user.subscription) {
+      setActiveSubscription({
+        planName: user.subscription.planName || 'Free Tier (No Subscription)',
+        maxListings: user.subscription.quota || 0,
+        amountPaid: user.subscription.amountPaid || 0,
+        symbol: user.subscription.symbol || country.symbol || 'Rs',
+        currency: user.subscription.currency || country.currency || 'PKR',
+        renewsOn: user.subscription.renewsOn || (user.subscription.status === 'PENDING_APPROVAL' ? 'Pending Admin Approval' : 'Not Subscribed'),
+        status: user.subscription.status,
+      });
+    }
+  }, [country.symbol, country.currency]);
 
   // Payment Modal State
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -194,26 +215,40 @@ export function SubscriptionPricingSection({
         incrementPromoUsage(appliedPromo.promo.code);
       }
 
+      const user = getActiveUser();
+      if (user) {
+        submitSubscriptionPayment(
+          user.id,
+          currentPlan,
+          finalPayable,
+          pricing.currency,
+          pricing.symbol,
+          transactionRef,
+          '/bank-slip-sample.jpg',
+          appliedPromo?.promo?.code
+        );
+      }
+
       setActiveSubscription({
         planName: currentPlan.name,
         maxListings: currentPlan.maxListings,
         amountPaid: finalPayable,
         symbol: pricing.symbol,
         currency: pricing.currency,
-        renewsOn: '11 Dec 2026',
-        status: 'ACTIVE',
+        renewsOn: 'Pending Super Admin Approval',
+        status: 'PENDING_APPROVAL',
       });
 
       setIsSubmitting(false);
       setShowPaymentModal(false);
       setSuccessNotice(
-        `🎉 Successfully subscribed to "${currentPlan.name}"! Your listings quota has been updated.`
+        `🎉 Payment receipt submitted for "${currentPlan.name}"! Super Admin is verifying your payment proof. Once approved, your ${currentPlan.maxListings} listings quota will go LIVE!`
       );
       if (onPlanSubscribed) {
         onPlanSubscribed(currentPlan, finalPayable, appliedPromo?.promo?.code);
       }
 
-      setTimeout(() => setSuccessNotice(null), 5000);
+      setTimeout(() => setSuccessNotice(null), 6000);
     }, 1200);
   };
 
@@ -228,32 +263,76 @@ export function SubscriptionPricingSection({
       )}
 
       {/* 1. CURRENT ACTIVE SUBSCRIPTION STRIP */}
-      <div className="bg-gradient-to-r from-slate-900 to-slate-950 rounded-2xl border border-slate-800 p-5 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
+      <div
+        className={`rounded-2xl border p-5 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+          activeSubscription.status === 'ACTIVE'
+            ? 'bg-gradient-to-r from-slate-900 to-slate-950 border-slate-800'
+            : activeSubscription.status === 'PENDING_APPROVAL'
+            ? 'bg-gradient-to-r from-amber-950/80 via-slate-900 to-slate-950 border-amber-800/80'
+            : 'bg-gradient-to-r from-slate-900 via-slate-900 to-rose-950/40 border-slate-800'
+        }`}
+      >
+        <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-              ● Active {activeSubscription.status}
-            </span>
+            {activeSubscription.status === 'ACTIVE' ? (
+              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                ● Active Verified
+              </span>
+            ) : activeSubscription.status === 'PENDING_APPROVAL' ? (
+              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+                ⏳ Pending Admin Approval
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                ⚠️ No Active Subscription
+              </span>
+            )}
             <span className="text-[11px] text-slate-400">
               {roleTitle} Platform Pass
             </span>
           </div>
+
           <h4 className="text-lg font-black text-white flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-emerald-400" />
+            {activeSubscription.status === 'ACTIVE' ? (
+              <ShieldCheck className="w-5 h-5 text-emerald-400" />
+            ) : activeSubscription.status === 'PENDING_APPROVAL' ? (
+              <Clock className="w-5 h-5 text-amber-400" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-rose-400" />
+            )}
             {activeSubscription.planName}
           </h4>
-          <p className="text-xs text-slate-400">
-            Valid until {activeSubscription.renewsOn} · Quota:{' '}
-            <strong className="text-emerald-300 font-bold">
-              {activeSubscription.maxListings} Listings / Routes
-            </strong>{' '}
-            · Direct Contact Enabled
+
+          <p className="text-xs text-slate-300">
+            {activeSubscription.status === 'ACTIVE' ? (
+              <>
+                Valid until {activeSubscription.renewsOn} · Quota:{' '}
+                <strong className="text-emerald-300 font-bold">
+                  {activeSubscription.maxListings} Listings / Routes
+                </strong>{' '}
+                · Live Direct Contact Enabled
+              </>
+            ) : activeSubscription.status === 'PENDING_APPROVAL' ? (
+              <>
+                Payment receipt submitted for verification · Super Admin review in progress. Quota of{' '}
+                <strong className="text-amber-300 font-bold">
+                  {activeSubscription.maxListings} Listings
+                </strong>{' '}
+                will go live immediately upon approval.
+              </>
+            ) : (
+              <>
+                You are on the free viewing tier (0 live listings quota). Choose a package below to unlock direct booking leads.
+              </>
+            )}
           </p>
         </div>
 
         <div className="text-right sm:border-l sm:border-slate-800 sm:pl-6 shrink-0">
-          <span className="text-[11px] text-slate-400 block font-medium">Billed Monthly</span>
-          <span className="text-xl font-black text-emerald-400">
+          <span className="text-[11px] text-slate-400 block font-medium">
+            {activeSubscription.status === 'ACTIVE' ? 'Billed Monthly' : activeSubscription.status === 'PENDING_APPROVAL' ? 'Under Review' : 'Tier Cost'}
+          </span>
+          <span className={`text-xl font-black ${activeSubscription.status === 'ACTIVE' ? 'text-emerald-400' : activeSubscription.status === 'PENDING_APPROVAL' ? 'text-amber-300' : 'text-slate-400'}`}>
             {activeSubscription.symbol} {activeSubscription.amountPaid.toLocaleString()}
           </span>
           <span className="text-xs text-slate-500 block">/ month</span>

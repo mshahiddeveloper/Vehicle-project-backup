@@ -26,14 +26,19 @@ import {
   HelpCircle,
   Edit3,
   X,
+  Sparkles,
 } from 'lucide-react';
 import { API_BASE, formatPKR, maskPhone } from '@/lib/api';
 import { SubscriptionPricingSection } from '@/components/SubscriptionPricingSection';
+import { getActiveUser, RegisteredUser } from '@/data/userAuth';
 
 export default function ServiceProviderDashboardPage() {
   const [activeTab, setActiveTab] = useState<
     'overview' | 'pricing' | 'team' | 'fleet' | 'routes' | 'quotes' | 'subscription'
   >('overview');
+
+  // Active Authenticated Provider
+  const [currentUser, setCurrentUser] = useState<RegisteredUser | null>(null);
 
   // Provider Mode: Distinguish Pick & Drop Shuttles vs Commercial Cargo/Shifting
   const [providerMode, setProviderMode] = useState<'ALL' | 'PICK_AND_DROP' | 'COMMERCIAL_CARGO'>('ALL');
@@ -61,6 +66,24 @@ export default function ServiceProviderDashboardPage() {
   const [managerName, setManagerName] = useState('Haji Abdul Rasheed');
   const [contactPhone, setContactPhone] = useState('+92 321 4409124');
   const [cityBase, setCityBase] = useState('Lahore');
+
+  // Sync with logged-in user profile
+  React.useEffect(() => {
+    const user = getActiveUser();
+    if (user && user.role === 'PROVIDER') {
+      setCurrentUser(user);
+      if (user.businessName) setCompanyName(user.businessName);
+      if (user.name) setManagerName(user.name);
+      if (user.phone) setContactPhone(user.phone);
+      if (user.city) {
+        setCityBase(user.city);
+        setServiceCoverageCities((prev) => (prev.includes(user.city) ? prev : [user.city, ...prev]));
+      }
+      if (user.providerSubtype) {
+        setProviderMode(user.providerSubtype);
+      }
+    }
+  }, []);
   const [availableCoverageCities, setAvailableCoverageCities] = useState<string[]>([
     'Lahore',
     'Islamabad',
@@ -624,8 +647,21 @@ export default function ServiceProviderDashboardPage() {
               <div>
                 <h3 className="font-bold text-sm text-slate-900">{companyName}</h3>
                 <span className="text-[11px] text-slate-500 block">Manager: {managerName}</span>
-                <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 inline-block mt-0.5">
-                  Verified Transport Partner
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded border inline-block mt-0.5 ${
+                    currentUser?.subscription?.status === 'ACTIVE'
+                      ? 'text-purple-700 bg-purple-50 border-purple-200'
+                      : currentUser?.subscription?.status === 'PENDING_APPROVAL'
+                      ? 'text-amber-800 bg-amber-50 border-amber-300'
+                      : 'text-rose-700 bg-rose-50 border-rose-200'
+                  }`}
+                >
+                  {currentUser?.subscription?.planName ||
+                    (currentUser?.subscription?.status === 'ACTIVE'
+                      ? 'Verified Transport Partner'
+                      : currentUser?.subscription?.status === 'PENDING_APPROVAL'
+                      ? 'Pending Approval'
+                      : 'Unsubscribed')}
                 </span>
               </div>
             </div>
@@ -687,6 +723,65 @@ export default function ServiceProviderDashboardPage() {
             <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-2xl text-emerald-900 text-xs font-bold flex items-center justify-between shadow-2xs">
               <span>{saveNotice}</span>
               <button onClick={() => setSaveNotice(null)} className="text-emerald-700 hover:text-emerald-900 cursor-pointer">✕</button>
+            </div>
+          )}
+
+          {/* PROVIDER SUBSCRIPTION PROMOTIONAL BANNER */}
+          {currentUser && (!currentUser.subscription || currentUser.subscription.status === 'UNSUBSCRIBED') && (
+            <div className="p-4 bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-amber-500/10 border-2 border-purple-600/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-sm font-bold text-lg">
+                  📦
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-extrabold text-sm text-slate-900">
+                      Welcome, {companyName}! Activate Your Commercial Provider Pass
+                    </h4>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">
+                      Provider Pass Required
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    Activate your Commercial Fleet or Pick & Drop Route Pass to publish unlimited logistics routes, receive corporate quote requests, and deploy Mazdoor shifting teams.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('subscription')}
+                className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black shadow-md transition cursor-pointer shrink-0"
+              >
+                ⚡ Choose Provider Package & Apply Promo Code
+              </button>
+            </div>
+          )}
+
+          {currentUser?.subscription?.status === 'PENDING_APPROVAL' && (
+            <div className="p-4 bg-amber-50 border border-amber-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-amber-600 shrink-0 animate-pulse" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-black text-xs text-amber-950">
+                      ⏳ Commercial Subscription Payment Under Review
+                    </h4>
+                    <span className="px-2 py-0.2 rounded text-[9px] font-bold bg-amber-200 text-amber-900">
+                      Ref: {currentUser.subscription.paymentRef || 'Submitted'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 mt-0.5">
+                    Your payment receipt for &ldquo;{currentUser.subscription.planName}&rdquo; is pending Super Admin approval. Your routes and commercial pricing will go LIVE once approved.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('subscription')}
+                className="px-3.5 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-xl text-xs font-bold shrink-0"
+              >
+                View Status
+              </button>
             </div>
           )}
           {/* TAB 1: OVERVIEW */}

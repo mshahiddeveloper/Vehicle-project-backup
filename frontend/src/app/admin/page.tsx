@@ -56,6 +56,12 @@ import {
   getStoredPlans,
   saveStoredPlans,
 } from '@/data/promoCodes';
+import {
+  getAllRegisteredUsers,
+  approveSubscriptionByAdmin,
+  rejectSubscriptionByAdmin,
+  RegisteredUser,
+} from '@/data/userAuth';
 
 export default function SuperAdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<
@@ -212,6 +218,43 @@ export default function SuperAdminDashboardPage() {
       }
     }
   }, []);
+
+  // Registered Platform Users & Dynamic Subscription Approvals
+  const [registeredUsersList, setRegisteredUsersList] = useState<RegisteredUser[]>([]);
+
+  useEffect(() => {
+    setRegisteredUsersList(getAllRegisteredUsers());
+    const onUsersUpdate = () => {
+      setRegisteredUsersList(getAllRegisteredUsers());
+    };
+    window.addEventListener('safarpk_users_updated', onUsersUpdate);
+    window.addEventListener('safarpk_auth_state_changed', onUsersUpdate);
+    return () => {
+      window.removeEventListener('safarpk_users_updated', onUsersUpdate);
+      window.removeEventListener('safarpk_auth_state_changed', onUsersUpdate);
+    };
+  }, []);
+
+  const handleApproveUserSubscription = (userId: string) => {
+    const updated = approveSubscriptionByAdmin(userId);
+    if (updated) {
+      setRegisteredUsersList(getAllRegisteredUsers());
+      setAdminNotice(`✅ Subscription approved for ${updated.name}! Quota (${updated.subscription.quota}) unlocked.`);
+      setTimeout(() => setAdminNotice(null), 4000);
+    }
+  };
+
+  const handleRejectUserSubscription = (userId: string) => {
+    const reason =
+      prompt('Please enter rejection reason for this subscriber:', 'Payment slip could not be verified') ||
+      'Payment slip could not be verified';
+    const updated = rejectSubscriptionByAdmin(userId, reason);
+    if (updated) {
+      setRegisteredUsersList(getAllRegisteredUsers());
+      setAdminNotice(`⚠️ Subscription request rejected for ${updated.name}.`);
+      setTimeout(() => setAdminNotice(null), 4000);
+    }
+  };
 
   const toggleModule = (mod: keyof typeof modules) => {
     const updated = { ...modules, [mod]: !modules[mod] };
@@ -614,7 +657,32 @@ export default function SuperAdminDashboardPage() {
     },
   ];
 
-  const filteredDirectory = mockDirectoryUsers.filter((u) => {
+  const allMergedDirectoryUsers = [
+    ...registeredUsersList.map((ru) => ({
+      id: ru.id,
+      name: ru.businessName || ru.name,
+      contactPerson: ru.name,
+      phone: ru.phone,
+      cnic: ru.nationalId || '35201-9988123-5',
+      city: ru.city,
+      country: ru.countryCode,
+      role: ru.role === 'LISTER' ? 'CAR_RENTAL' : ru.role === 'DRIVER' ? 'DRIVER' : ru.providerSubtype || 'PICK_AND_DROP',
+      activeListingsCount: ru.subscription?.usedQuota || 0,
+      activeBookingsCount: 0,
+      quotaLimit: ru.subscription?.quota || 0,
+      plan: ru.subscription?.planName || (ru.subscription?.status === 'ACTIVE' ? 'Active Subscription' : ru.subscription?.status === 'PENDING_APPROVAL' ? 'Pending Approval' : 'Unsubscribed'),
+      subscriptionStatus: ru.subscription?.status || 'UNSUBSCRIBED',
+      amountPaid: ru.subscription?.amountPaid,
+      currency: ru.subscription?.currency,
+      paymentRef: ru.subscription?.paymentRef,
+      kycStatus: ru.subscription?.status === 'ACTIVE' ? 'VERIFIED' : ru.subscription?.status === 'PENDING_APPROVAL' ? 'PENDING' : 'UNVERIFIED',
+      status: ru.subscription?.status === 'ACTIVE' ? 'ACTIVE' : ru.subscription?.status === 'PENDING_APPROVAL' ? 'PENDING' : 'INACTIVE',
+      smartCardScan: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=600&auto=format&fit=crop&q=80',
+    })),
+    ...mockDirectoryUsers,
+  ];
+
+  const filteredDirectory = allMergedDirectoryUsers.filter((u) => {
     const matchesCat = directoryCategoryFilter === 'ALL' || u.role === directoryCategoryFilter;
     const term = directorySearchTerm.toLowerCase();
     const matchesSearch =
@@ -862,15 +930,21 @@ export default function SuperAdminDashboardPage() {
             {[
               { id: 'services', label: 'Service Master Switches', icon: SlidersHorizontal },
               { id: 'listings', label: 'All Listings (Full CRUD)', icon: Car, badge: listings.length },
-              { id: 'plans', label: 'Subscription Packages (WAS-NOW)', icon: DollarSign, badge: plans.length },
+              {
+                id: 'plans',
+                label: 'Subscription Packages & Approvals',
+                icon: DollarSign,
+                badge: plans.length,
+                pendingCount: registeredUsersList.filter((u) => u.subscription?.status === 'PENDING_APPROVAL').length,
+              },
               { id: 'promocodes', label: 'Promo Codes & Discounts', icon: Tag, badge: promoCodes.length },
               { id: 'promotions', label: 'Promotional Announcement Bar', icon: Bell, alert: promoEnabled ? 1 : 0 },
-              { id: 'directory', label: 'User & Vendor Directory', icon: Search, badge: mockDirectoryUsers.length },
+              { id: 'directory', label: 'User & Vendor Directory', icon: Search, badge: allMergedDirectoryUsers.length },
               { id: 'agents', label: 'Staff / Agent Management', icon: Users, badge: agents.length },
               { id: 'stealthAudit', label: '🛡️ Stealth Anti-Fraud Log', icon: ShieldCheck, alert: stealthAuditLogs.filter(l => l.isSuspicious).length },
               { id: 'legal', label: 'Terms & Safety Disclaimers', icon: FileText },
               { id: 'countries', label: 'Operating Scope (PK / Global)', icon: Globe },
-            ].map((item) => {
+            ].map((item: any) => {
               const Icon = item.icon;
               const active = activeTab === item.id;
               return (
@@ -887,16 +961,19 @@ export default function SuperAdminDashboardPage() {
                     <Icon className="w-4 h-4 shrink-0" />
                     <span className="truncate">{item.label}</span>
                   </div>
-                  {item.alert !== undefined && item.alert > 0 && (
+                  {item.pendingCount !== undefined && item.pendingCount > 0 ? (
+                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-black bg-amber-400 text-slate-950 shrink-0 animate-pulse">
+                      {item.pendingCount} PENDING
+                    </span>
+                  ) : item.alert !== undefined && item.alert > 0 ? (
                     <span className="px-1.5 py-0.5 rounded-md text-[10px] font-black bg-amber-400 text-slate-950 shrink-0">
                       LIVE
                     </span>
-                  )}
-                  {item.badge !== undefined && item.alert === undefined && (
+                  ) : item.badge !== undefined ? (
                     <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-800 text-slate-300 shrink-0">
                       {item.badge}
                     </span>
-                  )}
+                  ) : null}
                 </button>
               );
             })}
@@ -1068,6 +1145,110 @@ export default function SuperAdminDashboardPage() {
                   <PlusCircle className="w-4 h-4" />
                   <span>➕ Add New Subscription Plan</span>
                 </button>
+              </div>
+
+              {/* 1. PENDING SUBSCRIBER APPROVALS QUEUE */}
+              <div className="bg-slate-950/90 rounded-2xl border-2 border-amber-500/30 p-5 space-y-4 shadow-lg">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-lg">
+                      ⏳
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-black text-sm text-white">Pending Subscriber Payment Approvals</h4>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-black">
+                          {registeredUsersList.filter((u) => u.subscription?.status === 'PENDING_APPROVAL').length} Pending
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400">
+                        Subscribers who submitted bank slips or mobile payment proofs waiting for Super Admin verification
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setRegisteredUsersList(getAllRegisteredUsers())}
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1 self-start sm:self-auto"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Refresh Queue</span>
+                  </button>
+                </div>
+
+                {registeredUsersList.filter((u) => u.subscription?.status === 'PENDING_APPROVAL').length === 0 ? (
+                  <div className="p-4 bg-emerald-950/30 border border-emerald-800/40 rounded-xl text-center">
+                    <p className="text-xs font-bold text-emerald-400">
+                      ✓ All subscription requests are up to date. No pending payments awaiting approval.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {registeredUsersList
+                      .filter((u) => u.subscription?.status === 'PENDING_APPROVAL')
+                      .map((user) => (
+                        <div
+                          key={user.id}
+                          className="p-4 bg-slate-900 border border-amber-500/40 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4"
+                        >
+                          <div className="space-y-1.5">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-black text-sm text-white">{user.name}</span>
+                              {user.businessName && (
+                                <span className="text-xs font-bold text-slate-300">({user.businessName})</span>
+                              )}
+                              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                                {user.role}
+                              </span>
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-800">
+                                PENDING REVIEW
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                              <span>📞 {user.phone}</span>
+                              <span>📍 {user.city}, {user.countryCode}</span>
+                              <span>
+                                📦 Plan: <strong className="text-amber-300">{user.subscription.planName}</strong>
+                              </span>
+                              <span>
+                                💰 Amount:{' '}
+                                <strong className="text-emerald-400">
+                                  {user.subscription.currency || 'PKR'} {formatPKR(user.subscription.amountPaid || 0)}
+                                </strong>
+                              </span>
+                              {user.subscription.promoCodeApplied && (
+                                <span className="text-rose-400 font-bold">
+                                  🏷️ Promo: {user.subscription.promoCodeApplied}
+                                </span>
+                              )}
+                              <span className="font-mono text-slate-300">
+                                🧾 Slip Ref: <strong className="text-white">{user.subscription.paymentRef || 'N/A'}</strong>
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleApproveUserSubscription(user.id)}
+                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md transition cursor-pointer flex items-center gap-1.5"
+                            >
+                              <Check className="w-4 h-4" />
+                              <span>✓ Approve & Unlock Quota</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRejectUserSubscription(user.id)}
+                              className="px-3 py-2 bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800 rounded-xl text-xs font-bold transition cursor-pointer"
+                            >
+                              ✕ Reject
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
 
               {/* Plans Grid */}
@@ -1473,7 +1654,7 @@ export default function SuperAdminDashboardPage() {
 
               {/* Directory Cards */}
               <div className="space-y-3">
-                {filteredDirectory.map((user) => (
+                {filteredDirectory.map((user: any) => (
                   <div
                     key={user.id}
                     className="p-4 bg-slate-950/70 rounded-2xl border border-slate-800 hover:border-slate-700 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
@@ -1489,8 +1670,18 @@ export default function SuperAdminDashboardPage() {
                       <div>
                         <div className="flex items-center gap-2">
                           <h4 className="font-extrabold text-sm text-white">{user.name}</h4>
-                          <span className="px-2 py-0.2 rounded text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
-                            ✓ {user.kycStatus}
+                          <span
+                            className={`px-2 py-0.2 rounded text-[10px] font-bold ${
+                              user.subscriptionStatus === 'ACTIVE' || user.kycStatus === 'VERIFIED'
+                                ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                : user.subscriptionStatus === 'PENDING_APPROVAL'
+                                ? 'bg-amber-950 text-amber-300 border border-amber-800 animate-pulse'
+                                : 'bg-slate-800 text-slate-400 border border-slate-700'
+                            }`}
+                          >
+                            {user.subscriptionStatus === 'PENDING_APPROVAL'
+                              ? '⏳ SUBSCRIPTION PENDING'
+                              : `✓ ${user.kycStatus || 'VERIFIED'}`}
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-400 mt-0.5">
@@ -1507,6 +1698,16 @@ export default function SuperAdminDashboardPage() {
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
+                      {user.subscriptionStatus === 'PENDING_APPROVAL' && (
+                        <button
+                          type="button"
+                          onClick={() => handleApproveUserSubscription(user.id)}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold flex items-center gap-1 transition cursor-pointer shadow-sm text-xs"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Approve Sub</span>
+                        </button>
+                      )}
                       <a
                         href={`https://wa.me/${user.phone.replace(/[^0-9]/g, '')}`}
                         target="_blank"

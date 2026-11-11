@@ -15,6 +15,7 @@ export interface CountryInfo {
   idPlaceholder: string;
   licenseDocumentName: string;
   licensePlaceholder: string;
+  dialCode?: string;
 }
 
 export const CURRENCY_MAP: Record<string, { currency: string; symbol: string }> = {
@@ -64,6 +65,26 @@ export const CURRENCY_MAP: Record<string, { currency: string; symbol: string }> 
   BR: { currency: 'BRL', symbol: 'R$' },
 };
 
+export const DIAL_CODE_MAP: Record<string, string> = {
+  PK: '+92',
+  AE: '+971',
+  GB: '+44',
+  SA: '+966',
+  US: '+1',
+  CA: '+1',
+  AU: '+61',
+  DE: '+49',
+  FR: '+33',
+  IN: '+91',
+  TR: '+90',
+  OM: '+968',
+  QA: '+974',
+  KW: '+965',
+  BH: '+973',
+  MY: '+60',
+  SG: '+65',
+};
+
 export const COUNTRIES: CountryInfo[] = [
   {
     code: 'PK',
@@ -71,6 +92,7 @@ export const COUNTRIES: CountryInfo[] = [
     flag: '🇵🇰',
     currency: 'PKR',
     symbol: 'Rs',
+    dialCode: '+92',
     defaultCity: 'All Pakistan',
     cities: ['All Pakistan', 'Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Peshawar', 'Multan', 'Faisalabad', 'Gujranwala', 'Sialkot'],
     isLive: true,
@@ -89,6 +111,7 @@ export const COUNTRIES: CountryInfo[] = [
     flag: '🇩🇪',
     currency: 'EUR',
     symbol: '€',
+    dialCode: '+49',
     defaultCity: 'All Germany',
     cities: ['All Germany', 'Berlin', 'Munich', 'Frankfurt', 'Hamburg', 'Cologne', 'Stuttgart', 'Düsseldorf'],
     isLive: true,
@@ -107,6 +130,7 @@ export const COUNTRIES: CountryInfo[] = [
     flag: '🇦🇪',
     currency: 'AED',
     symbol: 'AED',
+    dialCode: '+971',
     defaultCity: 'All UAE',
     cities: ['All UAE', 'Dubai', 'Abu Dhabi', 'Sharjah', 'Ajman', 'Ras Al Khaimah'],
     isLive: true,
@@ -125,6 +149,7 @@ export const COUNTRIES: CountryInfo[] = [
     flag: '🇬🇧',
     currency: 'GBP',
     symbol: '£',
+    dialCode: '+44',
     defaultCity: 'All UK',
     cities: ['All UK', 'London', 'Manchester', 'Birmingham', 'Leeds', 'Glasgow', 'Edinburgh'],
     isLive: true,
@@ -143,6 +168,7 @@ export const COUNTRIES: CountryInfo[] = [
     flag: '🇸🇦',
     currency: 'SAR',
     symbol: 'SAR',
+    dialCode: '+966',
     defaultCity: 'All Saudi Arabia',
     cities: ['All Saudi Arabia', 'Riyadh', 'Jeddah', 'Makkah', 'Madinah', 'Dammam', 'Khobar'],
     isLive: true,
@@ -261,7 +287,10 @@ export function getCountryName(countryCode: string): string {
 export function resolveAnyCountry(rawCode: string): CountryInfo {
   const code = (rawCode || 'PK').toUpperCase();
   const known = COUNTRIES.find((c) => c.code === code);
-  if (known) return known;
+  if (known) {
+    if (!known.dialCode) known.dialCode = DIAL_CODE_MAP[code] || '+92';
+    return known;
+  }
 
   const name = getCountryName(code);
   const flag = getFlagEmoji(code);
@@ -273,6 +302,7 @@ export function resolveAnyCountry(rawCode: string): CountryInfo {
     flag,
     currency: currencyInfo.currency,
     symbol: currencyInfo.symbol,
+    dialCode: DIAL_CODE_MAP[code] || '+1',
     defaultCity: `All ${name}`,
     cities: [`All ${name}`, 'Capital Metro', 'Downtown Hub', 'Central Station', 'Airport Terminal'],
     isLive: true,

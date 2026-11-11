@@ -30,14 +30,19 @@ import {
   Lock,
   Edit3,
   X,
+  Sparkles,
 } from 'lucide-react';
 import { API_BASE, formatPKR, maskCnic, maskLicense, maskPhone } from '@/lib/api';
 import { SubscriptionPricingSection } from '@/components/SubscriptionPricingSection';
+import { getActiveUser, RegisteredUser } from '@/data/userAuth';
 
 export default function DriverDashboardPage() {
   const [activeTab, setActiveTab] = useState<
     'overview' | 'availability' | 'rates' | 'requests' | 'documents' | 'reviews' | 'subscription'
   >('overview');
+
+  // Active Driver User Session
+  const [currentUser, setCurrentUser] = useState<RegisteredUser | null>(null);
 
   // Driver Profile State
   const [driverName, setDriverName] = useState('Tariq Mahmood');
@@ -46,6 +51,29 @@ export default function DriverDashboardPage() {
   const [driverBio, setDriverBio] = useState(
     'Ex-Executive Chauffeur for corporate MNCs. Non-smoker, fluent in Urdu and Punjabi, experienced on M-2 & M-3 Motorways.'
   );
+
+  // Sync with logged in driver profile
+  useEffect(() => {
+    const user = getActiveUser();
+    if (user && user.role === 'DRIVER') {
+      setCurrentUser(user);
+      if (user.name) {
+        setDriverName(user.name);
+        setEditDriverName(user.name);
+      }
+      if (user.phone) {
+        setDriverPhone(user.phone);
+        setEditDriverPhone(user.phone);
+      }
+      if (user.city) {
+        setDriverCity(user.city);
+      }
+      if (user.bio) {
+        setDriverBio(user.bio);
+        setEditDriverBio(user.bio);
+      }
+    }
+  }, []);
 
   // Edit Driver Profile Modal State (FULL CRUD)
   const [showEditDriverModal, setShowEditDriverModal] = useState(false);
@@ -350,9 +378,27 @@ export default function DriverDashboardPage() {
               <div>
                 <h3 className="font-bold text-sm text-slate-900">{driverName}</h3>
                 <span className="text-[11px] text-slate-500 block">{licenseCategory} Verified Chauffeur</span>
-                <span className="text-[10px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-200 inline-block mt-0.5">
-                  ★ 4.95 (142 Trips)
-                </span>
+                <div className="flex flex-wrap items-center gap-1 mt-1">
+                  <span className="text-[10px] font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200 inline-block">
+                    ★ 4.95 (142 Trips)
+                  </span>
+                  <span
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded border inline-block ${
+                      currentUser?.subscription?.status === 'ACTIVE'
+                        ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                        : currentUser?.subscription?.status === 'PENDING_APPROVAL'
+                        ? 'text-amber-800 bg-amber-50 border-amber-300'
+                        : 'text-rose-700 bg-rose-50 border-rose-200'
+                    }`}
+                  >
+                    {currentUser?.subscription?.planName ||
+                      (currentUser?.subscription?.status === 'ACTIVE'
+                        ? 'Chauffeur Pass'
+                        : currentUser?.subscription?.status === 'PENDING_APPROVAL'
+                        ? 'Pending Approval'
+                        : 'Unsubscribed')}
+                  </span>
+                </div>
               </div>
             </div>
             <div className="pt-2 border-t border-slate-100 mt-2">
@@ -415,6 +461,65 @@ export default function DriverDashboardPage() {
 
         {/* Canvas */}
         <main className="lg:col-span-3 space-y-6">
+          {/* DRIVER SUBSCRIPTION PROMOTIONAL BANNER */}
+          {currentUser && (!currentUser.subscription || currentUser.subscription.status === 'UNSUBSCRIBED') && (
+            <div className="p-4 bg-gradient-to-r from-amber-500/10 via-sky-500/10 to-amber-500/10 border-2 border-sky-600/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0 shadow-sm font-bold text-lg">
+                  👨‍✈️
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-extrabold text-sm text-slate-900">
+                      Welcome, {driverName}! Activate Your Chauffeur Listing Pass
+                    </h4>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">
+                      Chauffeur Pass Required
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    Activate your Independent Chauffeur Pass to receive direct customer ride bookings, outstation assignments, and corporate requests across your chosen cities.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('subscription')}
+                className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-black shadow-md transition cursor-pointer shrink-0"
+              >
+                ⚡ Choose Driver Pass & Apply Promo Code
+              </button>
+            </div>
+          )}
+
+          {currentUser?.subscription?.status === 'PENDING_APPROVAL' && (
+            <div className="p-4 bg-amber-50 border border-amber-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-amber-600 shrink-0 animate-pulse" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-black text-xs text-amber-950">
+                      ⏳ Driver Subscription Payment Under Review
+                    </h4>
+                    <span className="px-2 py-0.2 rounded text-[9px] font-bold bg-amber-200 text-amber-900">
+                      Ref: {currentUser.subscription.paymentRef || 'Submitted'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 mt-0.5">
+                    Your payment receipt for &ldquo;{currentUser.subscription.planName}&rdquo; is being verified by admin. Once approved, your chauffeur profile will go LIVE on the public driver directory.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('subscription')}
+                className="px-3.5 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-xl text-xs font-bold shrink-0"
+              >
+                View Status
+              </button>
+            </div>
+          )}
+
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'overview' && (
             <div className="space-y-6">

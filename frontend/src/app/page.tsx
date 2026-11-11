@@ -51,6 +51,13 @@ import {
 } from 'lucide-react';
 import { API_BASE, formatPKR, maskCnic, maskLicense, maskPhone } from '@/lib/api';
 import { COUNTRIES, CountryInfo, resolveAnyCountry } from '@/data/countries';
+import {
+  registerNewUser,
+  loginAsDemoUser,
+  getAllRegisteredUsers,
+  setActiveUser,
+  getActiveUser,
+} from '@/data/userAuth';
 
 export type MarketplaceCountry = CountryInfo;
 const SUPPORTED_COUNTRIES: CountryInfo[] = COUNTRIES;
@@ -1160,6 +1167,7 @@ export default function PublicMarketplaceHome() {
   const [loginPassword, setLoginPassword] = useState('••••••••');
   const [registerRole, setRegisterRole] = useState<'CUSTOMER' | 'LISTER' | 'DRIVER' | 'PICK_DROP' | 'SHIFTING'>('CUSTOMER');
   const [regName, setRegName] = useState('');
+  const [regBusinessName, setRegBusinessName] = useState('');
   const [regPhone, setRegPhone] = useState('+92 300 ');
   const [regCity, setRegCity] = useState('Lahore');
 
@@ -1234,14 +1242,23 @@ export default function PublicMarketplaceHome() {
       target = '/admin';
     } else {
       try {
-        const accounts = JSON.parse(localStorage.getItem('safarpk_user_accounts') || '[]');
-        const found = accounts.find((a: any) => a.phone === loginPhone || a.email === loginPhone);
+        const allUsers = getAllRegisteredUsers();
+        const found = allUsers.find(
+          (u) =>
+            u.phone.replace(/[^0-9]/g, '') === loginPhone.replace(/[^0-9]/g, '') ||
+            (u.email && u.email.toLowerCase() === val) ||
+            (u.businessName && u.businessName.toLowerCase().includes(val))
+        );
         if (found) {
+          setActiveUser(found);
           if (found.role === 'LISTER') target = '/lister';
           else if (found.role === 'DRIVER') target = '/driver';
-          else if (found.role === 'PICK_DROP') target = '/provider?mode=pick_and_drop';
-          else if (found.role === 'SHIFTING') target = '/provider?mode=commercial_cargo';
-          else target = '/customer';
+          else if (found.role === 'PROVIDER') {
+            target =
+              found.providerSubtype === 'PICK_AND_DROP'
+                ? '/provider?mode=pick_and_drop'
+                : '/provider?mode=commercial_cargo';
+          } else target = '/customer';
         }
       } catch (err) {}
     }
@@ -1253,23 +1270,34 @@ export default function PublicMarketplaceHome() {
   const handleSmartRegister = (e: React.FormEvent) => {
     e.preventDefault();
     let target = '/customer';
-    if (registerRole === 'LISTER') target = '/lister';
-    else if (registerRole === 'DRIVER') target = '/driver';
-    else if (registerRole === 'PICK_DROP') target = '/provider?mode=pick_and_drop';
-    else if (registerRole === 'SHIFTING') target = '/provider?mode=commercial_cargo';
+    let roleMapped: 'CUSTOMER' | 'LISTER' | 'DRIVER' | 'PROVIDER' = 'CUSTOMER';
+    let subtype: 'PICK_AND_DROP' | 'COMMERCIAL_CARGO' | undefined = undefined;
 
-    try {
-      const accounts = JSON.parse(localStorage.getItem('safarpk_user_accounts') || '[]');
-      accounts.push({
-        name: regName,
-        phone: regPhone,
-        city: regCity,
-        role: registerRole,
-        registeredAt: new Date().toISOString(),
-      });
-      localStorage.setItem('safarpk_user_accounts', JSON.stringify(accounts));
-      localStorage.setItem('safarpk_current_user', JSON.stringify({ name: regName, phone: regPhone, role: registerRole }));
-    } catch (err) {}
+    if (registerRole === 'LISTER') {
+      target = '/lister';
+      roleMapped = 'LISTER';
+    } else if (registerRole === 'DRIVER') {
+      target = '/driver';
+      roleMapped = 'DRIVER';
+    } else if (registerRole === 'PICK_DROP') {
+      target = '/provider?mode=pick_and_drop';
+      roleMapped = 'PROVIDER';
+      subtype = 'PICK_AND_DROP';
+    } else if (registerRole === 'SHIFTING') {
+      target = '/provider?mode=commercial_cargo';
+      roleMapped = 'PROVIDER';
+      subtype = 'COMMERCIAL_CARGO';
+    }
+
+    registerNewUser({
+      name: regName.trim(),
+      businessName: regBusinessName.trim() || (registerRole === 'LISTER' ? `${regName.trim()} Fleet` : undefined),
+      phone: regPhone.trim(),
+      city: regCity.trim() || 'Lahore',
+      countryCode: selectedCountry?.code || 'PK',
+      role: roleMapped,
+      providerSubtype: subtype,
+    });
 
     setShowAuthModal(false);
     window.location.href = target;
@@ -2952,6 +2980,7 @@ export default function PublicMarketplaceHome() {
                       <button
                         type="button"
                         onClick={() => {
+                          loginAsDemoUser('CUSTOMER');
                           setShowAuthModal(false);
                           window.location.href = '/customer';
                         }}
@@ -2964,6 +2993,7 @@ export default function PublicMarketplaceHome() {
                       <button
                         type="button"
                         onClick={() => {
+                          loginAsDemoUser('LISTER');
                           setShowAuthModal(false);
                           window.location.href = '/lister';
                         }}
@@ -2976,6 +3006,7 @@ export default function PublicMarketplaceHome() {
                       <button
                         type="button"
                         onClick={() => {
+                          loginAsDemoUser('DRIVER');
                           setShowAuthModal(false);
                           window.location.href = '/driver';
                         }}
@@ -2988,6 +3019,7 @@ export default function PublicMarketplaceHome() {
                       <button
                         type="button"
                         onClick={() => {
+                          loginAsDemoUser('PROVIDER', 'PICK_AND_DROP');
                           setShowAuthModal(false);
                           window.location.href = '/provider?mode=pick_and_drop';
                         }}
@@ -3000,6 +3032,7 @@ export default function PublicMarketplaceHome() {
                       <button
                         type="button"
                         onClick={() => {
+                          loginAsDemoUser('PROVIDER', 'COMMERCIAL_CARGO');
                           setShowAuthModal(false);
                           window.location.href = '/provider?mode=commercial_cargo';
                         }}
@@ -3090,26 +3123,45 @@ export default function PublicMarketplaceHome() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
+                    {(registerRole === 'LISTER' || registerRole === 'PICK_DROP' || registerRole === 'SHIFTING') && (
                       <div>
-                        <label className="font-bold text-slate-700 block mb-1">Phone (+92) *</label>
+                        <label className="font-bold text-slate-700 block mb-1">
+                          {registerRole === 'LISTER' ? 'Business / Fleet / Showroom Name *' : 'Company / Fleet Title *'}
+                        </label>
                         <input
                           type="text"
                           required
-                          placeholder="+92 300 1234567"
+                          placeholder={registerRole === 'LISTER' ? 'e.g. Shahid Rent a Car & Tours' : 'e.g. Shahid Express Logistics'}
+                          value={regBusinessName}
+                          onChange={(e) => setRegBusinessName(e.target.value)}
+                          className="w-full p-2.5 border border-slate-300 rounded-xl font-bold text-slate-900"
+                        />
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">
+                          Phone ({selectedCountry?.dialCode || '+92'}) *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder={`${selectedCountry?.dialCode || '+92'} 300 1234567`}
                           value={regPhone}
                           onChange={(e) => setRegPhone(e.target.value)}
-                          className="w-full p-2.5 border border-slate-300 rounded-xl"
+                          className="w-full p-2.5 border border-slate-300 rounded-xl font-mono text-xs font-semibold"
                         />
                       </div>
                       <div>
-                        <label className="font-bold text-slate-700 block mb-1">City</label>
+                        <label className="font-bold text-slate-700 block mb-1">City *</label>
                         <input
                           type="text"
                           required
+                          placeholder="e.g. Lahore / Berlin"
                           value={regCity}
                           onChange={(e) => setRegCity(e.target.value)}
-                          className="w-full p-2.5 border border-slate-300 rounded-xl"
+                          className="w-full p-2.5 border border-slate-300 rounded-xl font-bold"
                         />
                       </div>
                     </div>
