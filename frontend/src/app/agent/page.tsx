@@ -22,18 +22,74 @@ import {
   Check,
   X,
   FileCheck,
+  Users,
+  Target,
+  PhoneCall,
+  Activity,
+  Send,
+  Eye,
+  MousePointerClick,
+  Sparkles,
 } from 'lucide-react';
 import { API_BASE, formatPKR, maskCnic, maskPhone } from '@/lib/api';
+import {
+  getAllRegisteredUsers,
+  RegisteredUser,
+  assignUserToAgent,
+  logUserActivity,
+  incrementUserMetrics,
+} from '@/data/userAuth';
+import {
+  getAllLeads,
+  updateLead,
+  MarketplaceLead,
+} from '@/data/activityTracker';
+
+const STAFF_AGENTS = [
+  { id: 'ag-1', name: 'Kashif Raza', staffId: 'AG-101', role: 'Senior Verification Officer', branch: 'Lahore Regional Desk' },
+  { id: 'ag-2', name: 'Bilal Ahmed', staffId: 'AG-102', role: 'Compliance & Lister Onboarding', branch: 'Islamabad HQ Operations' },
+  { id: 'ag-3', name: 'Ayesha Khan', staffId: 'AG-103', role: 'Dispute Resolution & Chauffeur Audits', branch: 'Karachi Regional Desk' },
+];
 
 export default function AgentDashboardPage() {
   const [activeTab, setActiveTab] = useState<
-    'listings' | 'payments' | 'lookup' | 'manual_lister' | 'drivers' | 'complaints' | 'permissions'
-  >('listings');
+    'listings' | 'payments' | 'assigned_leads' | 'lookup' | 'manual_lister' | 'drivers' | 'complaints' | 'permissions'
+  >('assigned_leads');
 
-  // Agent Profile (Created by Super Admin)
-  const agentName = 'Agent Farhan (Lahore Desk)';
-  const agentStaffId = 'AG-101';
-  const agentRole = 'Senior Compliance & Verification Officer';
+  // Active Selected Staff Agent (Synchronized with Super Admin Directory)
+  const [currentAgent, setCurrentAgent] = useState(STAFF_AGENTS[0]);
+  const agentName = `${currentAgent.name} (${currentAgent.branch})`;
+  const agentStaffId = currentAgent.staffId;
+  const agentRole = currentAgent.role;
+
+  // Dynamic Registered Users & Leads System
+  const [registeredUsers, setRegisteredUsers] = useState<RegisteredUser[]>([]);
+  const [marketplaceLeads, setMarketplaceLeads] = useState<MarketplaceLead[]>([]);
+  const [leadStatusFilter, setLeadStatusFilter] = useState<'ALL' | 'NEW' | 'CONTACTED' | 'CONVERTED' | 'LOST'>('ALL');
+  const [leadScopeFilter, setLeadScopeFilter] = useState<'MY_DESK' | 'ALL_MARKETPLACE'>('MY_DESK');
+  const [agentNotice, setAgentNotice] = useState<string | null>(null);
+  const [leadNoteInputs, setLeadNoteInputs] = useState<{ [leadId: string]: string }>({});
+  const [userNoteInputs, setUserNoteInputs] = useState<{ [userId: string]: string }>({});
+
+  useEffect(() => {
+    // Load initial users & leads
+    setRegisteredUsers(getAllRegisteredUsers());
+    setMarketplaceLeads(getAllLeads());
+
+    const handleUsersUpdate = () => {
+      setRegisteredUsers(getAllRegisteredUsers());
+    };
+    const handleLeadsUpdate = () => {
+      setMarketplaceLeads(getAllLeads());
+    };
+
+    window.addEventListener('safarpk_users_updated', handleUsersUpdate);
+    window.addEventListener('safarpk_leads_updated', handleLeadsUpdate);
+    return () => {
+      window.removeEventListener('safarpk_users_updated', handleUsersUpdate);
+      window.removeEventListener('safarpk_leads_updated', handleLeadsUpdate);
+    };
+  }, []);
 
   // Caller & Dispute Search Desk State
   const [callerSearchQuery, setCallerSearchQuery] = useState('');
@@ -306,6 +362,43 @@ export default function AgentDashboardPage() {
     setTimeout(() => setActionNotice(null), 4000);
   };
 
+  const handleUpdateLeadStatus = (leadId: string, newStatus: MarketplaceLead['status']) => {
+    const updated = updateLead(leadId, { status: newStatus });
+    if (updated) {
+      setMarketplaceLeads(getAllLeads());
+      setActionNotice(`✅ Lead status changed to "${newStatus}" for ${updated.customerName || updated.leadRef}`);
+      setTimeout(() => setActionNotice(null), 3000);
+    }
+  };
+
+  const handleAddLeadNote = (leadId: string) => {
+    const note = leadNoteInputs[leadId]?.trim();
+    if (!note) return;
+    const lead = marketplaceLeads.find((l) => l.id === leadId);
+    const existing = lead?.notes ? `${lead.notes}\n` : '';
+    const updatedNotes = `${existing}[${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${currentAgent.name}]: ${note}`;
+    updateLead(leadId, { notes: updatedNotes });
+    setMarketplaceLeads(getAllLeads());
+    setLeadNoteInputs({ ...leadNoteInputs, [leadId]: '' });
+    setActionNotice(`📝 Progress note saved to lead.`);
+    setTimeout(() => setActionNotice(null), 3000);
+  };
+
+  const handleAddUserActivityNote = (userId: string) => {
+    const note = userNoteInputs[userId]?.trim();
+    if (!note) return;
+    logUserActivity(userId, {
+      type: 'PROFILE_UPDATED',
+      title: `Staff Agent Log (${currentAgent.name})`,
+      description: note,
+      meta: { agentId: currentAgent.id, staffId: currentAgent.staffId },
+    });
+    setRegisteredUsers(getAllRegisteredUsers());
+    setUserNoteInputs({ ...userNoteInputs, [userId]: '' });
+    setActionNotice(`📝 Account interaction logged successfully.`);
+    setTimeout(() => setActionNotice(null), 3000);
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
       {/* Top Navbar */}
@@ -331,10 +424,21 @@ export default function AgentDashboardPage() {
               Public Website
             </Link>
             <div className="flex items-center gap-2 pl-2 border-l border-slate-700 text-xs">
-              <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center">
-                👮
-              </div>
-              <span className="font-bold text-slate-200">{agentName}</span>
+              <label className="text-slate-400 font-bold hidden sm:inline">Active Desk:</label>
+              <select
+                value={currentAgent.id}
+                onChange={(e) => {
+                  const found = STAFF_AGENTS.find((a) => a.id === e.target.value);
+                  if (found) setCurrentAgent(found);
+                }}
+                className="bg-slate-800 text-slate-100 font-bold text-xs px-2.5 py-1.5 rounded-xl border border-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
+              >
+                {STAFF_AGENTS.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name} ({a.staffId} · {a.branch.split(' ')[0]})
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
@@ -345,15 +449,20 @@ export default function AgentDashboardPage() {
         {/* Sidebar Nav */}
         <aside className="space-y-1">
           <nav className="bg-white rounded-2xl border border-slate-200 p-2 space-y-1 shadow-xs text-xs font-semibold">
-            {[
-              { id: 'listings', label: 'Listing Approvals Queue', icon: Car, badge: pendingListings.length },
-              { id: 'payments', label: 'Payment Verifications', icon: CreditCard, badge: pendingPayments.length },
-              { id: 'lookup', label: '🔍 Caller & Dispute Search Desk', icon: Search },
-              { id: 'manual_lister', label: '➕ Register Walk-in Lister', icon: PlusCircle },
-              { id: 'drivers', label: 'Driver License Audits', icon: User, badge: 3 },
-              { id: 'complaints', label: 'Customer Complaints', icon: AlertCircle, badge: 1 },
-              { id: 'permissions', label: 'My Permissions & Scope', icon: ShieldCheck },
-            ].map((item) => {
+            {(() => {
+              const myUsers = registeredUsers.filter((u) => u.assignedAgentId === currentAgent.id);
+              const myLeads = marketplaceLeads.filter((l) => l.assignedAgentId === currentAgent.id);
+              return [
+                { id: 'assigned_leads', label: '🎯 Assigned Leads & Accounts', icon: Target, badge: myLeads.length + myUsers.length },
+                { id: 'listings', label: 'Listing Approvals Queue', icon: Car, badge: pendingListings.length },
+                { id: 'payments', label: 'Payment Verifications', icon: CreditCard, badge: pendingPayments.length },
+                { id: 'lookup', label: '🔍 Caller & Dispute Search Desk', icon: Search },
+                { id: 'manual_lister', label: '➕ Register Walk-in Lister', icon: PlusCircle },
+                { id: 'drivers', label: 'Driver License Audits', icon: User, badge: 3 },
+                { id: 'complaints', label: 'Customer Complaints', icon: AlertCircle, badge: 1 },
+                { id: 'permissions', label: 'My Permissions & Scope', icon: ShieldCheck },
+              ];
+            })().map((item) => {
               const Icon = item.icon;
               const active = activeTab === item.id;
               return (
@@ -391,6 +500,426 @@ export default function AgentDashboardPage() {
             <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-2xl text-emerald-900 text-xs font-bold flex items-center justify-between">
               <span>{actionNotice}</span>
               <button onClick={() => setActionNotice(null)} className="text-emerald-700 hover:text-emerald-900">✕</button>
+            </div>
+          )}
+
+          {/* TAB 0: ASSIGNED LEADS & USER ACCOUNTS (SUPER ADMIN DELEGATED) */}
+          {activeTab === 'assigned_leads' && (
+            <div className="space-y-6">
+              {/* Desk Identity & Real-time Metrics Banner */}
+              <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-3xl p-6 text-white shadow-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-2xl">
+                      🎯
+                    </div>
+                    <div>
+                      <h2 className="font-black text-lg sm:text-xl tracking-tight">
+                        {currentAgent.name} · Operational Desk
+                      </h2>
+                      <p className="text-xs text-blue-200">
+                        {currentAgent.role} · {currentAgent.branch} · Staff ID: <span className="font-mono font-bold text-amber-300">{currentAgent.staffId}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-bold text-xs">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                      Live Desk Active
+                    </span>
+                  </div>
+                </div>
+
+                {/* 4 Performance KPI Cards */}
+                {(() => {
+                  const myUsers = registeredUsers.filter((u) => u.assignedAgentId === currentAgent.id);
+                  const myLeads = marketplaceLeads.filter((l) => l.assignedAgentId === currentAgent.id);
+                  const convertedCount = myLeads.filter((l) => l.status === 'CONVERTED').length;
+                  const convRate = myLeads.length > 0 ? Math.round((convertedCount / myLeads.length) * 100) : 0;
+                  const totalDeskViews = myUsers.reduce((sum, u) => sum + (u.metrics?.viewCount || 0), 0);
+                  const totalDeskClicks = myUsers.reduce((sum, u) => sum + (u.metrics?.clickCount || 0), 0);
+
+                  return (
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-4">
+                      <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 backdrop-blur-sm">
+                        <span className="text-[11px] text-blue-200 font-medium block">Assigned Accounts</span>
+                        <div className="flex items-baseline gap-2 mt-1">
+                          <span className="text-2xl font-black text-white">{myUsers.length}</span>
+                          <span className="text-[10px] text-blue-300">Listers & Drivers</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 backdrop-blur-sm">
+                        <span className="text-[11px] text-amber-200 font-medium block">Delegated Leads</span>
+                        <div className="flex items-baseline gap-2 mt-1">
+                          <span className="text-2xl font-black text-amber-300">{myLeads.length}</span>
+                          <span className="text-[10px] text-amber-200/80">Inquiries</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 backdrop-blur-sm">
+                        <span className="text-[11px] text-emerald-200 font-medium block">Conversion Success</span>
+                        <div className="flex items-baseline gap-2 mt-1">
+                          <span className="text-2xl font-black text-emerald-300">{convRate}%</span>
+                          <span className="text-[10px] text-emerald-200/80">{convertedCount} Converted</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 backdrop-blur-sm">
+                        <span className="text-[11px] text-sky-200 font-medium block">Desk Traffic Handled</span>
+                        <div className="flex items-baseline gap-2 mt-1">
+                          <span className="text-2xl font-black text-sky-300">{totalDeskClicks}</span>
+                          <span className="text-[10px] text-sky-200/80">{totalDeskViews} Views</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* SECTION A: DELEGATED LEADS QUEUE */}
+              {(() => {
+                const myUsers = registeredUsers.filter((u) => u.assignedAgentId === currentAgent.id);
+                const scopeLeads = leadScopeFilter === 'MY_DESK'
+                  ? marketplaceLeads.filter((l) => l.assignedAgentId === currentAgent.id)
+                  : marketplaceLeads;
+                const filteredLeads = leadStatusFilter === 'ALL'
+                  ? scopeLeads
+                  : scopeLeads.filter((l) => l.status === leadStatusFilter);
+
+                return (
+                  <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                      <div>
+                        <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
+                          <Target className="w-5 h-5 text-blue-600" />
+                          <span>Direct Customer Leads & Inquiries ({filteredLeads.length})</span>
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                          Follow up with callers, WhatsApp inquiries, and booking requests assigned to your desk.
+                        </p>
+                      </div>
+
+                      {/* Scope Toggle: My Desk vs All */}
+                      <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold">
+                        <button
+                          type="button"
+                          onClick={() => setLeadScopeFilter('MY_DESK')}
+                          className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                            leadScopeFilter === 'MY_DESK' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'
+                          }`}
+                        >
+                          My Desk ({marketplaceLeads.filter((l) => l.assignedAgentId === currentAgent.id).length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setLeadScopeFilter('ALL_MARKETPLACE')}
+                          className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                            leadScopeFilter === 'ALL_MARKETPLACE' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'
+                          }`}
+                        >
+                          All Inquiries ({marketplaceLeads.length})
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Status Filter Pills */}
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                      {(['ALL', 'NEW', 'CONTACTED', 'CONVERTED', 'LOST'] as const).map((st) => (
+                        <button
+                          key={st}
+                          type="button"
+                          onClick={() => setLeadStatusFilter(st)}
+                          className={`px-3 py-1.5 rounded-xl font-bold transition cursor-pointer ${
+                            leadStatusFilter === st
+                              ? 'bg-blue-600 text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {st === 'ALL' ? 'All Leads' : st}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Leads List */}
+                    {filteredLeads.length === 0 ? (
+                      <div className="py-12 text-center text-slate-400 text-xs">
+                        No leads found in this filter category. New incoming inquiries from WhatsApp and Direct Bookings will automatically appear here.
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {filteredLeads.map((lead) => {
+                          const cleanPhone = lead.customerPhone?.replace(/[^0-9]/g, '') || '';
+                          const waLink = `https://wa.me/${cleanPhone}?text=Hello%20${encodeURIComponent(
+                            lead.customerName || 'Customer'
+                          )},%20this%20is%20${encodeURIComponent(
+                            currentAgent.name
+                          )}%20from%20SafarPK.%20I%20am%20following%20up%20on%20your%20inquiry%20for%20${encodeURIComponent(
+                            lead.targetTitle || 'vehicle booking'
+                          )}.`;
+
+                          return (
+                            <div
+                              key={lead.id}
+                              className="p-4 rounded-2xl border border-slate-200 bg-slate-50/60 hover:bg-white hover:border-blue-300 transition space-y-3"
+                            >
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-xs font-bold text-slate-500">{lead.leadRef || lead.id}</span>
+                                  <span
+                                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                                      lead.leadType === 'WHATSAPP'
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : lead.leadType === 'DIRECT_CALL'
+                                        ? 'bg-blue-100 text-blue-800'
+                                        : 'bg-purple-100 text-purple-800'
+                                    }`}
+                                  >
+                                    {lead.leadType === 'WHATSAPP' ? '💬 WhatsApp Click' : lead.leadType === 'DIRECT_CALL' ? '📞 Direct Call' : '📋 Booking Form'}
+                                  </span>
+                                  <span
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                                      lead.status === 'NEW'
+                                        ? 'bg-amber-100 text-amber-800 animate-pulse'
+                                        : lead.status === 'CONTACTED'
+                                        ? 'bg-blue-100 text-blue-800'
+                                        : lead.status === 'CONVERTED'
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : 'bg-rose-100 text-rose-800'
+                                    }`}
+                                  >
+                                    ● {lead.status}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <label className="text-[11px] font-bold text-slate-500">Update Status:</label>
+                                  <select
+                                    value={lead.status}
+                                    onChange={(e) => handleUpdateLeadStatus(lead.id, e.target.value as any)}
+                                    className="bg-white border border-slate-300 text-slate-800 text-xs font-bold px-2 py-1 rounded-xl shadow-xs focus:outline-none focus:border-blue-500 cursor-pointer"
+                                  >
+                                    <option value="NEW">NEW</option>
+                                    <option value="CONTACTED">CONTACTED</option>
+                                    <option value="CONVERTED">CONVERTED</option>
+                                    <option value="LOST">LOST</option>
+                                  </select>
+                                </div>
+                              </div>
+
+                              {/* Customer & Target Details */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs bg-white p-3 rounded-xl border border-slate-100">
+                                <div>
+                                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Customer</span>
+                                  <strong className="text-slate-900 text-sm">{lead.customerName || 'Anonymous Visitor'}</strong>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className="font-mono font-bold text-slate-700">{lead.customerPhone}</span>
+                                    {cleanPhone && (
+                                      <div className="flex items-center gap-1.5">
+                                        <a
+                                          href={waLink}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[10px] flex items-center gap-1"
+                                        >
+                                          <MessageCircle className="w-3 h-3" /> WhatsApp
+                                        </a>
+                                        <a
+                                          href={`tel:${lead.customerPhone}`}
+                                          className="px-2 py-0.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[10px] flex items-center gap-1"
+                                        >
+                                          <PhoneCall className="w-3 h-3" /> Call
+                                        </a>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Target Vehicle / Chauffeur</span>
+                                  <strong className="text-slate-900">{lead.targetTitle || 'Marketplace General'}</strong>
+                                  <div className="text-[11px] text-slate-600 mt-0.5">
+                                    <span>Lister: {lead.targetOwnerPhone || lead.listerPhone || 'Direct Platform'}</span>
+                                    {(lead.amount || lead.quotedAmount) ? (
+                                      <span className="ml-2 font-mono font-bold text-emerald-700">
+                                        Rs. {(lead.amount || lead.quotedAmount)?.toLocaleString()}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {lead.customerMessage && (
+                                <p className="text-xs text-slate-700 italic bg-amber-50/60 p-2.5 rounded-xl border border-amber-200/50">
+                                  💬 "{lead.customerMessage}"
+                                </p>
+                              )}
+
+                              {/* Progress Notes & Follow-up log */}
+                              {lead.notes && (
+                                <div className="text-[11px] bg-slate-100 p-2.5 rounded-xl text-slate-700 font-mono whitespace-pre-wrap">
+                                  {lead.notes}
+                                </div>
+                              )}
+
+                              {/* Add Note Bar */}
+                              <div className="flex items-center gap-2 pt-1">
+                                <input
+                                  type="text"
+                                  placeholder="Add follow-up note (e.g. called client, agreed on dates)..."
+                                  value={leadNoteInputs[lead.id] || ''}
+                                  onChange={(e) => setLeadNoteInputs({ ...leadNoteInputs, [lead.id]: e.target.value })}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      handleAddLeadNote(lead.id);
+                                    }
+                                  }}
+                                  className="flex-1 px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddLeadNote(lead.id)}
+                                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1"
+                                >
+                                  <Send className="w-3 h-3" /> Save Note
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* SECTION B: ASSIGNED FLEET OWNERS & DRIVERS */}
+              {(() => {
+                const myUsers = registeredUsers.filter((u) => u.assignedAgentId === currentAgent.id);
+
+                return (
+                  <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-5">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                      <div>
+                        <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
+                          <Users className="w-5 h-5 text-blue-600" />
+                          <span>Assigned Fleet Owners & Drivers ({myUsers.length})</span>
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                          These registered listers, drivers, and providers have been delegated to your desk by Super Admin.
+                        </p>
+                      </div>
+                    </div>
+
+                    {myUsers.length === 0 ? (
+                      <div className="py-12 text-center text-slate-400 text-xs">
+                        No fleet owners or drivers currently assigned to this desk. Super Admin can assign users to {currentAgent.name} from the Admin Directory.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {myUsers.map((u) => (
+                          <div
+                            key={u.id}
+                            className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-white hover:border-blue-300 transition space-y-3"
+                          >
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <span className="text-[10px] font-black uppercase text-blue-700 tracking-wider">
+                                  {u.role} {u.providerSubtype ? `· ${u.providerSubtype}` : ''}
+                                </span>
+                                <h4 className="font-black text-sm text-slate-900">{u.name}</h4>
+                                {u.businessName && (
+                                  <p className="text-xs font-bold text-slate-600">{u.businessName}</p>
+                                )}
+                              </div>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                                  u.subscription?.status === 'ACTIVE'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : 'bg-amber-100 text-amber-800'
+                                }`}
+                              >
+                                {u.subscription?.status || 'UNSUBSCRIBED'}
+                              </span>
+                            </div>
+
+                            <div className="text-xs space-y-1 text-slate-600">
+                              <div className="flex items-center justify-between">
+                                <span>Phone: <strong className="font-mono text-slate-900">{u.phone}</strong></span>
+                                <span>City: <strong className="text-slate-900">{u.city}</strong></span>
+                              </div>
+                              {u.email && (
+                                <div>Email: <strong className="text-slate-800">{u.email}</strong></div>
+                              )}
+                            </div>
+
+                            {/* Performance Metrics Strip */}
+                            <div className="grid grid-cols-3 gap-2 bg-white p-2.5 rounded-xl border border-slate-100 text-center">
+                              <div>
+                                <span className="text-[10px] text-slate-400 block">Listing Views</span>
+                                <strong className="text-xs text-slate-900 font-black">{u.metrics?.viewCount || 0}</strong>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-400 block">Total Leads</span>
+                                <strong className="text-xs text-blue-700 font-black">{u.metrics?.leadsCount || 0}</strong>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-400 block">Direct Clicks</span>
+                                <strong className="text-xs text-emerald-700 font-black">{u.metrics?.clickCount || 0}</strong>
+                              </div>
+                            </div>
+
+                            {/* Recent Activity Log */}
+                            {u.activities && u.activities.length > 0 && (
+                              <div className="text-[11px] bg-slate-100/70 p-2.5 rounded-xl text-slate-700 space-y-1">
+                                <span className="text-[10px] font-bold text-slate-500 uppercase block">Latest Activity:</span>
+                                <div className="font-semibold text-slate-800">{u.activities[u.activities.length - 1].title}</div>
+                                <div className="text-[10px] text-slate-500">{u.activities[u.activities.length - 1].description}</div>
+                              </div>
+                            )}
+
+                            {/* Add User Activity Note */}
+                            <div className="flex items-center gap-1.5 pt-1">
+                              <input
+                                type="text"
+                                placeholder="Log desk interaction (e.g. called for renewal)..."
+                                value={userNoteInputs[u.id] || ''}
+                                onChange={(e) => setUserNoteInputs({ ...userNoteInputs, [u.id]: e.target.value })}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleAddUserActivityNote(u.id);
+                                  }
+                                }}
+                                className="flex-1 px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleAddUserActivityNote(u.id)}
+                                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                              >
+                                Log
+                              </button>
+                              <a
+                                href={`https://wa.me/${u.phone.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(
+                                  u.name
+                                )},%20this%20is%20${encodeURIComponent(currentAgent.name)}%20from%20SafarPK%20account%20support.`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition cursor-pointer"
+                                title="Open WhatsApp"
+                              >
+                                <MessageCircle className="w-4 h-4" />
+                              </a>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -594,21 +1123,44 @@ export default function AgentDashboardPage() {
 
               {/* Directory Search Results */}
               <div className="space-y-3">
-                {callerDirectory
-                  .filter((c) => {
-                    const matchesCat = callerCategory === 'ALL' || c.role === callerCategory;
-                    const q = callerSearchQuery.toLowerCase().trim();
-                    const matchesQ =
-                      !q ||
-                      c.name.toLowerCase().includes(q) ||
-                      c.phone.toLowerCase().includes(q) ||
-                      c.cnic.toLowerCase().includes(q) ||
-                      (c.recentBookingRef && c.recentBookingRef.toLowerCase().includes(q)) ||
-                      (c.businessName && c.businessName.toLowerCase().includes(q)) ||
-                      (c.city && c.city.toLowerCase().includes(q));
-                    return matchesCat && matchesQ;
-                  })
-                  .map((caller) => (
+                {(() => {
+                  const combinedDirectory = [
+                    ...registeredUsers.map((u) => ({
+                      id: u.id,
+                      name: u.name + (u.businessName ? ` (${u.businessName})` : ''),
+                      phone: u.phone,
+                      email: u.email,
+                      cnic: u.nationalId || 'Verified NADRA Profile',
+                      role: u.role === 'PROVIDER' ? (u.providerSubtype === 'PICK_AND_DROP' ? 'SHUTTLE' : 'CARGO') : u.role,
+                      city: u.city,
+                      license: u.licenseNumber || 'Verified ID',
+                      recentBookingRef: `ACC-${u.id.slice(-5).toUpperCase()}`,
+                      bookingStatus: u.subscription?.status === 'ACTIVE' ? 'ACTIVE_PLAN' : 'PENDING_SUBSCRIPTION',
+                      assignedVehicle: u.businessName || `${u.role} Account (${u.city})`,
+                      activeComplaint: u.subscription?.rejectionReason || null,
+                      verificationStatus: u.subscription?.status === 'ACTIVE' ? 'VERIFIED' : 'PENDING',
+                      fbrNtn: undefined,
+                      activeListingsCount: u.subscription?.usedQuota || 0,
+                      subscriptionPlan: u.subscription?.planName || undefined,
+                    })),
+                    ...callerDirectory,
+                  ];
+
+                  return combinedDirectory
+                    .filter((c) => {
+                      const matchesCat = callerCategory === 'ALL' || c.role === callerCategory;
+                      const q = callerSearchQuery.toLowerCase().trim();
+                      const matchesQ =
+                        !q ||
+                        c.name.toLowerCase().includes(q) ||
+                        c.phone.toLowerCase().includes(q) ||
+                        c.cnic.toLowerCase().includes(q) ||
+                        (c.recentBookingRef && c.recentBookingRef.toLowerCase().includes(q)) ||
+                        (c.businessName && c.businessName.toLowerCase().includes(q)) ||
+                        (c.city && c.city.toLowerCase().includes(q));
+                      return matchesCat && matchesQ;
+                    })
+                    .map((caller) => (
                     <div
                       key={caller.id}
                       className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 hover:bg-slate-50 transition space-y-3 text-xs"
@@ -711,7 +1263,8 @@ export default function AgentDashboardPage() {
                         </div>
                       </div>
                     </div>
-                  ))}
+                  ));
+                })()}
               </div>
             </div>
           )}

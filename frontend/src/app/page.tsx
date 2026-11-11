@@ -57,7 +57,11 @@ import {
   getAllRegisteredUsers,
   setActiveUser,
   getActiveUser,
+  authenticateUser,
+  RegisteredUser,
 } from '@/data/userAuth';
+import { recordLead, recordClickEvent } from '@/data/activityTracker';
+import { MobilePWAExperience } from '@/components/MobilePWAExperience';
 
 export type MarketplaceCountry = CountryInfo;
 const SUPPORTED_COUNTRIES: CountryInfo[] = COUNTRIES;
@@ -1164,12 +1168,17 @@ export default function PublicMarketplaceHome() {
   // Smart Auth State (Auto-Role Detection on Login)
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
   const [loginPhone, setLoginPhone] = useState('+92 300 8472910');
-  const [loginPassword, setLoginPassword] = useState('••••••••');
+  const [loginPassword, setLoginPassword] = useState('password123');
   const [registerRole, setRegisterRole] = useState<'CUSTOMER' | 'LISTER' | 'DRIVER' | 'PICK_DROP' | 'SHIFTING'>('CUSTOMER');
   const [regName, setRegName] = useState('');
   const [regBusinessName, setRegBusinessName] = useState('');
   const [regPhone, setRegPhone] = useState('+92 300 ');
+  const [regEmail, setRegEmail] = useState('');
   const [regCity, setRegCity] = useState('Lahore');
+  const [regPassword, setRegPassword] = useState('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState('');
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
 
   // Promotional Announcement State (Synced with Super Admin)
   const [promoAnnouncement, setPromoAnnouncement] = useState<{
@@ -1225,43 +1234,39 @@ export default function PublicMarketplaceHome() {
 
   const handleSmartLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    const val = (loginPhone || '').toLowerCase();
+    setAuthError(null);
+    setAuthNotice(null);
+
+    const val = (loginPhone || '').trim();
+    const valLower = val.toLowerCase();
     let target = '/customer';
 
-    if (val.includes('lister') || val.includes('salman') || val.includes('1234567')) {
-      target = '/lister';
-    } else if (val.includes('driver') || val.includes('tariq') || val.includes('9821045')) {
-      target = '/driver';
-    } else if (val.includes('pick') || val.includes('pnd') || val.includes('metro')) {
-      target = '/provider?mode=pick_and_drop';
-    } else if (val.includes('shift') || val.includes('cargo') || val.includes('makkah')) {
-      target = '/provider?mode=commercial_cargo';
-    } else if (val.includes('agent') || val.includes('farhan') || val.includes('staff')) {
-      target = '/agent';
-    } else if (val.includes('admin') || val.includes('super')) {
-      target = '/admin';
-    } else {
-      try {
-        const allUsers = getAllRegisteredUsers();
-        const found = allUsers.find(
-          (u) =>
-            u.phone.replace(/[^0-9]/g, '') === loginPhone.replace(/[^0-9]/g, '') ||
-            (u.email && u.email.toLowerCase() === val) ||
-            (u.businessName && u.businessName.toLowerCase().includes(val))
-        );
-        if (found) {
-          setActiveUser(found);
-          if (found.role === 'LISTER') target = '/lister';
-          else if (found.role === 'DRIVER') target = '/driver';
-          else if (found.role === 'PROVIDER') {
-            target =
-              found.providerSubtype === 'PICK_AND_DROP'
-                ? '/provider?mode=pick_and_drop'
-                : '/provider?mode=commercial_cargo';
-          } else target = '/customer';
-        }
-      } catch (err) {}
+    if (valLower.includes('agent') || valLower.includes('farhan') || valLower === 'ag-101') {
+      setShowAuthModal(false);
+      window.location.href = '/agent';
+      return;
     }
+    if (valLower.includes('admin') || valLower.includes('super')) {
+      setShowAuthModal(false);
+      window.location.href = '/admin';
+      return;
+    }
+
+    const res = authenticateUser(val, loginPassword);
+    if (!res.success) {
+      setAuthError(res.error || 'Authentication failed. Please check phone/email and password.');
+      return;
+    }
+
+    const found = res.user!;
+    if (found.role === 'LISTER') target = '/lister';
+    else if (found.role === 'DRIVER') target = '/driver';
+    else if (found.role === 'PROVIDER') {
+      target =
+        found.providerSubtype === 'PICK_AND_DROP'
+          ? '/provider?mode=pick_and_drop'
+          : '/provider?mode=commercial_cargo';
+    } else target = '/customer';
 
     setShowAuthModal(false);
     window.location.href = target;
@@ -1269,6 +1274,20 @@ export default function PublicMarketplaceHome() {
 
   const handleSmartRegister = (e: React.FormEvent) => {
     e.preventDefault();
+    setAuthError(null);
+    setAuthNotice(null);
+
+    // Two-times password matching condition
+    if (!regPassword || regPassword.length < 6) {
+      setAuthError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    if (regPassword !== regConfirmPassword) {
+      setAuthError('Passwords do not match! Please make sure both password fields match exactly.');
+      return;
+    }
+
     let target = '/customer';
     let roleMapped: 'CUSTOMER' | 'LISTER' | 'DRIVER' | 'PROVIDER' = 'CUSTOMER';
     let subtype: 'PICK_AND_DROP' | 'COMMERCIAL_CARGO' | undefined = undefined;
@@ -1289,15 +1308,22 @@ export default function PublicMarketplaceHome() {
       subtype = 'COMMERCIAL_CARGO';
     }
 
-    registerNewUser({
+    const res = registerNewUser({
       name: regName.trim(),
       businessName: regBusinessName.trim() || (registerRole === 'LISTER' ? `${regName.trim()} Fleet` : undefined),
       phone: regPhone.trim(),
+      email: regEmail.trim() || undefined,
+      password: regPassword,
       city: regCity.trim() || 'Lahore',
       countryCode: selectedCountry?.code || 'PK',
       role: roleMapped,
       providerSubtype: subtype,
     });
+
+    if (!res.success) {
+      setAuthError(res.error || 'Registration failed.');
+      return;
+    }
 
     setShowAuthModal(false);
     window.location.href = target;
@@ -1650,6 +1676,26 @@ export default function PublicMarketplaceHome() {
         message = `${greeting} Inquiring about ${vehicle.productionYear} ${vehicle.manufacturer?.name || ''} ${vehicle.model?.name || ''} in ${vehicle.city}. Daily Rate: ${sym} ${vehicle.dailyRate}. Is it available?`;
       }
     }
+
+    // Record Real Dynamic Lead and Click Analytics
+    try {
+      recordLead({
+        leadType: 'WHATSAPP',
+        customerName: customerName.trim() || 'Direct WhatsApp Visitor',
+        customerPhone: customerPhone.trim() || '+92 300 0000000',
+        customerCity: searchCity !== 'All Pakistan' && searchCity !== 'All Cities' ? searchCity : vehicle.city,
+        targetId: vehicle.id,
+        targetTitle: vehicle.title || `${vehicle.manufacturer?.name || ''} ${vehicle.model?.name || ''}`,
+        targetRole:
+          vehicle.serviceType === 'PICK_AND_DROP' || vehicle.serviceType === 'GOODS_TRANSPORT'
+            ? 'PROVIDER'
+            : 'LISTER',
+        targetOwnerName: vehicle.lister?.businessName || vehicle.shopName || 'Marketplace Host',
+        targetOwnerPhone: phone,
+        amount: vehicle.dailyRate || vehicle.monthlyRatePerSeat,
+      });
+    } catch (e) {}
+
     window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -1672,14 +1718,33 @@ export default function PublicMarketplaceHome() {
   // Handle Driver Direct Contact Click (Checking Driver Requirement & Pre-filled Profile)
   const handleDirectDriverContactClick = (driver: any) => {
     const requirement = driver.hireRequirement || 'REQUIRED_DETAILS';
+    const phone = driver.phone || '+923019821045';
+
+    const logDriverLead = (cName: string, cPhone: string) => {
+      try {
+        recordLead({
+          leadType: 'WHATSAPP',
+          customerName: cName,
+          customerPhone: cPhone,
+          customerCity: driver.city,
+          targetId: driver.id || `drv-${Date.now()}`,
+          targetTitle: `${driver.name} (Verified Chauffeur)`,
+          targetRole: 'DRIVER',
+          targetOwnerName: driver.name,
+          targetOwnerPhone: phone,
+          amount: driver.dailyRateLocal8Hr ? Number(driver.dailyRateLocal8Hr) : 2500,
+        });
+      } catch (e) {}
+    };
+
     if (requirement === 'DIRECT_CONTACT') {
-      const phone = driver.phone || '+923001234567';
+      logDriverLead(customerName.trim() || 'Direct Passenger', customerPhone.trim() || '+92 300 0000000');
       window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello ${driver.name}, I found your chauffeur profile on Safar in ${driver.city}.`)}`, '_blank');
       return;
     }
 
     if (customerName.trim() && customerPhone.trim()) {
-      const phone = driver.phone || '+923001234567';
+      logDriverLead(customerName, customerPhone);
       window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello ${driver.name}, I am ${customerName} (${customerPhone}). Inquiring to hire you as driver via Safar in ${driver.city}.`)}`, '_blank');
     } else {
       setDirectContactPendingDriver(driver);
@@ -2929,22 +2994,35 @@ export default function PublicMarketplaceHome() {
             </div>
 
             <div className="p-5 space-y-4 overflow-y-auto text-xs">
+              {authError && (
+                <div className="p-3 bg-rose-50 border border-rose-300 rounded-xl text-rose-800 text-xs font-semibold flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span>{authError}</span>
+                </div>
+              )}
+              {authNotice && (
+                <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-emerald-800 text-xs font-semibold flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <span>{authNotice}</span>
+                </div>
+              )}
+
               {authMode === 'LOGIN' ? (
                 <>
                   <div className="space-y-1">
                     <h3 className="font-extrabold text-base text-slate-900">Sign in to SafarPK</h3>
                     <p className="text-[11px] text-slate-500">
-                      Enter your phone number or email. The platform automatically detects your account role and routes you to your assigned dashboard.
+                      Enter your phone number or email and password. The platform automatically detects your account role and opens your assigned portal.
                     </p>
                   </div>
 
                   <form onSubmit={handleSmartLogin} className="space-y-3">
                     <div>
-                      <label className="font-bold text-slate-700 block mb-1">Phone (+92) or Email</label>
+                      <label className="font-bold text-slate-700 block mb-1">Phone Number (+92) or Email Address *</label>
                       <input
                         type="text"
                         required
-                        placeholder="+92 300 8472910"
+                        placeholder="+92 300 8472910 or name@example.com"
                         value={loginPhone}
                         onChange={(e) => setLoginPhone(e.target.value)}
                         className="w-full p-2.5 border border-slate-300 rounded-xl font-medium focus:ring-2 focus:ring-emerald-500"
@@ -2952,7 +3030,7 @@ export default function PublicMarketplaceHome() {
                     </div>
 
                     <div>
-                      <label className="font-bold text-slate-700 block mb-1">Password or OTP PIN</label>
+                      <label className="font-bold text-slate-700 block mb-1">Password *</label>
                       <input
                         type="password"
                         required
@@ -3162,6 +3240,61 @@ export default function PublicMarketplaceHome() {
                           value={regCity}
                           onChange={(e) => setRegCity(e.target.value)}
                           className="w-full p-2.5 border border-slate-300 rounded-xl font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">
+                        Email Address <span className="text-slate-400 font-normal">(Optional)</span>
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="e.g. name@example.com"
+                        value={regEmail}
+                        onChange={(e) => setRegEmail(e.target.value)}
+                        className="w-full p-2.5 border border-slate-300 rounded-xl"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">Password * (Min 6 chars)</label>
+                        <input
+                          type="password"
+                          required
+                          minLength={6}
+                          placeholder="Create strong password"
+                          value={regPassword}
+                          onChange={(e) => setRegPassword(e.target.value)}
+                          className="w-full p-2.5 border border-slate-300 rounded-xl font-medium focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="font-bold text-slate-700 block">Confirm Password *</label>
+                          {regConfirmPassword && (
+                            <span
+                              className={`text-[10px] font-black ${
+                                regPassword === regConfirmPassword ? 'text-emerald-600' : 'text-rose-600'
+                              }`}
+                            >
+                              {regPassword === regConfirmPassword ? '✓ Match' : '✕ Mismatch'}
+                            </span>
+                          )}
+                        </div>
+                        <input
+                          type="password"
+                          required
+                          minLength={6}
+                          placeholder="Re-enter password"
+                          value={regConfirmPassword}
+                          onChange={(e) => setRegConfirmPassword(e.target.value)}
+                          className={`w-full p-2.5 border rounded-xl font-medium focus:ring-2 ${
+                            regConfirmPassword && regPassword !== regConfirmPassword
+                              ? 'border-rose-400 focus:ring-rose-500 bg-rose-50/20'
+                              : 'border-slate-300 focus:ring-emerald-500'
+                          }`}
                         />
                       </div>
                     </div>
@@ -4843,6 +4976,13 @@ Please confirm seat availability on this route.`;
           <span className="text-[10px]">Account</span>
         </button>
       </nav>
+
+      {/* Progressive Web App (PWA) Install Prompt & Mobile App Shell */}
+      <MobilePWAExperience
+        onOpenAuthModal={() => setShowAuthModal(true)}
+        countryName={selectedCountry?.name}
+        countryFlag={selectedCountry?.flag}
+      />
     </div>
   );
 }

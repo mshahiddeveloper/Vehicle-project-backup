@@ -28,12 +28,38 @@ export interface UserSubscription {
   rejectionReason?: string;
 }
 
+export interface UserActivityLog {
+  id: string;
+  type:
+    | 'LOGIN'
+    | 'REGISTER'
+    | 'LISTING_CREATED'
+    | 'SUBSCRIPTION_REQUESTED'
+    | 'LEAD_RECEIVED'
+    | 'WHATSAPP_CLICK'
+    | 'CALL_CLICK'
+    | 'PROFILE_UPDATED'
+    | 'AGENT_ASSIGNED';
+  title: string;
+  description: string;
+  timestamp: string;
+  meta?: any;
+}
+
+export interface UserMetrics {
+  viewCount: number;
+  leadsCount: number;
+  clickCount: number;
+  lastActive: string;
+}
+
 export interface RegisteredUser {
   id: string;
   name: string;
   businessName?: string;
   phone: string;
   email?: string;
+  password?: string;
   city: string;
   countryCode: string;
   role: UserRole;
@@ -43,6 +69,10 @@ export interface RegisteredUser {
   bio?: string;
   licenseNumber?: string;
   nationalId?: string;
+  assignedAgentId?: string;
+  assignedAgentName?: string;
+  metrics: UserMetrics;
+  activities: UserActivityLog[];
 }
 
 export const DEMO_USERS: RegisteredUser[] = [
@@ -51,10 +81,43 @@ export const DEMO_USERS: RegisteredUser[] = [
     name: 'Muhammad Salman',
     businessName: 'Salman Rent a Car & Tours',
     phone: '+92 300 1234567',
+    email: 'salman@salmanrentals.pk',
+    password: 'password123',
     city: 'Islamabad',
     countryCode: 'PK',
     role: 'LISTER',
     registeredAt: '2026-01-15T10:00:00Z',
+    assignedAgentId: 'ag-1',
+    assignedAgentName: 'Kashif Raza',
+    metrics: {
+      viewCount: 1420,
+      leadsCount: 68,
+      clickCount: 310,
+      lastActive: '2026-11-11T12:00:00Z',
+    },
+    activities: [
+      {
+        id: 'act-101',
+        type: 'REGISTER',
+        title: 'Account Registered',
+        description: 'Registered as Vehicle Owner & Private Fleet (Lister) in Islamabad',
+        timestamp: '2026-01-15T10:00:00Z',
+      },
+      {
+        id: 'act-102',
+        type: 'LISTING_CREATED',
+        title: 'Vehicle Listed',
+        description: 'Published Honda Civic Oriel Turbo 2024 to marketplace',
+        timestamp: '2026-01-16T11:20:00Z',
+      },
+      {
+        id: 'act-103',
+        type: 'LEAD_RECEIVED',
+        title: 'Direct WhatsApp Lead Received',
+        description: 'Customer inquiry from +92 321 9988771 for 3-day wedding booking',
+        timestamp: '2026-11-10T14:30:00Z',
+      },
+    ],
     subscription: {
       status: 'ACTIVE',
       planId: 'p-2',
@@ -71,6 +134,8 @@ export const DEMO_USERS: RegisteredUser[] = [
     id: 'usr-demo-driver',
     name: 'Tariq Mahmood',
     phone: '+92 301 9821045',
+    email: 'tariq.driver@safarpk.com',
+    password: 'password123',
     city: 'Lahore',
     countryCode: 'PK',
     role: 'DRIVER',
@@ -78,6 +143,30 @@ export const DEMO_USERS: RegisteredUser[] = [
     bio: '12+ years VIP chauffeur experience in Lahore, Islamabad, and Motorway travel.',
     licenseNumber: 'LHR-DL-98210',
     nationalId: '35201-9821045-3',
+    assignedAgentId: 'ag-1',
+    assignedAgentName: 'Kashif Raza',
+    metrics: {
+      viewCount: 890,
+      leadsCount: 42,
+      clickCount: 195,
+      lastActive: '2026-11-11T13:45:00Z',
+    },
+    activities: [
+      {
+        id: 'act-201',
+        type: 'REGISTER',
+        title: 'Driver Account Registered',
+        description: 'Independent Chauffeur profile registered in Lahore',
+        timestamp: '2026-02-01T12:00:00Z',
+      },
+      {
+        id: 'act-202',
+        type: 'CALL_CLICK',
+        title: 'Customer Direct Call Received',
+        description: 'Passenger dialed phone number for Lahore ➔ Islamabad trip',
+        timestamp: '2026-11-09T09:15:00Z',
+      },
+    ],
     subscription: {
       status: 'ACTIVE',
       planId: 'p-4',
@@ -95,11 +184,30 @@ export const DEMO_USERS: RegisteredUser[] = [
     name: 'Kashif Nazir',
     businessName: 'Metro Commute Services',
     phone: '+92 321 8472910',
+    email: 'metro.shuttle@safarpk.com',
+    password: 'password123',
     city: 'Lahore',
     countryCode: 'PK',
     role: 'PROVIDER',
     providerSubtype: 'PICK_AND_DROP',
     registeredAt: '2026-02-10T14:00:00Z',
+    assignedAgentId: 'ag-2',
+    assignedAgentName: 'Bilal Ahmed',
+    metrics: {
+      viewCount: 650,
+      leadsCount: 31,
+      clickCount: 140,
+      lastActive: '2026-11-11T10:15:00Z',
+    },
+    activities: [
+      {
+        id: 'act-301',
+        type: 'REGISTER',
+        title: 'Pick & Drop Provider Registered',
+        description: 'Daily commuter van shuttle service registered in Lahore',
+        timestamp: '2026-02-10T14:00:00Z',
+      },
+    ],
     subscription: {
       status: 'ACTIVE',
       planId: 'p-5',
@@ -117,11 +225,30 @@ export const DEMO_USERS: RegisteredUser[] = [
     name: 'Haji Riaz Ahmed',
     businessName: 'Al-Makkah Shifting Transport',
     phone: '+92 333 5599182',
+    email: 'almakkah.cargo@safarpk.com',
+    password: 'password123',
     city: 'Rawalpindi',
     countryCode: 'PK',
     role: 'PROVIDER',
     providerSubtype: 'COMMERCIAL_CARGO',
     registeredAt: '2026-02-15T09:00:00Z',
+    assignedAgentId: 'ag-3',
+    assignedAgentName: 'Ayesha Khan',
+    metrics: {
+      viewCount: 480,
+      leadsCount: 22,
+      clickCount: 110,
+      lastActive: '2026-11-10T18:00:00Z',
+    },
+    activities: [
+      {
+        id: 'act-401',
+        type: 'REGISTER',
+        title: 'Shifting & Cargo Operator Registered',
+        description: 'Commercial home shifting truck fleet registered in Rawalpindi',
+        timestamp: '2026-02-15T09:00:00Z',
+      },
+    ],
     subscription: {
       status: 'ACTIVE',
       planId: 'p-6',
@@ -134,10 +261,49 @@ export const DEMO_USERS: RegisteredUser[] = [
       renewsOn: '25 Dec 2026',
     },
   },
+  {
+    id: 'usr-demo-customer',
+    name: 'Farhan Zaidi',
+    phone: '+92 345 8899201',
+    email: 'farhan.customer@gmail.com',
+    password: 'password123',
+    city: 'Karachi',
+    countryCode: 'PK',
+    role: 'CUSTOMER',
+    registeredAt: '2026-03-01T15:00:00Z',
+    metrics: {
+      viewCount: 85,
+      leadsCount: 6,
+      clickCount: 28,
+      lastActive: '2026-11-11T14:00:00Z',
+    },
+    activities: [
+      {
+        id: 'act-501',
+        type: 'REGISTER',
+        title: 'Customer Profile Created',
+        description: 'Customer account created with verified phone',
+        timestamp: '2026-03-01T15:00:00Z',
+      },
+    ],
+    subscription: {
+      status: 'ACTIVE',
+      quota: 0,
+      usedQuota: 0,
+    },
+  },
 ];
 
 const STORAGE_USERS_KEY = 'safarpk_registered_users_v2';
 const STORAGE_ACTIVE_SESSION_KEY = 'safarpk_active_auth_session_v2';
+
+/**
+ * Normalizes phone numbers (removes spaces, dashes, formatting)
+ */
+export function normalizePhone(phone: string): string {
+  if (!phone) return '';
+  return phone.replace(/[\s\-\(\)\.]/g, '').trim();
+}
 
 /**
  * Get all registered users from storage or seed defaults
@@ -151,7 +317,37 @@ export function getAllRegisteredUsers(): RegisteredUser[] {
       return DEMO_USERS;
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEMO_USERS;
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(DEMO_USERS));
+      return DEMO_USERS;
+    }
+    // Ensure all users have metrics and activities initialized
+    let mutated = false;
+    const sanitized = parsed.map((u: any) => {
+      let changed = false;
+      if (!u.metrics) {
+        u.metrics = { viewCount: 0, leadsCount: 0, clickCount: 0, lastActive: u.registeredAt || new Date().toISOString() };
+        changed = true;
+      }
+      if (!u.activities || !Array.isArray(u.activities)) {
+        u.activities = [
+          {
+            id: `act-${Date.now()}`,
+            type: 'REGISTER',
+            title: 'Account Registered',
+            description: `Registered as ${u.role}`,
+            timestamp: u.registeredAt || new Date().toISOString(),
+          },
+        ];
+        changed = true;
+      }
+      if (changed) mutated = true;
+      return u as RegisteredUser;
+    });
+    if (mutated) {
+      localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(sanitized));
+    }
+    return sanitized;
   } catch (e) {
     return DEMO_USERS;
   }
@@ -190,7 +386,12 @@ export function getActiveUser(): RegisteredUser | null {
 export function setActiveUser(user: RegisteredUser): void {
   if (typeof window === 'undefined') return;
   try {
+    // Update lastActive
+    user.metrics = user.metrics || { viewCount: 0, leadsCount: 0, clickCount: 0, lastActive: new Date().toISOString() };
+    user.metrics.lastActive = new Date().toISOString();
+
     localStorage.setItem(STORAGE_ACTIVE_SESSION_KEY, JSON.stringify(user));
+
     // Also update this user in the registered users list
     const all = getAllRegisteredUsers();
     const idx = all.findIndex((u) => u.id === user.id);
@@ -207,34 +408,135 @@ export function setActiveUser(user: RegisteredUser): void {
 }
 
 /**
- * Register a brand new user dynamically
+ * Authenticate existing user by Phone or Email and Password
+ */
+export function authenticateUser(
+  identifier: string,
+  password?: string
+): { success: boolean; user?: RegisteredUser; error?: string } {
+  const cleanId = identifier.trim().toLowerCase();
+  const normPhone = normalizePhone(cleanId);
+  const all = getAllRegisteredUsers();
+
+  const found = all.find((u) => {
+    const userPhoneNorm = normalizePhone(u.phone);
+    const matchesPhone = userPhoneNorm === normPhone || userPhoneNorm.endsWith(normPhone) || normPhone.endsWith(userPhoneNorm);
+    const matchesEmail = u.email && u.email.trim().toLowerCase() === cleanId;
+    return matchesPhone || matchesEmail;
+  });
+
+  if (!found) {
+    return {
+      success: false,
+      error: 'No account registered with this phone number or email address.',
+    };
+  }
+
+  // If user has a password set and password is provided, verify it
+  if (found.password && password && found.password !== password) {
+    return {
+      success: false,
+      error: 'Incorrect password. Please check and try again.',
+    };
+  }
+
+  // Record login activity
+  logUserActivity(found.id, {
+    type: 'LOGIN',
+    title: 'User Signed In',
+    description: `Signed into ${found.role} dashboard`,
+  });
+
+  setActiveUser(found);
+  return {
+    success: true,
+    user: found,
+  };
+}
+
+/**
+ * Register a brand new user dynamically with phone, optional email & password
  */
 export function registerNewUser(params: {
   name: string;
   businessName?: string;
   phone: string;
   email?: string;
+  password?: string;
   city: string;
   countryCode: string;
   role: UserRole;
   providerSubtype?: ProviderSubtype;
-}): RegisteredUser {
+}): { success: boolean; user: RegisteredUser; error?: string; alreadyExists?: boolean } {
   const cleanPhone = params.phone.trim();
+  const normPhone = normalizePhone(cleanPhone);
+  const cleanEmail = params.email?.trim().toLowerCase();
   const cleanName = params.name.trim();
   const cleanCity = params.city.trim() || 'Lahore';
   const cleanBusiness = params.businessName?.trim() || (params.role === 'LISTER' ? `${cleanName} Fleet` : undefined);
 
+  const all = getAllRegisteredUsers();
+
+  // Check if phone or email already registered
+  const existing = all.find((u) => {
+    const uPhoneNorm = normalizePhone(u.phone);
+    const matchesPhone = uPhoneNorm === normPhone;
+    const matchesEmail = cleanEmail && u.email && u.email.trim().toLowerCase() === cleanEmail;
+    return matchesPhone || matchesEmail;
+  });
+
+  if (existing) {
+    // If password matches existing account, auto-login into that account
+    if (params.password && existing.password === params.password) {
+      logUserActivity(existing.id, {
+        type: 'LOGIN',
+        title: 'Account Accessed',
+        description: `Existing account opened via matching credentials`,
+      });
+      setActiveUser(existing);
+      return {
+        success: true,
+        user: existing,
+        alreadyExists: true,
+      };
+    }
+
+    return {
+      success: false,
+      user: existing,
+      alreadyExists: true,
+      error: `An account with this ${normPhone ? 'phone number' : 'email'} is already registered. Please enter your existing password to log in.`,
+    };
+  }
+
+  const nowIso = new Date().toISOString();
   const newUser: RegisteredUser = {
     id: `usr-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
     name: cleanName,
     businessName: cleanBusiness,
     phone: cleanPhone,
-    email: params.email?.trim(),
+    email: cleanEmail || undefined,
+    password: params.password,
     city: cleanCity,
     countryCode: params.countryCode || 'PK',
     role: params.role,
     providerSubtype: params.providerSubtype,
-    registeredAt: new Date().toISOString(),
+    registeredAt: nowIso,
+    metrics: {
+      viewCount: 0,
+      leadsCount: 0,
+      clickCount: 0,
+      lastActive: nowIso,
+    },
+    activities: [
+      {
+        id: `act-${Date.now()}`,
+        type: 'REGISTER',
+        title: 'Account Created',
+        description: `New ${params.role} account registered in ${cleanCity}`,
+        timestamp: nowIso,
+      },
+    ],
     subscription: {
       status: 'UNSUBSCRIBED',
       quota: 0,
@@ -242,12 +544,102 @@ export function registerNewUser(params: {
     },
   };
 
-  const all = getAllRegisteredUsers();
   all.unshift(newUser);
   saveAllRegisteredUsers(all);
   setActiveUser(newUser);
 
-  return newUser;
+  return {
+    success: true,
+    user: newUser,
+  };
+}
+
+/**
+ * Log a user activity event
+ */
+export function logUserActivity(
+  userId: string,
+  activity: Omit<UserActivityLog, 'id' | 'timestamp'>
+): void {
+  const all = getAllRegisteredUsers();
+  const user = all.find((u) => u.id === userId);
+  if (!user) return;
+
+  user.activities = user.activities || [];
+  user.activities.unshift({
+    id: `act-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    ...activity,
+    timestamp: new Date().toISOString(),
+  });
+
+  // Limit activity logs per user to 50
+  if (user.activities.length > 50) {
+    user.activities = user.activities.slice(0, 50);
+  }
+
+  user.metrics = user.metrics || { viewCount: 0, leadsCount: 0, clickCount: 0, lastActive: new Date().toISOString() };
+  user.metrics.lastActive = new Date().toISOString();
+
+  saveAllRegisteredUsers(all);
+
+  const active = getActiveUser();
+  if (active && active.id === userId) {
+    setActiveUser(user);
+  }
+}
+
+/**
+ * Increment metrics (viewCount, leadsCount, clickCount) for a user
+ */
+export function incrementUserMetrics(
+  userId: string,
+  metric: 'viewCount' | 'leadsCount' | 'clickCount'
+): void {
+  const all = getAllRegisteredUsers();
+  const user = all.find((u) => u.id === userId);
+  if (!user) return;
+
+  user.metrics = user.metrics || { viewCount: 0, leadsCount: 0, clickCount: 0, lastActive: new Date().toISOString() };
+  user.metrics[metric] = (user.metrics[metric] || 0) + 1;
+  user.metrics.lastActive = new Date().toISOString();
+
+  saveAllRegisteredUsers(all);
+
+  const active = getActiveUser();
+  if (active && active.id === userId) {
+    setActiveUser(user);
+  }
+}
+
+/**
+ * Super Admin assigns a user to a specific staff agent
+ */
+export function assignUserToAgent(
+  userId: string,
+  agentId: string,
+  agentName: string
+): RegisteredUser | null {
+  const all = getAllRegisteredUsers();
+  const user = all.find((u) => u.id === userId);
+  if (!user) return null;
+
+  user.assignedAgentId = agentId;
+  user.assignedAgentName = agentName;
+
+  logUserActivity(userId, {
+    type: 'AGENT_ASSIGNED',
+    title: 'Staff Agent Assigned',
+    description: `Assigned to ${agentName} (${agentId}) for onboarding and support`,
+  });
+
+  saveAllRegisteredUsers(all);
+
+  const active = getActiveUser();
+  if (active && active.id === userId) {
+    setActiveUser(user);
+  }
+
+  return user;
 }
 
 /**
@@ -285,6 +677,12 @@ export function submitSubscriptionPayment(
     requestedAt: new Date().toISOString(),
   };
 
+  logUserActivity(userId, {
+    type: 'SUBSCRIPTION_REQUESTED',
+    title: 'Subscription Payment Submitted',
+    description: `Submitted receipt for ${plan.name} (${currency} ${finalAmount}) - Ref: ${paymentRef}`,
+  });
+
   saveAllRegisteredUsers(all);
 
   const active = getActiveUser();
@@ -312,6 +710,12 @@ export function approveSubscriptionByAdmin(userId: string): RegisteredUser | nul
   user.subscription.approvedAt = new Date().toISOString();
   user.subscription.renewsOn = renewsOnStr;
 
+  logUserActivity(userId, {
+    type: 'SUBSCRIPTION_REQUESTED',
+    title: 'Subscription Approved by Admin',
+    description: `Plan "${user.subscription.planName}" approved. Quota of ${user.subscription.quota} listings unlocked.`,
+  });
+
   saveAllRegisteredUsers(all);
 
   const active = getActiveUser();
@@ -325,13 +729,22 @@ export function approveSubscriptionByAdmin(userId: string): RegisteredUser | nul
 /**
  * Super Admin rejects a subscription
  */
-export function rejectSubscriptionByAdmin(userId: string, reason: string = 'Payment receipt could not be verified'): RegisteredUser | null {
+export function rejectSubscriptionByAdmin(
+  userId: string,
+  reason: string = 'Payment receipt could not be verified'
+): RegisteredUser | null {
   const all = getAllRegisteredUsers();
   const user = all.find((u) => u.id === userId);
   if (!user) return null;
 
   user.subscription.status = 'REJECTED';
   user.subscription.rejectionReason = reason;
+
+  logUserActivity(userId, {
+    type: 'SUBSCRIPTION_REQUESTED',
+    title: 'Subscription Rejected by Admin',
+    description: `Subscription rejected: ${reason}`,
+  });
 
   saveAllRegisteredUsers(all);
 

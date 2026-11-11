@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059669"/>
+      <stop offset="50%" stop-color="#0d9488"/>
+      <stop offset="100%" stop-color="#0f766e"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#042f2e" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)"/>
+  
+  <!-- Outer Ring Accent -->
+  <circle cx="256" cy="256" r="210" fill="none" stroke="white" stroke-opacity="0.15" stroke-width="4"/>
+  
+  <!-- Mobility Road Stripe -->
+  <path d="M120 400 L230 290 M282 238 L392 120" stroke="#fef08a" stroke-width="12" stroke-linecap="round" stroke-dasharray="24 16" opacity="0.7"/>
+
+  <!-- Logo S -->
+  <text x="256" y="340" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="280" fill="white" text-anchor="middle" filter="url(#shadow)">S</text>
+
+  <!-- Star / Verified Accent -->
+  <circle cx="390" cy="120" r="32" fill="#fbbf24"/>
+  <path d="M390 102 L395 114 L408 116 L398 125 L401 138 L390 131 L379 138 L382 125 L372 116 L385 114 Z" fill="#78350f"/>
+</svg>

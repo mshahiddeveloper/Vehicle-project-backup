@@ -44,6 +44,8 @@ import {
   Tag,
   Percent,
   Gift,
+  BarChart3,
+  Activity,
 } from 'lucide-react';
 import { API_BASE, formatPKR, maskCnic, maskPhone } from '@/lib/api';
 import {
@@ -60,12 +62,20 @@ import {
   getAllRegisteredUsers,
   approveSubscriptionByAdmin,
   rejectSubscriptionByAdmin,
+  assignUserToAgent,
   RegisteredUser,
 } from '@/data/userAuth';
+import {
+  getAllLeads,
+  getAllClickEvents,
+  updateLead,
+  MarketplaceLead,
+  MarketplaceClickEvent,
+} from '@/data/activityTracker';
 
 export default function SuperAdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<
-    'services' | 'listings' | 'plans' | 'promocodes' | 'promotions' | 'directory' | 'agents' | 'stealthAudit' | 'legal' | 'countries'
+    'services' | 'listings' | 'plans' | 'promocodes' | 'promotions' | 'directory' | 'leads' | 'agents' | 'stealthAudit' | 'legal' | 'countries'
   >('services');
 
   // Master Service Switches
@@ -254,6 +264,49 @@ export default function SuperAdminDashboardPage() {
       setAdminNotice(`⚠️ Subscription request rejected for ${updated.name}.`);
       setTimeout(() => setAdminNotice(null), 4000);
     }
+  };
+
+  // Real Marketplace Leads & Click Analytics
+  const [leadsList, setLeadsList] = useState<MarketplaceLead[]>([]);
+  const [clicksList, setClicksList] = useState<MarketplaceClickEvent[]>([]);
+  const [leadFilterType, setLeadFilterType] = useState<string>('ALL');
+
+  useEffect(() => {
+    setLeadsList(getAllLeads());
+    setClicksList(getAllClickEvents());
+    const onLeadsUpdate = () => setLeadsList(getAllLeads());
+    const onClicksUpdate = () => setClicksList(getAllClickEvents());
+    window.addEventListener('safarpk_leads_updated', onLeadsUpdate);
+    window.addEventListener('safarpk_clicks_updated', onClicksUpdate);
+    return () => {
+      window.removeEventListener('safarpk_leads_updated', onLeadsUpdate);
+      window.removeEventListener('safarpk_clicks_updated', onClicksUpdate);
+    };
+  }, []);
+
+  const handleAssignUserToAgent = (userId: string, agentStaffId: string) => {
+    const targetAgent = agents.find((a) => a.staffId === agentStaffId);
+    const agentName = targetAgent ? targetAgent.name : 'Unassigned';
+    assignUserToAgent(userId, agentStaffId, agentName);
+    setRegisteredUsersList(getAllRegisteredUsers());
+    setAdminNotice(`✓ Assigned user to ${agentName} (${agentStaffId}) for management & support.`);
+    setTimeout(() => setAdminNotice(null), 3500);
+  };
+
+  const handleUpdateLeadStatus = (leadId: string, status: MarketplaceLead['status']) => {
+    updateLead(leadId, { status });
+    setLeadsList(getAllLeads());
+    setAdminNotice(`✓ Lead marked as ${status}.`);
+    setTimeout(() => setAdminNotice(null), 2500);
+  };
+
+  const handleAssignLeadToAgent = (leadId: string, agentStaffId: string) => {
+    const targetAgent = agents.find((a) => a.staffId === agentStaffId);
+    const agentName = targetAgent ? targetAgent.name : 'Unassigned';
+    updateLead(leadId, { assignedAgentId: agentStaffId, assignedAgentName: agentName });
+    setLeadsList(getAllLeads());
+    setAdminNotice(`✓ Lead assigned to ${agentName}.`);
+    setTimeout(() => setAdminNotice(null), 2500);
   };
 
   const toggleModule = (mod: keyof typeof modules) => {
@@ -663,6 +716,7 @@ export default function SuperAdminDashboardPage() {
       name: ru.businessName || ru.name,
       contactPerson: ru.name,
       phone: ru.phone,
+      email: ru.email || 'N/A',
       cnic: ru.nationalId || '35201-9988123-5',
       city: ru.city,
       country: ru.countryCode,
@@ -675,6 +729,13 @@ export default function SuperAdminDashboardPage() {
       amountPaid: ru.subscription?.amountPaid,
       currency: ru.subscription?.currency,
       paymentRef: ru.subscription?.paymentRef,
+      assignedAgentId: ru.assignedAgentId,
+      assignedAgentName: ru.assignedAgentName || 'Unassigned',
+      viewCount: ru.metrics?.viewCount || 0,
+      leadsCount: ru.metrics?.leadsCount || 0,
+      clickCount: ru.metrics?.clickCount || 0,
+      lastActive: ru.metrics?.lastActive || ru.registeredAt,
+      activities: ru.activities || [],
       kycStatus: ru.subscription?.status === 'ACTIVE' ? 'VERIFIED' : ru.subscription?.status === 'PENDING_APPROVAL' ? 'PENDING' : 'UNVERIFIED',
       status: ru.subscription?.status === 'ACTIVE' ? 'ACTIVE' : ru.subscription?.status === 'PENDING_APPROVAL' ? 'PENDING' : 'INACTIVE',
       smartCardScan: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=600&auto=format&fit=crop&q=80',
@@ -940,6 +1001,13 @@ export default function SuperAdminDashboardPage() {
               { id: 'promocodes', label: 'Promo Codes & Discounts', icon: Tag, badge: promoCodes.length },
               { id: 'promotions', label: 'Promotional Announcement Bar', icon: Bell, alert: promoEnabled ? 1 : 0 },
               { id: 'directory', label: 'User & Vendor Directory', icon: Search, badge: allMergedDirectoryUsers.length },
+              {
+                id: 'leads',
+                label: 'All Leads & Click Activity',
+                icon: BarChart3,
+                badge: leadsList.length,
+                pendingCount: leadsList.filter((l) => l.status === 'NEW').length,
+              },
               { id: 'agents', label: 'Staff / Agent Management', icon: Users, badge: agents.length },
               { id: 'stealthAudit', label: '🛡️ Stealth Anti-Fraud Log', icon: ShieldCheck, alert: stealthAuditLogs.filter(l => l.isSuspicious).length },
               { id: 'legal', label: 'Terms & Safety Disclaimers', icon: FileText },
@@ -1694,6 +1762,34 @@ export default function SuperAdminDashboardPage() {
                           )}
                           <span className="text-emerald-400 font-semibold">{user.plan}</span>
                         </div>
+
+                        {/* Real Dynamic Metrics & Agent Delegation */}
+                        <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-slate-900 text-[10px]">
+                          <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 font-bold">
+                            👁️ {user.viewCount || 0} Views
+                          </span>
+                          <span className="px-2 py-0.5 rounded bg-emerald-950/70 border border-emerald-800 text-emerald-300 font-bold">
+                            🎯 {user.leadsCount || 0} Leads
+                          </span>
+                          <span className="px-2 py-0.5 rounded bg-sky-950/70 border border-sky-800 text-sky-300 font-bold">
+                            🖱️ {user.clickCount || 0} Clicks
+                          </span>
+                          <div className="flex items-center gap-1 ml-auto">
+                            <span className="text-slate-500 font-bold">Assigned Agent:</span>
+                            <select
+                              value={user.assignedAgentId || ''}
+                              onChange={(e) => handleAssignUserToAgent(user.id, e.target.value)}
+                              className="bg-slate-900 border border-slate-700 text-slate-200 text-[10px] font-bold rounded-lg px-2 py-0.5 cursor-pointer"
+                            >
+                              <option value="">Unassigned</option>
+                              {agents.map((ag) => (
+                                <option key={ag.id} value={ag.staffId}>
+                                  {ag.name} ({ag.staffId})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -1728,6 +1824,207 @@ export default function SuperAdminDashboardPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 5B: MARKETPLACE LEADS & CLICK ANALYTICS (SUPER ADMIN + AGENT ANALYSIS) */}
+          {/* ========================================================================= */}
+          {activeTab === 'leads' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-extrabold text-base text-white">Marketplace Leads, Direct Calls & Clicks</h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-black">
+                      {leadsList.length} Total Leads
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Live capture of every customer WhatsApp inquiry, direct phone call, and shifting quote request. Delegate leads directly to staff agents for follow-up.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLeadsList(getAllLeads());
+                    setClicksList(getAllClickEvents());
+                    setAdminNotice('✓ Leads and click streams refreshed live!');
+                    setTimeout(() => setAdminNotice(null), 2500);
+                  }}
+                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer self-start sm:self-auto"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Refresh Leads</span>
+                </button>
+              </div>
+
+              {/* KPI Header Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-1">
+                  <span className="text-[11px] font-bold text-slate-400 block uppercase">Total Leads</span>
+                  <div className="text-2xl font-black text-white">{leadsList.length}</div>
+                  <span className="text-[10px] text-emerald-400 font-semibold">100% Verified Direct Contacts</span>
+                </div>
+                <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-1">
+                  <span className="text-[11px] font-bold text-slate-400 block uppercase">New / Pending</span>
+                  <div className="text-2xl font-black text-amber-400">
+                    {leadsList.filter((l) => l.status === 'NEW').length}
+                  </div>
+                  <span className="text-[10px] text-amber-300 font-semibold">Awaiting Agent Follow-up</span>
+                </div>
+                <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-1">
+                  <span className="text-[11px] font-bold text-slate-400 block uppercase">Total Click Events</span>
+                  <div className="text-2xl font-black text-sky-400">{clicksList.length}</div>
+                  <span className="text-[10px] text-sky-300 font-semibold">Cards & Details Viewed</span>
+                </div>
+                <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-1">
+                  <span className="text-[11px] font-bold text-slate-400 block uppercase">Gross Inquired Value</span>
+                  <div className="text-2xl font-black text-emerald-400">
+                    PKR {formatPKR(leadsList.reduce((acc, l) => acc + (l.amount || 0), 0))}
+                  </div>
+                  <span className="text-[10px] text-emerald-300 font-semibold">Rental & Chauffeur Total</span>
+                </div>
+              </div>
+
+              {/* Lead Filter Tabs */}
+              <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-950 rounded-2xl border border-slate-800 text-xs font-bold">
+                {[
+                  { id: 'ALL', label: `All Inquiries (${leadsList.length})` },
+                  { id: 'WHATSAPP', label: `WhatsApp Leads (${leadsList.filter((l) => l.leadType === 'WHATSAPP').length})` },
+                  { id: 'DIRECT_CALL', label: `Phone Calls (${leadsList.filter((l) => l.leadType === 'DIRECT_CALL').length})` },
+                  { id: 'CARGO_QUOTE', label: `Shifting Quotes (${leadsList.filter((l) => l.leadType === 'CARGO_QUOTE').length})` },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setLeadFilterType(t.id)}
+                    className={`px-3 py-1.5 rounded-xl transition cursor-pointer ${
+                      leadFilterType === t.id
+                        ? 'bg-rose-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Leads List */}
+              <div className="space-y-3">
+                {leadsList
+                  .filter((l) => leadFilterType === 'ALL' || l.leadType === leadFilterType)
+                  .map((lead) => (
+                    <div
+                      key={lead.id}
+                      className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800 hover:border-slate-700 transition flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs"
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                              lead.leadType === 'WHATSAPP'
+                                ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                : lead.leadType === 'DIRECT_CALL'
+                                ? 'bg-sky-950 text-sky-300 border border-sky-800'
+                                : 'bg-purple-950 text-purple-300 border border-purple-800'
+                            }`}
+                          >
+                            {lead.leadType}
+                          </span>
+                          <span className="font-black text-sm text-white">{lead.customerName}</span>
+                          <span className="font-mono text-slate-300 font-bold">{lead.customerPhone}</span>
+                          {lead.customerCity && (
+                            <span className="text-[10px] text-slate-400 font-semibold">📍 {lead.customerCity}</span>
+                          )}
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              lead.status === 'CONVERTED'
+                                ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                : lead.status === 'CONTACTED'
+                                ? 'bg-sky-950 text-sky-300 border border-sky-800'
+                                : lead.status === 'CANCELLED'
+                                ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                                : 'bg-amber-950 text-amber-300 border border-amber-800 animate-pulse'
+                            }`}
+                          >
+                            {lead.status}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400">
+                          <span>
+                            Target: <strong className="text-white">{lead.targetTitle}</strong>
+                          </span>
+                          <span>
+                            Owner: <strong className="text-slate-300">{lead.targetOwnerName}</strong> ({lead.targetOwnerPhone})
+                          </span>
+                          {lead.amount && (
+                            <span>
+                              Value: <strong className="text-emerald-400">PKR {formatPKR(lead.amount)}</strong>
+                            </span>
+                          )}
+                          <span className="text-slate-500">
+                            {new Date(lead.createdAt).toLocaleDateString('en-GB', {
+                              day: 'numeric',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        </div>
+
+                        {lead.notes && (
+                          <p className="text-[11px] text-slate-400 italic bg-slate-900/60 p-2 rounded-xl border border-slate-800/60">
+                            &ldquo;{lead.notes}&rdquo;
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Delegation & Actions */}
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-slate-400">Assign Agent:</span>
+                          <select
+                            value={lead.assignedAgentId || ''}
+                            onChange={(e) => handleAssignLeadToAgent(lead.id, e.target.value)}
+                            className="bg-slate-900 border border-slate-700 text-slate-300 text-[11px] font-bold rounded-lg px-2 py-1 cursor-pointer"
+                          >
+                            <option value="">Unassigned</option>
+                            {agents.map((ag) => (
+                              <option key={ag.id} value={ag.staffId}>
+                                {ag.name} ({ag.staffId})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          {lead.status !== 'CONVERTED' && (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateLeadStatus(lead.id, 'CONVERTED')}
+                              className="px-2.5 py-1 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-800 rounded-lg text-[10px] font-bold transition cursor-pointer"
+                            >
+                              ✓ Won / Converted
+                            </button>
+                          )}
+                          <a
+                            href={`https://wa.me/${lead.customerPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                              `Hello ${lead.customerName}, this is SafarPK Support following up on your inquiry for "${lead.targetTitle}". How may we assist you?`
+                            )}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1"
+                          >
+                            <Phone className="w-3.5 h-3.5" />
+                            <span>WhatsApp Customer</span>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
               </div>
             </div>
           )}
@@ -2855,6 +3152,91 @@ export default function SuperAdminDashboardPage() {
                 <span className="text-[10px] text-slate-400 block">
                   ✓ Audited by SafarPK Compliance Team. Exclusively accessible for authorized contract handovers.
                 </span>
+              </div>
+
+              {/* Real Performance Metrics & Leads */}
+              <div className="p-3.5 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                <span className="font-bold text-white block text-xs">Marketplace Performance & Leads Generated:</span>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="p-2.5 bg-slate-950 rounded-xl border border-slate-800">
+                    <span className="text-[10px] text-slate-400 block uppercase font-bold">Views</span>
+                    <strong className="text-base text-white font-black">{inspectingUser.viewCount || 0}</strong>
+                  </div>
+                  <div className="p-2.5 bg-slate-950 rounded-xl border border-slate-800">
+                    <span className="text-[10px] text-emerald-400 block uppercase font-bold">Leads</span>
+                    <strong className="text-base text-emerald-400 font-black">{inspectingUser.leadsCount || 0}</strong>
+                  </div>
+                  <div className="p-2.5 bg-slate-950 rounded-xl border border-slate-800">
+                    <span className="text-[10px] text-sky-400 block uppercase font-bold">Clicks</span>
+                    <strong className="text-base text-sky-400 font-black">{inspectingUser.clickCount || 0}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Staff Agent Assignment & Delegation */}
+              <div className="p-3.5 bg-slate-900 rounded-xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div>
+                  <span className="text-slate-400 block text-[11px] font-bold">Super Admin Staff Delegation:</span>
+                  <p className="text-[10px] text-slate-500">
+                    Assign this user profile and inquiries to a specific staff agent for dedicated analysis and onboarding.
+                  </p>
+                </div>
+                <select
+                  value={inspectingUser.assignedAgentId || ''}
+                  onChange={(e) => {
+                    handleAssignUserToAgent(inspectingUser.id, e.target.value);
+                    const ag = agents.find((a) => a.staffId === e.target.value);
+                    setInspectingUser({
+                      ...inspectingUser,
+                      assignedAgentId: e.target.value,
+                      assignedAgentName: ag ? ag.name : 'Unassigned',
+                    });
+                  }}
+                  className="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-1.5 cursor-pointer font-bold shrink-0"
+                >
+                  <option value="">Unassigned</option>
+                  {agents.map((ag) => (
+                    <option key={ag.id} value={ag.staffId}>
+                      {ag.name} ({ag.staffId})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Chronological Activities Log Timeline */}
+              <div className="p-3.5 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-white block text-xs">User Activity Timeline & Audit Trail:</span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {inspectingUser.activities?.length || 0} events recorded
+                  </span>
+                </div>
+
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {!inspectingUser.activities || inspectingUser.activities.length === 0 ? (
+                    <p className="text-[11px] text-slate-500 italic">No recent activity events recorded.</p>
+                  ) : (
+                    inspectingUser.activities.map((act: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className="p-2.5 bg-slate-950 rounded-xl border border-slate-800 flex items-start gap-2.5 text-[11px]"
+                      >
+                        <div className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center shrink-0 text-[10px] font-bold mt-0.5">
+                          {act.type === 'LOGIN' ? '🔑' : act.type === 'REGISTER' ? '✨' : act.type === 'LEAD_RECEIVED' ? '🎯' : '📋'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-white">{act.title}</span>
+                            <span className="text-[9px] text-slate-500 font-mono">
+                              {new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{act.description}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
 
               {/* Resolution Actions */}
