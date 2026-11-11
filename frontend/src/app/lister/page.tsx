@@ -330,6 +330,7 @@ export default function ListerDashboardPage() {
       dailyRate: 8500,
       withDriverRate: 11000,
       assignedDriver: 'Tariq Mahmood',
+      bookingRequirement: 'REQUIRED_DETAILS',
       status: 'LIVE',
       views: 342,
       leads: 28,
@@ -343,6 +344,7 @@ export default function ListerDashboardPage() {
       dailyRate: 14000,
       withDriverRate: 17000,
       assignedDriver: 'Muhammad Akram',
+      bookingRequirement: 'REQUIRED_DETAILS',
       status: 'LIVE',
       views: 512,
       leads: 45,
@@ -356,6 +358,7 @@ export default function ListerDashboardPage() {
       dailyRate: 35000,
       withDriverRate: 40000,
       assignedDriver: 'Sheraz Ali',
+      bookingRequirement: 'REQUIRED_DETAILS',
       status: 'LIVE',
       views: 780,
       leads: 62,
@@ -993,14 +996,30 @@ export default function ListerDashboardPage() {
                           <span>•</span>
                           <span className="text-emerald-600 font-semibold">{f.leads} Leads</span>
                         </div>
-                        <div className="flex items-center gap-2 mt-1.5 text-xs">
+                        <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
                           <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
                             <Users className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Assigned Chauffeur:</span>
+                            <span>Chauffeur:</span>
+                            <span className="font-extrabold text-xs text-emerald-900 bg-white px-2 py-0.5 rounded-md border border-emerald-300">
+                              {f.assignedDriver || 'Self-Drive Only'}
+                            </span>
                           </span>
-                          <span className="font-extrabold text-xs text-emerald-900 bg-white px-2 py-0.5 rounded-md border border-emerald-300">
-                            {f.assignedDriver || 'Unassigned (Self-Drive Only)'}
-                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = f.bookingRequirement === 'DIRECT_CONTACT' ? 'REQUIRED_DETAILS' : 'DIRECT_CONTACT';
+                              setFleetList(fleetList.map((item) => (item.id === f.id ? { ...item, bookingRequirement: next } : item)));
+                            }}
+                            className={`px-2.5 py-0.5 rounded-md text-[10px] font-extrabold border transition cursor-pointer flex items-center gap-1 ${
+                              f.bookingRequirement === 'DIRECT_CONTACT'
+                                ? 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100'
+                                : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                            }`}
+                            title="Click to toggle customer booking requirement"
+                          >
+                            <span>{f.bookingRequirement === 'DIRECT_CONTACT' ? '⚡ Instant Contact (No Form)' : '🔒 Required Details (Default)'}</span>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -2615,6 +2634,42 @@ export default function ListerDashboardPage() {
                   placeholder="e.g. DHA Phase 5 / Centaurus Mall"
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium"
                 />
+              </div>
+
+              {/* Customer Booking & Contact Requirement */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Customer Booking & Direct Contact Policy</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingVehicle({ ...editingVehicle, bookingRequirement: 'REQUIRED_DETAILS' })}
+                    className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
+                      (editingVehicle.bookingRequirement || 'REQUIRED_DETAILS') === 'REQUIRED_DETAILS'
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-bold ring-1 ring-emerald-500'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <span className="block text-xs">🔒 Required Details (Default)</span>
+                    <span className="text-[10px] text-slate-500 block leading-tight mt-0.5">
+                      Customer must provide verified Name & Phone before connecting.
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setEditingVehicle({ ...editingVehicle, bookingRequirement: 'DIRECT_CONTACT' })}
+                    className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
+                      editingVehicle.bookingRequirement === 'DIRECT_CONTACT'
+                        ? 'bg-blue-50 border-blue-500 text-blue-950 font-bold ring-1 ring-blue-500'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 font-medium'
+                    }`}
+                  >
+                    <span className="block text-xs">⚡ Direct Contact (No Form)</span>
+                    <span className="text-[10px] text-slate-500 block leading-tight mt-0.5">
+                      Allow customers to connect directly on WhatsApp without forms.
+                    </span>
+                  </button>
+                </div>
               </div>
 
               {/* Bottom Actions */}

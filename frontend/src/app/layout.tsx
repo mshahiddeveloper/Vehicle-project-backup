@@ -15,8 +15,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "SafarPK — Global Vehicle Rental & Transportation Marketplace",
-  description: "Enterprise multi-vendor vehicle rental, pick & drop routes, city-to-city rides, and home shifting cargo transport in Pakistan and worldwide.",
+  title: "Safar — Worldwide Vehicle Rental & Mobility Marketplace",
+  description: "Enterprise multi-vendor vehicle rental, commuter pick & drop, city-to-city rides, and cargo moving worldwide.",
   viewport: {
     width: "device-width",
     initialScale: 1,
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "SafarPK",
+    title: "Safar",
   },
   manifest: "/manifest.json",
 };

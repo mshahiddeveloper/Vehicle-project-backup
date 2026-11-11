@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { COUNTRIES, CountryInfo } from '@/data/countries';
+import { COUNTRIES, CountryInfo, resolveAnyCountry } from '@/data/countries';
 
 interface CountryContextValue {
   country: CountryInfo;
@@ -27,6 +27,12 @@ export const CountryProvider = ({ children }: { children: ReactNode }) => {
     setCountryState(newCountry);
     if (typeof window !== 'undefined') {
       localStorage.setItem('safarpk_selected_country', JSON.stringify(newCountry));
+      // Update URL search parameter dynamically
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('country', newCountry.code);
+        window.history.replaceState({}, '', url.toString());
+      } catch (e) {}
       window.dispatchEvent(new CustomEvent('safarpk_country_changed', { detail: newCountry }));
     }
   };
@@ -34,69 +40,78 @@ export const CountryProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // 1. Check URL query param ?country=DE / ?country=AE etc.
+    // 1. Check explicit URL query param ?country=DE / ?country=FR / ?country=TR etc.
     const params = new URLSearchParams(window.location.search);
     const paramCountry = params.get('country');
     if (paramCountry) {
-      const match = COUNTRIES.find((c) => c.code.toUpperCase() === paramCountry.toUpperCase());
-      if (match) {
-        setCountry(match);
-        setLoading(false);
-        return;
-      }
+      const resolved = resolveAnyCountry(paramCountry);
+      setCountry(resolved);
+      setLoading(false);
+      return;
     }
 
-    // 2. Check localStorage
-    const stored = localStorage.getItem('safarpk_selected_country');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored) as CountryInfo;
-        const matched = COUNTRIES.find((c) => c.code === parsed.code) || parsed;
-        setCountryState(matched);
-        setLoading(false);
-        return;
-      } catch (e) {}
-    }
+    // 2. Direct IP Auto-Detection via api.country.is (Works dynamically with VPN worldwide)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
 
-    // 3. Auto-detect via IP
-    fetch('https://api.country.is/')
+    fetch('https://api.country.is/', { signal: controller.signal })
       .then((res) => res.json())
       .then((data) => {
-        const iso2 = data.country?.iso2 || data.country || '';
-        if (iso2) {
-          const match = COUNTRIES.find((c) => c.code.toUpperCase() === String(iso2).toUpperCase());
-          if (match) {
-            setCountry(match);
+        clearTimeout(timeoutId);
+        const iso2 = (data.country?.iso2 || data.country || '').toUpperCase();
+        if (iso2 && iso2.length === 2) {
+          const resolved = resolveAnyCountry(iso2);
+          setCountry(resolved);
+          setLoading(false);
+          return;
+        }
+        detectFallback();
+      })
+      .catch(() => {
+        clearTimeout(timeoutId);
+        detectFallback();
+      });
+
+    function detectFallback() {
+      // Secondary check: LocalStorage cached country
+      try {
+        const stored = localStorage.getItem('safarpk_selected_country');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed?.code) {
+            setCountry(resolveAnyCountry(parsed.code));
+            setLoading(false);
             return;
           }
         }
-        // Fallback to timezone
-        detectByTimezone();
-      })
-      .catch(() => {
-        detectByTimezone();
-      })
-      .finally(() => setLoading(false));
+      } catch (e) {}
 
-    function detectByTimezone() {
+      // Tertiary check: Browser Timezone
       try {
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-        let detected = COUNTRIES[0];
-        if (tz.includes('Berlin') || tz.includes('Europe/Busingen')) {
-          detected = COUNTRIES.find((c) => c.code === 'DE') || detected;
+        let detectedCode = 'PK';
+        if (tz.includes('Berlin') || tz.includes('Busingen') || tz.includes('Europe/Paris') || tz.includes('Europe/Rome') || tz.includes('Europe/Madrid')) {
+          detectedCode = 'DE';
         } else if (tz.includes('London')) {
-          detected = COUNTRIES.find((c) => c.code === 'GB') || detected;
+          detectedCode = 'GB';
         } else if (tz.includes('Dubai')) {
-          detected = COUNTRIES.find((c) => c.code === 'AE') || detected;
+          detectedCode = 'AE';
         } else if (tz.includes('Riyadh')) {
-          detected = COUNTRIES.find((c) => c.code === 'SA') || detected;
+          detectedCode = 'SA';
+        } else if (tz.includes('Istanbul')) {
+          detectedCode = 'TR';
         } else if (tz.includes('New_York') || tz.includes('Chicago') || tz.includes('Los_Angeles')) {
-          detected = COUNTRIES.find((c) => c.code === 'US') || detected;
+          detectedCode = 'US';
         } else if (tz.includes('Toronto') || tz.includes('Vancouver')) {
-          detected = COUNTRIES.find((c) => c.code === 'CA') || detected;
+          detectedCode = 'CA';
         }
-        setCountry(detected);
-      } catch (e) {}
+        const resolved = resolveAnyCountry(detectedCode);
+        setCountry(resolved);
+      } catch (e) {
+        setCountry(defaultCountry);
+      } finally {
+        setLoading(false);
+      }
     }
   }, []);
 

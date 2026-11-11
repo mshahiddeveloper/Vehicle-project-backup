@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   User,
@@ -65,6 +65,18 @@ export default function DriverDashboardPage() {
   // Master Availability Switch (3 States: AVAILABLE, BUSY, OFFLINE)
   const [availability, setAvailability] = useState<'AVAILABLE' | 'BUSY' | 'OFFLINE'>('AVAILABLE');
   const [availabilityNotice, setAvailabilityNotice] = useState<string | null>(null);
+
+  // Client Hire & Contact Requirement Switch (Default: REQUIRED_DETAILS)
+  const [hireRequirement, setHireRequirement] = useState<'REQUIRED_DETAILS' | 'DIRECT_CONTACT'>('REQUIRED_DETAILS');
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('safarpk_driver_hire_requirement');
+      if (stored === 'DIRECT_CONTACT' || stored === 'REQUIRED_DETAILS') {
+        setHireRequirement(stored);
+      }
+    } catch (e) {}
+  }, []);
 
   // Self-Managed Pricing (Hourly, Daily, Full-Day with hours, Outstation)
   const [hourlyRate, setHourlyRate] = useState('350');
@@ -492,6 +504,57 @@ export default function DriverDashboardPage() {
                   </button>
                 </div>
               )}
+
+              {/* Client Hire & Direct Contact Policy Switch */}
+              <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-3 text-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h3 className="font-extrabold text-sm text-slate-900">Client Hire & Direct Contact Policy</h3>
+                    <p className="text-slate-500 text-[11px]">Choose whether clients must submit verified name and phone before connecting with you.</p>
+                  </div>
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold shrink-0 ${hireRequirement === 'REQUIRED_DETAILS' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'}`}>
+                    {hireRequirement === 'REQUIRED_DETAILS' ? '🔒 Required Details (Active)' : '⚡ Direct Contact (Active)'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHireRequirement('REQUIRED_DETAILS');
+                      localStorage.setItem('safarpk_driver_hire_requirement', 'REQUIRED_DETAILS');
+                    }}
+                    className={`p-3 rounded-xl border text-left transition cursor-pointer ${
+                      hireRequirement === 'REQUIRED_DETAILS'
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-bold ring-1 ring-emerald-500'
+                        : 'bg-slate-50 border-slate-200 text-slate-700'
+                    }`}
+                  >
+                    <span className="block text-xs font-black">🔒 Require Client Details (Default & Recommended)</span>
+                    <span className="text-[10px] text-slate-500 block mt-0.5 leading-tight">
+                      Clients must confirm their name and phone before opening your WhatsApp or calling you.
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHireRequirement('DIRECT_CONTACT');
+                      localStorage.setItem('safarpk_driver_hire_requirement', 'DIRECT_CONTACT');
+                    }}
+                    className={`p-3 rounded-xl border text-left transition cursor-pointer ${
+                      hireRequirement === 'DIRECT_CONTACT'
+                        ? 'bg-blue-50 border-blue-500 text-blue-950 font-bold ring-1 ring-blue-500'
+                        : 'bg-slate-50 border-slate-200 text-slate-700'
+                    }`}
+                  >
+                    <span className="block text-xs font-black">⚡ Instant Direct Contact</span>
+                    <span className="text-[10px] text-slate-500 block mt-0.5 leading-tight">
+                      Allow clients to directly message you on WhatsApp without filling verification forms.
+                    </span>
+                  </button>
+                </div>
+              </div>
 
               {/* KPI Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

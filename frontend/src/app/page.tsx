@@ -47,126 +47,13 @@ import {
   LogIn,
   Scan,
   FileText,
-  ChevronDown,
   Globe,
 } from 'lucide-react';
 import { API_BASE, formatPKR, maskCnic, maskLicense, maskPhone } from '@/lib/api';
+import { COUNTRIES, CountryInfo, resolveAnyCountry } from '@/data/countries';
 
-interface MarketplaceCountry {
-  code: string;
-  name: string;
-  flag: string;
-  currency: string;
-  symbol: string;
-  defaultCity: string;
-  cities: string[];
-  isLive: boolean;
-  comingSoonTitle: string;
-  comingSoonMessage: string;
-  heroHeadline: string;
-  heroSubtitle: string;
-}
-
-const SUPPORTED_COUNTRIES: MarketplaceCountry[] = [
-  {
-    code: 'PK',
-    name: 'Pakistan',
-    flag: '🇵🇰',
-    currency: 'PKR',
-    symbol: 'Rs',
-    defaultCity: 'All Pakistan',
-    cities: ['All Pakistan', 'Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Peshawar', 'Multan', 'Faisalabad', 'Gujranwala', 'Sialkot'],
-    isLive: true,
-    comingSoonTitle: '',
-    comingSoonMessage: '',
-    heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across Pakistan',
-    heroSubtitle: 'Direct connection with verified car owners, corporate shuttles, licensed chauffeurs, and home cargo movers in Lahore, Karachi, Islamabad, and nationwide. Zero platform commission.',
-  },
-  {
-    code: 'DE',
-    name: 'Germany',
-    flag: '🇩🇪',
-    currency: 'EUR',
-    symbol: '€',
-    defaultCity: 'All Germany',
-    cities: ['All Germany', 'Berlin', 'Munich', 'Frankfurt', 'Hamburg', 'Cologne', 'Stuttgart', 'Düsseldorf'],
-    isLive: true,
-    comingSoonTitle: '',
-    comingSoonMessage: '',
-    heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across Germany',
-    heroSubtitle: 'Direct connection with licensed fleet operators, corporate shuttles, and certified chauffeurs in Berlin, Munich, Frankfurt, and nationwide. Zero platform commission.',
-  },
-  {
-    code: 'AE',
-    name: 'United Arab Emirates',
-    flag: '🇦🇪',
-    currency: 'AED',
-    symbol: 'AED',
-    defaultCity: 'All UAE',
-    cities: ['All UAE', 'Dubai', 'Abu Dhabi', 'Sharjah', 'Ajman', 'Ras Al Khaimah'],
-    isLive: true,
-    comingSoonTitle: '',
-    comingSoonMessage: '',
-    heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across UAE',
-    heroSubtitle: 'Direct connection with luxury car rentals, private chauffeurs, and executive vanpools in Dubai, Abu Dhabi, Sharjah, and nationwide.',
-  },
-  {
-    code: 'GB',
-    name: 'United Kingdom',
-    flag: '🇬🇧',
-    currency: 'GBP',
-    symbol: '£',
-    defaultCity: 'All UK',
-    cities: ['All UK', 'London', 'Manchester', 'Birmingham', 'Leeds', 'Glasgow', 'Edinburgh'],
-    isLive: true,
-    comingSoonTitle: '',
-    comingSoonMessage: '',
-    heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across United Kingdom',
-    heroSubtitle: 'Direct connection with licensed private hire operators, executive fleets, and home removal cargo movers in London, Manchester, Birmingham, and nationwide.',
-  },
-  {
-    code: 'SA',
-    name: 'Saudi Arabia',
-    flag: '🇸🇦',
-    currency: 'SAR',
-    symbol: 'SAR',
-    defaultCity: 'All Saudi Arabia',
-    cities: ['All Saudi Arabia', 'Riyadh', 'Jeddah', 'Makkah', 'Madinah', 'Dammam', 'Khobar'],
-    isLive: true,
-    comingSoonTitle: '',
-    comingSoonMessage: '',
-    heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across Saudi Arabia',
-    heroSubtitle: 'Direct connection with verified vehicle rentals, Umrah executive shuttles, and professional chauffeurs in Riyadh, Jeddah, Makkah, and Madinah.',
-  },
-  {
-    code: 'US',
-    name: 'United States',
-    flag: '🇺🇸',
-    currency: 'USD',
-    symbol: '$',
-    defaultCity: 'All USA',
-    cities: ['All USA', 'New York', 'Los Angeles', 'Chicago', 'Houston', 'Dallas', 'Miami'],
-    isLive: true,
-    comingSoonTitle: '',
-    comingSoonMessage: '',
-    heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across United States',
-    heroSubtitle: 'Direct connection with verified vehicle owners, executive livery chauffeurs, and interstate movers in New York, Los Angeles, Chicago, and nationwide.',
-  },
-  {
-    code: 'CA',
-    name: 'Canada',
-    flag: '🇨🇦',
-    currency: 'CAD',
-    symbol: 'CA$',
-    defaultCity: 'All Canada',
-    cities: ['All Canada', 'Toronto', 'Vancouver', 'Montreal', 'Calgary', 'Ottawa'],
-    isLive: true,
-    comingSoonTitle: '',
-    comingSoonMessage: '',
-    heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across Canada',
-    heroSubtitle: 'Direct connection with verified car owners and licensed chauffeurs in Toronto, Vancouver, Montreal, and nationwide.',
-  },
-];
+export type MarketplaceCountry = CountryInfo;
+const SUPPORTED_COUNTRIES: CountryInfo[] = COUNTRIES;
 
 const DEFAULT_CATALOG_LISTINGS: any[] = [
   // ===================== SEDANS =====================
@@ -1029,36 +916,81 @@ const DEFAULT_CATALOG_LISTINGS: any[] = [
   },
 ];
 
-function detectUserCountry(): MarketplaceCountry {
+function detectUserCountry(): CountryInfo {
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-    if (tz.includes('Berlin') || tz.includes('Busingen') || tz.includes('Europe/Berlin')) {
-      return SUPPORTED_COUNTRIES.find((c) => c.code === 'DE') || SUPPORTED_COUNTRIES[0];
-    }
-    if (tz.includes('Dubai') || tz.includes('Asia/Dubai')) {
-      return SUPPORTED_COUNTRIES.find((c) => c.code === 'AE') || SUPPORTED_COUNTRIES[0];
-    }
-    if (tz.includes('London') || tz.includes('Europe/London')) {
-      return SUPPORTED_COUNTRIES.find((c) => c.code === 'GB') || SUPPORTED_COUNTRIES[0];
-    }
-    if (tz.includes('Riyadh') || tz.includes('Asia/Riyadh')) {
-      return SUPPORTED_COUNTRIES.find((c) => c.code === 'SA') || SUPPORTED_COUNTRIES[0];
-    }
-    if (tz.includes('New_York') || tz.includes('Chicago') || tz.includes('Los_Angeles') || tz.includes('Denver') || tz.includes('America/')) {
-      return SUPPORTED_COUNTRIES.find((c) => c.code === 'US') || SUPPORTED_COUNTRIES[0];
-    }
-    if (tz.includes('Toronto') || tz.includes('Vancouver') || tz.includes('Montreal')) {
-      return SUPPORTED_COUNTRIES.find((c) => c.code === 'CA') || SUPPORTED_COUNTRIES[0];
-    }
+    if (tz.includes('Karachi') || tz.includes('Asia/Karachi')) return resolveAnyCountry('PK');
+    if (tz.includes('Berlin') || tz.includes('Munich') || tz.includes('Europe/Berlin')) return resolveAnyCountry('DE');
+    if (tz.includes('Dubai') || tz.includes('Asia/Dubai')) return resolveAnyCountry('AE');
+    if (tz.includes('London') || tz.includes('Europe/London')) return resolveAnyCountry('GB');
+    if (tz.includes('Riyadh') || tz.includes('Asia/Riyadh')) return resolveAnyCountry('SA');
+    if (tz.includes('New_York') || tz.includes('Chicago') || tz.includes('Los_Angeles') || tz.includes('America/')) return resolveAnyCountry('US');
+    if (tz.includes('Toronto') || tz.includes('Vancouver')) return resolveAnyCountry('CA');
+    if (tz.includes('Paris') || tz.includes('Europe/Paris')) return resolveAnyCountry('FR');
+    if (tz.includes('Istanbul') || tz.includes('Asia/Istanbul')) return resolveAnyCountry('TR');
   } catch (e) {}
-  return SUPPORTED_COUNTRIES[0];
+  return resolveAnyCountry('PK');
 }
 
 export default function PublicMarketplaceHome() {
   // Country Localization State (Auto-detected from IP)
-  const [selectedCountry, setSelectedCountry] = useState<MarketplaceCountry>(SUPPORTED_COUNTRIES[0]);
+  const [selectedCountry, setSelectedCountry] = useState<CountryInfo>(resolveAnyCountry('PK'));
+  const [detectedCountryNotice, setDetectedCountryNotice] = useState(false);
+  const [detectedMessageText, setDetectedMessageText] = useState('');
   const [notifyEmail, setNotifyEmail] = useState('');
   const [notifySuccess, setNotifySuccess] = useState(false);
+
+  // Customer Profile Persistence & 1-Click Verification State
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerCnic, setCustomerCnic] = useState('');
+  const [customerLicense, setCustomerLicense] = useState('');
+  const [isCustomerProfileSaved, setIsCustomerProfileSaved] = useState(false);
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+
+  // Quick Verification Modal when Lister requires details before Direct Contact
+  const [directContactPendingVehicle, setDirectContactPendingVehicle] = useState<any | null>(null);
+  const [directContactPendingDriver, setDirectContactPendingDriver] = useState<any | null>(null);
+
+  // Load customer profile from local storage on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = localStorage.getItem('safarpk_saved_customer_profile');
+      if (stored) {
+        const p = JSON.parse(stored);
+        if (p.name) setCustomerName(p.name);
+        if (p.phone) setCustomerPhone(p.phone);
+        if (p.idNumber) setCustomerCnic(p.idNumber);
+        if (p.licenseNumber) setCustomerLicense(p.licenseNumber);
+        setIsCustomerProfileSaved(true);
+      } else {
+        const authUser = localStorage.getItem('safarpk_auth_user');
+        if (authUser) {
+          const u = JSON.parse(authUser);
+          if (u.name) setCustomerName(u.name);
+          if (u.phone) setCustomerPhone(u.phone);
+        }
+      }
+    } catch (e) {}
+  }, []);
+
+  const handleSaveCustomerProfile = (name: string, phone: string, idNum?: string, licNum?: string) => {
+    const prof = {
+      name: name.trim(),
+      phone: phone.trim(),
+      idNumber: (idNum !== undefined ? idNum : customerCnic).trim(),
+      licenseNumber: (licNum !== undefined ? licNum : customerLicense).trim(),
+    };
+    setCustomerName(prof.name);
+    setCustomerPhone(prof.phone);
+    if (idNum !== undefined) setCustomerCnic(idNum);
+    if (licNum !== undefined) setCustomerLicense(licNum);
+    setIsCustomerProfileSaved(true);
+    try {
+      localStorage.setItem('safarpk_saved_customer_profile', JSON.stringify(prof));
+    } catch (e) {}
+  };
 
   // Close modals on Escape key
   useEffect(() => {
@@ -1070,57 +1002,39 @@ export default function PublicMarketplaceHome() {
         setShowAuthModal(false);
         setShowOnboardingModal(false);
         setShowMutualDocModal(false);
-        setShowCountryModal(false);
+        setDirectContactPendingVehicle(null);
+        setDirectContactPendingDriver(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Country Switch Modal State
-  const [showCountryModal, setShowCountryModal] = useState(false);
-
-  // Auto-detect visitor country via Client IP / Timezone / LocalStorage
+  // Auto-detect visitor country via Client IP / Timezone
   useEffect(() => {
     let isMounted = true;
     const detectCountryFromIP = async () => {
-      try {
-        // 1. Optional test override via ?country=DE or ?country=PK
-        if (typeof window !== 'undefined') {
-          const urlParams = new URLSearchParams(window.location.search);
-          const paramCountry = urlParams.get('country');
-          if (paramCountry) {
-            const found = SUPPORTED_COUNTRIES.find(
-              (c) =>
-                c.code.toLowerCase() === paramCountry.toLowerCase() ||
-                c.name.toLowerCase() === paramCountry.toLowerCase()
-            );
-            if (found && isMounted) {
-              setSelectedCountry(found);
-              setSearchCity(found.defaultCity);
-              localStorage.setItem('safarpk_selected_country', JSON.stringify(found));
-              return;
-            }
+      // 1. Direct URL query param override (e.g. ?country=DE, ?country=US, ?country=AE)
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const paramCountry = urlParams.get('country');
+        if (paramCountry) {
+          const resolved = resolveAnyCountry(paramCountry);
+          if (isMounted) {
+            setSelectedCountry(resolved);
+            setSearchCity(resolved.defaultCity);
+            localStorage.setItem('safarpk_selected_country', JSON.stringify(resolved));
+            setDetectedMessageText(`Marketplace localized to ${resolved.flag} ${resolved.name}. Localized currency (${resolved.symbol} ${resolved.currency}) & regional inventory active.`);
+            setDetectedCountryNotice(true);
           }
-
-          // 2. LocalStorage persistence
-          const stored = localStorage.getItem('safarpk_selected_country');
-          if (stored) {
-            try {
-              const parsed = JSON.parse(stored);
-              const matched = SUPPORTED_COUNTRIES.find((c) => c.code === parsed.code);
-              if (matched && isMounted) {
-                setSelectedCountry(matched);
-                setSearchCity(matched.defaultCity);
-                return;
-              }
-            } catch (e) {}
-          }
+          return;
         }
+      }
 
-        // 3. Direct IP Geolocation lookup
+      // 2. LIVE IP Geolocation lookup — checked on every visit & VPN toggle
+      try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1800);
+        const timeoutId = setTimeout(() => controller.abort(), 2500);
         const res = await fetch('https://api.country.is/', { signal: controller.signal }).catch(() => null);
         clearTimeout(timeoutId);
 
@@ -1128,39 +1042,46 @@ export default function PublicMarketplaceHome() {
           const data = await res.json();
           const countryCode = data?.country?.toUpperCase();
           if (countryCode && isMounted) {
-            const matched = SUPPORTED_COUNTRIES.find((c) => c.code === countryCode);
-            if (matched) {
-              setSelectedCountry(matched);
-              setSearchCity(matched.defaultCity);
-              localStorage.setItem('safarpk_selected_country', JSON.stringify(matched));
-              return;
-            } else {
-              // Custom international country
-              const deTemplate = SUPPORTED_COUNTRIES.find((c) => c.code === 'DE') || SUPPORTED_COUNTRIES[0];
-              const custom = {
-                ...deTemplate,
-                code: countryCode,
-                name: countryCode,
-                comingSoonTitle: '',
-                comingSoonMessage: '',
-                heroHeadline: `Rent Vehicles, Hire Drivers & Book Transport Across ${countryCode}`,
-                isLive: true,
-              };
-              setSelectedCountry(custom);
-              setSearchCity(`All ${countryCode}`);
-              localStorage.setItem('safarpk_selected_country', JSON.stringify(custom));
-              return;
+            const resolved = resolveAnyCountry(countryCode);
+            setSelectedCountry(resolved);
+            setSearchCity(resolved.defaultCity);
+            localStorage.setItem('safarpk_selected_country', JSON.stringify(resolved));
+            localStorage.setItem('safarpk_detected_ip', countryCode);
+
+            // Sync URL query param dynamically without reloading
+            if (typeof window !== 'undefined') {
+              const currentUrl = new URL(window.location.href);
+              if (currentUrl.searchParams.get('country') !== countryCode) {
+                currentUrl.searchParams.set('country', countryCode);
+                window.history.replaceState({}, '', currentUrl.toString());
+              }
             }
+
+            setDetectedMessageText(`Auto-detected location: ${resolved.flag} ${resolved.name}. Localized currency (${resolved.symbol} ${resolved.currency}) & regional regulations active.`);
+            setDetectedCountryNotice(true);
+            return;
           }
         }
       } catch (e) {}
 
-      // 4. Fallback to browser timezone
+      // 3. Fallback: stored country or timezone
       if (isMounted) {
+        try {
+          const stored = localStorage.getItem('safarpk_selected_country');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed?.code) {
+              const resolved = resolveAnyCountry(parsed.code);
+              setSelectedCountry(resolved);
+              setSearchCity(resolved.defaultCity);
+              return;
+            }
+          }
+        } catch (e) {}
+
         const detected = detectUserCountry();
         setSelectedCountry(detected);
         setSearchCity(detected.defaultCity);
-        localStorage.setItem('safarpk_selected_country', JSON.stringify(detected));
       }
     };
 
@@ -1169,16 +1090,6 @@ export default function PublicMarketplaceHome() {
       isMounted = false;
     };
   }, []);
-
-  const handleSwitchCountry = (c: MarketplaceCountry) => {
-    setSelectedCountry(c);
-    setSearchCity(c.defaultCity);
-    setShowCountryModal(false);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('safarpk_selected_country', JSON.stringify(c));
-      window.dispatchEvent(new CustomEvent('safarpk_country_changed', { detail: c }));
-    }
-  };
 
   // Public Service Channels
   const [selectedService, setSelectedService] = useState<
@@ -1367,12 +1278,8 @@ export default function PublicMarketplaceHome() {
   // Booking Form State
   const [bookingStartDate, setBookingStartDate] = useState(todayStr);
   const [bookingEndDate, setBookingEndDate] = useState(tomorrowStr);
-  const [bookingPickupArea, setBookingPickupArea] = useState('DHA Phase 5');
+  const [bookingPickupArea, setBookingPickupArea] = useState('Central Downtown');
   const [bookingWithDriver, setBookingWithDriver] = useState(false);
-  const [customerName, setCustomerName] = useState('Hamza Tariq');
-  const [customerPhone, setCustomerPhone] = useState('+92 300 8472910');
-  const [customerCnic, setCustomerCnic] = useState('35202-8172910-3');
-  const [customerLicense, setCustomerLicense] = useState('');
   const [licenseDocPreview, setLicenseDocPreview] = useState<string | null>(null);
   const [licenseFileName, setLicenseFileName] = useState<string | null>(null);
   const [licenseScanning, setLicenseScanning] = useState(false);
@@ -1392,8 +1299,8 @@ export default function PublicMarketplaceHome() {
   const [pndPlan, setPndPlan] = useState<'MONTHLY' | 'DAILY' | 'MORNING_ONLY'>('MONTHLY');
   const [pndSeats, setPndSeats] = useState(1);
   const [pndCategory, setPndCategory] = useState<'OFFICE' | 'STUDENT' | 'WOMEN_ONLY'>('OFFICE');
-  const [pndPassengerName, setPndPassengerName] = useState('Hamza Tariq');
-  const [pndPassengerPhone, setPndPassengerPhone] = useState('+92 300 8472910');
+  const [pndPassengerName, setPndPassengerName] = useState('');
+  const [pndPassengerPhone, setPndPassengerPhone] = useState('');
 
   // City to City Modal State
   const [ctcMode, setCtcMode] = useState<'SHARING' | 'PRIVATE'>('SHARING');
@@ -1491,7 +1398,8 @@ export default function PublicMarketplaceHome() {
         setShowAuthModal(false);
         setShowHelpModal(false);
         setHireDriverModal(null);
-        setShowCountryModal(false);
+        setDirectContactPendingVehicle(null);
+        setDirectContactPendingDriver(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -1510,7 +1418,8 @@ export default function PublicMarketplaceHome() {
       showAuthModal ||
       showHelpModal ||
       hireDriverModal ||
-      showCountryModal
+      directContactPendingVehicle ||
+      directContactPendingDriver
     );
     if (hasOpenModal) {
       document.body.style.overflow = 'hidden';
@@ -1716,6 +1625,39 @@ export default function PublicMarketplaceHome() {
     window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
+  // Handle Direct Contact Click (Checking Lister Requirement & Pre-filled Profile)
+  const handleDirectContactClick = (vehicle: any) => {
+    const requirement = vehicle.bookingRequirement || 'REQUIRED_DETAILS';
+    if (requirement === 'DIRECT_CONTACT') {
+      handleWhatsAppLead(vehicle);
+      return;
+    }
+
+    // Default: REQUIRED_DETAILS
+    if (customerName.trim() && customerPhone.trim()) {
+      handleWhatsAppLead(vehicle);
+    } else {
+      setDirectContactPendingVehicle(vehicle);
+    }
+  };
+
+  // Handle Driver Direct Contact Click (Checking Driver Requirement & Pre-filled Profile)
+  const handleDirectDriverContactClick = (driver: any) => {
+    const requirement = driver.hireRequirement || 'REQUIRED_DETAILS';
+    if (requirement === 'DIRECT_CONTACT') {
+      const phone = driver.phone || '+923001234567';
+      window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello ${driver.name}, I found your chauffeur profile on Safar in ${driver.city}.`)}`, '_blank');
+      return;
+    }
+
+    if (customerName.trim() && customerPhone.trim()) {
+      const phone = driver.phone || '+923001234567';
+      window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello ${driver.name}, I am ${customerName} (${customerPhone}). Inquiring to hire you as driver via Safar in ${driver.city}.`)}`, '_blank');
+    } else {
+      setDirectContactPendingDriver(driver);
+    }
+  };
+
   // Handle Driving License Upload & OCR Extraction (with Strict Validation against Banners/Random Images)
   const handleLicenseFileUpload = (file?: File, isDemoFallback: boolean = false) => {
     setLicenseUploadError(null);
@@ -1885,7 +1827,7 @@ export default function PublicMarketplaceHome() {
                   <div className="animate-marquee flex items-center gap-6 font-medium text-xs">
                     <span className="font-extrabold text-emerald-300">{promoAnnouncement.heading}</span>
                     <span className="text-slate-300">— {promoAnnouncement.message}</span>
-                    <span className="text-emerald-400 font-bold">• Zero Commission • Direct Contact • Verified Vehicles Across Pakistan</span>
+                    <span className="text-emerald-400 font-bold">• Zero Commission • Direct Contact • Verified Vehicles Across {selectedCountry.name}</span>
                     {/* Duplicate loop for seamless continuous flow */}
                     <span className="font-extrabold text-emerald-300 ml-8">{promoAnnouncement.heading}</span>
                     <span className="text-slate-300">— {promoAnnouncement.message}</span>
@@ -1961,9 +1903,15 @@ export default function PublicMarketplaceHome() {
               S
             </div>
             <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-black text-xl text-slate-900 tracking-tight">SafarPK</span>
-                <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200 shadow-2xs">
+              <div className="flex items-center gap-2">
+                <span className="font-black text-xl text-slate-900 tracking-tight">
+                  {selectedCountry.code === 'PK' ? 'SafarPK' : 'Safar'}
+                </span>
+                <div
+                  className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-900 border border-emerald-200/80 shadow-2xs"
+                  title={`Auto-detected via IP: ${selectedCountry.name}`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   <span className="text-sm">{selectedCountry.flag}</span>
                   <span className="font-extrabold">{selectedCountry.name}</span>
                 </div>
@@ -2014,6 +1962,29 @@ export default function PublicMarketplaceHome() {
           </div>
         </div>
       </header>
+
+      {/* Auto-detected IP Location Notice Banner */}
+      {detectedCountryNotice && (
+        <div className="bg-emerald-950 text-white text-xs py-2 px-3 sm:px-6 border-b border-emerald-800/80 flex items-center justify-between shadow-xs animate-in fade-in duration-300 relative z-30">
+          <div className="flex items-center gap-2.5 max-w-7xl mx-auto flex-1 truncate">
+            <span className="text-base shrink-0">{selectedCountry.flag}</span>
+            <p className="text-xs font-medium truncate">
+              <strong className="text-emerald-300 font-bold">Location Auto-Detected:</strong>{' '}
+              <span className="text-slate-200">
+                {detectedMessageText || `Browsing from ${selectedCountry.name}. Local currency (${selectedCountry.symbol} ${selectedCountry.currency}), regional inventory, and compliance active.`}
+              </span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setDetectedCountryNotice(false)}
+            className="text-slate-400 hover:text-white p-1 rounded-md transition cursor-pointer ml-2 shrink-0"
+            title="Dismiss notice"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* 2. PUBLIC HERO SECTION & 5 SERVICE PILLARS (CLEAN & NON-OVERLOADED)       */}
@@ -2373,25 +2344,14 @@ export default function PublicMarketplaceHome() {
               )}
             </div>
 
-            {/* CTAs: Switch to Pakistan or Pre-Register as Partner */}
+            {/* CTAs: Pre-Register as Partner in this country */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => {
-                  const pk = SUPPORTED_COUNTRIES.find((c) => c.code === 'PK')!;
-                  handleSwitchCountry(pk);
-                }}
+                onClick={() => setShowOnboardingModal(true)}
                 className="w-full sm:w-auto px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-600/30 transition flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>🇵🇰 Browse Live Pakistan Inventory</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowOnboardingModal(true)}
-                className="w-full sm:w-auto px-5 py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs transition flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span>🤝 Register Fleet in {selectedCountry.name}</span>
+                <span>🤝 Register Your Fleet in {selectedCountry.name}</span>
               </button>
             </div>
 
@@ -2462,15 +2422,14 @@ export default function PublicMarketplaceHome() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <a
-                    href={`https://wa.me/${driver.phone.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(driver.name)},%20I%20am%20inquiring%20about%20hiring%20you%20as%20a%20driver%20in%20${encodeURIComponent(driver.city)}.`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="py-2.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200 flex items-center justify-center gap-1.5 transition"
+                  <button
+                    type="button"
+                    onClick={() => handleDirectDriverContactClick(driver)}
+                    className="py-2.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200 flex items-center justify-center gap-1.5 transition cursor-pointer"
                   >
                     <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
                     <span>Direct Contact</span>
-                  </a>
+                  </button>
                   <button
                     onClick={() => setHireDriverModal(driver)}
                     className="py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition"
@@ -2488,7 +2447,7 @@ export default function PublicMarketplaceHome() {
               <div className="col-span-full py-16 text-center bg-white rounded-3xl border border-slate-200 p-8 space-y-2">
                 <Car className="w-12 h-12 text-slate-300 mx-auto" />
                 <h3 className="font-bold text-slate-700 text-base">No listings found in {searchCity}</h3>
-                <p className="text-slate-400 text-xs">Try selecting &quot;All Pakistan&quot; or clearing your search term.</p>
+                <p className="text-slate-400 text-xs">Try selecting &quot;{selectedCountry.defaultCity}&quot; or clearing your search term.</p>
               </div>
             ) : (
               filteredListings.map((vehicle) => {
@@ -2653,7 +2612,7 @@ export default function PublicMarketplaceHome() {
                     {/* Action Buttons: Pure Direct Connections */}
                     <div className="p-4 pt-0 grid grid-cols-2 gap-2">
                       <button
-                        onClick={() => handleWhatsAppLead(vehicle)}
+                        onClick={() => handleDirectContactClick(vehicle)}
                         className="py-2.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200 flex items-center justify-center gap-1.5 transition cursor-pointer"
                       >
                         <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
@@ -2721,10 +2680,10 @@ export default function PublicMarketplaceHome() {
               <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold">
                 S
               </div>
-              <span className="font-black text-slate-900 text-base">SafarPK</span>
+              <span className="font-black text-slate-900 text-base">{selectedCountry.code === 'PK' ? 'SafarPK' : 'Safar'}</span>
             </div>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              Pakistan&apos;s premier connecting platform for private car rentals, certified chauffeurs, intercity travel, and cargo shifting.
+              {selectedCountry.name}&apos;s premier connecting platform for private car rentals, certified chauffeurs, intercity travel, and cargo shifting.
             </p>
           </div>
 
@@ -2761,8 +2720,8 @@ export default function PublicMarketplaceHome() {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-400">
-          <span>© 2026 SafarPK Technology Platform. All rights reserved.</span>
-          <span>Zero Commission Directory · Built for Pakistan & Global Expansion</span>
+          <span>© 2026 {selectedCountry.code === 'PK' ? 'SafarPK' : 'Safar'} Technology Platform. All rights reserved.</span>
+          <span>Zero Commission Directory · Built for {selectedCountry.name} & Worldwide Expansion</span>
         </div>
       </footer>
 
@@ -3532,13 +3491,13 @@ export default function PublicMarketplaceHome() {
                           </div>
                           <div>
                             <label className="text-[10px] font-bold text-slate-700 block mb-1">
-                              National ID (CNIC / Passport) *
+                              {selectedCountry.idDocumentName || 'National ID / Passport'} *
                             </label>
                             <input
                               type="text"
                               value={customerCnic}
                               onChange={(e) => setCustomerCnic(e.target.value)}
-                              placeholder="National ID / Passport #"
+                              placeholder={selectedCountry.idPlaceholder || 'Official ID or Passport #'}
                               className="w-full p-2 bg-white border border-amber-200 rounded-lg font-mono font-bold text-xs"
                               required
                             />
@@ -3559,31 +3518,72 @@ export default function PublicMarketplaceHome() {
                     );
                   })()}
 
-                  {/* Customer Contact */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-600 block mb-1">Your Full Name *</label>
-                      <input
-                        type="text"
-                        value={customerName}
-                        onChange={(e) => setCustomerName(e.target.value)}
-                        placeholder="Hamza Tariq"
-                        className="w-full text-xs p-2 rounded-xl border border-slate-200 bg-white"
-                        required
-                      />
+                  {/* Customer Contact & Saved Profile Integration */}
+                  {isCustomerProfileSaved && customerName && !showEditProfileModal ? (
+                    <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                            ✓ Saved Profile Linked
+                          </span>
+                          <span className="text-xs font-black text-slate-900">{customerName}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-600 mt-1 flex items-center gap-2">
+                          <span>📞 {customerPhone}</span>
+                          <span>•</span>
+                          <span>{selectedCountry.idDocumentName}: {customerCnic || 'Saved'}</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowEditProfileModal(true)}
+                        className="px-2.5 py-1 text-xs font-bold text-emerald-700 bg-white hover:bg-emerald-100 border border-emerald-300 rounded-lg transition cursor-pointer"
+                      >
+                        Edit Details
+                      </button>
                     </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-600 block mb-1">Phone Number *</label>
-                      <input
-                        type="tel"
-                        value={customerPhone}
-                        onChange={(e) => setCustomerPhone(e.target.value)}
-                        placeholder="+92 300 1234567"
-                        className="w-full text-xs p-2 rounded-xl border border-slate-200 bg-white font-mono font-bold"
-                        required
-                      />
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-600 block mb-1">Your Full Name *</label>
+                          <input
+                            type="text"
+                            value={customerName}
+                            onChange={(e) => setCustomerName(e.target.value)}
+                            placeholder="Full Name"
+                            className="w-full text-xs p-2 rounded-xl border border-slate-200 bg-white"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-600 block mb-1">Phone Number *</label>
+                          <input
+                            type="tel"
+                            value={customerPhone}
+                            onChange={(e) => setCustomerPhone(e.target.value)}
+                            placeholder="Phone / WhatsApp Number"
+                            className="w-full text-xs p-2 rounded-xl border border-slate-200 bg-white font-mono font-bold"
+                            required
+                          />
+                        </div>
+                      </div>
+                      {isCustomerProfileSaved && showEditProfileModal && (
+                        <div className="text-right">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleSaveCustomerProfile(customerName, customerPhone, customerCnic, customerLicense);
+                              setShowEditProfileModal(false);
+                            }}
+                            className="text-[11px] font-bold text-emerald-700 hover:underline cursor-pointer"
+                          >
+                            ✓ Save & Minimize
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  )}
 
                   <div>
                     <label className="text-[10px] font-bold text-slate-600 block mb-1">Delivery Address / Area in {bookingVehicle.city} *</label>
@@ -3591,7 +3591,7 @@ export default function PublicMarketplaceHome() {
                       type="text"
                       value={bookingPickupArea}
                       onChange={(e) => setBookingPickupArea(e.target.value)}
-                      placeholder="e.g. DHA Phase 5, Gulberg III, Airport Terminal"
+                      placeholder="e.g. Central Metro, Airport Terminal, Downtown"
                       className="w-full text-xs p-2 rounded-xl border border-slate-200 bg-white"
                       required
                     />
@@ -3608,7 +3608,7 @@ export default function PublicMarketplaceHome() {
                           className="w-4 h-4 text-emerald-600 rounded mt-0.5 cursor-pointer shrink-0"
                         />
                         <span className="text-[11px] text-emerald-950 leading-tight">
-                          <strong>Mutual Verification Consent:</strong> I agree to exchange verified credentials with the vehicle owner (I can view their official <strong>Excise Smart Card & FBR NTN</strong>, and the owner will inspect my driving license upon key handover).
+                          <strong>Mutual Verification Consent:</strong> I agree to exchange verified credentials with the vehicle owner (I can view their official <strong>Vehicle Registration Certificate & Identity</strong>, and the owner will inspect my driving license upon key handover).
                         </span>
                       </label>
                     </div>
@@ -3624,7 +3624,7 @@ export default function PublicMarketplaceHome() {
                         className="w-4 h-4 text-emerald-600 rounded mt-0.5 cursor-pointer shrink-0"
                       />
                       <span className="text-[11px] text-slate-600 leading-tight">
-                        I agree to SafarPK <strong>Platform Terms</strong>. SafarPK connects me directly with the vehicle provider with <strong>zero platform liability</strong> for cash or mechanical condition.
+                        I agree to Platform Terms. Safar connects me directly with the vehicle provider with <strong>zero platform middleman liability</strong> for cash or mechanical condition.
                       </span>
                     </label>
                   </div>
@@ -4562,12 +4562,12 @@ Please confirm seat availability on this route.`;
       )}
 
       {/* ========================================================================= */}
-      {/* 12B. MODAL: COUNTRY SWITCHER                                              */}
+      {/* 12B. MODAL: DIRECT CONTACT REQUIRED DETAILS (VEHICLE)                     */}
       {/* ========================================================================= */}
-      {showCountryModal && (
+      {directContactPendingVehicle && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden transition-opacity cursor-pointer"
-          onClick={() => setShowCountryModal(false)}
+          onClick={() => setDirectContactPendingVehicle(null)}
         >
           <div
             className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 my-auto cursor-default animate-in fade-in zoom-in-95 duration-150"
@@ -4575,45 +4575,150 @@ Please confirm seat availability on this route.`;
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <Globe className="w-5 h-5 text-emerald-600" />
-                <h3 className="font-black text-base text-slate-900">Select Marketplace Country</h3>
+                <MessageCircle className="w-5 h-5 text-emerald-600" />
+                <h3 className="font-black text-sm text-slate-900">Direct Contact Verification</h3>
               </div>
               <button
                 type="button"
-                onClick={() => setShowCountryModal(false)}
+                onClick={() => setDirectContactPendingVehicle(null)}
                 className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-500">
-              Auto-detected from IP. Switch anytime to browse localized vehicle listings, chauffeur rates, and currency.
+            <p className="text-xs text-slate-600 leading-relaxed">
+              <strong>{directContactPendingVehicle.lister?.businessName || 'The vehicle provider'}</strong> requires your contact information before connecting. Fill once to save your profile permanently.
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-              {SUPPORTED_COUNTRIES.map((c) => {
-                const active = selectedCountry.code === c.code;
-                return (
-                  <button
-                    key={c.code}
-                    type="button"
-                    onClick={() => handleSwitchCountry(c)}
-                    className={`p-3 rounded-2xl border text-left font-bold transition flex items-center gap-2.5 cursor-pointer ${
-                      active
-                        ? 'bg-emerald-50 border-emerald-500 text-emerald-950 ring-2 ring-emerald-500/20'
-                        : 'bg-slate-50/60 border-slate-200 hover:bg-white hover:border-slate-300 text-slate-800'
-                    }`}
-                  >
-                    <span className="text-2xl shrink-0">{c.flag}</span>
-                    <div className="min-w-0">
-                      <span className="block font-black text-xs truncate">{c.name}</span>
-                      <span className="text-[10px] text-slate-400 font-mono block">{c.currency} ({c.symbol})</span>
-                    </div>
-                  </button>
-                );
-              })}
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] font-bold text-slate-700 block mb-1">Your Full Name *</label>
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Your Full Name"
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-700 block mb-1">Phone / WhatsApp Number *</label>
+                <input
+                  type="tel"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  placeholder="e.g. +1 555 123 4567"
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white font-mono font-bold"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-700 block mb-1">
+                  {selectedCountry.idDocumentName} (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={customerCnic}
+                  onChange={(e) => setCustomerCnic(e.target.value)}
+                  placeholder={selectedCountry.idPlaceholder}
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white font-mono"
+                />
+              </div>
             </div>
+
+            <button
+              type="button"
+              disabled={!customerName.trim() || !customerPhone.trim()}
+              onClick={() => {
+                handleSaveCustomerProfile(customerName, customerPhone, customerCnic, customerLicense);
+                const v = directContactPendingVehicle;
+                setDirectContactPendingVehicle(null);
+                handleWhatsAppLead(v);
+              }}
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-black text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span>Save & Connect Directly via WhatsApp</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 12C. MODAL: DIRECT CONTACT REQUIRED DETAILS (DRIVER)                      */}
+      {/* ========================================================================= */}
+      {directContactPendingDriver && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden transition-opacity cursor-pointer"
+          onClick={() => setDirectContactPendingDriver(null)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 my-auto cursor-default animate-in fade-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <UserCheck className="w-5 h-5 text-emerald-600" />
+                <h3 className="font-black text-sm text-slate-900">Chauffeur Contact Verification</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDirectContactPendingDriver(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              <strong>{directContactPendingDriver.name}</strong> requires verified client details before booking.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] font-bold text-slate-700 block mb-1">Your Full Name *</label>
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Your Full Name"
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-700 block mb-1">Phone / WhatsApp Number *</label>
+                <input
+                  type="tel"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  placeholder="e.g. +1 555 123 4567"
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white font-mono font-bold"
+                  required
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={!customerName.trim() || !customerPhone.trim()}
+              onClick={() => {
+                handleSaveCustomerProfile(customerName, customerPhone, customerCnic, customerLicense);
+                const d = directContactPendingDriver;
+                setDirectContactPendingDriver(null);
+                const phone = d.phone || '+923001234567';
+                window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello ${d.name}, I am ${customerName} (${customerPhone}). Inquiring to hire you via Safar.`)}`, '_blank');
+              }}
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-black text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span>Save & Connect with Chauffeur</span>
+            </button>
           </div>
         </div>
       )}
