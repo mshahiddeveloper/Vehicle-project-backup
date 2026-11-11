@@ -2056,29 +2056,6 @@ export default function PublicMarketplaceHome() {
         </div>
       </header>
 
-      {/* Auto-detected IP Location Notice Banner */}
-      {detectedCountryNotice && (
-        <div className="bg-emerald-950 text-white text-xs py-2 px-3 sm:px-6 border-b border-emerald-800/80 flex items-center justify-between shadow-xs animate-in fade-in duration-300 relative z-30">
-          <div className="flex items-center gap-2.5 max-w-7xl mx-auto flex-1 truncate">
-            <span className="text-base shrink-0">{selectedCountry.flag}</span>
-            <p className="text-xs font-medium truncate">
-              <strong className="text-emerald-300 font-bold">Location Auto-Detected:</strong>{' '}
-              <span className="text-slate-200">
-                {detectedMessageText || `Browsing from ${selectedCountry.name}. Local currency (${selectedCountry.symbol} ${selectedCountry.currency}), regional inventory, and compliance active.`}
-              </span>
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setDetectedCountryNotice(false)}
-            className="text-slate-400 hover:text-white p-1 rounded-md transition cursor-pointer ml-2 shrink-0"
-            title="Dismiss notice"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
       {/* ========================================================================= */}
       {/* 2. PUBLIC HERO SECTION & 5 SERVICE PILLARS (CLEAN & NON-OVERLOADED)       */}
       {/* ========================================================================= */}
