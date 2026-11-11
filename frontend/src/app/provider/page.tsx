@@ -28,6 +28,7 @@ import {
   X,
 } from 'lucide-react';
 import { API_BASE, formatPKR, maskPhone } from '@/lib/api';
+import { SubscriptionPricingSection } from '@/components/SubscriptionPricingSection';
 
 export default function ServiceProviderDashboardPage() {
   const [activeTab, setActiveTab] = useState<
@@ -1628,17 +1629,16 @@ export default function ServiceProviderDashboardPage() {
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-5 text-xs">
               <div>
                 <h3 className="font-extrabold text-base text-slate-900">Commercial Provider Monthly Pass</h3>
-                <p className="text-slate-500">Unlimited commercial cargo listings, commuter shuttles, and zero booking fee.</p>
+                <p className="text-slate-500">
+                  Unlimited commercial cargo listings, commuter shuttles, WAS - NOW pricing, and zero booking fee.
+                </p>
               </div>
 
-              <div className="p-4 bg-purple-50 rounded-2xl border border-purple-200 flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-bold text-purple-800 uppercase tracking-wider">Active Plan</span>
-                  <h4 className="font-black text-lg text-purple-950">Enterprise Cargo & Shuttle Pass</h4>
-                  <p className="text-[11px] text-purple-800">Direct booking leads · Route mapping · Fleet dispatcher</p>
-                </div>
-                <span className="text-lg font-black text-purple-950">PKR 15,000 / month</span>
-              </div>
+              <SubscriptionPricingSection
+                role="PROVIDER"
+                roleTitle="Logistics & Mobility Provider"
+                initialPlanName="Enterprise Cargo & Shuttle Pass"
+              />
             </div>
           )}
         </main>

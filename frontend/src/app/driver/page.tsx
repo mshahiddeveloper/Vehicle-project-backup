@@ -32,6 +32,7 @@ import {
   X,
 } from 'lucide-react';
 import { API_BASE, formatPKR, maskCnic, maskLicense, maskPhone } from '@/lib/api';
+import { SubscriptionPricingSection } from '@/components/SubscriptionPricingSection';
 
 export default function DriverDashboardPage() {
   const [activeTab, setActiveTab] = useState<
@@ -1212,17 +1213,16 @@ export default function DriverDashboardPage() {
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-5 text-xs">
               <div>
                 <h3 className="font-extrabold text-base text-slate-900">Driver Monthly Pass & Direct Leads</h3>
-                <p className="text-slate-500">Zero commission model. Keep 100% of your earnings from every trip.</p>
+                <p className="text-slate-500">
+                  Zero commission model. Enjoy WAS - NOW rates, regional launch promo codes, and keep 100% of your earnings from every trip.
+                </p>
               </div>
 
-              <div className="p-4 bg-sky-50 rounded-2xl border border-sky-200 flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-bold text-sky-800 uppercase tracking-wider">Active Plan</span>
-                  <h4 className="font-black text-lg text-sky-950">Independent Chauffeur Pass</h4>
-                  <p className="text-[11px] text-sky-800">Unlimited direct customer bookings · Zero commission</p>
-                </div>
-                <span className="text-lg font-black text-sky-950">PKR 1,500 / month</span>
-              </div>
+              <SubscriptionPricingSection
+                role="DRIVER"
+                roleTitle="Chauffeur / Driver"
+                initialPlanName="Chauffeur Solo Pass"
+              />
             </div>
           )}
         </main>

@@ -33,6 +33,7 @@ import {
   Edit3,
 } from 'lucide-react';
 import { API_BASE, formatPKR, maskCnic, maskLicense, maskPhone } from '@/lib/api';
+import { SubscriptionPricingSection } from '@/components/SubscriptionPricingSection';
 
 const POPULAR_CAR_SUGGESTIONS = [
   'Toyota Corolla',
@@ -1893,17 +1894,16 @@ export default function ListerDashboardPage() {
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-5">
               <div>
                 <h3 className="font-extrabold text-base text-slate-900">Lister Subscription & Billing</h3>
-                <p className="text-xs text-slate-500">Manage monthly listing quotas and submit payment verification slips.</p>
+                <p className="text-xs text-slate-500">
+                  Manage fleet vehicle quotas, apply regional promo codes, and enjoy WAS - NOW discounted rates.
+                </p>
               </div>
 
-              <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Active Plan</span>
-                  <h4 className="font-black text-lg text-emerald-950">Professional Fleet (15 Vehicles)</h4>
-                  <p className="text-xs text-emerald-800">Renews on 10 Dec 2026 · Meezan Bank Direct Transfer</p>
-                </div>
-                <span className="text-xl font-black text-emerald-950">PKR 12,000 / mo</span>
-              </div>
+              <SubscriptionPricingSection
+                role="CAR_RENTAL"
+                roleTitle="Fleet Lister"
+                initialPlanName="Professional Fleet (15 Vehicles)"
+              />
             </div>
           )}
 

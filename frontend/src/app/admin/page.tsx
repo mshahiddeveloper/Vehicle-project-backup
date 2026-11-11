@@ -41,12 +41,25 @@ import {
   MapPin,
   Calendar,
   Radio,
+  Tag,
+  Percent,
+  Gift,
 } from 'lucide-react';
 import { API_BASE, formatPKR, maskCnic, maskPhone } from '@/lib/api';
+import {
+  PromoCode,
+  SubscriptionPlan,
+  DEFAULT_PROMO_CODES,
+  DEFAULT_SUBSCRIPTION_PLANS,
+  getStoredPromoCodes,
+  saveStoredPromoCodes,
+  getStoredPlans,
+  saveStoredPlans,
+} from '@/data/promoCodes';
 
 export default function SuperAdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<
-    'services' | 'listings' | 'plans' | 'promotions' | 'directory' | 'agents' | 'stealthAudit' | 'legal' | 'countries'
+    'services' | 'listings' | 'plans' | 'promocodes' | 'promotions' | 'directory' | 'agents' | 'stealthAudit' | 'legal' | 'countries'
   >('services');
 
   // Master Service Switches
@@ -282,83 +295,15 @@ export default function SuperAdminDashboardPage() {
   };
 
   // =========================================================================
-  // 2. SUBSCRIPTION PLANS & QUOTAS FULL CRUD (ADD, EDIT, DELETE, TOGGLE)
+  // 2. SUBSCRIPTION PLANS & QUOTAS FULL CRUD (WAS - NOW PRICING)
   // =========================================================================
-  const defaultPlans = [
-    {
-      id: 'p-1',
-      name: 'Starter Fleet Pass',
-      targetRole: 'CAR_RENTAL',
-      price: 3500,
-      billingCycle: 'MONTHLY',
-      maxListings: 2,
-      features: ['Up to 2 Vehicle Listings', 'Direct Booking Leads', 'Standard Search Ranking', 'Basic Phone Support'],
-      isActive: true,
-      subscribersCount: 14,
-    },
-    {
-      id: 'p-2',
-      name: 'Professional Fleet Hub',
-      targetRole: 'CAR_RENTAL',
-      price: 12000,
-      billingCycle: 'MONTHLY',
-      maxListings: 15,
-      features: ['Up to 15 Vehicle Listings', 'Priority Search Placement', 'Verified Blue Tick Badge', 'Chauffeur Linking Included', '24/7 Agent Desk Support'],
-      isActive: true,
-      subscribersCount: 38,
-    },
-    {
-      id: 'p-3',
-      name: 'Enterprise Corporate Fleet',
-      targetRole: 'CAR_RENTAL',
-      price: 30000,
-      billingCycle: 'MONTHLY',
-      maxListings: 50,
-      features: ['Up to 50 Vehicle Listings', 'Top Homepage Featured Carousel', 'Dedicated Account Manager', 'Custom City Expansion', 'Zero Commission Guarantee'],
-      isActive: true,
-      subscribersCount: 8,
-    },
-    {
-      id: 'p-4',
-      name: 'Independent Chauffeur Pass',
-      targetRole: 'DRIVER',
-      price: 2000,
-      billingCycle: 'MONTHLY',
-      maxListings: 1,
-      features: ['Verified Driver Profile', 'Local & Outstation Direct Hiring', 'Customer Direct Booking Call', 'Traffic Police License Badge'],
-      isActive: true,
-      subscribersCount: 29,
-    },
-    {
-      id: 'p-5',
-      name: 'Pick & Drop Shuttle Pass',
-      targetRole: 'PICK_AND_DROP',
-      price: 6000,
-      billingCycle: 'MONTHLY',
-      maxListings: 8,
-      features: ['Up to 8 Scheduled Routes', 'Intermediate Boarding Stops & Timings', 'Live Seat Vacancy Counter', 'Monthly Student & Office Commuter Leads'],
-      isActive: true,
-      subscribersCount: 12,
-    },
-    {
-      id: 'p-6',
-      name: 'Home Shifting & Cargo Pass',
-      targetRole: 'SHIFTING',
-      price: 5000,
-      billingCycle: 'MONTHLY',
-      maxListings: 10,
-      features: ['Up to 10 Moving Trucks (Ravi/Shehzore/Mazda)', 'Per-KM & Mazdoor Fare Calculator', 'Direct Moving Quotations Queue'],
-      isActive: true,
-      subscribersCount: 19,
-    },
-  ];
-
-  const [plans, setPlans] = useState<any[]>(defaultPlans);
+  const [plans, setPlans] = useState<SubscriptionPlan[]>(DEFAULT_SUBSCRIPTION_PLANS);
   const [editingPlan, setEditingPlan] = useState<any | null>(null);
   const [showAddPlanModal, setShowAddPlanModal] = useState(false);
   const [newPlanForm, setNewPlanForm] = useState({
     name: '',
     targetRole: 'CAR_RENTAL',
+    wasPrice: 7000,
     price: 5000,
     billingCycle: 'MONTHLY',
     maxListings: 5,
@@ -366,15 +311,36 @@ export default function SuperAdminDashboardPage() {
     isActive: true,
   });
 
+  // =========================================================================
+  // 2B. PROMO CODES & COUNTRY-TARGETED DISCOUNTS (FULL CRUD)
+  // =========================================================================
+  const [promoCodes, setPromoCodes] = useState<PromoCode[]>(DEFAULT_PROMO_CODES);
+  const [editingPromo, setEditingPromo] = useState<PromoCode | null>(null);
+  const [showAddPromoModal, setShowAddPromoModal] = useState(false);
+  const [newPromoForm, setNewPromoForm] = useState({
+    code: '',
+    discountType: 'PERCENTAGE' as 'PERCENTAGE' | 'FIXED_AMOUNT',
+    discountValue: 20,
+    currency: 'PKR',
+    targetCountry: 'GLOBAL',
+    targetRole: 'ALL',
+    expiryDate: '2026-12-31',
+    maxUses: 200,
+    description: '',
+  });
+
+  useEffect(() => {
+    setPlans(getStoredPlans());
+    setPromoCodes(getStoredPromoCodes());
+  }, []);
+
   const handleSavePlanEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingPlan) return;
     const updated = plans.map((p) => (p.id === editingPlan.id ? { ...editingPlan } : p));
     setPlans(updated);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('safarpk_subscription_plans', JSON.stringify(updated));
-    }
-    setAdminNotice(`Subscription Package "${editingPlan.name}" updated successfully.`);
+    saveStoredPlans(updated);
+    setAdminNotice(`Subscription Package "${editingPlan.name}" updated with WAS - NOW rates.`);
     setEditingPlan(null);
     setTimeout(() => setAdminNotice(null), 3000);
   };
@@ -382,12 +348,13 @@ export default function SuperAdminDashboardPage() {
   const handleCreatePlan = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPlanForm.name.trim()) return;
-    const newPlan = {
+    const newPlan: SubscriptionPlan = {
       id: `plan-${Date.now()}`,
       name: newPlanForm.name.trim(),
-      targetRole: newPlanForm.targetRole,
+      targetRole: newPlanForm.targetRole as any,
+      wasPrice: Number(newPlanForm.wasPrice) || Number(newPlanForm.price) + 2000,
       price: Number(newPlanForm.price),
-      billingCycle: newPlanForm.billingCycle,
+      billingCycle: newPlanForm.billingCycle as any,
       maxListings: Number(newPlanForm.maxListings),
       features: newPlanForm.featuresText.split(',').map((f) => f.trim()).filter(Boolean),
       isActive: newPlanForm.isActive,
@@ -395,20 +362,19 @@ export default function SuperAdminDashboardPage() {
     };
     const updated = [...plans, newPlan];
     setPlans(updated);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('safarpk_subscription_plans', JSON.stringify(updated));
-    }
+    saveStoredPlans(updated);
     setShowAddPlanModal(false);
     setNewPlanForm({
       name: '',
       targetRole: 'CAR_RENTAL',
+      wasPrice: 7000,
       price: 5000,
       billingCycle: 'MONTHLY',
       maxListings: 5,
       featuresText: 'Direct Booking Leads, Priority Search Placement, Verified Badge',
       isActive: true,
     });
-    setAdminNotice(`New Package "${newPlan.name}" created and added to subscription roster.`);
+    setAdminNotice(`New Package "${newPlan.name}" created with WAS-NOW pricing.`);
     setTimeout(() => setAdminNotice(null), 3500);
   };
 
@@ -416,9 +382,7 @@ export default function SuperAdminDashboardPage() {
     if (confirm(`Are you sure you want to delete subscription package "${name}"?`)) {
       const updated = plans.filter((p) => p.id !== id);
       setPlans(updated);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('safarpk_subscription_plans', JSON.stringify(updated));
-      }
+      saveStoredPlans(updated);
       setAdminNotice(`Package "${name}" deleted.`);
       setTimeout(() => setAdminNotice(null), 3000);
     }
@@ -427,9 +391,72 @@ export default function SuperAdminDashboardPage() {
   const handleTogglePlanStatus = (id: string) => {
     const updated = plans.map((p) => (p.id === id ? { ...p, isActive: !p.isActive } : p));
     setPlans(updated);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('safarpk_subscription_plans', JSON.stringify(updated));
+    saveStoredPlans(updated);
+  };
+
+  // Promo Code Handlers
+  const handleSavePromoCode = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPromo) return;
+    const updated = promoCodes.map((p) => (p.id === editingPromo.id ? { ...editingPromo } : p));
+    setPromoCodes(updated);
+    saveStoredPromoCodes(updated);
+    setAdminNotice(`Promo code "${editingPromo.code}" updated successfully.`);
+    setEditingPromo(null);
+    setTimeout(() => setAdminNotice(null), 3000);
+  };
+
+  const handleCreatePromoCode = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPromoForm.code.trim()) return;
+    const cleanCode = newPromoForm.code.trim().toUpperCase().replace(/\s+/g, '');
+    const newPromo: PromoCode = {
+      id: `promo-${Date.now()}`,
+      code: cleanCode,
+      discountType: newPromoForm.discountType,
+      discountValue: Number(newPromoForm.discountValue),
+      currency: newPromoForm.currency,
+      targetCountries: [newPromoForm.targetCountry],
+      targetRoles: [newPromoForm.targetRole],
+      expiryDate: newPromoForm.expiryDate,
+      maxUses: Number(newPromoForm.maxUses) || undefined,
+      currentUses: 0,
+      isActive: true,
+      description: newPromoForm.description.trim() || `${cleanCode} subscription discount`,
+    };
+    const updated = [newPromo, ...promoCodes];
+    setPromoCodes(updated);
+    saveStoredPromoCodes(updated);
+    setShowAddPromoModal(false);
+    setNewPromoForm({
+      code: '',
+      discountType: 'PERCENTAGE',
+      discountValue: 20,
+      currency: 'PKR',
+      targetCountry: 'GLOBAL',
+      targetRole: 'ALL',
+      expiryDate: '2026-12-31',
+      maxUses: 200,
+      description: '',
+    });
+    setAdminNotice(`Promo code "${newPromo.code}" created and active for ${newPromo.targetCountries.join(', ')}.`);
+    setTimeout(() => setAdminNotice(null), 3500);
+  };
+
+  const handleDeletePromoCode = (id: string, code: string) => {
+    if (confirm(`Delete promo code "${code}"?`)) {
+      const updated = promoCodes.filter((p) => p.id !== id);
+      setPromoCodes(updated);
+      saveStoredPromoCodes(updated);
+      setAdminNotice(`Promo code "${code}" deleted.`);
+      setTimeout(() => setAdminNotice(null), 3000);
     }
+  };
+
+  const handleTogglePromoStatus = (id: string) => {
+    const updated = promoCodes.map((p) => (p.id === id ? { ...p, isActive: !p.isActive } : p));
+    setPromoCodes(updated);
+    saveStoredPromoCodes(updated);
   };
 
   // =========================================================================
@@ -835,7 +862,8 @@ export default function SuperAdminDashboardPage() {
             {[
               { id: 'services', label: 'Service Master Switches', icon: SlidersHorizontal },
               { id: 'listings', label: 'All Listings (Full CRUD)', icon: Car, badge: listings.length },
-              { id: 'plans', label: 'Subscription Packages (CRUD)', icon: DollarSign, badge: plans.length },
+              { id: 'plans', label: 'Subscription Packages (WAS-NOW)', icon: DollarSign, badge: plans.length },
+              { id: 'promocodes', label: 'Promo Codes & Discounts', icon: Tag, badge: promoCodes.length },
               { id: 'promotions', label: 'Promotional Announcement Bar', icon: Bell, alert: promoEnabled ? 1 : 0 },
               { id: 'directory', label: 'User & Vendor Directory', icon: Search, badge: mockDirectoryUsers.length },
               { id: 'agents', label: 'Staff / Agent Management', icon: Users, badge: agents.length },
@@ -1067,11 +1095,25 @@ export default function SuperAdminDashboardPage() {
 
                       <div>
                         <h4 className="font-extrabold text-sm text-white">{p.name}</h4>
-                        <div className="mt-1 flex items-baseline gap-1">
-                          <span className="text-2xl font-black text-emerald-400">PKR {formatPKR(p.price)}</span>
-                          <span className="text-xs text-slate-400">/{p.billingCycle.toLowerCase()}</span>
+                        {/* WAS - NOW Pricing Display */}
+                        <div className="mt-1 space-y-0.5">
+                          {p.wasPrice && p.wasPrice > p.price && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-slate-400 line-through font-semibold">
+                                WAS PKR {formatPKR(p.wasPrice)}
+                              </span>
+                              <span className="text-[10px] font-extrabold bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1.5 py-0.2 rounded-full">
+                                {Math.round(((p.wasPrice - p.price) / p.wasPrice) * 100)}% OFF
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-[11px] font-bold text-slate-400 uppercase">NOW:</span>
+                            <span className="text-2xl font-black text-emerald-400">PKR {formatPKR(p.price)}</span>
+                            <span className="text-xs text-slate-400">/{p.billingCycle.toLowerCase()}</span>
+                          </div>
                         </div>
-                        <span className="text-xs font-bold text-slate-300 block mt-1">
+                        <span className="text-xs font-bold text-slate-300 block mt-2">
                           Quota: <strong className="text-white">{p.maxListings} Vehicles / Routes</strong>
                         </span>
                       </div>
@@ -1117,6 +1159,172 @@ export default function SuperAdminDashboardPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 3B: SUBSCRIPTION PROMO CODES & COUNTRY-RESTRICTED DISCOUNTS            */}
+          {/* ========================================================================= */}
+          {activeTab === 'promocodes' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-extrabold text-base text-white">Subscription Promo Codes & Regional Whitelisting</h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      {promoCodes.filter((p) => p.isActive).length} ACTIVE
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Percentage (%) or Fixed Currency discounts for subscribers. Whitelist specific countries (e.g. PK only, DE only) or GLOBAL.
+                    Subscribers from non-whitelisted countries will never see or be able to apply restricted codes.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddPromoModal(true)}
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-lg shadow-emerald-950/40"
+                >
+                  <Gift className="w-4 h-4" />
+                  <span>➕ Create Promo Code</span>
+                </button>
+              </div>
+
+              {/* Promo Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {promoCodes.map((promo) => {
+                  const isGlobal = promo.targetCountries.includes('GLOBAL');
+                  return (
+                    <div
+                      key={promo.id}
+                      className={`p-5 rounded-2xl border flex flex-col justify-between space-y-4 transition ${
+                        promo.isActive
+                          ? 'bg-slate-950/90 border-slate-800 hover:border-slate-700 shadow-md'
+                          : 'bg-slate-950/40 border-slate-900 opacity-60'
+                      }`}
+                    >
+                      <div className="space-y-3">
+                        {/* Header Badges */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-xs font-black text-amber-300 bg-amber-950/40 px-2.5 py-1 rounded-lg border border-amber-800/60 uppercase tracking-wider flex items-center gap-1">
+                              <Tag className="w-3 h-3 text-amber-400" />
+                              {promo.code}
+                            </span>
+                          </div>
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
+                              promo.isActive
+                                ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                : 'bg-slate-800 text-slate-400'
+                            }`}
+                          >
+                            {promo.isActive ? 'ACTIVE' : 'DISABLED'}
+                          </span>
+                        </div>
+
+                        {/* Discount Banner */}
+                        <div className="p-3 bg-slate-900/90 rounded-xl border border-slate-800/80">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-slate-400 uppercase">Discount Rate:</span>
+                            <span className="text-base font-black text-emerald-400">
+                              {promo.discountType === 'PERCENTAGE'
+                                ? `${promo.discountValue}% OFF`
+                                : `Flat ${promo.currency || 'PKR'} ${promo.discountValue} OFF`}
+                            </span>
+                          </div>
+                          {promo.description && (
+                            <p className="text-[11px] text-slate-300 mt-1 italic">
+                              &ldquo;{promo.description}&rdquo;
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Country Targeting Whitelist */}
+                        <div className="space-y-1.5 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-400 text-[11px]">Region Whitelist:</span>
+                            {isGlobal ? (
+                              <span className="inline-flex items-center gap-1 font-bold text-blue-400 text-[11px] bg-blue-950/50 px-2 py-0.5 rounded border border-blue-900">
+                                <Globe className="w-3 h-3" /> Worldwide (All Countries)
+                              </span>
+                            ) : (
+                              <div className="flex flex-wrap gap-1 justify-end">
+                                {promo.targetCountries.map((c) => (
+                                  <span
+                                    key={c}
+                                    className="inline-flex items-center gap-1 font-extrabold text-amber-300 text-[11px] bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800"
+                                  >
+                                    <Lock className="w-2.5 h-2.5 text-amber-400" />
+                                    {c === 'PK' ? '🇵🇰 Pakistan' : c === 'DE' ? '🇩🇪 Germany' : c === 'US' ? '🇺🇸 United States' : c === 'AE' ? '🇦🇪 UAE' : c === 'GB' ? '🇬🇧 UK' : c === 'SA' ? '🇸🇦 Saudi Arabia' : c === 'CA' ? '🇨🇦 Canada' : c}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {!isGlobal && (
+                            <div className="text-[10px] text-amber-400/90 bg-amber-950/20 p-1.5 rounded border border-amber-900/30">
+                              🔒 100% hidden and blocked for visitors outside {promo.targetCountries.join(', ')}
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between text-[11px] pt-1">
+                            <span className="text-slate-400">Target Role:</span>
+                            <span className="font-semibold text-slate-200">
+                              {promo.targetRoles?.includes('ALL') ? 'All Subscribers' : promo.targetRoles?.join(', ')}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-slate-400">Redemptions:</span>
+                            <span className="font-semibold text-slate-200">
+                              {promo.currentUses} / {promo.maxUses ? `${promo.maxUses} max` : 'Unlimited'}
+                            </span>
+                          </div>
+
+                          {promo.expiryDate && (
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="text-slate-400">Valid Until:</span>
+                              <span className="font-mono text-slate-300">{promo.expiryDate}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="pt-3 border-t border-slate-900 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setEditingPromo({ ...promo })}
+                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+                          >
+                            <Edit3 className="w-3 h-3 text-emerald-400" />
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleTogglePromoStatus(promo.id)}
+                            className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl text-[11px] font-semibold border border-slate-800 cursor-pointer"
+                          >
+                            {promo.isActive ? 'Disable' : 'Enable'}
+                          </button>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePromoCode(promo.id, promo.code)}
+                          className="p-1.5 bg-rose-950/60 hover:bg-rose-900 text-rose-300 rounded-xl border border-rose-800 transition cursor-pointer"
+                          title="Delete Promo"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1869,19 +2077,37 @@ export default function SuperAdminDashboardPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="font-bold text-slate-300 block mb-1">Price (PKR) *</label>
+                  <label className="font-bold text-slate-300 block mb-1">
+                    WAS Price (PKR)
+                    <span className="text-[10px] text-slate-400 font-normal block">Strikethrough before rate</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={newPlanForm.wasPrice}
+                    onChange={(e) => setNewPlanForm({ ...newPlanForm, wasPrice: Number(e.target.value) })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">
+                    NOW Price (PKR) *
+                    <span className="text-[10px] text-emerald-400 font-normal block">Active payable price</span>
+                  </label>
                   <input
                     type="number"
                     required
                     value={newPlanForm.price}
                     onChange={(e) => setNewPlanForm({ ...newPlanForm, price: Number(e.target.value) })}
-                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-emerald-400 font-bold"
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-300 block mb-1">Max Listings / Routes Quota *</label>
+                  <label className="font-bold text-slate-300 block mb-1">
+                    Max Listings Quota *
+                    <span className="text-[10px] text-slate-400 font-normal block">Allowed vehicles</span>
+                  </label>
                   <input
                     type="number"
                     required
@@ -1923,7 +2149,7 @@ export default function SuperAdminDashboardPage() {
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL 2: EDIT SUBSCRIPTION PLAN                                           */}
+      {/* MODAL 2: EDIT SUBSCRIPTION PLAN (WAS - NOW)                                */}
       {/* ========================================================================= */}
       {editingPlan && (
         <div
@@ -1937,7 +2163,7 @@ export default function SuperAdminDashboardPage() {
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
                 <h4 className="font-black text-sm text-white">Edit Package: {editingPlan.name}</h4>
-                <p className="text-[11px] text-slate-400">Update rates, quotas, or feature list</p>
+                <p className="text-[11px] text-slate-400">Update WAS - NOW rates, quotas, or feature list</p>
               </div>
               <button onClick={() => setEditingPlan(null)} className="text-slate-400 hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
@@ -1956,19 +2182,37 @@ export default function SuperAdminDashboardPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="font-bold text-slate-300 block mb-1">Price (PKR)</label>
+                  <label className="font-bold text-slate-300 block mb-1">
+                    WAS Price (PKR)
+                    <span className="text-[10px] text-slate-400 font-normal block">Original strikethrough</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={editingPlan.wasPrice || ''}
+                    onChange={(e) => setEditingPlan({ ...editingPlan, wasPrice: Number(e.target.value) })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">
+                    NOW Price (PKR) *
+                    <span className="text-[10px] text-emerald-400 font-normal block">Payable package rate</span>
+                  </label>
                   <input
                     type="number"
                     required
                     value={editingPlan.price}
                     onChange={(e) => setEditingPlan({ ...editingPlan, price: Number(e.target.value) })}
-                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-emerald-400 font-bold"
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-300 block mb-1">Max Quota Listings</label>
+                  <label className="font-bold text-slate-300 block mb-1">
+                    Max Listings
+                    <span className="text-[10px] text-slate-400 font-normal block">Quota limit</span>
+                  </label>
                   <input
                     type="number"
                     required
@@ -2009,6 +2253,330 @@ export default function SuperAdminDashboardPage() {
                   className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold cursor-pointer"
                 >
                   Save Package Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 2B: CREATE NEW PROMO CODE WITH REGIONAL TARGETING                   */}
+      {/* ========================================================================= */}
+      {showAddPromoModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-hidden"
+          onClick={() => setShowAddPromoModal(false)}
+        >
+          <div
+            className="bg-slate-950 border border-slate-800 w-full max-w-lg rounded-3xl p-6 text-xs space-y-4 text-slate-200 max-h-[90vh] overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h4 className="font-black text-sm text-white">Create Subscription Promo Code</h4>
+                <p className="text-[11px] text-slate-400">Set percentage/fixed discount and country isolation rules</p>
+              </div>
+              <button onClick={() => setShowAddPromoModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreatePromoCode} className="space-y-3">
+              <div>
+                <label className="font-bold text-slate-300 block mb-1">Promo Code *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. SUMMER25, LAUNCHPK"
+                  value={newPromoForm.code}
+                  onChange={(e) => setNewPromoForm({ ...newPromoForm, code: e.target.value.toUpperCase().replace(/\s+/g, '') })}
+                  className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-amber-300 font-mono font-bold tracking-wider uppercase"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Discount Type</label>
+                  <select
+                    value={newPromoForm.discountType}
+                    onChange={(e) => setNewPromoForm({ ...newPromoForm, discountType: e.target.value as any })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  >
+                    <option value="PERCENTAGE">Percentage (% Off)</option>
+                    <option value="FIXED_AMOUNT">Fixed Price (Currency Off)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">
+                    {newPromoForm.discountType === 'PERCENTAGE' ? 'Discount Percentage (%) *' : 'Discount Amount *'}
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    max={newPromoForm.discountType === 'PERCENTAGE' ? 100 : undefined}
+                    value={newPromoForm.discountValue}
+                    onChange={(e) => setNewPromoForm({ ...newPromoForm, discountValue: Number(e.target.value) })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-emerald-400 font-bold"
+                  />
+                </div>
+              </div>
+
+              {newPromoForm.discountType === 'FIXED_AMOUNT' && (
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Fixed Discount Currency</label>
+                  <select
+                    value={newPromoForm.currency}
+                    onChange={(e) => setNewPromoForm({ ...newPromoForm, currency: e.target.value })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  >
+                    <option value="PKR">PKR (Rs - Pakistan)</option>
+                    <option value="EUR">EUR (€ - Germany / Eurozone)</option>
+                    <option value="USD">USD ($ - United States)</option>
+                    <option value="AED">AED (AED - UAE)</option>
+                    <option value="GBP">GBP (£ - United Kingdom)</option>
+                    <option value="SAR">SAR (SAR - Saudi Arabia)</option>
+                    <option value="CAD">CAD ($ - Canada)</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="p-3 bg-slate-900/90 rounded-2xl border border-slate-800 space-y-2">
+                <label className="font-bold text-amber-300 block text-xs">
+                  🌍 Target Country Whitelist (Region Isolation)
+                </label>
+                <select
+                  value={newPromoForm.targetCountry}
+                  onChange={(e) => setNewPromoForm({ ...newPromoForm, targetCountry: e.target.value })}
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
+                >
+                  <option value="GLOBAL">🌐 GLOBAL (All Countries Worldwide)</option>
+                  <option value="PK">🇵🇰 Pakistan Only (Hidden from all other countries)</option>
+                  <option value="DE">🇩🇪 Germany Only (Hidden from all other countries)</option>
+                  <option value="US">🇺🇸 United States Only (Hidden from all other countries)</option>
+                  <option value="AE">🇦🇪 United Arab Emirates Only (Hidden from all other countries)</option>
+                  <option value="GB">🇬🇧 United Kingdom Only (Hidden from all other countries)</option>
+                  <option value="SA">🇸🇦 Saudi Arabia Only (Hidden from all other countries)</option>
+                  <option value="CA">🇨🇦 Canada Only (Hidden from all other countries)</option>
+                </select>
+                <p className="text-[10px] text-slate-400 leading-relaxed">
+                  🔒 If a specific country is chosen, subscribers visiting from other countries will <strong>neither see this promo code nor be permitted to apply it</strong> (&ldquo;Not applicable in your region&rdquo;).
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Target Subscriber Role</label>
+                  <select
+                    value={newPromoForm.targetRole}
+                    onChange={(e) => setNewPromoForm({ ...newPromoForm, targetRole: e.target.value })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  >
+                    <option value="ALL">All Roles (Fleet, Drivers, Movers)</option>
+                    <option value="CAR_RENTAL">Car Rental Fleet Owners Only</option>
+                    <option value="DRIVER">Independent Chauffeurs Only</option>
+                    <option value="PROVIDER">Movers & Shuttle Providers Only</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Max Redemptions</label>
+                  <input
+                    type="number"
+                    value={newPromoForm.maxUses}
+                    onChange={(e) => setNewPromoForm({ ...newPromoForm, maxUses: Number(e.target.value) })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Expiry Date</label>
+                  <input
+                    type="date"
+                    value={newPromoForm.expiryDate}
+                    onChange={(e) => setNewPromoForm({ ...newPromoForm, expiryDate: e.target.value })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Description</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Exclusive regional launch discount"
+                    value={newPromoForm.description}
+                    onChange={(e) => setNewPromoForm({ ...newPromoForm, description: e.target.value })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowAddPromoModal(false)}
+                  className="px-4 py-2 bg-slate-800 text-slate-200 rounded-xl font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-bold cursor-pointer shadow-lg shadow-emerald-950/40"
+                >
+                  Create & Activate Promo
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 2C: EDIT PROMO CODE                                                 */}
+      {/* ========================================================================= */}
+      {editingPromo && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-hidden"
+          onClick={() => setEditingPromo(null)}
+        >
+          <div
+            className="bg-slate-950 border border-slate-800 w-full max-w-lg rounded-3xl p-6 text-xs space-y-4 text-slate-200 max-h-[90vh] overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h4 className="font-black text-sm text-white">Edit Promo Code: {editingPromo.code}</h4>
+                <p className="text-[11px] text-slate-400">Update rates, country whitelist, or validity</p>
+              </div>
+              <button onClick={() => setEditingPromo(null)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePromoCode} className="space-y-3">
+              <div>
+                <label className="font-bold text-slate-300 block mb-1">Promo Code</label>
+                <input
+                  type="text"
+                  required
+                  value={editingPromo.code}
+                  onChange={(e) => setEditingPromo({ ...editingPromo, code: e.target.value.toUpperCase().replace(/\s+/g, '') })}
+                  className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-amber-300 font-mono font-bold tracking-wider uppercase"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Discount Type</label>
+                  <select
+                    value={editingPromo.discountType}
+                    onChange={(e) => setEditingPromo({ ...editingPromo, discountType: e.target.value as any })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  >
+                    <option value="PERCENTAGE">Percentage (% Off)</option>
+                    <option value="FIXED_AMOUNT">Fixed Price (Currency Off)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">
+                    {editingPromo.discountType === 'PERCENTAGE' ? 'Discount Percentage (%)' : 'Discount Amount'}
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    max={editingPromo.discountType === 'PERCENTAGE' ? 100 : undefined}
+                    value={editingPromo.discountValue}
+                    onChange={(e) => setEditingPromo({ ...editingPromo, discountValue: Number(e.target.value) })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-emerald-400 font-bold"
+                  />
+                </div>
+              </div>
+
+              {editingPromo.discountType === 'FIXED_AMOUNT' && (
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Fixed Discount Currency</label>
+                  <select
+                    value={editingPromo.currency || 'PKR'}
+                    onChange={(e) => setEditingPromo({ ...editingPromo, currency: e.target.value })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  >
+                    <option value="PKR">PKR (Rs - Pakistan)</option>
+                    <option value="EUR">EUR (€ - Germany / Eurozone)</option>
+                    <option value="USD">USD ($ - United States)</option>
+                    <option value="AED">AED (AED - UAE)</option>
+                    <option value="GBP">GBP (£ - United Kingdom)</option>
+                    <option value="SAR">SAR (SAR - Saudi Arabia)</option>
+                    <option value="CAD">CAD ($ - Canada)</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="p-3 bg-slate-900/90 rounded-2xl border border-slate-800 space-y-2">
+                <label className="font-bold text-amber-300 block text-xs">
+                  🌍 Target Country Whitelist
+                </label>
+                <select
+                  value={editingPromo.targetCountries[0] || 'GLOBAL'}
+                  onChange={(e) => setEditingPromo({ ...editingPromo, targetCountries: [e.target.value] })}
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
+                >
+                  <option value="GLOBAL">🌐 GLOBAL (All Countries Worldwide)</option>
+                  <option value="PK">🇵🇰 Pakistan Only</option>
+                  <option value="DE">🇩🇪 Germany Only</option>
+                  <option value="US">🇺🇸 United States Only</option>
+                  <option value="AE">🇦🇪 United Arab Emirates Only</option>
+                  <option value="GB">🇬🇧 United Kingdom Only</option>
+                  <option value="SA">🇸🇦 Saudi Arabia Only</option>
+                  <option value="CA">🇨🇦 Canada Only</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Max Redemptions</label>
+                  <input
+                    type="number"
+                    value={editingPromo.maxUses || ''}
+                    onChange={(e) => setEditingPromo({ ...editingPromo, maxUses: Number(e.target.value) || undefined })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Expiry Date</label>
+                  <input
+                    type="date"
+                    value={editingPromo.expiryDate || ''}
+                    onChange={(e) => setEditingPromo({ ...editingPromo, expiryDate: e.target.value })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-300 block mb-1">Description</label>
+                <input
+                  type="text"
+                  value={editingPromo.description || ''}
+                  onChange={(e) => setEditingPromo({ ...editingPromo, description: e.target.value })}
+                  className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingPromo(null)}
+                  className="px-4 py-2 bg-slate-800 text-slate-200 rounded-xl font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold cursor-pointer"
+                >
+                  Save Changes
                 </button>
               </div>
             </form>
