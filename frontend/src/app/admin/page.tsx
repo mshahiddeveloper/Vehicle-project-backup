@@ -1,0 +1,2675 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import {
+  Settings,
+  ShieldCheck,
+  ToggleLeft,
+  ToggleRight,
+  Car,
+  Users,
+  CreditCard,
+  Bell,
+  FileText,
+  Globe,
+  SlidersHorizontal,
+  DollarSign,
+  AlertCircle,
+  Eye,
+  CheckCircle2,
+  Trash2,
+  RefreshCw,
+  PlusCircle,
+  Edit3,
+  X,
+  UserCheck,
+  Lock,
+  Upload,
+  ExternalLink,
+  Filter,
+  AlertTriangle,
+  Receipt,
+  FileCheck,
+  Search,
+  Check,
+  Sparkles,
+  Phone,
+  Building,
+  Navigation,
+  Truck,
+  MapPin,
+  Calendar,
+  Radio,
+} from 'lucide-react';
+import { API_BASE, formatPKR, maskCnic, maskPhone } from '@/lib/api';
+
+export default function SuperAdminDashboardPage() {
+  const [activeTab, setActiveTab] = useState<
+    'services' | 'listings' | 'plans' | 'promotions' | 'directory' | 'agents' | 'stealthAudit' | 'legal' | 'countries'
+  >('services');
+
+  // Master Service Switches
+  const [modules, setModules] = useState({
+    carRental: true,
+    pickAndDrop: true,
+    cityToCity: true,
+    homeShifting: true,
+    hireDriver: true,
+  });
+
+  // Country Specific Verification & Document Upload Rules
+  const [selectedAdminCountry, setSelectedAdminCountry] = useState<string>('GLOBAL');
+  const [countryRules, setCountryRules] = useState<Record<string, {
+    cardUploadPolicy: 'REQUIRED' | 'OPTIONAL' | 'HIDDEN';
+    requireNationalId: boolean;
+    requireDrivingLicense: boolean;
+    enabledCategories: {
+      carRental: boolean;
+      pickAndDrop: boolean;
+      cityToCity: boolean;
+      homeShifting: boolean;
+      hireDriver: boolean;
+    };
+  }>>({
+    GLOBAL: {
+      cardUploadPolicy: 'REQUIRED',
+      requireNationalId: true,
+      requireDrivingLicense: true,
+      enabledCategories: { carRental: true, pickAndDrop: true, cityToCity: true, homeShifting: true, hireDriver: true },
+    },
+    PK: {
+      cardUploadPolicy: 'REQUIRED',
+      requireNationalId: true,
+      requireDrivingLicense: true,
+      enabledCategories: { carRental: true, pickAndDrop: true, cityToCity: true, homeShifting: true, hireDriver: true },
+    },
+    DE: {
+      cardUploadPolicy: 'OPTIONAL',
+      requireNationalId: true,
+      requireDrivingLicense: true,
+      enabledCategories: { carRental: true, pickAndDrop: true, cityToCity: true, homeShifting: false, hireDriver: true },
+    },
+    AE: {
+      cardUploadPolicy: 'REQUIRED',
+      requireNationalId: true,
+      requireDrivingLicense: true,
+      enabledCategories: { carRental: true, pickAndDrop: true, cityToCity: true, homeShifting: true, hireDriver: true },
+    },
+    GB: {
+      cardUploadPolicy: 'REQUIRED',
+      requireNationalId: true,
+      requireDrivingLicense: true,
+      enabledCategories: { carRental: true, pickAndDrop: true, cityToCity: true, homeShifting: true, hireDriver: true },
+    },
+    SA: {
+      cardUploadPolicy: 'REQUIRED',
+      requireNationalId: true,
+      requireDrivingLicense: true,
+      enabledCategories: { carRental: true, pickAndDrop: true, cityToCity: true, homeShifting: true, hireDriver: true },
+    },
+    US: {
+      cardUploadPolicy: 'REQUIRED',
+      requireNationalId: true,
+      requireDrivingLicense: true,
+      enabledCategories: { carRental: true, pickAndDrop: true, cityToCity: true, homeShifting: true, hireDriver: true },
+    },
+    CA: {
+      cardUploadPolicy: 'REQUIRED',
+      requireNationalId: true,
+      requireDrivingLicense: true,
+      enabledCategories: { carRental: true, pickAndDrop: true, cityToCity: true, homeShifting: true, hireDriver: true },
+    },
+  });
+
+  const handleUpdateCountryPolicy = (countryCode: string, policy: 'REQUIRED' | 'OPTIONAL' | 'HIDDEN') => {
+    const updated = {
+      ...countryRules,
+      [countryCode]: {
+        ...(countryRules[countryCode] || countryRules.GLOBAL),
+        cardUploadPolicy: policy,
+      },
+    };
+    setCountryRules(updated);
+    if (typeof window !== 'undefined') {
+      const payload = {
+        globalCardUploadPolicy: updated.GLOBAL.cardUploadPolicy,
+        countryRules: updated,
+      };
+      localStorage.setItem('safarpk_country_settings', JSON.stringify(payload));
+      window.dispatchEvent(new CustomEvent('safarpk_country_settings_changed', { detail: payload }));
+    }
+    setAdminNotice(`✅ Document/Card Upload Policy for ${countryCode} updated to ${policy}.`);
+    setTimeout(() => setAdminNotice(null), 3500);
+  };
+
+  const handleToggleCountryCategory = (countryCode: string, category: 'carRental' | 'pickAndDrop' | 'cityToCity' | 'homeShifting' | 'hireDriver') => {
+    const currentRule = countryRules[countryCode] || countryRules.GLOBAL;
+    const currentCat = currentRule.enabledCategories[category] ?? true;
+    const updated = {
+      ...countryRules,
+      [countryCode]: {
+        ...currentRule,
+        enabledCategories: {
+          ...currentRule.enabledCategories,
+          [category]: !currentCat,
+        },
+      },
+    };
+    setCountryRules(updated);
+    if (typeof window !== 'undefined') {
+      const payload = {
+        globalCardUploadPolicy: updated.GLOBAL.cardUploadPolicy,
+        countryRules: updated,
+      };
+      localStorage.setItem('safarpk_country_settings', JSON.stringify(payload));
+      window.dispatchEvent(new CustomEvent('safarpk_country_settings_changed', { detail: payload }));
+    }
+    setAdminNotice(`✅ Category ${category} in ${countryCode} set to ${!currentCat ? 'ACTIVE' : 'DISABLED'}.`);
+    setTimeout(() => setAdminNotice(null), 3000);
+  };
+
+  // Notice Toast
+  const [adminNotice, setAdminNotice] = useState<string | null>(null);
+
+  // Initialize modules from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const savedModules = localStorage.getItem('safarpk_module_switches');
+        if (savedModules) setModules(JSON.parse(savedModules));
+
+        const savedPlans = localStorage.getItem('safarpk_subscription_plans');
+        if (savedPlans) setPlans(JSON.parse(savedPlans));
+
+        const savedPromo = localStorage.getItem('safarpk_promo_announcement');
+        if (savedPromo) {
+          const p = JSON.parse(savedPromo);
+          setPromoHeading(p.heading || promoHeading);
+          setPromoMessage(p.message || promoMessage);
+          setPromoEnabled(p.enabled ?? true);
+          setPromoStyle(p.style || 'MARQUEE_TICKER');
+          setPromoBadge(p.badge || '🔥 SafarPK Launch Announcement');
+        }
+
+        const savedPolicies = localStorage.getItem('safarpk_platform_policies');
+        if (savedPolicies) setPolicies(JSON.parse(savedPolicies));
+      } catch (e) {
+        // use defaults
+      }
+    }
+  }, []);
+
+  const toggleModule = (mod: keyof typeof modules) => {
+    const updated = { ...modules, [mod]: !modules[mod] };
+    setModules(updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('safarpk_module_switches', JSON.stringify(updated));
+      window.dispatchEvent(new Event('safarpk_modules_changed'));
+    }
+    setAdminNotice(`Updated module ${mod} to ${updated[mod] ? 'LIVE' : 'DISABLED PLATFORM-WIDE'}`);
+    setTimeout(() => setAdminNotice(null), 3500);
+  };
+
+  // =========================================================================
+  // 1. ALL LISTINGS FULL CRUD
+  // =========================================================================
+  const [listings, setListings] = useState<any[]>([
+    { id: 'l-1', ref: 'LST-480853', title: 'Honda Civic Oriel Turbo 2024', city: 'Islamabad', rate: 14000, status: 'LIVE', lister: 'Kashif Autos', category: 'CAR_RENTAL', transmission: 'Automatic' },
+    { id: 'l-2', ref: 'LST-065123', title: 'Toyota Corolla Altis Grande 2024', city: 'Lahore', rate: 8500, status: 'LIVE', lister: 'Salman Rentals', category: 'CAR_RENTAL', transmission: 'CVT Automatic' },
+    { id: 'l-3', ref: 'SHF-2026-001', title: 'Hyundai Shehzore D-100 Shifting Pickup', city: 'Lahore', rate: 4500, status: 'LIVE', lister: 'Al-Makkah Transport', category: 'GOODS_TRANSPORT', transmission: 'Manual 5-Speed' },
+    { id: 'l-4', ref: 'PND-9901', title: 'Toyota HiAce Grand Cabin Office Commute', city: 'Lahore', rate: 8500, status: 'LIVE', lister: 'Metro Commute Services', category: 'PICK_AND_DROP', transmission: 'Automatic' },
+  ]);
+
+  const [editingListing, setEditingListing] = useState<any | null>(null);
+  const [showAddListingModal, setShowAddListingModal] = useState(false);
+  const [newListingForm, setNewListingForm] = useState({
+    title: '',
+    city: 'Lahore',
+    rate: 7000,
+    lister: 'SafarPK Direct Override',
+    category: 'CAR_RENTAL',
+    transmission: 'Automatic',
+    status: 'LIVE',
+  });
+
+  const handleSaveListingEdit = () => {
+    if (!editingListing) return;
+    setListings(listings.map((l) => (l.id === editingListing.id ? { ...editingListing } : l)));
+    setAdminNotice(`Listing ${editingListing.ref} (${editingListing.title}) successfully updated.`);
+    setEditingListing(null);
+    setTimeout(() => setAdminNotice(null), 3000);
+  };
+
+  const handleDeleteListing = (id: string, ref: string) => {
+    if (confirm(`Are you sure you want to permanently delete listing ${ref}? This action is irreversible.`)) {
+      setListings(listings.filter((l) => l.id !== id));
+      setAdminNotice(`Listing ${ref} permanently deleted from platform.`);
+      setTimeout(() => setAdminNotice(null), 3000);
+    }
+  };
+
+  const handleCreateOverrideListing = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newId = `l-${Date.now()}`;
+    const newRef = `LST-${Math.floor(100000 + Math.random() * 900000)}`;
+    const created = {
+      id: newId,
+      ref: newRef,
+      ...newListingForm,
+    };
+    setListings([created, ...listings]);
+    setShowAddListingModal(false);
+    setNewListingForm({
+      title: '',
+      city: 'Lahore',
+      rate: 7000,
+      lister: 'SafarPK Direct Override',
+      category: 'CAR_RENTAL',
+      transmission: 'Automatic',
+      status: 'LIVE',
+    });
+    setAdminNotice(`Direct listing ${newRef} created and published LIVE.`);
+    setTimeout(() => setAdminNotice(null), 3500);
+  };
+
+  const toggleListingStatus = (id: string) => {
+    setListings(
+      listings.map((l) =>
+        l.id === id ? { ...l, status: l.status === 'LIVE' ? 'SUSPENDED' : 'LIVE' } : l
+      )
+    );
+  };
+
+  // =========================================================================
+  // 2. SUBSCRIPTION PLANS & QUOTAS FULL CRUD (ADD, EDIT, DELETE, TOGGLE)
+  // =========================================================================
+  const defaultPlans = [
+    {
+      id: 'p-1',
+      name: 'Starter Fleet Pass',
+      targetRole: 'CAR_RENTAL',
+      price: 3500,
+      billingCycle: 'MONTHLY',
+      maxListings: 2,
+      features: ['Up to 2 Vehicle Listings', 'Direct Booking Leads', 'Standard Search Ranking', 'Basic Phone Support'],
+      isActive: true,
+      subscribersCount: 14,
+    },
+    {
+      id: 'p-2',
+      name: 'Professional Fleet Hub',
+      targetRole: 'CAR_RENTAL',
+      price: 12000,
+      billingCycle: 'MONTHLY',
+      maxListings: 15,
+      features: ['Up to 15 Vehicle Listings', 'Priority Search Placement', 'Verified Blue Tick Badge', 'Chauffeur Linking Included', '24/7 Agent Desk Support'],
+      isActive: true,
+      subscribersCount: 38,
+    },
+    {
+      id: 'p-3',
+      name: 'Enterprise Corporate Fleet',
+      targetRole: 'CAR_RENTAL',
+      price: 30000,
+      billingCycle: 'MONTHLY',
+      maxListings: 50,
+      features: ['Up to 50 Vehicle Listings', 'Top Homepage Featured Carousel', 'Dedicated Account Manager', 'Custom City Expansion', 'Zero Commission Guarantee'],
+      isActive: true,
+      subscribersCount: 8,
+    },
+    {
+      id: 'p-4',
+      name: 'Independent Chauffeur Pass',
+      targetRole: 'DRIVER',
+      price: 2000,
+      billingCycle: 'MONTHLY',
+      maxListings: 1,
+      features: ['Verified Driver Profile', 'Local & Outstation Direct Hiring', 'Customer Direct Booking Call', 'Traffic Police License Badge'],
+      isActive: true,
+      subscribersCount: 29,
+    },
+    {
+      id: 'p-5',
+      name: 'Pick & Drop Shuttle Pass',
+      targetRole: 'PICK_AND_DROP',
+      price: 6000,
+      billingCycle: 'MONTHLY',
+      maxListings: 8,
+      features: ['Up to 8 Scheduled Routes', 'Intermediate Boarding Stops & Timings', 'Live Seat Vacancy Counter', 'Monthly Student & Office Commuter Leads'],
+      isActive: true,
+      subscribersCount: 12,
+    },
+    {
+      id: 'p-6',
+      name: 'Home Shifting & Cargo Pass',
+      targetRole: 'SHIFTING',
+      price: 5000,
+      billingCycle: 'MONTHLY',
+      maxListings: 10,
+      features: ['Up to 10 Moving Trucks (Ravi/Shehzore/Mazda)', 'Per-KM & Mazdoor Fare Calculator', 'Direct Moving Quotations Queue'],
+      isActive: true,
+      subscribersCount: 19,
+    },
+  ];
+
+  const [plans, setPlans] = useState<any[]>(defaultPlans);
+  const [editingPlan, setEditingPlan] = useState<any | null>(null);
+  const [showAddPlanModal, setShowAddPlanModal] = useState(false);
+  const [newPlanForm, setNewPlanForm] = useState({
+    name: '',
+    targetRole: 'CAR_RENTAL',
+    price: 5000,
+    billingCycle: 'MONTHLY',
+    maxListings: 5,
+    featuresText: 'Direct Booking Leads, Priority Search Placement, Verified Badge',
+    isActive: true,
+  });
+
+  const handleSavePlanEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPlan) return;
+    const updated = plans.map((p) => (p.id === editingPlan.id ? { ...editingPlan } : p));
+    setPlans(updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('safarpk_subscription_plans', JSON.stringify(updated));
+    }
+    setAdminNotice(`Subscription Package "${editingPlan.name}" updated successfully.`);
+    setEditingPlan(null);
+    setTimeout(() => setAdminNotice(null), 3000);
+  };
+
+  const handleCreatePlan = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPlanForm.name.trim()) return;
+    const newPlan = {
+      id: `plan-${Date.now()}`,
+      name: newPlanForm.name.trim(),
+      targetRole: newPlanForm.targetRole,
+      price: Number(newPlanForm.price),
+      billingCycle: newPlanForm.billingCycle,
+      maxListings: Number(newPlanForm.maxListings),
+      features: newPlanForm.featuresText.split(',').map((f) => f.trim()).filter(Boolean),
+      isActive: newPlanForm.isActive,
+      subscribersCount: 0,
+    };
+    const updated = [...plans, newPlan];
+    setPlans(updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('safarpk_subscription_plans', JSON.stringify(updated));
+    }
+    setShowAddPlanModal(false);
+    setNewPlanForm({
+      name: '',
+      targetRole: 'CAR_RENTAL',
+      price: 5000,
+      billingCycle: 'MONTHLY',
+      maxListings: 5,
+      featuresText: 'Direct Booking Leads, Priority Search Placement, Verified Badge',
+      isActive: true,
+    });
+    setAdminNotice(`New Package "${newPlan.name}" created and added to subscription roster.`);
+    setTimeout(() => setAdminNotice(null), 3500);
+  };
+
+  const handleDeletePlan = (id: string, name: string) => {
+    if (confirm(`Are you sure you want to delete subscription package "${name}"?`)) {
+      const updated = plans.filter((p) => p.id !== id);
+      setPlans(updated);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('safarpk_subscription_plans', JSON.stringify(updated));
+      }
+      setAdminNotice(`Package "${name}" deleted.`);
+      setTimeout(() => setAdminNotice(null), 3000);
+    }
+  };
+
+  const handleTogglePlanStatus = (id: string) => {
+    const updated = plans.map((p) => (p.id === id ? { ...p, isActive: !p.isActive } : p));
+    setPlans(updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('safarpk_subscription_plans', JSON.stringify(updated));
+    }
+  };
+
+  // =========================================================================
+  // 3. SITE-WIDE PROMOTIONAL ANNOUNCEMENT & MARQUEE TICKER SYSTEM
+  // =========================================================================
+  const [promoHeading, setPromoHeading] = useState('🔥 SafarPK Launch Announcement: 0% Platform Commission');
+  const [promoMessage, setPromoMessage] = useState('Direct verified vehicle rentals, passenger shuttles, and shifting movers across Islamabad, Rawalpindi, and Lahore.');
+  const [promoEnabled, setPromoEnabled] = useState(true);
+  const [promoStyle, setPromoStyle] = useState<'MARQUEE_TICKER' | 'POPUP_MODAL' | 'BANNER_STRIP'>('MARQUEE_TICKER');
+  const [promoBadge, setPromoBadge] = useState('🔥 LIMITED LAUNCH PROMO');
+
+  const handleSaveAndBroadcastPromo = () => {
+    const promoData = {
+      heading: promoHeading,
+      message: promoMessage,
+      enabled: promoEnabled,
+      style: promoStyle,
+      badge: promoBadge,
+      updatedAt: new Date().toISOString(),
+    };
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('safarpk_promo_announcement', JSON.stringify(promoData));
+      window.dispatchEvent(new Event('safarpk_promo_changed'));
+    }
+    setAdminNotice(`Announcement broadcasted live on public marketplace! (Style: ${promoStyle}, Status: ${promoEnabled ? 'ACTIVE' : 'OFF'})`);
+    setTimeout(() => setAdminNotice(null), 4000);
+  };
+
+  // =========================================================================
+  // 4. LEGAL TERMS & MULTI-POLICY EDITOR (DEPLOYABLE NATIONWIDE)
+  // =========================================================================
+  const defaultPolicies = {
+    generalTerms: 'SafarPK operates solely as an online technology directory and connecting marketplace. Users must comply with applicable road safety laws and contract terms established directly between customer and provider.',
+    zeroLiability: 'SafarPK maintains STRICT ZERO LIABILITY for cash transactions, advance token deposits, vehicle mechanical condition, road accidents, or security deposits. All monetary exchanges occur privately between client and provider.',
+    mutualPrivacy: 'As per Government of Pakistan Electronic Transactions Ordinance (ETO 2002) and PECA regulations, user CNIC numbers and driving licenses are encrypted. Verified documents are revealed EXCLUSIVELY to the counterparty (Customer <-> Vehicle Owner) upon confirmed booking to ensure security and prevent identity fraud.',
+    providerRules: 'All vehicle listers, commercial shuttle operators, and shifting vendors must maintain valid Excise Registration Smart Cards, fitness certificates, and authorized commercial permits. Providing forged documents results in instant permanent blacklist.',
+  };
+
+  const [policies, setPolicies] = useState(defaultPolicies);
+  const [activePolicyTab, setActivePolicyTab] = useState<'generalTerms' | 'zeroLiability' | 'mutualPrivacy' | 'providerRules'>('mutualPrivacy');
+
+  const handleSavePolicies = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('safarpk_platform_policies', JSON.stringify(policies));
+      window.dispatchEvent(new Event('safarpk_policies_changed'));
+    }
+    setAdminNotice('Platform Legal Policies updated and deployed across all booking modals, lister registration wizard, and public disclaimer!');
+    setTimeout(() => setAdminNotice(null), 4000);
+  };
+
+  // =========================================================================
+  // 5. USER, LISTER & CHAUFFEUR DIRECTORY SEARCH DESK (CUSTOMER SUPPORT)
+  // =========================================================================
+  const [directorySearchTerm, setDirectorySearchTerm] = useState('');
+  const [directoryCategoryFilter, setDirectoryCategoryFilter] = useState('ALL');
+  const [inspectingUser, setInspectingUser] = useState<any | null>(null);
+
+  const mockDirectoryUsers = [
+    {
+      id: 'usr-1',
+      name: 'Salman Rent a Car & Tours',
+      contactPerson: 'Salman Bashir',
+      phone: '+92 300 1234567',
+      role: 'CAR_RENTAL',
+      city: 'Lahore',
+      cnic: '35201-9876543-1',
+      ntnNumber: 'NTN-781920-3',
+      kycStatus: 'VERIFIED',
+      activeListingsCount: 15,
+      activeBookingsCount: 8,
+      plan: 'Professional Fleet (15 Vehicles)',
+      status: 'ACTIVE',
+      smartCardScan: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=600&auto=format&fit=crop&q=80',
+    },
+    {
+      id: 'usr-2',
+      name: 'Tariq Mahmood',
+      contactPerson: 'Tariq Mahmood (Self)',
+      phone: '+92 301 9821045',
+      role: 'DRIVER',
+      city: 'Lahore',
+      cnic: '35201-4412098-5',
+      licenseNumber: 'LHR-DL-449102',
+      licenseExpiry: '2028-11-20',
+      kycStatus: 'VERIFIED',
+      activeListingsCount: 1,
+      activeBookingsCount: 4,
+      plan: 'Independent Chauffeur Pass',
+      status: 'ACTIVE',
+      licenseScan: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=600&auto=format&fit=crop&q=80',
+    },
+    {
+      id: 'usr-3',
+      name: 'Metro Commute Shuttles',
+      contactPerson: 'Rana Nadeem',
+      phone: '+92 322 8841920',
+      role: 'PICK_AND_DROP',
+      city: 'Islamabad / Rawalpindi',
+      cnic: '37405-1109283-7',
+      ntnNumber: 'NTN-990142-8',
+      kycStatus: 'VERIFIED',
+      activeListingsCount: 4,
+      activeBookingsCount: 42,
+      plan: 'Pick & Drop Shuttle Pass',
+      status: 'ACTIVE',
+      smartCardScan: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=600&auto=format&fit=crop&q=80',
+    },
+    {
+      id: 'usr-4',
+      name: 'Al-Makkah Transport & Cargo',
+      contactPerson: 'Haji Abdul Rasheed',
+      phone: '+92 321 4409124',
+      role: 'SHIFTING',
+      city: 'Lahore',
+      cnic: '35202-4410291-5',
+      ntnNumber: 'NTN-660192-4',
+      kycStatus: 'VERIFIED',
+      activeListingsCount: 6,
+      activeBookingsCount: 11,
+      plan: 'Home Shifting & Cargo Pass',
+      status: 'ACTIVE',
+      smartCardScan: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=600&auto=format&fit=crop&q=80',
+    },
+    {
+      id: 'usr-5',
+      name: 'Hamza Tariq',
+      contactPerson: 'Hamza Tariq (Customer)',
+      phone: '+92 300 8472910',
+      role: 'CUSTOMER',
+      city: 'Lahore',
+      cnic: '35202-8172910-3',
+      licenseNumber: 'LHR-DL-449102',
+      kycStatus: 'VERIFIED',
+      activeListingsCount: 0,
+      activeBookingsCount: 2,
+      plan: 'Public Customer Account',
+      status: 'ACTIVE',
+      licenseScan: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=600&auto=format&fit=crop&q=80',
+    },
+    {
+      id: 'usr-6',
+      name: 'Kashif Autos & 4x4 Fleet',
+      contactPerson: 'Mian Kashif',
+      phone: '+92 333 4901842',
+      role: 'CAR_RENTAL',
+      city: 'Islamabad',
+      cnic: '37405-9912048-1',
+      ntnNumber: 'NTN-441029-9',
+      kycStatus: 'VERIFIED',
+      activeListingsCount: 8,
+      activeBookingsCount: 5,
+      plan: 'Professional Fleet Hub',
+      status: 'ACTIVE',
+      smartCardScan: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=600&auto=format&fit=crop&q=80',
+    },
+  ];
+
+  const filteredDirectory = mockDirectoryUsers.filter((u) => {
+    const matchesCat = directoryCategoryFilter === 'ALL' || u.role === directoryCategoryFilter;
+    const term = directorySearchTerm.toLowerCase();
+    const matchesSearch =
+      !term ||
+      u.name.toLowerCase().includes(term) ||
+      u.contactPerson.toLowerCase().includes(term) ||
+      u.phone.includes(term) ||
+      u.cnic.includes(term) ||
+      u.city.toLowerCase().includes(term);
+    return matchesCat && matchesSearch;
+  });
+
+  // =========================================================================
+  // 6. STAFF AGENTS MANAGEMENT (SUPER ADMIN EXCLUSIVE)
+  // =========================================================================
+  const [agents, setAgents] = useState<any[]>([
+    {
+      id: 'ag-1',
+      name: 'Kashif Raza',
+      staffId: 'AG-101',
+      email: 'kashif.raza@safarpk.com',
+      phone: '+92 301 8472910',
+      branch: 'Lahore Regional Desk',
+      role: 'Senior Compliance Auditor',
+      status: 'ACTIVE',
+      lastActive: '10 mins ago',
+      permissions: {
+        canVerifyCnic: true,
+        canVerifyLicense: true,
+        canEditCustomer: true,
+        canEditLister: true,
+        canCreateListerManual: true,
+        canApproveSubscription: true,
+        canDeleteListings: false,
+        canViewUnmaskedData: true,
+      },
+    },
+    {
+      id: 'ag-2',
+      name: 'Bilal Ahmed',
+      staffId: 'AG-102',
+      email: 'bilal.ahmed@safarpk.com',
+      phone: '+92 333 4901284',
+      branch: 'Islamabad HQ Operations',
+      role: 'Verification Executive',
+      status: 'ACTIVE',
+      lastActive: '25 mins ago',
+      permissions: {
+        canVerifyCnic: true,
+        canVerifyLicense: true,
+        canEditCustomer: false,
+        canEditLister: true,
+        canCreateListerManual: true,
+        canApproveSubscription: false,
+        canDeleteListings: false,
+        canViewUnmaskedData: false,
+      },
+    },
+    {
+      id: 'ag-3',
+      name: 'Ayesha Khan',
+      staffId: 'AG-103',
+      email: 'ayesha.khan@safarpk.com',
+      phone: '+92 321 5592014',
+      branch: 'Karachi South Hub',
+      role: 'Customer Support Specialist',
+      status: 'ACTIVE',
+      lastActive: '1 hour ago',
+      permissions: {
+        canVerifyCnic: true,
+        canVerifyLicense: true,
+        canEditCustomer: true,
+        canEditLister: false,
+        canCreateListerManual: false,
+        canApproveSubscription: false,
+        canDeleteListings: false,
+        canViewUnmaskedData: false,
+      },
+    },
+  ]);
+
+  const [showCreateAgentModal, setShowCreateAgentModal] = useState(false);
+  const [editingAgent, setEditingAgent] = useState<any | null>(null);
+  const [newAgentForm, setNewAgentForm] = useState({
+    name: '',
+    staffId: `AG-${Math.floor(104 + Math.random() * 50)}`,
+    email: '',
+    phone: '+92 300 ',
+    pin: '7860',
+    branch: 'Lahore Desk',
+    role: 'Verification Officer',
+    permissions: {
+      canVerifyCnic: true,
+      canVerifyLicense: true,
+      canEditCustomer: false,
+      canEditLister: false,
+      canCreateListerManual: true,
+      canApproveSubscription: false,
+      canDeleteListings: false,
+      canViewUnmaskedData: false,
+    },
+  });
+
+  const handleCreateAgent = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAgentForm.name || !newAgentForm.email) return;
+    const created = {
+      id: `ag-${Date.now()}`,
+      ...newAgentForm,
+      status: 'ACTIVE',
+      lastActive: 'Just registered',
+    };
+    setAgents([...agents, created]);
+    setShowCreateAgentModal(false);
+    setNewAgentForm({
+      name: '',
+      staffId: `AG-${Math.floor(104 + Math.random() * 50)}`,
+      email: '',
+      phone: '+92 300 ',
+      pin: '7860',
+      branch: 'Lahore Desk',
+      role: 'Verification Officer',
+      permissions: {
+        canVerifyCnic: true,
+        canVerifyLicense: true,
+        canEditCustomer: false,
+        canEditLister: false,
+        canCreateListerManual: true,
+        canApproveSubscription: false,
+        canDeleteListings: false,
+        canViewUnmaskedData: false,
+      },
+    });
+    setAdminNotice(`SafarPK Staff Agent ${created.name} (${created.staffId}) created.`);
+    setTimeout(() => setAdminNotice(null), 3500);
+  };
+
+  const handleToggleAgentStatus = (id: string) => {
+    setAgents(
+      agents.map((ag) =>
+        ag.id === id ? { ...ag, status: ag.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE' } : ag
+      )
+    );
+  };
+
+  const handleSaveAgentPermissions = () => {
+    if (!editingAgent) return;
+    setAgents(agents.map((ag) => (ag.id === editingAgent.id ? { ...editingAgent } : ag)));
+    setAdminNotice(`Permissions updated for ${editingAgent.name} (${editingAgent.staffId}).`);
+    setEditingAgent(null);
+    setTimeout(() => setAdminNotice(null), 3000);
+  };
+
+  // =========================================================================
+  // 7. STEALTH ANTI-FRAUD & STAFF SURVEILLANCE AUDIT LOG (TOP SECRET)
+  // =========================================================================
+  const [stealthAuditLogs, setStealthAuditLogs] = useState<any[]>([
+    {
+      id: 'stl-1',
+      timestamp: '2026-11-10 14:42 PKT',
+      agentName: 'Bilal Ahmed',
+      staffId: 'AG-102',
+      branch: 'Islamabad HQ Operations',
+      ipAddress: '192.168.10.42 (Terminal-ISB-02)',
+      actionType: 'MANUAL_LISTER_CREATE',
+      actionDesc: 'Created Lister Profile: "Pak Punjab Tours & Fleet" (Sheikhupura)',
+      targetEntity: 'Lister: Pak Punjab Tours (LST-9021)',
+      officialTariff: 12000,
+      feeReported: 7000,
+      isSuspicious: true,
+      suspicionReason: 'CRITICAL TARIFF DEFICIT (-PKR 5,000): Agent submitted PKR 7,000 against scheduled PKR 12,000 fee. Potential unapproved discount or offline cash diversion.',
+      paymentMethod: 'JAZZCASH_TILL',
+      trnRef: 'JC-8921849102-PK',
+      paymentProofUrl: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&auto=format&fit=crop&q=80',
+    },
+    {
+      id: 'stl-2',
+      timestamp: '2026-11-10 13:15 PKT',
+      agentName: 'Kashif Raza',
+      staffId: 'AG-101',
+      branch: 'Lahore Regional Desk',
+      ipAddress: '192.168.1.18 (Terminal-LHR-01)',
+      actionType: 'SUBSCRIPTION_APPROVAL',
+      actionDesc: 'Approved Subscription: "Salman Rent a Car & Tours"',
+      targetEntity: 'Lister: Salman Rentals (p-2)',
+      officialTariff: 12000,
+      feeReported: 12000,
+      isSuspicious: false,
+      suspicionReason: 'Tariff Reconciled (100% schedule match)',
+      paymentMethod: 'MEEZAN_BANK_TRANSFER',
+      trnRef: 'TX-MEEZAN-99210',
+      paymentProofUrl: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&auto=format&fit=crop&q=80',
+    },
+  ]);
+
+  const [stealthFilterAgent, setStealthFilterAgent] = useState('ALL');
+  const [viewingProofModal, setViewingProofModal] = useState<any | null>(null);
+
+  const filteredAuditLogs = stealthFilterAgent === 'ALL'
+    ? stealthAuditLogs
+    : stealthAuditLogs.filter((log) => log.staffId === stealthFilterAgent);
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-rose-500 selection:text-white">
+      {/* Top Navbar */}
+      <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-600 to-rose-500 text-white flex items-center justify-center font-black text-lg shadow-md shadow-rose-900/40">
+                ⚡
+              </div>
+              <div>
+                <span className="font-extrabold text-lg text-white tracking-tight block leading-none">
+                  SafarPK Super Admin
+                </span>
+                <span className="text-[10px] text-slate-400 font-semibold">Root Governance & Platform Controls</span>
+              </div>
+            </Link>
+            <span className="hidden sm:inline-block text-[10px] uppercase tracking-wider font-extrabold px-2.5 py-1 rounded-full bg-rose-950 text-rose-300 border border-rose-800">
+              Root Authority
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="text-xs font-bold px-3.5 py-2 rounded-xl text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 transition"
+            >
+              ← Public Marketplace
+            </Link>
+            <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/80 px-2.5 py-1.5 rounded-xl border border-emerald-800 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>System Online (200 OK)</span>
+            </span>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Grid */}
+      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Sidebar Nav */}
+        <aside className="space-y-1">
+          <nav className="bg-slate-900/80 rounded-3xl border border-slate-800/90 p-2.5 space-y-1.5 text-xs font-semibold shadow-xl">
+            {[
+              { id: 'services', label: 'Service Master Switches', icon: SlidersHorizontal },
+              { id: 'listings', label: 'All Listings (Full CRUD)', icon: Car, badge: listings.length },
+              { id: 'plans', label: 'Subscription Packages (CRUD)', icon: DollarSign, badge: plans.length },
+              { id: 'promotions', label: 'Promotional Announcement Bar', icon: Bell, alert: promoEnabled ? 1 : 0 },
+              { id: 'directory', label: 'User & Vendor Directory', icon: Search, badge: mockDirectoryUsers.length },
+              { id: 'agents', label: 'Staff / Agent Management', icon: Users, badge: agents.length },
+              { id: 'stealthAudit', label: '🛡️ Stealth Anti-Fraud Log', icon: ShieldCheck, alert: stealthAuditLogs.filter(l => l.isSuspicious).length },
+              { id: 'legal', label: 'Terms & Safety Disclaimers', icon: FileText },
+              { id: 'countries', label: 'Operating Scope (PK / Global)', icon: Globe },
+            ].map((item) => {
+              const Icon = item.icon;
+              const active = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id as any)}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition cursor-pointer ${
+                    active
+                      ? 'bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow-md shadow-rose-900/30 font-bold'
+                      : 'text-slate-400 hover:bg-slate-800/60 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </div>
+                  {item.alert !== undefined && item.alert > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-black bg-amber-400 text-slate-950 shrink-0">
+                      LIVE
+                    </span>
+                  )}
+                  {item.badge !== undefined && item.alert === undefined && (
+                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-800 text-slate-300 shrink-0">
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
+
+        {/* Canvas */}
+        <main className="lg:col-span-3 space-y-6">
+          {adminNotice && (
+            <div className="p-4 bg-emerald-950/90 border border-emerald-700 text-emerald-200 rounded-2xl text-xs font-bold flex items-center justify-between shadow-lg">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">✓</span>
+                <span>{adminNotice}</span>
+              </div>
+              <button onClick={() => setAdminNotice(null)} className="text-emerald-400 hover:text-white cursor-pointer">✕</button>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 1: SERVICE MASTER SWITCHES */}
+          {/* ========================================================================= */}
+          {activeTab === 'services' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div>
+                <h3 className="font-extrabold text-base text-white">Marketplace Service Module Switches</h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Instantly enable or disable any of the 5 services platform-wide. When a switch is turned OFF, it displays an official administrative pause notice and disables booking pathways.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {[
+                  { key: 'carRental', name: '🚗 Within-City Car Rental', desc: 'Self-drive and chauffeur-driven car rentals in Lahore, Islamabad, Karachi' },
+                  { key: 'hireDriver', name: '👨‍✈️ Hire an Independent Driver', desc: 'Hire professional licensed drivers for personal cars' },
+                  { key: 'cityToCity', name: '🛣️ City to City Intercity Rides', desc: 'Motorway shared and private sedan bookings' },
+                  { key: 'pickAndDrop', name: '🚌 Pick & Drop Commuter Shuttle', desc: 'Daily/monthly office and university passenger shuttle routes' },
+                  { key: 'homeShifting', name: '📦 Home & Office Shifting Cargo', desc: 'Commercial cargo trucks, Shehzore, and Mazdoor helpers' },
+                ].map((item) => {
+                  const isEnabled = (modules as any)[item.key];
+                  return (
+                    <div
+                      key={item.key}
+                      className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 flex items-center justify-between"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-sm text-white">{item.name}</h4>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-black ${
+                            isEnabled ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-rose-950 text-rose-300 border border-rose-800'
+                          }`}>
+                            {isEnabled ? 'LIVE ON MARKETPLACE' : 'PAUSED PLATFORM-WIDE'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-0.5">{item.desc}</p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => toggleModule(item.key as any)}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                          isEnabled
+                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm'
+                            : 'bg-rose-700 hover:bg-rose-600 text-white'
+                        }`}
+                      >
+                        {isEnabled ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
+                        <span>{isEnabled ? 'Turn OFF' : 'Turn ON'}</span>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 2: ALL LISTINGS FULL CRUD */}
+          {/* ========================================================================= */}
+          {activeTab === 'listings' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-4 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">All Marketplace Listings ({listings.length})</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Super Admin master control: Edit any vehicle listing, alter daily rates, suspend fraud listings, or add override listings.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddListingModal(true)}
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span>➕ Add Direct Override Listing</span>
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {listings.map((l) => (
+                  <div key={l.id} className="p-4 bg-slate-950/60 rounded-2xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-rose-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                          {l.ref}
+                        </span>
+                        <h4 className="font-bold text-white text-sm">{l.title}</h4>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          l.status === 'LIVE' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-amber-950 text-amber-300 border border-amber-800'
+                        }`}>
+                          {l.status}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        Category: <strong>{l.category}</strong> · City: <strong>{l.city}</strong> · Rate: <strong className="text-emerald-400">PKR {formatPKR(l.rate)}/day</strong> · Lister: <strong>{l.lister}</strong>
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => setEditingListing(l)}
+                        className="px-3 py-1.5 rounded-xl font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1 transition cursor-pointer"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </button>
+
+                      <button
+                        onClick={() => toggleListingStatus(l.id)}
+                        className={`px-3 py-1.5 rounded-xl font-bold transition cursor-pointer ${
+                          l.status === 'LIVE'
+                            ? 'bg-amber-950 text-amber-300 border border-amber-800 hover:bg-amber-900'
+                            : 'bg-emerald-950 text-emerald-300 border border-emerald-800 hover:bg-emerald-900'
+                        }`}
+                      >
+                        {l.status === 'LIVE' ? 'Suspend' : 'Make LIVE'}
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteListing(l.id, l.ref)}
+                        className="p-1.5 rounded-xl font-bold bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800 transition cursor-pointer"
+                        title="Delete Permanently"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 3: SUBSCRIPTION PLANS & PACKAGES FULL CRUD (ADD, EDIT, DELETE)        */}
+          {/* ========================================================================= */}
+          {activeTab === 'plans' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Marketplace Subscription Packages & Quotas</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Super Admin master control: Add new packages, update monthly PKR prices, change vehicle quotas, or delete outdated plans.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddPlanModal(true)}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>➕ Add New Subscription Plan</span>
+                </button>
+              </div>
+
+              {/* Plans Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {plans.map((p) => (
+                  <div
+                    key={p.id}
+                    className={`p-5 rounded-2xl border flex flex-col justify-between space-y-4 transition ${
+                      p.isActive
+                        ? 'bg-slate-950/80 border-slate-800 hover:border-slate-700'
+                        : 'bg-slate-950/40 border-slate-900 opacity-60'
+                    }`}
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-[10px] font-bold text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800 uppercase">
+                          {p.targetRole}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
+                          p.isActive ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-slate-800 text-slate-400'
+                        }`}>
+                          {p.isActive ? 'ACTIVE' : 'INACTIVE'}
+                        </span>
+                      </div>
+
+                      <div>
+                        <h4 className="font-extrabold text-sm text-white">{p.name}</h4>
+                        <div className="mt-1 flex items-baseline gap-1">
+                          <span className="text-2xl font-black text-emerald-400">PKR {formatPKR(p.price)}</span>
+                          <span className="text-xs text-slate-400">/{p.billingCycle.toLowerCase()}</span>
+                        </div>
+                        <span className="text-xs font-bold text-slate-300 block mt-1">
+                          Quota: <strong className="text-white">{p.maxListings} Vehicles / Routes</strong>
+                        </span>
+                      </div>
+
+                      {/* Feature Chips */}
+                      <div className="pt-2 border-t border-slate-900 space-y-1">
+                        {p.features?.map((f: string, idx: number) => (
+                          <div key={idx} className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                            <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <span>{f}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-900 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setEditingPlan({ ...p, featuresText: p.features ? p.features.join(', ') : '' })}
+                          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+                        >
+                          <Edit3 className="w-3 h-3 text-emerald-400" />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePlanStatus(p.id)}
+                          className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl text-[11px] font-semibold border border-slate-800 cursor-pointer"
+                        >
+                          {p.isActive ? 'Disable' : 'Enable'}
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeletePlan(p.id, p.name)}
+                        className="p-1.5 bg-rose-950/60 hover:bg-rose-900 text-rose-300 rounded-xl border border-rose-800 transition cursor-pointer"
+                        title="Delete Plan"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 4: SITE-WIDE PROMOTIONAL MARQUEE ANNOUNCEMENT                          */}
+          {/* ========================================================================= */}
+          {activeTab === 'promotions' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Site-wide Promotional Announcement & Marquee</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Broadcast platform announcements, zero-commission launch promotions, or emergency travel alerts across the public website.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPromoEnabled(!promoEnabled)}
+                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2 ${
+                    promoEnabled ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  <Radio className={`w-3.5 h-3.5 ${promoEnabled ? 'animate-pulse text-white' : 'text-slate-500'}`} />
+                  <span>{promoEnabled ? 'BROADCAST ACTIVE' : 'DISABLED'}</span>
+                </button>
+              </div>
+
+              {/* Live Preview of the Announcement */}
+              <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                  Live Public Banner Preview (As seen by customers):
+                </span>
+                <div className="p-3 bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 border border-emerald-800/80 rounded-xl text-xs flex items-center justify-between gap-3 shadow-md">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-600/60 shrink-0">
+                      {promoBadge}
+                    </span>
+                    <strong className="text-white truncate">{promoHeading}</strong>
+                    <span className="text-slate-300 truncate hidden sm:inline">— {promoMessage}</span>
+                  </div>
+                  <span className="text-xs text-slate-400 shrink-0">✕</span>
+                </div>
+              </div>
+
+              {/* Configuration Inputs */}
+              <div className="space-y-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-slate-300 block mb-1">Promo Badge Tag</label>
+                    <input
+                      type="text"
+                      value={promoBadge}
+                      onChange={(e) => setPromoBadge(e.target.value)}
+                      className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-300 block mb-1">Display Presentation Format</label>
+                    <select
+                      value={promoStyle}
+                      onChange={(e) => setPromoStyle(e.target.value as any)}
+                      className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
+                    >
+                      <option value="MARQUEE_TICKER">Marquee Ticker (Top Non-Intrusive Bar)</option>
+                      <option value="BANNER_STRIP">Static Header Banner Strip</option>
+                      <option value="POPUP_MODAL">Welcome Modal Popup</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Announcement Heading *</label>
+                  <input
+                    type="text"
+                    value={promoHeading}
+                    onChange={(e) => setPromoHeading(e.target.value)}
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Full Detailed Message *</label>
+                  <textarea
+                    rows={3}
+                    value={promoMessage}
+                    onChange={(e) => setPromoMessage(e.target.value)}
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white leading-relaxed"
+                  />
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveAndBroadcastPromo}
+                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Save & Broadcast Announcement Platform-wide</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 5: USER & VENDOR DIRECTORY (CUSTOMER SUPPORT & RESOLUTION)            */}
+          {/* ========================================================================= */}
+          {activeTab === 'directory' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div>
+                <h3 className="font-extrabold text-base text-white">User, Lister & Driver Directory ({filteredDirectory.length})</h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Deep search any customer, private fleet owner, commuter operator, or chauffeur by Name, Phone, CNIC, or City to troubleshoot inquiries and resolve complaints.
+                </p>
+              </div>
+
+              {/* Search & Filter Bar */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2 relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <input
+                    type="text"
+                    placeholder="Search by name, contact phone, National ID, or city..."
+                    value={directorySearchTerm}
+                    onChange={(e) => setDirectorySearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white placeholder:text-slate-500"
+                  />
+                </div>
+
+                <div>
+                  <select
+                    value={directoryCategoryFilter}
+                    onChange={(e) => setDirectoryCategoryFilter(e.target.value)}
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white font-bold"
+                  >
+                    <option value="ALL">All Categories</option>
+                    <option value="CAR_RENTAL">Car Rental Fleet Owners</option>
+                    <option value="DRIVER">Independent Chauffeurs</option>
+                    <option value="PICK_AND_DROP">Pick & Drop Shuttle Providers</option>
+                    <option value="SHIFTING">Home & Office Shifting Movers</option>
+                    <option value="CUSTOMER">Registered Customers</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Directory Cards */}
+              <div className="space-y-3">
+                {filteredDirectory.map((user) => (
+                  <div
+                    key={user.id}
+                    className="p-4 bg-slate-950/70 rounded-2xl border border-slate-800 hover:border-slate-700 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-lg shrink-0">
+                        {user.role === 'CAR_RENTAL' && '🚗'}
+                        {user.role === 'DRIVER' && '👨‍✈️'}
+                        {user.role === 'PICK_AND_DROP' && '🚌'}
+                        {user.role === 'SHIFTING' && '📦'}
+                        {user.role === 'CUSTOMER' && '👤'}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-extrabold text-sm text-white">{user.name}</h4>
+                          <span className="px-2 py-0.2 rounded text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
+                            ✓ {user.kycStatus}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Contact: <strong>{user.contactPerson}</strong> · Phone: <strong>{user.phone}</strong> · City: <strong>{user.city}</strong>
+                        </p>
+                        <div className="flex items-center gap-3 mt-1 text-[11px]">
+                          <span className="text-slate-400">ID: <strong className="font-mono text-slate-200">{maskCnic(user.cnic)}</strong></span>
+                          {user.ntnNumber && (
+                            <span className="text-slate-400">Tax / Business ID: <strong className="text-cyan-300 font-mono">{user.ntnNumber}</strong></span>
+                          )}
+                          <span className="text-emerald-400 font-semibold">{user.plan}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <a
+                        href={`https://wa.me/${user.phone.replace(/[^0-9]/g, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-1.5 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-800 rounded-xl font-bold flex items-center gap-1 transition"
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                        <span>Direct Call / Chat</span>
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => setInspectingUser(user)}
+                        className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-rose-400" />
+                        <span>Inspect Profile</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 6: STAFF / AGENT MANAGEMENT (SUPER ADMIN EXCLUSIVE)                    */}
+          {/* ========================================================================= */}
+          {activeTab === 'agents' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">SafarPK Staff & Verification Agents ({agents.length})</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Super Admin exclusive: Create official employee agent profiles, configure individual access permissions, and manage desk branch assignments.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateAgentModal(true)}
+                  className="px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span>➕ Create SafarPK Agent / Staff</span>
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {agents.map((ag) => (
+                  <div key={ag.id} className="p-4 bg-slate-950/70 rounded-2xl border border-slate-800 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-lg">
+                          👨‍💼
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-white text-sm">{ag.name}</h4>
+                            <span className="font-mono text-[10px] font-bold text-rose-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                              {ag.staffId}
+                            </span>
+                            <span className={`px-2 py-0.2 rounded text-[10px] font-bold ${
+                              ag.status === 'ACTIVE' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-rose-950 text-rose-300 border border-rose-800'
+                            }`}>
+                              {ag.status}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            {ag.role} · {ag.branch} · {ag.phone} · Last Active: {ag.lastActive}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditingAgent({ ...ag })}
+                          className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                          <span>Permissions</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleAgentStatus(ag.id)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                            ag.status === 'ACTIVE' ? 'bg-rose-950 text-rose-300 border border-rose-800' : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                          }`}
+                        >
+                          {ag.status === 'ACTIVE' ? 'Suspend Access' : 'Activate'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Permissions Chips */}
+                    <div className="pt-2 border-t border-slate-800/80">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1.5">Assigned Granular Authorities:</span>
+                      <div className="flex flex-wrap gap-1.5 text-[10px]">
+                        {ag.permissions.canVerifyCnic && (
+                          <span className="px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800">
+                            ✓ Verify CNIC
+                          </span>
+                        )}
+                        {ag.permissions.canVerifyLicense && (
+                          <span className="px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800">
+                            ✓ Verify License
+                          </span>
+                        )}
+                        {ag.permissions.canEditCustomer && (
+                          <span className="px-2 py-0.5 rounded bg-blue-950/80 text-blue-300 border border-blue-800">
+                            ✓ Customer Profile Edit
+                          </span>
+                        )}
+                        {ag.permissions.canEditLister && (
+                          <span className="px-2 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-800">
+                            ✓ Lister Fleet Edit
+                          </span>
+                        )}
+                        {ag.permissions.canCreateListerManual && (
+                          <span className="px-2 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-800">
+                            ✓ Manual Lister Registration
+                          </span>
+                        )}
+                        {ag.permissions.canApproveSubscription && (
+                          <span className="px-2 py-0.5 rounded bg-teal-950/80 text-teal-300 border border-teal-800">
+                            ✓ Approve Subscription Proof
+                          </span>
+                        )}
+                        {ag.permissions.canDeleteListings && (
+                          <span className="px-2 py-0.5 rounded bg-rose-950/80 text-rose-300 border border-rose-800">
+                            ✓ Delete Fraud Listings
+                          </span>
+                        )}
+                        {ag.permissions.canViewUnmaskedData && (
+                          <span className="px-2 py-0.5 rounded bg-indigo-950/80 text-indigo-300 border border-indigo-800">
+                            ✓ Lawful Unmasked View
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 7: STEALTH ANTI-FRAUD SURVEILLANCE LOG (SUPER ADMIN ONLY)              */}
+          {/* ========================================================================= */}
+          {activeTab === 'stealthAudit' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="p-4 bg-rose-950/40 border border-rose-800/80 rounded-2xl text-xs space-y-1">
+                <div className="flex items-center gap-2 text-rose-300 font-extrabold text-sm">
+                  <ShieldCheck className="w-4 h-4 text-rose-400" />
+                  <span>CONFIDENTIAL SURVEILLANCE: SUPER ADMIN EYES ONLY</span>
+                </div>
+                <p className="text-slate-300 text-[11px] leading-relaxed">
+                  Verification agents and desk staff have <strong>zero knowledge</strong> of this monitoring system. Every action taken by any agent is logged here, including fee collection amounts vs standard tariffs and mandatory payment slip uploads.
+                </p>
+              </div>
+
+              {/* Filters */}
+              <div className="flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="text-slate-400 font-bold">Filter By Agent:</span>
+                  <select
+                    value={stealthFilterAgent}
+                    onChange={(e) => setStealthFilterAgent(e.target.value)}
+                    className="p-1.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold text-xs"
+                  >
+                    <option value="ALL">All Agents ({stealthAuditLogs.length} actions)</option>
+                    {agents.map((ag) => (
+                      <option key={ag.staffId} value={ag.staffId}>
+                        {ag.name} ({ag.staffId})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="text-[11px] text-amber-400 font-bold">
+                  ⚠️ {stealthAuditLogs.filter(l => l.isSuspicious).length} Flagged Irregularities
+                </div>
+              </div>
+
+              {/* Audit Feed */}
+              <div className="space-y-3">
+                {filteredAuditLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className={`p-4 rounded-2xl border text-xs space-y-3 ${
+                      log.isSuspicious
+                        ? 'bg-rose-950/20 border-rose-700/80'
+                        : 'bg-slate-950/60 border-slate-800'
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <span className="font-mono text-[10px] font-bold text-rose-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                          {log.staffId}
+                        </span>
+                        <div>
+                          <strong className="text-white text-sm">{log.agentName}</strong>
+                          <span className="text-[11px] text-slate-400 ml-2">({log.branch}) · {log.timestamp}</span>
+                        </div>
+                      </div>
+
+                      <span className="font-mono text-[10px] text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                        IP: {log.ipAddress}
+                      </span>
+                    </div>
+
+                    <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-200">{log.actionDesc}</span>
+                        <span className="text-[11px] font-mono text-slate-400">{log.targetEntity}</span>
+                      </div>
+
+                      {log.officialTariff > 0 && (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-800 text-[11px]">
+                          <div>
+                            <span className="text-slate-400 block">Scheduled Official Tariff:</span>
+                            <span className="font-black text-slate-200">PKR {formatPKR(log.officialTariff)}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block">Fee Reported by Agent:</span>
+                            <span className={`font-black ${log.feeReported < log.officialTariff ? 'text-rose-400' : 'text-emerald-400'}`}>
+                              PKR {formatPKR(log.feeReported)}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block">Transaction Reference:</span>
+                            <span className="font-mono font-bold text-cyan-300">{log.trnRef}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {log.isSuspicious ? (
+                        <div className="p-2.5 bg-rose-950/80 border border-rose-700 rounded-xl text-rose-300 text-[11px] font-semibold flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                            <span>{log.suspicionReason}</span>
+                          </div>
+                          {log.paymentProofUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setViewingProofModal(log)}
+                              className="px-2.5 py-1 bg-rose-900 hover:bg-rose-800 text-white rounded-lg text-[10px] font-bold transition cursor-pointer shrink-0"
+                            >
+                              Inspect Payment Slip
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="p-2 bg-emerald-950/50 border border-emerald-800/80 rounded-xl text-emerald-300 text-[11px] flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>{log.suspicionReason}</span>
+                          </div>
+                          {log.paymentProofUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setViewingProofModal(log)}
+                              className="px-2 py-0.5 bg-emerald-900/60 hover:bg-emerald-800 text-emerald-200 rounded text-[10px] font-bold transition cursor-pointer"
+                            >
+                              View Slip
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 8: LEGAL TERMS & MULTI-POLICY DEPLOYMENT (GOV PECA / ETO 2002)        */}
+          {/* ========================================================================= */}
+          {activeTab === 'legal' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div>
+                <h3 className="font-extrabold text-base text-white">Platform Legal Terms & Multi-Policy Editor</h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Edits made here reflect immediately in customer self-drive booking modals, mutual credential disclosure disclaimers, and lister onboarding contracts.
+                </p>
+              </div>
+
+              {/* Sub-tabs */}
+              <div className="flex items-center gap-2 border-b border-slate-800 pb-2 text-xs">
+                {[
+                  { id: 'mutualPrivacy', label: 'Mutual Identity Privacy (PECA / ETO)' },
+                  { id: 'zeroLiability', label: 'Zero-Liability & Cash Disclaimer' },
+                  { id: 'generalTerms', label: 'General Terms of Service' },
+                  { id: 'providerRules', label: 'Provider Legal Code of Conduct' },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActivePolicyTab(item.id as any)}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition cursor-pointer ${
+                      activePolicyTab === item.id
+                        ? 'bg-rose-600 text-white shadow-xs'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                  Policy Text Editor ({activePolicyTab})
+                </label>
+                <textarea
+                  rows={6}
+                  value={(policies as any)[activePolicyTab]}
+                  onChange={(e) => setPolicies({ ...policies, [activePolicyTab]: e.target.value })}
+                  className="w-full p-3.5 bg-slate-950 border border-slate-700 rounded-2xl text-xs font-mono text-slate-200 leading-relaxed"
+                />
+              </div>
+
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={handleSavePolicies}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileCheck className="w-4 h-4" />
+                  <span>Deploy Updated Policy Live Platform-Wide</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 9: OPERATING SCOPE & COUNTRY VERIFICATION RULES */}
+          {/* ========================================================================= */}
+          {activeTab === 'countries' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-6 shadow-xl text-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Country Verification Rules & Service Scopes</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Configure Driving License / ID Card upload requirements per country (Required, Optional, or completely Hidden).
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800">
+                    Live Client Sync Active
+                  </span>
+                </div>
+              </div>
+
+              {/* Country Pill Selector */}
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Select Country to Configure:
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { code: 'GLOBAL', label: 'All Countries (Global Default)', flag: '🌐' },
+                    { code: 'PK', label: 'Pakistan', flag: '🇵🇰' },
+                    { code: 'DE', label: 'Germany', flag: '🇩🇪' },
+                    { code: 'AE', label: 'United Arab Emirates', flag: '🇦🇪' },
+                    { code: 'GB', label: 'United Kingdom', flag: '🇬🇧' },
+                    { code: 'SA', label: 'Saudi Arabia', flag: '🇸🇦' },
+                    { code: 'US', label: 'United States', flag: '🇺🇸' },
+                    { code: 'CA', label: 'Canada', flag: '🇨🇦' },
+                  ].map((c) => {
+                    const active = selectedAdminCountry === c.code;
+                    return (
+                      <button
+                        key={c.code}
+                        type="button"
+                        onClick={() => setSelectedAdminCountry(c.code)}
+                        className={`px-3 py-2 rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                          active
+                            ? 'bg-rose-600 text-white shadow-md shadow-rose-900/40 border border-rose-500'
+                            : 'bg-slate-950 text-slate-300 border border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        <span className="text-sm">{c.flag}</span>
+                        <span>{c.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Current Country Policy Card */}
+              {(() => {
+                const currentRule = countryRules[selectedAdminCountry] || countryRules.GLOBAL;
+                const currentPolicy = currentRule.cardUploadPolicy;
+                return (
+                  <div className="p-5 bg-slate-950 rounded-2xl border border-slate-800 space-y-5">
+                    {/* Policy Radio Cards */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-extrabold text-sm text-white">
+                          Driving License & ID Card Upload Setting for {selectedAdminCountry}
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-400">
+                          Applied to Booking & Signup Modals
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {/* REQUIRED */}
+                        <div
+                          onClick={() => handleUpdateCountryPolicy(selectedAdminCountry, 'REQUIRED')}
+                          className={`p-4 rounded-2xl border cursor-pointer transition space-y-1.5 ${
+                            currentPolicy === 'REQUIRED'
+                              ? 'bg-rose-950/40 border-rose-500 ring-2 ring-rose-500/30 text-rose-200'
+                              : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-black text-xs">MANDATORY / REQUIRED</span>
+                            {currentPolicy === 'REQUIRED' && <span className="text-rose-400 font-bold">✓ Active</span>}
+                          </div>
+                          <p className="text-[11px] text-slate-400 leading-tight">
+                            Customer must upload a valid photograph of their official driving license and enter National ID. Validated by system before booking confirmation.
+                          </p>
+                        </div>
+
+                        {/* OPTIONAL */}
+                        <div
+                          onClick={() => handleUpdateCountryPolicy(selectedAdminCountry, 'OPTIONAL')}
+                          className={`p-4 rounded-2xl border cursor-pointer transition space-y-1.5 ${
+                            currentPolicy === 'OPTIONAL'
+                              ? 'bg-amber-950/40 border-amber-500 ring-2 ring-amber-500/30 text-amber-200'
+                              : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-black text-xs">OPTIONAL / FLEXIBLE</span>
+                            {currentPolicy === 'OPTIONAL' && <span className="text-amber-400 font-bold">✓ Active</span>}
+                          </div>
+                          <p className="text-[11px] text-slate-400 leading-tight">
+                            Card upload is optional. Customers can choose to upload photo or skip and show their physical license/ID to the car owner during key handover.
+                          </p>
+                        </div>
+
+                        {/* HIDDEN */}
+                        <div
+                          onClick={() => handleUpdateCountryPolicy(selectedAdminCountry, 'HIDDEN')}
+                          className={`p-4 rounded-2xl border cursor-pointer transition space-y-1.5 ${
+                            currentPolicy === 'HIDDEN'
+                              ? 'bg-blue-950/40 border-blue-500 ring-2 ring-blue-500/30 text-blue-200'
+                              : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-black text-xs">HIDDEN / DISABLED</span>
+                            {currentPolicy === 'HIDDEN' && <span className="text-blue-400 font-bold">✓ Active</span>}
+                          </div>
+                          <p className="text-[11px] text-slate-400 leading-tight">
+                            Completely hides document upload boxes from customers in this country. Allows 100% frictionless instant booking via direct phone/chat.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Category Switches for this Country */}
+                    <div className="pt-4 border-t border-slate-900 space-y-3">
+                      <span className="font-extrabold text-sm text-white block">
+                        Enabled Categories in {selectedAdminCountry}
+                      </span>
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+                        {[
+                          { id: 'carRental', label: '🚗 Car Rental' },
+                          { id: 'pickAndDrop', label: '🚌 Pick & Drop' },
+                          { id: 'hireDriver', label: '👨‍✈️ Hire Driver' },
+                          { id: 'cityToCity', label: '🛣️ City to City' },
+                          { id: 'homeShifting', label: '📦 Cargo Shifting' },
+                        ].map((cat) => {
+                          const isEnabled = currentRule.enabledCategories[cat.id as keyof typeof currentRule.enabledCategories] ?? true;
+                          return (
+                            <button
+                              key={cat.id}
+                              type="button"
+                              onClick={() => handleToggleCountryCategory(selectedAdminCountry, cat.id as any)}
+                              className={`p-2.5 rounded-xl border text-center font-bold transition cursor-pointer ${
+                                isEnabled
+                                  ? 'bg-emerald-950/60 border-emerald-600 text-emerald-300'
+                                  : 'bg-slate-900 border-slate-800 text-slate-500'
+                              }`}
+                            >
+                              <span className="block truncate">{cat.label}</span>
+                              <span className="text-[10px] block mt-0.5 opacity-80">
+                                {isEnabled ? '🟢 Active' : '⚪ Disabled'}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* MODAL 1: ADD SUBSCRIPTION PLAN                                            */}
+      {/* ========================================================================= */}
+      {showAddPlanModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-hidden"
+          onClick={() => setShowAddPlanModal(false)}
+        >
+          <div
+            className="bg-slate-950 border border-slate-800 w-full max-w-lg rounded-3xl p-6 text-xs space-y-4 text-slate-200 max-h-[90vh] overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h4 className="font-black text-sm text-white">Create New Subscription Package</h4>
+                <p className="text-[11px] text-slate-400">Configure monthly fee, quota limits, and target role</p>
+              </div>
+              <button onClick={() => setShowAddPlanModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreatePlan} className="space-y-3">
+              <div>
+                <label className="font-bold text-slate-300 block mb-1">Package Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. VIP Luxury Car Fleet"
+                  value={newPlanForm.name}
+                  onChange={(e) => setNewPlanForm({ ...newPlanForm, name: e.target.value })}
+                  className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Target Service Role</label>
+                  <select
+                    value={newPlanForm.targetRole}
+                    onChange={(e) => setNewPlanForm({ ...newPlanForm, targetRole: e.target.value })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  >
+                    <option value="CAR_RENTAL">Car Rental Fleet Owners</option>
+                    <option value="DRIVER">Independent Chauffeurs</option>
+                    <option value="PICK_AND_DROP">Pick & Drop Shuttle Operators</option>
+                    <option value="SHIFTING">Home & Cargo Movers</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Billing Cycle</label>
+                  <select
+                    value={newPlanForm.billingCycle}
+                    onChange={(e) => setNewPlanForm({ ...newPlanForm, billingCycle: e.target.value })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  >
+                    <option value="MONTHLY">Monthly</option>
+                    <option value="QUARTERLY">Quarterly (3 Months)</option>
+                    <option value="ANNUAL">Annual (12 Months)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Price (PKR) *</label>
+                  <input
+                    type="number"
+                    required
+                    value={newPlanForm.price}
+                    onChange={(e) => setNewPlanForm({ ...newPlanForm, price: Number(e.target.value) })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Max Listings / Routes Quota *</label>
+                  <input
+                    type="number"
+                    required
+                    value={newPlanForm.maxListings}
+                    onChange={(e) => setNewPlanForm({ ...newPlanForm, maxListings: Number(e.target.value) })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-300 block mb-1">Features (Comma separated)</label>
+                <textarea
+                  rows={2}
+                  value={newPlanForm.featuresText}
+                  onChange={(e) => setNewPlanForm({ ...newPlanForm, featuresText: e.target.value })}
+                  className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowAddPlanModal(false)}
+                  className="px-4 py-2 bg-slate-800 text-slate-200 rounded-xl font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold cursor-pointer"
+                >
+                  Create & Publish Package
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 2: EDIT SUBSCRIPTION PLAN                                           */}
+      {/* ========================================================================= */}
+      {editingPlan && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-hidden"
+          onClick={() => setEditingPlan(null)}
+        >
+          <div
+            className="bg-slate-950 border border-slate-800 w-full max-w-lg rounded-3xl p-6 text-xs space-y-4 text-slate-200 max-h-[90vh] overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h4 className="font-black text-sm text-white">Edit Package: {editingPlan.name}</h4>
+                <p className="text-[11px] text-slate-400">Update rates, quotas, or feature list</p>
+              </div>
+              <button onClick={() => setEditingPlan(null)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePlanEdit} className="space-y-3">
+              <div>
+                <label className="font-bold text-slate-300 block mb-1">Package Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editingPlan.name}
+                  onChange={(e) => setEditingPlan({ ...editingPlan, name: e.target.value })}
+                  className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Price (PKR)</label>
+                  <input
+                    type="number"
+                    required
+                    value={editingPlan.price}
+                    onChange={(e) => setEditingPlan({ ...editingPlan, price: Number(e.target.value) })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Max Quota Listings</label>
+                  <input
+                    type="number"
+                    required
+                    value={editingPlan.maxListings}
+                    onChange={(e) => setEditingPlan({ ...editingPlan, maxListings: Number(e.target.value) })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-300 block mb-1">Features (Comma separated)</label>
+                <textarea
+                  rows={3}
+                  value={editingPlan.featuresText || (editingPlan.features ? editingPlan.features.join(', ') : '')}
+                  onChange={(e) => {
+                    const text = e.target.value;
+                    setEditingPlan({
+                      ...editingPlan,
+                      featuresText: text,
+                      features: text.split(',').map((f: string) => f.trim()).filter(Boolean),
+                    });
+                  }}
+                  className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingPlan(null)}
+                  className="px-4 py-2 bg-slate-800 text-slate-200 rounded-xl font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold cursor-pointer"
+                >
+                  Save Package Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 3: INSPECT USER / VENDOR PROFILE & RESOLVE ISSUES                    */}
+      {/* ========================================================================= */}
+      {inspectingUser && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-hidden"
+          onClick={() => setInspectingUser(null)}
+        >
+          <div
+            className="bg-slate-950 border border-slate-800 w-full max-w-xl rounded-3xl p-6 text-xs space-y-4 text-slate-200 max-h-[90vh] overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-black text-sm text-white">{inspectingUser.name}</h4>
+                  <span className="px-2 py-0.2 rounded text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
+                    ✓ {inspectingUser.kycStatus}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400">Directory ID: {inspectingUser.id} · Role: {inspectingUser.role}</p>
+              </div>
+              <button onClick={() => setInspectingUser(null)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="p-3.5 bg-slate-900 rounded-xl border border-slate-800 grid grid-cols-2 gap-2 text-[11px]">
+                <div>
+                  <span className="text-slate-400 block">Contact Person:</span>
+                  <strong className="text-white">{inspectingUser.contactPerson}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block">Phone (+92):</span>
+                  <strong className="text-white">{inspectingUser.phone}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block">National ID (CNIC / Passport):</span>
+                  <strong className="font-mono text-cyan-300">{inspectingUser.cnic}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block">City Base:</span>
+                  <strong className="text-white">{inspectingUser.city}</strong>
+                </div>
+                {inspectingUser.ntnNumber && (
+                  <div>
+                    <span className="text-slate-400 block">FBR NTN Tax ID:</span>
+                    <strong className="font-mono text-emerald-400">{inspectingUser.ntnNumber}</strong>
+                  </div>
+                )}
+                <div>
+                  <span className="text-slate-400 block">Subscription Tier:</span>
+                  <strong className="text-amber-300">{inspectingUser.plan}</strong>
+                </div>
+              </div>
+
+              {/* Document Scans */}
+              <div className="p-3.5 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                <span className="font-bold text-white block">Official Verified Government Document:</span>
+                <div className="rounded-xl overflow-hidden border border-slate-800 bg-slate-950 max-h-48 flex items-center justify-center">
+                  <img
+                    src={inspectingUser.smartCardScan || inspectingUser.licenseScan}
+                    alt="Verified Document Scan"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <span className="text-[10px] text-slate-400 block">
+                  ✓ Audited by SafarPK Compliance Team. Exclusively accessible for authorized contract handovers.
+                </span>
+              </div>
+
+              {/* Resolution Actions */}
+              <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-between">
+                <span className="text-[11px] text-slate-300">Account Status: <strong>{inspectingUser.status}</strong></span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      alert(`Verified account status refreshed for ${inspectingUser.name}`);
+                    }}
+                    className="px-3 py-1 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg text-[11px] font-bold cursor-pointer"
+                  >
+                    Refresh Clearance
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      alert(`Account ${inspectingUser.name} suspended by Root Authority.`);
+                      setInspectingUser(null);
+                    }}
+                    className="px-3 py-1 bg-rose-700 hover:bg-rose-600 text-white rounded-lg text-[11px] font-bold cursor-pointer"
+                  >
+                    Suspend User
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setInspectingUser(null)}
+                className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold cursor-pointer"
+              >
+                Close Inspector
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 4: EDIT LISTING (FULL CRUD)                                         */}
+      {/* ========================================================================= */}
+      {editingListing && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-hidden"
+          onClick={() => setEditingListing(null)}
+        >
+          <div
+            className="bg-slate-950 border border-slate-800 w-full max-w-lg rounded-3xl p-6 text-xs space-y-4 text-slate-200 max-h-[90vh] overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h4 className="font-black text-sm text-white">Edit Marketplace Listing ({editingListing.ref})</h4>
+                <p className="text-[11px] text-slate-400">Super Admin Direct Override</p>
+              </div>
+              <button onClick={() => setEditingListing(null)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="font-bold text-slate-300 block mb-1">Vehicle / Route Title</label>
+                <input
+                  type="text"
+                  value={editingListing.title}
+                  onChange={(e) => setEditingListing({ ...editingListing, title: e.target.value })}
+                  className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">City</label>
+                  <input
+                    type="text"
+                    value={editingListing.city}
+                    onChange={(e) => setEditingListing({ ...editingListing, city: e.target.value })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Daily / Monthly Rate (PKR)</label>
+                  <input
+                    type="number"
+                    value={editingListing.rate}
+                    onChange={(e) => setEditingListing({ ...editingListing, rate: Number(e.target.value) })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Lister / Fleet Owner</label>
+                  <input
+                    type="text"
+                    value={editingListing.lister}
+                    onChange={(e) => setEditingListing({ ...editingListing, lister: e.target.value })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Listing Status</label>
+                  <select
+                    value={editingListing.status}
+                    onChange={(e) => setEditingListing({ ...editingListing, status: e.target.value })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  >
+                    <option value="LIVE">LIVE (Visible on Marketplace)</option>
+                    <option value="SUSPENDED">SUSPENDED (Hidden)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setEditingListing(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-bold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveListingEdit}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold cursor-pointer"
+              >
+                Save Listing Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 5: ADD DIRECT OVERRIDE LISTING                                      */}
+      {/* ========================================================================= */}
+      {showAddListingModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-hidden"
+          onClick={() => setShowAddListingModal(false)}
+        >
+          <div
+            className="bg-slate-950 border border-slate-800 w-full max-w-lg rounded-3xl p-6 text-xs space-y-4 text-slate-200 max-h-[90vh] overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h4 className="font-black text-sm text-white">Create Direct Override Listing</h4>
+                <p className="text-[11px] text-slate-400">Super Admin direct publish without agent queue</p>
+              </div>
+              <button onClick={() => setShowAddListingModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateOverrideListing} className="space-y-3">
+              <div>
+                <label className="font-bold text-slate-300 block mb-1">Vehicle / Route Title *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Toyota Prado TX L-Package 2024"
+                  value={newListingForm.title}
+                  onChange={(e) => setNewListingForm({ ...newListingForm, title: e.target.value })}
+                  className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Service Channel</label>
+                  <select
+                    value={newListingForm.category}
+                    onChange={(e) => setNewListingForm({ ...newListingForm, category: e.target.value })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  >
+                    <option value="CAR_RENTAL">Car Rental</option>
+                    <option value="PICK_AND_DROP">Pick & Drop Shuttle</option>
+                    <option value="CITY_TO_CITY">City to City Intercity</option>
+                    <option value="GOODS_TRANSPORT">Cargo Moving & Shifting</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Operating City</label>
+                  <input
+                    type="text"
+                    required
+                    value={newListingForm.city}
+                    onChange={(e) => setNewListingForm({ ...newListingForm, city: e.target.value })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Rent Rate (PKR / Day)</label>
+                  <input
+                    type="number"
+                    required
+                    value={newListingForm.rate}
+                    onChange={(e) => setNewListingForm({ ...newListingForm, rate: Number(e.target.value) })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Assigned Lister Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={newListingForm.lister}
+                    onChange={(e) => setNewListingForm({ ...newListingForm, lister: e.target.value })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowAddListingModal(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold cursor-pointer"
+                >
+                  Publish LIVE Immediately
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 6: CREATE SAFARPK VERIFICATION STAFF / AGENT                        */}
+      {/* ========================================================================= */}
+      {showCreateAgentModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-hidden"
+          onClick={() => setShowCreateAgentModal(false)}
+        >
+          <div
+            className="bg-slate-950 border border-slate-800 w-full max-w-lg rounded-3xl p-6 text-xs space-y-4 text-slate-200 max-h-[90vh] overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h4 className="font-black text-sm text-white">Create New SafarPK Staff / Agent</h4>
+                <p className="text-[11px] text-slate-400">Configure dedicated employee account with granular access matrix</p>
+              </div>
+              <button onClick={() => setShowCreateAgentModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateAgent} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Full Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Usman Farooq"
+                    value={newAgentForm.name}
+                    onChange={(e) => setNewAgentForm({ ...newAgentForm, name: e.target.value })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Staff ID</label>
+                  <input
+                    type="text"
+                    required
+                    value={newAgentForm.staffId}
+                    onChange={(e) => setNewAgentForm({ ...newAgentForm, staffId: e.target.value })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Employee Email / Login *</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="usman@safarpk.com"
+                    value={newAgentForm.email}
+                    onChange={(e) => setNewAgentForm({ ...newAgentForm, email: e.target.value })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Secret Access PIN / Password</label>
+                  <input
+                    type="text"
+                    required
+                    value={newAgentForm.pin}
+                    onChange={(e) => setNewAgentForm({ ...newAgentForm, pin: e.target.value })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Assigned Desk / City</label>
+                  <select
+                    value={newAgentForm.branch}
+                    onChange={(e) => setNewAgentForm({ ...newAgentForm, branch: e.target.value })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold"
+                  >
+                    <option value="Lahore Regional Desk">Lahore Regional Desk</option>
+                    <option value="Islamabad HQ Operations">Islamabad HQ Operations</option>
+                    <option value="Karachi South Hub">Karachi South Hub</option>
+                    <option value="Peshawar Desk">Peshawar Desk</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Role Title</label>
+                  <input
+                    type="text"
+                    value={newAgentForm.role}
+                    onChange={(e) => setNewAgentForm({ ...newAgentForm, role: e.target.value })}
+                    className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white"
+                  />
+                </div>
+              </div>
+
+              {/* Granular Permission Checkboxes */}
+              <div className="p-3.5 bg-slate-900 rounded-2xl border border-slate-800 space-y-2">
+                <span className="font-bold text-white block text-xs">Granular Access & Permission Matrix:</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newAgentForm.permissions.canVerifyCnic}
+                      onChange={(e) => setNewAgentForm({
+                        ...newAgentForm,
+                        permissions: { ...newAgentForm.permissions, canVerifyCnic: e.target.checked },
+                      })}
+                      className="rounded accent-rose-600"
+                    />
+                    <span>Verify National ID / CNIC</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newAgentForm.permissions.canVerifyLicense}
+                      onChange={(e) => setNewAgentForm({
+                        ...newAgentForm,
+                        permissions: { ...newAgentForm.permissions, canVerifyLicense: e.target.checked },
+                      })}
+                      className="rounded accent-rose-600"
+                    />
+                    <span>Verify Driving Licenses</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newAgentForm.permissions.canCreateListerManual}
+                      onChange={(e) => setNewAgentForm({
+                        ...newAgentForm,
+                        permissions: { ...newAgentForm.permissions, canCreateListerManual: e.target.checked },
+                      })}
+                      className="rounded accent-rose-600"
+                    />
+                    <span>Manual Lister Registration</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newAgentForm.permissions.canEditLister}
+                      onChange={(e) => setNewAgentForm({
+                        ...newAgentForm,
+                        permissions: { ...newAgentForm.permissions, canEditLister: e.target.checked },
+                      })}
+                      className="rounded accent-rose-600"
+                    />
+                    <span>Edit Lister Fleet Listings</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newAgentForm.permissions.canApproveSubscription}
+                      onChange={(e) => setNewAgentForm({
+                        ...newAgentForm,
+                        permissions: { ...newAgentForm.permissions, canApproveSubscription: e.target.checked },
+                      })}
+                      className="rounded accent-rose-600"
+                    />
+                    <span>Approve Subscription Proof</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newAgentForm.permissions.canDeleteListings}
+                      onChange={(e) => setNewAgentForm({
+                        ...newAgentForm,
+                        permissions: { ...newAgentForm.permissions, canDeleteListings: e.target.checked },
+                      })}
+                      className="rounded accent-rose-600"
+                    />
+                    <span>Delete Fraud Listings</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateAgentModal(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-bold cursor-pointer"
+                >
+                  Create & Activate Staff Account
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 7: EDIT AGENT PERMISSIONS                                           */}
+      {/* ========================================================================= */}
+      {editingAgent && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-hidden"
+          onClick={() => setEditingAgent(null)}
+        >
+          <div
+            className="bg-slate-950 border border-slate-800 w-full max-w-lg rounded-3xl p-6 text-xs space-y-4 text-slate-200 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h4 className="font-black text-sm text-white">Edit Permissions: {editingAgent.name}</h4>
+                <p className="text-[11px] text-slate-400">Staff ID: {editingAgent.staffId} · {editingAgent.branch}</p>
+              </div>
+              <button onClick={() => setEditingAgent(null)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2.5">
+              {[
+                { key: 'canVerifyCnic', label: 'Verify National ID / CNIC' },
+                { key: 'canVerifyLicense', label: 'Verify Driving Licenses' },
+                { key: 'canCreateListerManual', label: 'Manual Lister Registration & Cash Handling' },
+                { key: 'canEditLister', label: 'Edit Lister Fleet Listings' },
+                { key: 'canEditCustomer', label: 'Edit Customer Profiles' },
+                { key: 'canApproveSubscription', label: 'Approve Bank/JazzCash Subscriptions' },
+                { key: 'canDeleteListings', label: 'Delete Flagged / Inactive Listings' },
+                { key: 'canViewUnmaskedData', label: 'Lawful Audit: View Unmasked CNIC & Phone' },
+              ].map((perm) => (
+                <label key={perm.key} className="flex items-center justify-between p-2.5 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer">
+                  <span className="font-bold text-slate-200">{perm.label}</span>
+                  <input
+                    type="checkbox"
+                    checked={editingAgent.permissions[perm.key]}
+                    onChange={(e) =>
+                      setEditingAgent({
+                        ...editingAgent,
+                        permissions: {
+                          ...editingAgent.permissions,
+                          [perm.key]: e.target.checked,
+                        },
+                      })
+                    }
+                    className="rounded accent-rose-600 w-4 h-4"
+                  />
+                </label>
+              ))}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setEditingAgent(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-bold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAgentPermissions}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-bold cursor-pointer"
+              >
+                Save Permissions
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 8: INSPECT PAYMENT PROOF SLIP (STEALTH AUDIT)                       */}
+      {/* ========================================================================= */}
+      {viewingProofModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-hidden"
+          onClick={() => setViewingProofModal(null)}
+        >
+          <div
+            className="bg-slate-950 border border-slate-800 w-full max-w-md rounded-3xl p-6 text-xs space-y-4 text-slate-200 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h4 className="font-black text-sm text-white">Payment Proof Voucher Audit</h4>
+                <p className="text-[11px] text-slate-400">
+                  Transaction: <strong className="font-mono text-cyan-300">{viewingProofModal.trnRef}</strong>
+                </p>
+              </div>
+              <button onClick={() => setViewingProofModal(null)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 max-h-64 flex items-center justify-center">
+                <img
+                  src={viewingProofModal.paymentProofUrl}
+                  alt="Payment Voucher Slip"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
+              <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-1.5 text-[11px]">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Submitted By Agent:</span>
+                  <strong className="text-white">{viewingProofModal.agentName} ({viewingProofModal.staffId})</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Payment Channel:</span>
+                  <strong className="text-white">{viewingProofModal.paymentMethod}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Fee Amount Reported:</span>
+                  <strong className={viewingProofModal.isSuspicious ? 'text-rose-400 font-black' : 'text-emerald-400 font-black'}>
+                    PKR {formatPKR(viewingProofModal.feeReported)}
+                  </strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Scheduled Tariff:</span>
+                  <strong className="text-slate-300 font-black">PKR {formatPKR(viewingProofModal.officialTariff)}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setViewingProofModal(null)}
+                className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold cursor-pointer"
+              >
+                Close Audit Viewer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

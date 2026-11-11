@@ -1,0 +1,17 @@
+{
+  "global": {
+    "showCardUpload": true,
+    "cardRequired": false,
+    "hidePickDrop": false,
+    "hidePopularChips": true
+  },
+  "countries": {
+    "PK": { "showCardUpload": true, "cardRequired": false },
+    "DE": { "showCardUpload": false, "cardRequired": false, "hidePickDrop": true },
+    "AE": { "showCardUpload": true, "cardRequired": true },
+    "GB": { "showCardUpload": true },
+    "US": { "showCardUpload": true },
+    "CA": { "showCardUpload": true }
+  }
+}
+

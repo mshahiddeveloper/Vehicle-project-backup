@@ -1,0 +1,115 @@
+export interface CountryInfo {
+  code: string;
+  name: string;
+  flag: string;
+  currency: string;
+  symbol: string;
+  defaultCity: string;
+  cities: string[];
+  isLive: boolean;
+  comingSoonTitle: string;
+  comingSoonMessage: string;
+  heroHeadline: string;
+  heroSubtitle: string;
+}
+
+export const COUNTRIES: CountryInfo[] = [
+  {
+    code: 'PK',
+    name: 'Pakistan',
+    flag: '🇵🇰',
+    currency: 'PKR',
+    symbol: 'Rs',
+    defaultCity: 'All Pakistan',
+    cities: ['All Pakistan', 'Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Peshawar', 'Multan', 'Faisalabad', 'Gujranwala', 'Sialkot'],
+    isLive: true,
+    comingSoonTitle: '',
+    comingSoonMessage: '',
+    heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across Pakistan',
+    heroSubtitle: 'Direct connection with verified car owners, corporate shuttles, licensed chauffeurs, and home cargo movers in Lahore, Karachi, Islamabad, and nationwide. Zero platform commission.',
+  },
+  {
+    code: 'DE',
+    name: 'Germany',
+    flag: '🇩🇪',
+    currency: 'EUR',
+    symbol: '€',
+    defaultCity: 'All Germany',
+    cities: ['All Germany', 'Berlin', 'Munich', 'Frankfurt', 'Hamburg', 'Cologne', 'Stuttgart', 'Düsseldorf'],
+    isLive: true,
+    comingSoonTitle: '',
+    comingSoonMessage: '',
+    heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across Germany',
+    heroSubtitle: 'Direct connection with licensed fleet operators, executive shuttles, and certified chauffeurs in Berlin, Munich, Frankfurt, and nationwide. Zero platform commission.',
+  },
+  {
+    code: 'AE',
+    name: 'United Arab Emirates',
+    flag: '🇦🇪',
+    currency: 'AED',
+    symbol: 'AED',
+    defaultCity: 'All UAE',
+    cities: ['All UAE', 'Dubai', 'Abu Dhabi', 'Sharjah', 'Ajman', 'Ras Al Khaimah'],
+    isLive: true,
+    comingSoonTitle: '',
+    comingSoonMessage: '',
+    heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across UAE',
+    heroSubtitle: 'Direct connection with luxury car rentals, private chauffeurs, and executive vanpools in Dubai, Abu Dhabi, Sharjah, and nationwide.',
+  },
+  {
+    code: 'GB',
+    name: 'United Kingdom',
+    flag: '🇬🇧',
+    currency: 'GBP',
+    symbol: '£',
+    defaultCity: 'All UK',
+    cities: ['All UK', 'London', 'Manchester', 'Birmingham', 'Leeds', 'Glasgow', 'Edinburgh'],
+    isLive: true,
+    comingSoonTitle: '',
+    comingSoonMessage: '',
+    heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across United Kingdom',
+    heroSubtitle: 'Direct connection with licensed private hire operators, executive fleets, and van removal cargo movers in London, Manchester, Birmingham, and nationwide.',
+  },
+  {
+    code: 'SA',
+    name: 'Saudi Arabia',
+    flag: '🇸🇦',
+    currency: 'SAR',
+    symbol: 'SAR',
+    defaultCity: 'All Saudi Arabia',
+    cities: ['All Saudi Arabia', 'Riyadh', 'Jeddah', 'Makkah', 'Madinah', 'Dammam', 'Khobar'],
+    isLive: true,
+    comingSoonTitle: '',
+    comingSoonMessage: '',
+    heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across Saudi Arabia',
+    heroSubtitle: 'Direct connection with verified vehicle rentals, Umrah executive shuttles, and professional chauffeurs in Riyadh, Jeddah, Makkah, and Madinah.',
+  },
+  {
+    code: 'US',
+    name: 'United States',
+    flag: '🇺🇸',
+    currency: 'USD',
+    symbol: '$',
+    defaultCity: 'All USA',
+    cities: ['All USA', 'New York', 'Los Angeles', 'Chicago', 'Houston', 'Dallas', 'Miami'],
+    isLive: true,
+    comingSoonTitle: '',
+    comingSoonMessage: '',
+    heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across United States',
+    heroSubtitle: 'Direct connection with verified vehicle owners, executive livery chauffeurs, and interstate movers in New York, Los Angeles, Chicago, and nationwide.',
+  },
+  {
+    code: 'CA',
+    name: 'Canada',
+    flag: '🇨🇦',
+    currency: 'CAD',
+    symbol: 'CA$',
+    defaultCity: 'All Canada',
+    cities: ['All Canada', 'Toronto', 'Vancouver', 'Montreal', 'Calgary', 'Ottawa'],
+    isLive: true,
+    comingSoonTitle: '',
+    comingSoonMessage: '',
+    heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across Canada',
+    heroSubtitle: 'Direct connection with verified car owners and licensed chauffeurs in Toronto, Vancouver, Montreal, and nationwide.',
+  },
+];

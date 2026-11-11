@@ -1,0 +1,667 @@
+// SQLite datasource for 100% standalone local execution without external DB dependencies
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model PlatformSettings {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String   // JSON string
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Country {
+  id                   String        @id @default(uuid())
+  code                 String        @unique // PK, AE, SA, etc.
+  name                 String
+  nativeName           String?
+  phoneCode            String        // +92, +971
+  currencyCode         String        // PKR, AED
+  currencySymbol       String        // Rs, AED
+  flagEmoji            String?
+  status               String        @default("DRAFT") // DRAFT, CONFIGURED, PENDING_REVIEW, APPROVED, ACTIVE, SUSPENDED, DISABLED
+  displayOrder         Int           @default(0)
+  isDefault            Boolean       @default(false)
+  registrationConfig   String?       // JSON string
+  identityRequirements String?       // JSON string
+  businessRequirements String?       // JSON string
+  vehicleRequirements  String?       // JSON string
+  driverRequirements   String?       // JSON string
+  termsAndConditions   String?       // JSON string
+  bookingPolicies      String?       // JSON string
+  taxConfig            String?       // JSON string
+  activatedById        String?
+  activatedAt          DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  deletedAt            DateTime?
+
+  users                User[]
+  documentRequirements CountryDocumentRequirement[]
+  formFields           CountryFormField[]
+  phoneCountryCodes    PhoneCountryCode[]
+  subscriptionPlans    SubscriptionPlan[]
+  paymentMethods       PaymentMethod[]
+  vehicleListings      VehicleListing[]
+  documentUploads      DocumentUpload[]
+}
+
+model CountryDocumentRequirement {
+  id              String    @id @default(uuid())
+  countryId       String
+  userType        String    // CUSTOMER, INDIVIDUAL_LISTER, BUSINESS_LISTER, DRIVER
+  documentType    String    // CNIC, NTN, DRIVING_LICENCE, etc.
+  documentLabel   String
+  isMandatory     Boolean   @default(true)
+  isHidden        Boolean   @default(false)
+  validationRules String?   // JSON string
+  ocrConfig       String?   // JSON string
+  hasExpiry       Boolean   @default(false)
+  displayOrder    Int       @default(0)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  country         Country   @relation(fields: [countryId], references: [id], onDelete: Cascade)
+}
+
+model CountryFormField {
+  id              String      @id @default(uuid())
+  countryId       String
+  userType        String
+  formSection     String    // PERSONAL, BUSINESS, VEHICLE, DRIVER_DETAILS
+  fieldKey        String
+  fieldLabel      String
+  fieldType       String    @default("TEXT") // TEXT, NUMBER, DATE, SELECT, FILE, PHONE, EMAIL, TEXTAREA
+  options         String?   // JSON string
+  isMandatory     Boolean   @default(true)
+  isHidden        Boolean   @default(false)
+  validationRules String?   // JSON string
+  displayOrder    Int       @default(0)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  country         Country   @relation(fields: [countryId], references: [id], onDelete: Cascade)
+}
+
+model PhoneCountryCode {
+  id        String   @id @default(uuid())
+  phoneCode String   @unique
+  countryId String
+  isPrimary Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  country   Country  @relation(fields: [countryId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id               String        @id @default(uuid())
+  phone            String        @unique
+  phoneCountryCode String
+  email            String?       @unique
+  passwordHash     String?
+  phoneVerified    Boolean       @default(false)
+  emailVerified    Boolean       @default(false)
+  userType         String        @default("CUSTOMER") // CUSTOMER, INDIVIDUAL_LISTER, BUSINESS_LISTER, DRIVER, AGENT, SUPER_ADMIN
+  accountStatus    String        @default("PENDING_APPROVAL") // PENDING_APPROVAL, APPROVED, REJECTED, BLOCKED
+  countryId        String
+  rejectionReason  String?
+  approvedById     String?
+  approvedAt       DateTime?
+  lastLoginAt      DateTime?
+  lastLoginIp      String?
+  metadata         String?       // JSON string
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  deletedAt        DateTime?
+
+  country          Country       @relation(fields: [countryId], references: [id])
+  customerProfile  CustomerProfile?
+  listerProfile    ListerProfile?
+  driverProfile    DriverProfile?
+  agentProfile     AgentProfile?
+
+  subscriptions    Subscription[]
+  paymentRecords   PaymentRecord[]
+  documentUploads  DocumentUpload[]
+  bookingsCustomer Booking[]                 @relation("CustomerBookings")
+  leadsCustomer    Lead[]                    @relation("CustomerLeads")
+  complaints       Complaint[]
+  reviewsAuthored  Review[]                  @relation("ReviewsAuthored")
+  reviewsReceived  Review[]                  @relation("ReviewsReceived")
+  reviewResponses  ReviewResponse[]
+  complaintMsgs    ComplaintMessage[]
+  auditLogs        AuditLog[]
+  savedVehicles    SavedVehicle[]
+}
+
+model CustomerProfile {
+  id               String    @id @default(uuid())
+  userId           String    @unique
+  firstName        String
+  lastName         String
+  displayName      String?
+  dateOfBirth      DateTime?
+  address          String?
+  city             String?
+  state            String?
+  postalCode       String?
+  profileImageUrl  String?
+  identityVerified Boolean   @default(false)
+  ratingAverage    Float     @default(0)
+  ratingCount      Int       @default(0)
+  totalBookings    Int       @default(0)
+  preferences      String?   // JSON
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ListerProfile {
+  id                 String             @id @default(uuid())
+  userId             String             @unique
+  listerType         String             @default("INDIVIDUAL_LISTER") // INDIVIDUAL_LISTER, BUSINESS_LISTER
+  firstName          String
+  lastName           String
+  displayName        String?
+  businessName       String?
+  businessRegNumber  String?
+  taxNumber          String?
+  businessAddress    String?
+  representativeName String?
+  address            String?
+  city               String?
+  state              String?
+  postalCode         String?
+  profileImageUrl    String?
+  coverImageUrl      String?
+  bio                String?
+  identityVerified   Boolean            @default(false)
+  businessVerified   Boolean            @default(false)
+  ratingAverage      Float              @default(0)
+  ratingCount        Int                @default(0)
+  totalListings      Int                @default(0)
+  activeListings     Int                @default(0)
+  totalBookings      Int                @default(0)
+  verificationStatus String             @default("PENDING") // PENDING, VERIFIED, REJECTED
+  operatingHours     String?            // JSON
+  serviceAreas       String?            // JSON
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listings           VehicleListing[]
+  leadsReceived      Lead[]
+}
+
+model DriverProfile {
+  id                 String                   @id @default(uuid())
+  userId             String                   @unique
+  firstName          String
+  lastName           String
+  displayName        String?
+  dateOfBirth        DateTime?
+  licenceNumber      String?
+  licenceExpiry      DateTime?
+  licenceClass       String?
+  address            String?
+  city               String?
+  profileImageUrl    String?
+  identityVerified   Boolean                  @default(false)
+  licenceVerified    Boolean                  @default(false)
+  ratingAverage      Float                    @default(0)
+  ratingCount        Int                      @default(0)
+  totalTrips         Int                      @default(0)
+  availabilityStatus String                   @default("OFFLINE") // AVAILABLE, BUSY, OFFLINE
+  verificationStatus String                   @default("PENDING") // PENDING, VERIFIED, REJECTED
+  experience         String?                  // JSON
+  languages          String?                  // JSON
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  user               User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookings           Booking[]
+}
+
+model AgentProfile {
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  firstName           String
+  lastName            String
+  employeeId          String?  @unique
+  department          String?
+  assignedById        String?
+  isActive            Boolean  @default(true)
+  assignedCountries   String?  // JSON array of country IDs
+  assignedListerCount Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SubscriptionPlan {
+  id                  String       @id @default(uuid())
+  countryId           String
+  targetType          String       // LISTER, DRIVER
+  name                String
+  description         String?
+  billingCycle        String       @default("MONTHLY") // MONTHLY, YEARLY, CUSTOM
+  cycleDays           Int          @default(30)
+  price               Float
+  currencyCode        String
+  maxListings         Int?         // null = unlimited
+  maxFeaturedListings Int          @default(0)
+  features            String?      // JSON
+  gracePeriodDays     Int          @default(7)
+  isActive            Boolean      @default(true)
+  displayOrder        Int          @default(0)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  deletedAt           DateTime?
+
+  country             Country      @relation(fields: [countryId], references: [id])
+  subscriptions       Subscription[]
+}
+
+model Subscription {
+  id                 String             @id @default(uuid())
+  userId             String
+  planId             String
+  countryId          String
+  status             String             @default("AWAITING_PAYMENT") // AWAITING_PAYMENT, ACTIVE, EXPIRED, SUSPENDED, CANCELLED
+  startsAt           DateTime?
+  expiresAt          DateTime?
+  graceEndsAt        DateTime?
+  autoRenew          Boolean            @default(false)
+  renewedFromId      String?
+  cancellationReason String?
+  cancelledAt        DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan               SubscriptionPlan   @relation(fields: [planId], references: [id])
+  paymentRecords     PaymentRecord[]
+}
+
+model PaymentMethod {
+  id                     String            @id @default(uuid())
+  countryId              String
+  methodType             String            @default("BANK_TRANSFER") // BANK_TRANSFER, QR_PAYMENT, WALLET, ONLINE_GATEWAY, OTHER
+  name                   String
+  currencyCode           String
+  bankName               String?
+  accountHolderName      String?
+  accountNumber          String?
+  iban                   String?
+  branchInfo             String?
+  qrImageUrl             String?
+  paymentInstructions    String?
+  minAmount              Float?
+  maxAmount              Float?
+  requireTransactionRef  Boolean           @default(false)
+  requirePaymentProof    Boolean           @default(true)
+  acceptedFileTypes      String?           // JSON
+  maxFileSizeMb          Int               @default(5)
+  isActive               Boolean           @default(true)
+  displayOrder           Int               @default(0)
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+  deletedAt              DateTime?
+
+  country                Country           @relation(fields: [countryId], references: [id])
+  paymentRecords         PaymentRecord[]
+}
+
+model PaymentRecord {
+  id                   String               @id @default(uuid())
+  referenceNumber      String               @unique // PAY-2026-00123
+  userId               String
+  subscriptionId       String?
+  bookingId            String?
+  paymentMethodId      String
+  paymentType          String               @default("SUBSCRIPTION") // SUBSCRIPTION, BOOKING, RENEWAL, OTHER
+  amount               Float
+  currencyCode         String
+  status               String               @default("PENDING") // PENDING, SUBMITTED, VERIFIED, REJECTED, REFUNDED, FAILED
+  promoCodeId          String?
+  discountAmount       Float                @default(0)
+  finalAmount          Float
+  gatewayTransactionId String?
+  gatewayResponse      String?              // JSON
+  rejectionReason      String?
+  verifiedById         String?
+  verifiedAt           DateTime?
+  submittedAt          DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  user                 User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription         Subscription?        @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  booking              Booking?             @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  paymentMethod        PaymentMethod        @relation(fields: [paymentMethodId], references: [id])
+  proofs               PaymentProof[]
+}
+
+model PaymentProof {
+  id                   String        @id @default(uuid())
+  paymentRecordId      String
+  fileUrl              String
+  fileType             String
+  fileSize             Int
+  transactionReference String?
+  perceptualHash       String?
+  isCurrent            Boolean       @default(true)
+  uploadedAt           DateTime      @default(now())
+
+  paymentRecord        PaymentRecord @relation(fields: [paymentRecordId], references: [id], onDelete: Cascade)
+}
+
+model VehicleCategory {
+  id                  String                @id @default(uuid())
+  name                String                @unique // Cars, Motorcycles, Vans, etc.
+  slug                String                @unique
+  description         String?
+  iconUrl             String?
+  isActive            Boolean               @default(true)
+  displayOrder        Int                   @default(0)
+  countryAvailability String?               // JSON array
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  manufacturers       VehicleManufacturer[]
+  listings            VehicleListing[]
+}
+
+model VehicleManufacturer {
+  id                  String          @id @default(uuid())
+  name                String
+  slug                String
+  logoUrl             String?
+  categoryId          String
+  isActive            Boolean         @default(true)
+  displayOrder        Int             @default(0)
+  countryAvailability String?         // JSON
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  category            VehicleCategory @relation(fields: [categoryId], references: [id])
+  models              VehicleModel[]
+  listings            VehicleListing[]
+}
+
+model VehicleModel {
+  id             String              @id @default(uuid())
+  manufacturerId String
+  name           String
+  slug           String
+  isActive       Boolean             @default(true)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  manufacturer   VehicleManufacturer @relation(fields: [manufacturerId], references: [id])
+  listings       VehicleListing[]
+}
+
+model VehicleListing {
+  id                  String                @id @default(uuid())
+  listingRef          String                @unique // LST-2026-0001
+  listerId            String
+  countryId           String
+  categoryId          String
+  manufacturerId      String
+  modelId             String
+  variantName         String?
+  productionYear      Int
+  colour              String
+  registrationNumber  String                // Private
+  engineNumber        String?               // Private
+  chassisNumber       String?               // Private
+  mileageKm           Int?
+  fuelType            String                @default("PETROL")
+  transmission        String                @default("MANUAL")
+  city                String
+  area                String?
+  latitude            Float?
+  longitude           Float?
+  isInsured           Boolean               @default(false)
+  insuranceDetails    String?
+  driverMandatory     Boolean               @default(false)
+  driverAvailable     Boolean               @default(true)
+  dailyRate           Float
+  dailyRateWithDriver Float?
+  weeklyRate          Float?
+  monthlyRate         Float?
+  driverDailyCharge   Float?
+  securityDeposit     Float?
+  currencyCode        String
+  minRentalDays       Int                   @default(1)
+  maxRentalDays       Int?
+  rentalConditions    String?
+  description         String?
+  status              String                @default("DRAFT") // DRAFT, PENDING_PAYMENT, PENDING_APPROVAL, LIVE, REJECTED, SUSPENDED, ARCHIVED
+  rejectionReason     String?
+  approvedById        String?
+  approvedAt          DateTime?
+  viewCount           Int                   @default(0)
+  inquiryCount        Int                   @default(0)
+  bookingCount        Int                   @default(0)
+  isFeatured          Boolean               @default(false)
+  featuredUntil       DateTime?
+  additionalSpecs     String?               // JSON
+  serviceType         String                @default("CAR_RENTAL") // CAR_RENTAL, PICK_AND_DROP, CITY_TO_CITY, GOODS_TRANSPORT
+  originCity          String?
+  destinationCity     String?
+  routeDetails        String?
+  morningPickupTime   String?
+  eveningDropTime     String?
+  pricePerSeat        Float?
+  availableSeats      Int?
+  monthlyRatePerSeat  Float?
+  movingCapacityTons  Float?
+  helpersAvailable    Boolean               @default(false)
+  helperRate          Float?
+  serviceConfig       String?               // JSON string
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  deletedAt           DateTime?
+
+  lister              ListerProfile         @relation(fields: [listerId], references: [id], onDelete: Cascade)
+  country             Country               @relation(fields: [countryId], references: [id])
+  category            VehicleCategory       @relation(fields: [categoryId], references: [id])
+  manufacturer        VehicleManufacturer   @relation(fields: [manufacturerId], references: [id])
+  model               VehicleModel          @relation(fields: [modelId], references: [id])
+
+  images              ListingImage[]
+  bookings            Booking[]
+  leads               Lead[]
+  savedByCustomers    SavedVehicle[]
+  complaints          Complaint[]
+}
+
+model ListingImage {
+  id           String         @id @default(uuid())
+  listingId    String
+  originalUrl  String
+  thumbnailUrl String?
+  displayOrder Int            @default(0)
+  isPrimary    Boolean        @default(false)
+  altText      String?
+  createdAt    DateTime       @default(now())
+
+  listing      VehicleListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+}
+
+model Booking {
+  id                 String          @id @default(uuid())
+  bookingRef         String          @unique // BKG-2026-0001
+  customerId         String
+  listingId          String
+  driverId           String?
+  bookingType        String          @default("ONLINE") // ONLINE, LEAD
+  startDate          DateTime
+  endDate            DateTime
+  totalDays          Int
+  withDriver         Boolean         @default(false)
+  dailyRate          Float
+  driverCharge       Float           @default(0)
+  subtotal           Float
+  taxAmount          Float           @default(0)
+  discountAmount     Float           @default(0)
+  totalAmount        Float
+  currencyCode       String
+  status             String          @default("REQUESTED") // REQUESTED, ACCEPTED, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED, DISPUTED
+  cancellationReason String?
+  pickupLocation     String?
+  dropoffLocation    String?
+  specialRequests    String?
+  confirmedAt        DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  customer           User            @relation("CustomerBookings", fields: [customerId], references: [id])
+  listing            VehicleListing  @relation(fields: [listingId], references: [id])
+  driver             DriverProfile?  @relation(fields: [driverId], references: [id], onDelete: SetNull)
+
+  paymentRecords     PaymentRecord[]
+  reviews            Review[]
+  complaints         Complaint[]
+}
+
+model Lead {
+  id           String          @id @default(uuid())
+  leadRef      String          @unique // LEAD-2026-0001
+  customerId   String
+  listingId    String
+  listerId     String
+  contactType  String          @default("WHATSAPP") // PHONE, WHATSAPP, INQUIRY_FORM
+  message      String?
+  status       String          @default("NEW") // NEW, CONTACTED, CONVERTED, CLOSED
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  customer     User            @relation("CustomerLeads", fields: [customerId], references: [id])
+  listing      VehicleListing  @relation(fields: [listingId], references: [id])
+  lister       ListerProfile   @relation(fields: [listerId], references: [id])
+}
+
+model DocumentUpload {
+  id               String           @id @default(uuid())
+  userId           String
+  countryId        String
+  documentCategory String           @default("IDENTITY") // IDENTITY, BUSINESS, VEHICLE, LICENCE, PAYMENT_PROOF, OTHER
+  documentType     String           // CNIC_FRONT, CNIC_BACK, NTN, etc.
+  originalFilename String
+  storedUrl        String
+  fileType         String
+  fileSize         Int
+  status           String           @default("UPLOADED") // UPLOADED, PROCESSING, EXTRACTED, PENDING_VERIFICATION, VERIFIED, REJECTED
+  rejectionReason  String?
+  verifiedById     String?
+  verifiedAt       DateTime?
+  extractedData    String?          // JSON extracted OCR fields
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  country          Country          @relation(fields: [countryId], references: [id])
+}
+
+model Review {
+  id               String                @id @default(uuid())
+  bookingId        String                @unique
+  reviewerId       String
+  revieweeId       String
+  reviewType       String                @default("CUSTOMER_TO_LISTER")
+  rating           Int                   // 1 to 5
+  comment          String?
+  isPublished      Boolean               @default(true)
+  moderationStatus String                @default("APPROVED") // PENDING, APPROVED, HIDDEN
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  booking          Booking               @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  reviewer         User                  @relation("ReviewsAuthored", fields: [reviewerId], references: [id])
+  reviewee         User                  @relation("ReviewsReceived", fields: [revieweeId], references: [id])
+  response         ReviewResponse?
+}
+
+model ReviewResponse {
+  id          String   @id @default(uuid())
+  reviewId    String   @unique
+  responderId String
+  response    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  review      Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  responder   User     @relation(fields: [responderId], references: [id])
+}
+
+model Complaint {
+  id          String            @id @default(uuid())
+  ticketRef   String            @unique
+  userId      String
+  bookingId   String?
+  listingId   String?
+  category    String            @default("OTHER")
+  subject     String
+  description String
+  priority    String            @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  status      String            @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  assignedTo  String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  booking     Booking?          @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  listing     VehicleListing?   @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  messages    ComplaintMessage[]
+}
+
+model ComplaintMessage {
+  id             String    @id @default(uuid())
+  complaintId    String
+  senderId       String
+  message        String
+  isInternalNote Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+
+  complaint      Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  sender         User      @relation(fields: [senderId], references: [id])
+}
+
+model AuditLog {
+  id           String    @id @default(uuid())
+  userId       String?
+  action       String    // PAYMENT_APPROVED, LISTING_REJECTED, etc.
+  resourceType String
+  resourceId   String?
+  details      String?   // JSON
+  ipAddress    String?
+  createdAt    DateTime  @default(now())
+
+  user         User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model SavedVehicle {
+  id         String         @id @default(uuid())
+  customerId String
+  listingId  String
+  createdAt  DateTime       @default(now())
+
+  customer   User           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  listing    VehicleListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, listingId])
+}

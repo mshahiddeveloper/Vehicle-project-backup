@@ -1,0 +1,2786 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import {
+  Car,
+  Calendar,
+  MessageCircle,
+  PlusCircle,
+  ShieldCheck,
+  MapPin,
+  Clock,
+  ArrowRight,
+  Upload,
+  Image as ImageIcon,
+  CheckCircle2,
+  AlertCircle,
+  Trash2,
+  RefreshCw,
+  Star,
+  CreditCard,
+  Building2,
+  Users,
+  Settings,
+  DollarSign,
+  FileText,
+  Navigation,
+  Search,
+  Crosshair,
+  X,
+  Scan,
+  Check,
+  Edit3,
+} from 'lucide-react';
+import { API_BASE, formatPKR, maskCnic, maskLicense, maskPhone } from '@/lib/api';
+
+const POPULAR_CAR_SUGGESTIONS = [
+  'Toyota Corolla',
+  'Honda Civic',
+  'Toyota Hiace',
+  'Suzuki APV',
+  'Toyota Prado',
+  'Toyota Land Cruiser V8',
+  'Suzuki Alto',
+  'Suzuki Cultus',
+  'Hyundai Tucson',
+  'KIA Sportage',
+  'Changan Alsvin',
+  'Suzuki WagonR',
+];
+
+const AVAILABLE_SERVICE_TAGS = [
+  'With Driver',
+  'Self-Drive',
+  'Wedding',
+  'Airport Pickup',
+  'Tourist Tours',
+  'Corporate Monthly',
+  'Luxury',
+];
+
+export default function ListerDashboardPage() {
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'fleet' | 'add_vehicle' | 'requests' | 'availability' | 'pricing' | 'reviews' | 'subscription' | 'profile' | 'team' | 'settings'
+  >('overview');
+
+  // Handle URL query parameters (?tab=add_vehicle&step=1)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (
+        tabParam &&
+        [
+          'overview',
+          'fleet',
+          'add_vehicle',
+          'requests',
+          'availability',
+          'pricing',
+          'reviews',
+          'subscription',
+          'profile',
+          'team',
+          'settings',
+        ].includes(tabParam)
+      ) {
+        setActiveTab(tabParam as any);
+      }
+      const stepParam = params.get('step');
+      if (stepParam) {
+        setWizardStep(Number(stepParam) || 1);
+      }
+    }
+  }, []);
+
+  // Lister Data State (Step 1: Your Business)
+  const [businessName, setBusinessName] = useState('Salman Rent a Car & Tours');
+  const [operatingCity, setOperatingCity] = useState('Islamabad');
+  const [operatingArea, setOperatingArea] = useState('F-10 Markaz');
+  const [listerAddress, setListerAddress] = useState('Plaza 14, Main Road, F-10 Markaz');
+  const [listerWebsite, setListerWebsite] = useState('https://salmanrentacar.pk');
+  const [listerGoogleMaps, setListerGoogleMaps] = useState('https://maps.google.com/?q=Islamabad+F10');
+  const [fleetSize, setFleetSize] = useState('3-5 Cars');
+
+  // Claim Listing Mock Database (Matching Reference Screenshots)
+  const [claimSearchQuery, setClaimSearchQuery] = useState('');
+  const [showClaimDropdown, setShowClaimDropdown] = useState(false);
+  const CLAIMABLE_BUSINESSES = [
+    {
+      companyName: 'Summers Puckett Inc',
+      city: 'Islamabad',
+      area: 'Eaque odit in except',
+      address: 'Lorem maxime deserun',
+      website: 'https://www.qijuwuvafaleb.com',
+      googleMaps: 'https://maps.google.com/?q=Islamabad+Centaurus',
+      name: 'Naida Rasmussen',
+      whatsapp: '+92 19 41283690',
+      phone: '+92 16 61378870',
+      fleetCount: '6-10 Cars',
+      bio: 'Leading corporate and executive car rental in Islamabad with modern fleet and vetted chauffeurs.',
+    },
+    {
+      companyName: 'Salman Rent a Car & Tours',
+      city: 'Islamabad',
+      area: 'F-10 Markaz',
+      address: 'Plaza 14, Main Road, F-10 Markaz',
+      website: 'https://salmanrentacar.pk',
+      googleMaps: 'https://maps.google.com/?q=Islamabad+F10',
+      name: 'Muhammad Salman',
+      whatsapp: '+92 300 1234567',
+      phone: '+92 312 9876543',
+      fleetCount: '3-5 Cars',
+      bio: 'Reliable, clean, and inspected fleet in Islamabad & Rawalpindi. On-time doorstep delivery with Chilled AC and 24/7 road assistance.',
+    },
+    {
+      companyName: 'Royal Wheels Rent a Car',
+      city: 'Lahore',
+      area: 'DHA Phase 5',
+      address: 'Shop 22, Commercial Broadway, DHA Phase 5',
+      website: 'https://royalwheels.pk',
+      googleMaps: 'https://maps.google.com/?q=Lahore+DHA5',
+      name: 'Chaudhry Kamran',
+      whatsapp: '+92 321 8472910',
+      phone: '+92 301 5544332',
+      fleetCount: '10+ Cars',
+      bio: 'Luxury Prado, Land Cruiser, and Civic rentals for weddings, executive delegations, and outstation trips.',
+    },
+  ];
+
+  const handleClaimListing = (biz: any) => {
+    setBusinessName(biz.companyName);
+    setOperatingCity(biz.city);
+    setOperatingArea(biz.area);
+    setListerAddress(biz.address);
+    setListerWebsite(biz.website);
+    setListerGoogleMaps(biz.googleMaps);
+    setConfirmedMapLocation(`${biz.area}, ${biz.city}`);
+    setListerName(biz.name);
+    setListerWhatsApp(biz.whatsapp);
+    setListerSecondaryPhone(biz.phone);
+    setFleetSize(biz.fleetCount);
+    setListerBio(biz.bio);
+    setClaimSearchQuery('');
+    setShowClaimDropdown(false);
+    setWizardSuccessMsg(`✓ Claimed "${biz.companyName}" listing! Profile data auto-populated.`);
+    setTimeout(() => setWizardSuccessMsg(null), 3000);
+  };
+
+  // 3-Step Lister Ad Posting State (Matching Reference Screenshots & Prompt)
+  // Step 1: Car Details
+  const [carBrand, setCarBrand] = useState('Suzuki');
+  const [carModel, setCarModel] = useState('Alto VXR');
+  const [carYear, setCarYear] = useState('2024');
+  const [carRentPerDay, setCarRentPerDay] = useState('4500');
+  const [carDescription, setCarDescription] = useState(
+    'Clean interior, chilled AC & heater, family driven, fuel efficient. Available for rental in Islamabad & Rawalpindi with or without driver.'
+  );
+  const [carDriver, setCarDriver] = useState<'WITH_DRIVER' | 'WITHOUT_DRIVER' | 'BOTH'>('BOTH');
+  const [carTransmission, setCarTransmission] = useState<'AUTOMATIC' | 'MANUAL'>('MANUAL');
+  const [carAcHeater, setCarAcHeater] = useState<'AC_HEATER' | 'NONE'>('AC_HEATER');
+  const [carSeats, setCarSeats] = useState<number>(4);
+
+  // Step 2: Upload Photos (6 Photo Slots)
+  const [carPhotoSlots, setCarPhotoSlots] = useState<
+    Array<{ id: number; label: string; file: File | null; url: string | null }>
+  >([
+    {
+      id: 1,
+      label: 'Front View',
+      file: null,
+      url: 'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=600&auto=format&fit=crop&q=80',
+    },
+    {
+      id: 2,
+      label: 'Rear Angle',
+      file: null,
+      url: 'https://images.unsplash.com/photo-1590362891988-f77804703088?w=600&auto=format&fit=crop&q=80',
+    },
+    {
+      id: 3,
+      label: 'Dashboard / Interior',
+      file: null,
+      url: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=600&auto=format&fit=crop&q=80',
+    },
+    { id: 4, label: 'Passenger Seats', file: null, url: null },
+    { id: 5, label: 'Trunk / Boot Space', file: null, url: null },
+    { id: 6, label: 'Side Profile', file: null, url: null },
+  ]);
+
+  // Step 3: Personal Info (Matching Reference Image 1)
+  const [personalFullName, setPersonalFullName] = useState('Muhammad Salman');
+  const [personalPrimaryNumber, setPersonalPrimaryNumber] = useState('03102355671');
+  const [personalSecondaryNumber, setPersonalSecondaryNumber] = useState('03219876543');
+  const [shopName, setShopName] = useState('Salman Rent a Car & Tours');
+  const [personalCity, setPersonalCity] = useState('Islamabad');
+  const [personalSearchLocation, setPersonalSearchLocation] = useState('Centaurus Mall, F-8, Islamabad');
+  const [showGeoBanner, setShowGeoBanner] = useState(true);
+  const [listerAvailableCities, setListerAvailableCities] = useState<string[]>([
+    'Islamabad',
+    'Rawalpindi',
+    'Lahore',
+    'Karachi',
+    'Peshawar',
+    'Multan',
+    'Faisalabad',
+    'Quetta',
+    'Gujranwala',
+    'Sialkot',
+    'Abbottabad',
+  ]);
+  const [showCustomCityLister, setShowCustomCityLister] = useState(false);
+  const [customCityListerInput, setCustomCityListerInput] = useState('');
+
+  // Legacy Contact Info Sync
+  const [listerName, setListerName] = useState('Muhammad Salman');
+  const [listerPhone, setListerPhone] = useState('+92 300 1234567');
+  const [listerWhatsApp, setListerWhatsApp] = useState('03102355671');
+  const [listerSecondaryPhone, setListerSecondaryPhone] = useState('03219876543');
+
+  // Step 3: Cars & Services
+  const [selectedOfferTags, setSelectedOfferTags] = useState<string[]>([
+    'With Driver',
+    'Self-Drive',
+    'Airport Pickup',
+    'Wedding',
+  ]);
+  const [multiCars, setMultiCars] = useState<
+    Array<{
+      id: number;
+      model: string;
+      dailyRate: string;
+      driverMode: 'WITH_DRIVER' | 'WITHOUT_DRIVER' | 'BOTH';
+    }>
+  >([
+    { id: 1, model: 'Toyota Corolla Altis Grande', dailyRate: '8500', driverMode: 'BOTH' },
+    { id: 2, model: 'Honda Civic Oriel Turbo', dailyRate: '14000', driverMode: 'BOTH' },
+  ]);
+  const [vehicleTransmission, setVehicleTransmission] = useState<'AUTOMATIC' | 'MANUAL'>('AUTOMATIC');
+  const [vehicleAcMode, setVehicleAcMode] = useState<'AC_HEATER' | 'NONE'>('AC_HEATER');
+  const [vehicleSeats, setVehicleSeats] = useState<number>(5);
+  const [activeSuggestionIdx, setActiveSuggestionIdx] = useState<number | null>(null);
+
+  // Step 4: Legal & Security OCR
+  const [ownerCnic, setOwnerCnic] = useState('');
+  const [ownerName, setOwnerName] = useState('');
+  const [cnicDocPreview, setCnicDocPreview] = useState<string | null>(null);
+  const [cnicFileName, setCnicFileName] = useState<string | null>(null);
+  const [cnicScanState, setCnicScanState] = useState<'IDLE' | 'SCANNING' | 'SCANNED'>('IDLE');
+
+  const [regNumber, setRegNumber] = useState('');
+  const [engineNumber, setEngineNumber] = useState('');
+  const [chassisNumber, setChassisNumber] = useState('');
+  const [smartCardDocPreview, setSmartCardDocPreview] = useState<string | null>(null);
+  const [smartCardFileName, setSmartCardFileName] = useState<string | null>(null);
+  const [smartCardScanState, setSmartCardScanState] = useState<'IDLE' | 'SCANNING' | 'SCANNED'>('IDLE');
+
+  const [poaDocPreview, setPoaDocPreview] = useState<string | null>(null);
+  const [poaFileName, setPoaFileName] = useState<string | null>(null);
+  const [ownershipType, setOwnershipType] = useState<'REGISTERED_OWNER' | 'AUTHORIZED_REPRESENTATIVE'>('REGISTERED_OWNER');
+  const [termsAgreed, setTermsAgreed] = useState(false);
+
+  // Step 5: About & Logo & Photos
+  const [listerBio, setListerBio] = useState(
+    'Reliable, clean, and inspected fleet in Islamabad & Rawalpindi. On-time doorstep delivery with Chilled AC and 24/7 road assistance.'
+  );
+  const [listerLogoName, setListerLogoName] = useState<string | null>('salman_rentals_logo.png');
+  const [uploadedPhotos, setUploadedPhotos] = useState<any[]>([
+    { id: 1, label: 'Front Exterior', url: 'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=600&auto=format&fit=crop&q=80' },
+    { id: 2, label: 'Rear Exterior', url: 'https://images.unsplash.com/photo-1590362891988-f77804703088?w=600&auto=format&fit=crop&q=80' },
+    { id: 3, label: 'Interior Cockpit', url: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=600&auto=format&fit=crop&q=80' },
+  ]);
+
+  // Wizard Navigation
+  const [wizardStep, setWizardStep] = useState(1);
+  const [wizardSubmitting, setWizardSubmitting] = useState(false);
+  const [wizardSuccessMsg, setWizardSuccessMsg] = useState<string | null>(null);
+
+  // Interactive Free Map Picker Modal State
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [mapSearchTerm, setMapSearchTerm] = useState('Centaurus Mall, Islamabad');
+  const [confirmedMapLocation, setConfirmedMapLocation] = useState('Centaurus Mall, F-8, Islamabad');
+  const [isLocating, setIsLocating] = useState(false);
+
+  // EDIT VEHICLE STATE & HANDLERS (FULL CRUD)
+  const [editingVehicle, setEditingVehicle] = useState<any | null>(null);
+
+  const handleOpenEditVehicle = (vehicle: any) => {
+    setEditingVehicle({ ...vehicle });
+  };
+
+  const handleSaveVehicleEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingVehicle) return;
+    setFleetList(
+      fleetList.map((f) => (f.id === editingVehicle.id ? { ...editingVehicle } : f))
+    );
+    setEditingVehicle(null);
+    setWizardSuccessMsg('✅ Vehicle specifications, rental rates & chauffeur allotment updated live!');
+    setTimeout(() => setWizardSuccessMsg(null), 3500);
+  };
+
+  // Existing Fleet
+  const [fleetList, setFleetList] = useState<any[]>([
+    {
+      id: 'f-1',
+      title: 'Toyota Corolla Altis Grande 2024',
+      reg: 'LEA-24-9988',
+      city: 'Islamabad',
+      dailyRate: 8500,
+      withDriverRate: 11000,
+      assignedDriver: 'Tariq Mahmood',
+      status: 'LIVE',
+      views: 342,
+      leads: 28,
+      img: 'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=600&auto=format&fit=crop&q=80',
+    },
+    {
+      id: 'f-2',
+      title: 'Honda Civic Oriel Turbo 2024',
+      reg: 'ISB-24-4412',
+      city: 'Islamabad',
+      dailyRate: 14000,
+      withDriverRate: 17000,
+      assignedDriver: 'Muhammad Akram',
+      status: 'LIVE',
+      views: 512,
+      leads: 45,
+      img: 'https://images.unsplash.com/photo-1590362891988-f77804703088?w=600&auto=format&fit=crop&q=80',
+    },
+    {
+      id: 'f-3',
+      title: 'Toyota Prado TX 2.8D 2023',
+      reg: 'ISB-PR-770',
+      city: 'Islamabad',
+      dailyRate: 35000,
+      withDriverRate: 40000,
+      assignedDriver: 'Sheraz Ali',
+      status: 'LIVE',
+      views: 780,
+      leads: 62,
+      img: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=600&auto=format&fit=crop&q=80',
+    },
+  ]);
+
+  // Lister Employed Driver / Chauffeur Team
+  const [listerDriverTeam, setListerDriverTeam] = useState<any[]>([
+    {
+      id: 'ldrv-1',
+      name: 'Muhammad Akram',
+      phone: '+92 301 8472910',
+      cnic: '35201-9921045-3',
+      licenseCategory: 'HTV Commercial Chauffeur',
+      assignedVehicleTitle: 'Honda Civic Oriel Turbo 2024 (ISB-24-4412)',
+      status: 'AVAILABLE',
+      rating: 4.9,
+      tripsCompleted: 48,
+    },
+    {
+      id: 'ldrv-2',
+      name: 'Tariq Mahmood',
+      phone: '+92 301 9821045',
+      cnic: '35202-4412098-1',
+      licenseCategory: 'VIP Chauffeur Special',
+      assignedVehicleTitle: 'Toyota Corolla Altis Grande 2024 (LEA-24-9988)',
+      status: 'ON_DUTY',
+      rating: 5.0,
+      tripsCompleted: 76,
+    },
+    {
+      id: 'ldrv-3',
+      name: 'Sheraz Ali',
+      phone: '+92 321 8812049',
+      cnic: '35201-1120498-7',
+      licenseCategory: 'Luxury SUV Specialist',
+      assignedVehicleTitle: 'Toyota Prado TX 2.8D 2023 (ISB-PR-770)',
+      status: 'AVAILABLE',
+      rating: 4.8,
+      tripsCompleted: 34,
+    },
+  ]);
+
+  const [showAddListerDriverModal, setShowAddListerDriverModal] = useState(false);
+  const [newListerDriverName, setNewListerDriverName] = useState('');
+  const [newListerDriverPhone, setNewListerDriverPhone] = useState('');
+  const [newListerDriverCnic, setNewListerDriverCnic] = useState('');
+  const [newListerDriverLicense, setNewListerDriverLicense] = useState('HTV Commercial Chauffeur');
+  const [newListerDriverAssignVehicle, setNewListerDriverAssignVehicle] = useState('Toyota Corolla Altis Grande 2024 (LEA-24-9988)');
+
+  // Add Driver to Lister Fleet Handler
+  const handleAddListerDriverSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newListerDriverName || !newListerDriverPhone) return;
+
+    const newDrv = {
+      id: `ldrv-${Date.now()}`,
+      name: newListerDriverName,
+      phone: newListerDriverPhone,
+      cnic: newListerDriverCnic || '35201-XXXXXXX-X',
+      licenseCategory: newListerDriverLicense,
+      assignedVehicleTitle: newListerDriverAssignVehicle,
+      status: 'AVAILABLE',
+      rating: 5.0,
+      tripsCompleted: 0,
+    };
+
+    setListerDriverTeam([...listerDriverTeam, newDrv]);
+
+    // Update fleet vehicle assigned driver as well
+    setFleetList(
+      fleetList.map((f) =>
+        newListerDriverAssignVehicle.includes(f.reg) || newListerDriverAssignVehicle.includes(f.title)
+          ? { ...f, assignedDriver: newListerDriverName }
+          : f
+      )
+    );
+
+    setShowAddListerDriverModal(false);
+    setNewListerDriverName('');
+    setNewListerDriverPhone('');
+    setNewListerDriverCnic('');
+  };
+
+  // Incoming Booking Requests
+  const [incomingRequests, setIncomingRequests] = useState<any[]>([
+    {
+      id: 'req-1',
+      bookingRef: 'BKG-8492',
+      vehicleName: 'Toyota Corolla Altis Grande 2024',
+      customerName: 'Hamza Tariq',
+      customerPhone: '+92 300 8472910',
+      customerCnic: '35202-8172910-3',
+      customerLicense: 'LHR-DL-449102',
+      licenseExpiry: '2028-11-20',
+      startDate: '2026-11-12',
+      endDate: '2026-11-15',
+      totalAmount: 25500,
+      withDriver: false,
+      pickupArea: 'DHA Phase 5, Lahore',
+      assignedDriver: 'Self-Drive (Customer Driving)',
+      status: 'CONFIRMED',
+      customerVerified: true,
+    },
+    {
+      id: 'req-2',
+      bookingRef: 'BKG-4412',
+      vehicleName: 'Honda Civic Oriel Turbo 2024',
+      customerName: 'Ayesha Malik',
+      customerPhone: '+92 321 9988771',
+      customerCnic: '35201-8849201-4',
+      customerLicense: 'N/A (Chauffeur Service Requested)',
+      licenseExpiry: '',
+      startDate: '2026-11-20',
+      endDate: '2026-11-22',
+      totalAmount: 34000,
+      withDriver: true,
+      pickupArea: 'Centaurus Mall, F-8, Islamabad',
+      assignedDriver: 'Muhammad Akram',
+      driverPhone: '+92 301 8472910',
+      status: 'CONFIRMED',
+      customerVerified: true,
+    },
+  ]);
+
+  const [selectedCustomerVaultModal, setSelectedCustomerVaultModal] = useState<any | null>(null);
+
+  // Load newly submitted bookings from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('safarpk_lister_bookings');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setIncomingRequests((prev) => {
+            const ids = new Set(parsed.map((p: any) => p.bookingRef));
+            const filteredPrev = prev.filter((p) => !ids.has(p.bookingRef));
+            return [...parsed, ...filteredPrev];
+          });
+        }
+      }
+    } catch (e) {}
+  }, []);
+
+  // Seating calculator helper
+  const getSuggestedSeats = (modelName: string): number => {
+    const combined = modelName.toLowerCase();
+    if (combined.includes('hiace') || combined.includes('coaster') || combined.includes('cabin')) return 13;
+    if (combined.includes('apv') || combined.includes('bolan')) return 9;
+    if (combined.includes('prado') || combined.includes('fortuner') || combined.includes('br-v') || combined.includes('v8')) return 7;
+    if (combined.includes('alto') || combined.includes('cultus') || combined.includes('mira')) return 4;
+    return 5;
+  };
+
+  // Toggle Service Tag
+  const handleToggleTag = (tag: string) => {
+    if (selectedOfferTags.includes(tag)) {
+      setSelectedOfferTags(selectedOfferTags.filter((t) => t !== tag));
+    } else {
+      setSelectedOfferTags([...selectedOfferTags, tag]);
+    }
+  };
+
+  // Multi-car Handlers
+  const handleAddCarRow = () => {
+    setMultiCars([
+      ...multiCars,
+      {
+        id: Date.now(),
+        model: 'Toyota Corolla',
+        dailyRate: '8000',
+        driverMode: 'BOTH',
+      },
+    ]);
+  };
+
+  const handleUpdateCarRow = (id: number, field: string, val: any) => {
+    setMultiCars(
+      multiCars.map((c) => {
+        if (c.id === id) {
+          const updated = { ...c, [field]: val };
+          if (field === 'model') {
+            setVehicleSeats(getSuggestedSeats(val));
+          }
+          return updated;
+        }
+        return c;
+      })
+    );
+  };
+
+  const handleRemoveCarRow = (id: number) => {
+    if (multiCars.length <= 1) return;
+    setMultiCars(multiCars.filter((c) => c.id !== id));
+  };
+
+  // 3-Step Photo Upload Handlers
+  const handlePhotoUpload = (slotIdx: number, file: File) => {
+    const url = URL.createObjectURL(file);
+    const updated = [...carPhotoSlots];
+    updated[slotIdx] = { ...updated[slotIdx], file, url };
+    setCarPhotoSlots(updated);
+  };
+
+  const handleRemovePhoto = (slotIdx: number) => {
+    const updated = [...carPhotoSlots];
+    updated[slotIdx] = { ...updated[slotIdx], file: null, url: null };
+    setCarPhotoSlots(updated);
+  };
+
+  const handleFillDemoPhotos = () => {
+    setCarPhotoSlots([
+      {
+        id: 1,
+        label: 'Front View',
+        file: null,
+        url: 'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=600&auto=format&fit=crop&q=80',
+      },
+      {
+        id: 2,
+        label: 'Rear Angle',
+        file: null,
+        url: 'https://images.unsplash.com/photo-1590362891988-f77804703088?w=600&auto=format&fit=crop&q=80',
+      },
+      {
+        id: 3,
+        label: 'Dashboard / Interior',
+        file: null,
+        url: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=600&auto=format&fit=crop&q=80',
+      },
+      {
+        id: 4,
+        label: 'Passenger Seats',
+        file: null,
+        url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600&auto=format&fit=crop&q=80',
+      },
+      {
+        id: 5,
+        label: 'Trunk / Boot Space',
+        file: null,
+        url: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=600&auto=format&fit=crop&q=80',
+      },
+      {
+        id: 6,
+        label: 'Side Profile',
+        file: null,
+        url: 'https://images.unsplash.com/photo-1583121274602-3e2820c69888?w=600&auto=format&fit=crop&q=80',
+      },
+    ]);
+  };
+
+  // Geolocation Trigger
+  const handleUseCurrentLocation = () => {
+    setIsLocating(true);
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setIsLocating(false);
+          const locStr = `${personalCity || operatingCity} (GPS: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)})`;
+          setMapSearchTerm(locStr);
+        },
+        () => {
+          setIsLocating(false);
+          setMapSearchTerm(`${personalCity || operatingCity} Central Area, Pakistan`);
+        }
+      );
+    } else {
+      setIsLocating(false);
+    }
+  };
+
+  // Confirm Location Picker (Matching Reference Image 2)
+  const handleConfirmLocation = () => {
+    setConfirmedMapLocation(mapSearchTerm);
+    setPersonalSearchLocation(mapSearchTerm);
+    setOperatingArea(mapSearchTerm);
+    setListerGoogleMaps(`https://maps.google.com/?q=${encodeURIComponent(mapSearchTerm)}`);
+    setShowMapModal(false);
+  };
+
+  // CNIC File Upload & Extraction
+  const handleCnicFileUpload = (file?: File) => {
+    setCnicScanState('SCANNING');
+    setCnicFileName(file ? file.name : 'national_id_card.jpg');
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setCnicDocPreview(url);
+    } else {
+      setCnicDocPreview('https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=400&auto=format&fit=crop&q=80');
+    }
+
+    setTimeout(() => {
+      setCnicScanState('SCANNED');
+      setOwnerCnic('35201-9876543-1');
+      setOwnerName(personalFullName || 'Muhammad Salman');
+    }, 1200);
+  };
+
+  // Vehicle Smart Card Upload & Extraction
+  const handleSmartCardFileUpload = (file?: File) => {
+    setSmartCardScanState('SCANNING');
+    setSmartCardFileName(file ? file.name : 'excise_smart_card_doc.jpg');
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setSmartCardDocPreview(url);
+    } else {
+      setSmartCardDocPreview('https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=400&auto=format&fit=crop&q=80');
+    }
+
+    setTimeout(() => {
+      setSmartCardScanState('SCANNED');
+      setRegNumber('LEA-24-9988');
+      setEngineNumber('1NZ-FE-829104');
+      setChassisNumber('NZE141-9081245');
+    }, 1200);
+  };
+
+  // Power of Attorney Upload
+  const handlePoaFileUpload = (file?: File) => {
+    setPoaFileName(file ? file.name : 'power_of_attorney_stamped.pdf');
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setPoaDocPreview(url);
+    } else {
+      setPoaDocPreview('https://images.unsplash.com/photo-1450133064473-71024230f91b?w=400&auto=format&fit=crop&q=80');
+    }
+  };
+
+  // Publish Listing Handler (Supporting 3-Step Streamlined Flow)
+  const handlePublishVehicle = (isDraft: boolean) => {
+    setWizardSubmitting(true);
+    setTimeout(() => {
+      const vehicleImg =
+        carPhotoSlots.find((p) => p.url)?.url ||
+        uploadedPhotos[0]?.url ||
+        'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=600&auto=format&fit=crop&q=80';
+
+      const newVehicle = {
+        id: `f-${Date.now()}`,
+        title: `${carBrand} ${carModel} ${carYear}`,
+        reg: regNumber || 'ISB-24-9988',
+        city: personalCity || operatingCity,
+        dailyRate: Number(carRentPerDay) || 4500,
+        withDriverRate: (Number(carRentPerDay) || 4500) + 2500,
+        status: isDraft ? 'DRAFT' : 'LIVE',
+        views: 0,
+        leads: 0,
+        img: vehicleImg,
+        driverMode: carDriver,
+        transmission: carTransmission,
+        acMode: carAcHeater,
+        seats: carSeats,
+        assignedDriver: carDriver === 'WITHOUT_DRIVER' ? 'Self-Drive Only' : 'Muhammad Akram',
+        shopName: shopName || businessName,
+        location: personalSearchLocation || confirmedMapLocation,
+        phone: personalPrimaryNumber || listerWhatsApp,
+      };
+
+      setFleetList([newVehicle, ...fleetList]);
+
+      // Synchronize Lister profile details
+      if (shopName) setBusinessName(shopName);
+      if (personalFullName) setListerName(personalFullName);
+      if (personalPrimaryNumber) setListerWhatsApp(personalPrimaryNumber);
+      if (personalSecondaryNumber) setListerSecondaryPhone(personalSecondaryNumber);
+      if (personalCity) setOperatingCity(personalCity);
+      if (personalSearchLocation) setOperatingArea(personalSearchLocation);
+
+      setWizardSubmitting(false);
+      setWizardSuccessMsg(
+        isDraft
+          ? '💾 Saved as Draft in your Fleet Roster!'
+          : `🎉 Vehicle "${carBrand} ${carModel}" Published & LIVE on SafarPK!`
+      );
+      setTimeout(() => {
+        setWizardSuccessMsg(null);
+        setActiveTab('fleet');
+        setWizardStep(1);
+      }, 1800);
+    }, 700);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+      {/* Top Navbar */}
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center font-black text-lg shadow-sm">
+                S
+              </div>
+              <span className="font-extrabold text-xl text-slate-900 tracking-tight">SafarPK</span>
+            </Link>
+            <span className="hidden sm:inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+              Lister & Fleet Partner Desk
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="text-xs font-bold px-3 py-1.5 rounded-xl text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 transition"
+            >
+              ← Public Marketplace
+            </Link>
+            <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+              <div className="w-8 h-8 rounded-full bg-emerald-700 text-white font-bold text-xs flex items-center justify-center shadow">
+                🏢
+              </div>
+              <div className="hidden md:block text-left text-xs">
+                <span className="font-bold text-slate-900 block leading-tight">{businessName}</span>
+                <span className="text-[10px] text-emerald-700 font-semibold">{operatingCity} Verified Partner</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Workspace Layout */}
+      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Sidebar Nav */}
+        <aside className="space-y-1">
+          <div className="p-4 bg-white rounded-2xl border border-slate-200 mb-4 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl font-bold">
+                🚗
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-slate-900">{businessName}</h3>
+                <span className="text-[11px] text-slate-500 block">{listerName} (Manager)</span>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block mt-0.5">
+                  Pro Fleet Plan
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <nav className="bg-white rounded-2xl border border-slate-200 p-2 space-y-1 shadow-xs text-xs font-semibold">
+            {[
+              { id: 'overview', label: 'Fleet Overview', icon: Car },
+              { id: 'fleet', label: 'My Vehicles Roster', icon: Car, badge: fleetList.length },
+              { id: 'add_vehicle', label: '+ Add New Vehicle', icon: PlusCircle },
+              { id: 'requests', label: 'Customer Requests', icon: Calendar, badge: incomingRequests.length },
+              { id: 'availability', label: 'Availability Calendar', icon: Clock },
+              { id: 'pricing', label: 'Pricing & Special Rates', icon: DollarSign },
+              { id: 'subscription', label: 'Subscription & Invoices', icon: CreditCard },
+              { id: 'profile', label: 'Business Profile & Map', icon: Building2 },
+              { id: 'team', label: 'Team & Drivers', icon: Users },
+              { id: 'settings', label: 'Lister Settings', icon: Settings },
+            ].map((item) => {
+              const Icon = item.icon;
+              const active = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id as any)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                    active
+                      ? 'bg-emerald-600 text-white shadow-sm font-bold'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Icon className="w-4 h-4" />
+                    <span>{item.label}</span>
+                  </div>
+                  {item.badge !== undefined && (
+                    <span
+                      className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${
+                        active ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
+
+        {/* Tab Canvas */}
+        <main className="lg:col-span-3 space-y-6">
+          {/* TAB 1: OVERVIEW */}
+          {activeTab === 'overview' && (
+            <div className="space-y-6">
+              <div className="p-6 bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-3xl shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <span className="text-xs uppercase tracking-wider font-bold text-emerald-400">Lister Control Center</span>
+                  <h2 className="text-2xl font-black mt-1">{businessName}</h2>
+                  <p className="text-xs text-slate-300 mt-1">
+                    Your fleet is currently LIVE in {operatingCity}. Direct booking leads and online booking requests appear instantly below.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setActiveTab('add_vehicle')}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-md whitespace-nowrap self-start sm:self-auto cursor-pointer"
+                >
+                  + Add Another Vehicle
+                </button>
+              </div>
+
+              {/* KPI Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs">
+                  <span className="text-[11px] text-slate-400 font-semibold block">Total Fleet</span>
+                  <span className="text-2xl font-black text-slate-900 mt-1 block">{fleetList.length} Cars</span>
+                  <span className="text-[10px] text-emerald-600 font-bold mt-1 block">All LIVE & Inspected</span>
+                </div>
+                <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs">
+                  <span className="text-[11px] text-slate-400 font-semibold block">Monthly Leads</span>
+                  <span className="text-2xl font-black text-emerald-600 mt-1 block">135</span>
+                  <span className="text-[10px] text-slate-500 mt-1 block">Direct Inquiries</span>
+                </div>
+                <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs">
+                  <span className="text-[11px] text-slate-400 font-semibold block">Booking Requests</span>
+                  <span className="text-2xl font-black text-slate-900 mt-1 block">{incomingRequests.length} Active</span>
+                  <span className="text-[10px] text-purple-600 font-bold mt-1 block">Verified Documents</span>
+                </div>
+                <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs">
+                  <span className="text-[11px] text-slate-400 font-semibold block">Quota Status</span>
+                  <span className="text-2xl font-black text-slate-900 mt-1 block">{fleetList.length} / 15</span>
+                  <span className="text-[10px] text-slate-500 mt-1 block">12 Slots Remaining</span>
+                </div>
+              </div>
+
+              {/* Incoming Booking Requests Alert */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                    <h3 className="font-extrabold text-sm text-slate-900">Incoming Customer Requests (Action Required)</h3>
+                  </div>
+                  <button onClick={() => setActiveTab('requests')} className="text-xs font-bold text-emerald-600 hover:underline">
+                    Manage All →
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {incomingRequests.map((r) => (
+                    <div key={r.id} className="p-4 bg-amber-50/60 rounded-2xl border border-amber-200 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-amber-200/60">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-bold text-amber-950 bg-white px-2 py-0.5 rounded border border-amber-300">
+                              {r.bookingRef}
+                            </span>
+                            <h4 className="font-bold text-xs text-slate-900">{r.vehicleName}</h4>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900">
+                              Pending Keys Handover
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-slate-600 mt-1 block">
+                            Dates: <strong>{r.startDate}</strong> to <strong>{r.endDate}</strong> ({r.pickupArea})
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-sm font-black text-slate-900">PKR {formatPKR(r.totalAmount)}</span>
+                          <span className="text-[10px] text-slate-500 block">Payment: Cash on Handover</span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                        <div>
+                          <span className="text-slate-500 text-[10px] block">Customer</span>
+                          <span className="font-bold text-slate-800">{r.customerName}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 text-[10px] block">CNIC (Protected)</span>
+                          <span className="font-mono font-bold text-slate-800">{maskCnic(r.customerCnic)}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 text-[10px] block">License # (Protected)</span>
+                          <span className="font-mono font-bold text-slate-800">{maskLicense(r.customerLicense)}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 text-[10px] block">Direct Contact</span>
+                          <a
+                            href={`https://wa.me/${r.customerPhone.replace(/[^0-9]/g, '')}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-bold text-emerald-700 hover:underline flex items-center gap-1"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            <span>{r.customerPhone}</span>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: FLEET ROSTER */}
+          {activeTab === 'fleet' && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900">My Vehicles Roster</h3>
+                  <p className="text-xs text-slate-500">Currently active and inspected rental fleet.</p>
+                </div>
+                <button
+                  onClick={() => setActiveTab('add_vehicle')}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+                >
+                  + Add Vehicle
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {fleetList.map((f) => (
+                  <div key={f.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <img src={f.img} alt={f.title} className="w-16 h-12 object-cover rounded-xl border border-slate-200" />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-sm text-slate-900">{f.title}</h4>
+                          <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-800">
+                            {f.reg}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                            {f.status}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
+                          <span>📍 {f.city}</span>
+                          <span>•</span>
+                          <span className="font-bold text-emerald-700">PKR {formatPKR(f.dailyRate)}/day</span>
+                          <span>•</span>
+                          <span>{f.views} Views</span>
+                          <span>•</span>
+                          <span className="text-emerald-600 font-semibold">{f.leads} Leads</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1.5 text-xs">
+                          <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                            <Users className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Assigned Chauffeur:</span>
+                          </span>
+                          <span className="font-extrabold text-xs text-emerald-900 bg-white px-2 py-0.5 rounded-md border border-emerald-300">
+                            {f.assignedDriver || 'Unassigned (Self-Drive Only)'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditVehicle(f)}
+                        className="px-3 py-1.5 text-xs font-bold rounded-xl border border-emerald-600 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>Edit Listing</span>
+                      </button>
+                      <button
+                        onClick={() =>
+                          setFleetList(
+                            fleetList.map((item) =>
+                              item.id === f.id ? { ...item, status: item.status === 'LIVE' ? 'PAUSED' : 'LIVE' } : item
+                            )
+                          )
+                        }
+                        className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-300 bg-white hover:bg-slate-100 transition cursor-pointer"
+                      >
+                        {f.status === 'LIVE' ? 'Pause Listing' : 'Make LIVE'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Delete listing "${f.title}" (${f.reg}) from your fleet roster?`)) {
+                            setFleetList(fleetList.filter((item) => item.id !== f.id));
+                          }
+                        }}
+                        className="p-2 bg-white text-rose-600 border border-slate-200 rounded-xl hover:bg-rose-50 transition cursor-pointer"
+                        title="Delete vehicle"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: ADD VEHICLE WIZARD (STREAMLINED 3-STEP PROCESS) */}
+          {activeTab === 'add_vehicle' && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-6">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900">Rent Out Your Car in Just 3 Simple Steps</h3>
+                  <p className="text-xs text-slate-500">
+                    Share car details, upload photos, and start earning — it’s that easy!
+                  </p>
+                </div>
+                <button
+                  onClick={() => setActiveTab('fleet')}
+                  className="text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
+                >
+                  ✕ Cancel
+                </button>
+              </div>
+
+              {wizardSuccessMsg && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs font-bold text-center">
+                  {wizardSuccessMsg}
+                </div>
+              )}
+
+              {/* 3 Simple Steps Header */}
+              <div className="grid grid-cols-3 gap-2 text-center text-xs font-bold">
+                {[
+                  { num: 1, label: '1. Enter Your Car Details' },
+                  { num: 2, label: '2. Upload Photos' },
+                  { num: 3, label: '3. Enter Your Personal Info' },
+                ].map((s) => (
+                  <button
+                    key={s.num}
+                    type="button"
+                    onClick={() => setWizardStep(s.num)}
+                    className={`py-3 px-2 rounded-xl transition text-xs font-bold cursor-pointer ${
+                      wizardStep === s.num
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : wizardStep > s.num
+                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                        : 'bg-slate-100 text-slate-400'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* ========================================================================= */}
+              {/* STEP 1: ENTER YOUR CAR DETAILS                                            */}
+              {/* ========================================================================= */}
+              {wizardStep === 1 && (
+                <div className="space-y-5 text-xs">
+                  {/* Claim Showroom Listing Top Banner */}
+                  <div className="relative p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <span className="text-[11px] text-emerald-900 font-medium">
+                      Already registered on SafarPK? <strong>Find and claim your showroom listing</strong> to auto-fill details.
+                    </span>
+                    <div className="relative flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl border border-emerald-200 text-slate-500">
+                      <Search className="w-3 h-3 text-slate-400" />
+                      <input
+                        type="text"
+                        value={claimSearchQuery}
+                        onChange={(e) => {
+                          setClaimSearchQuery(e.target.value);
+                          setShowClaimDropdown(true);
+                        }}
+                        onFocus={() => setShowClaimDropdown(true)}
+                        placeholder="Name or phone"
+                        className="text-[11px] outline-none w-36 bg-transparent"
+                      />
+                      {showClaimDropdown && claimSearchQuery.trim().length > 0 && (
+                        <div className="absolute right-0 top-full mt-1.5 w-72 bg-white border border-slate-200 rounded-2xl shadow-xl z-30 p-2 space-y-1.5">
+                          <span className="text-[10px] font-bold text-slate-400 block px-2 py-0.5">Matching Registered Listings:</span>
+                          {CLAIMABLE_BUSINESSES.filter(
+                            (b) =>
+                              b.companyName.toLowerCase().includes(claimSearchQuery.toLowerCase()) ||
+                              b.whatsapp.includes(claimSearchQuery) ||
+                              b.city.toLowerCase().includes(claimSearchQuery.toLowerCase())
+                          ).map((biz) => (
+                            <button
+                              key={biz.companyName}
+                              type="button"
+                              onClick={() => {
+                                handleClaimListing(biz);
+                                setShopName(biz.companyName);
+                                setPersonalFullName(biz.name);
+                                setPersonalPrimaryNumber(biz.whatsapp);
+                                setPersonalCity(biz.city);
+                                setPersonalSearchLocation(`${biz.area}, ${biz.city}`);
+                              }}
+                              className="w-full text-left p-2 rounded-xl hover:bg-emerald-50 transition border border-transparent hover:border-emerald-200"
+                            >
+                              <span className="font-bold text-xs text-slate-900 block">{biz.companyName}</span>
+                              <span className="text-[10px] text-slate-500 block">
+                                📍 {biz.city} ({biz.area}) · {biz.whatsapp}
+                              </span>
+                              <span className="text-[9px] font-bold text-emerald-700 mt-0.5 inline-block">
+                                Click to Claim & Auto-populate Details →
+                              </span>
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => setShowClaimDropdown(false)}
+                            className="w-full text-center py-1 bg-slate-50 text-[10px] text-slate-500 hover:text-slate-800 rounded-lg mt-1"
+                          >
+                            Close
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-bold text-sm text-slate-900">Car Details</h4>
+                    <p className="text-[11px] text-slate-500">Include Some Details</p>
+                  </div>
+
+                  {/* Make / Brand */}
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1.5">Make / Brand *</label>
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {['Suzuki', 'Toyota', 'Honda', 'Hyundai', 'KIA', 'Changan', 'MG', 'Haval', 'Nissan', 'Daihatsu'].map((b) => (
+                        <button
+                          key={b}
+                          type="button"
+                          onClick={() => {
+                            setCarBrand(b);
+                            if (b === 'Suzuki') {
+                              setCarModel('Alto VXR');
+                              setCarSeats(4);
+                            } else if (b === 'Toyota') {
+                              setCarModel('Corolla Altis');
+                              setCarSeats(5);
+                            } else if (b === 'Honda') {
+                              setCarModel('Civic Oriel');
+                              setCarSeats(5);
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer ${
+                            carBrand === b
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {b}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="text"
+                      value={carBrand}
+                      onChange={(e) => setCarBrand(e.target.value)}
+                      placeholder="Suzuki"
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900"
+                      required
+                    />
+                  </div>
+
+                  {/* Model */}
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Model is required *</label>
+                    <input
+                      type="text"
+                      value={carModel}
+                      onChange={(e) => {
+                        setCarModel(e.target.value);
+                        setCarSeats(getSuggestedSeats(e.target.value));
+                      }}
+                      placeholder="e.g. Alto VXR / Cultus AGS / Corolla Altis / Civic Oriel / HiAce"
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium"
+                      required
+                    />
+                  </div>
+
+                  {/* Year & Rent Per Day */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Year *</label>
+                      <select
+                        value={carYear}
+                        onChange={(e) => setCarYear(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium cursor-pointer"
+                      >
+                        {['2026', '2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016', '2015', '2014', '2012'].map((y) => (
+                          <option key={y} value={y}>{y}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Rent Per Day (PKR) *</label>
+                      <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                        <span className="font-bold text-slate-500">PKR</span>
+                        <input
+                          type="number"
+                          value={carRentPerDay}
+                          onChange={(e) => setCarRentPerDay(e.target.value)}
+                          placeholder="4500"
+                          className="w-full font-mono font-bold outline-none text-slate-900 bg-transparent"
+                          required
+                        />
+                        <span className="text-[10px] text-slate-400">/day</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Description</label>
+                    <textarea
+                      rows={3}
+                      value={carDescription}
+                      onChange={(e) => setCarDescription(e.target.value)}
+                      placeholder="Share condition, fuel average, chilled AC, cleanliness, and booking requirements..."
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
+                    />
+                  </div>
+
+                  {/* Driver : */}
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1.5">Driver :</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: 'WITH_DRIVER', label: 'With Driver' },
+                        { id: 'WITHOUT_DRIVER', label: 'Without Driver' },
+                        { id: 'BOTH', label: 'Both' },
+                      ].map((d) => (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() => setCarDriver(d.id as any)}
+                          className={`p-2.5 rounded-xl border text-center font-bold text-xs transition cursor-pointer ${
+                            carDriver === d.id
+                              ? 'bg-emerald-50 border-emerald-500 text-emerald-950 ring-2 ring-emerald-500/20'
+                              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          {d.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Transmission : */}
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1.5">Transmission :</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { id: 'AUTOMATIC', label: 'automatic' },
+                        { id: 'MANUAL', label: 'manual' },
+                      ].map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => setCarTransmission(t.id as any)}
+                          className={`p-2.5 rounded-xl border text-center font-bold text-xs transition cursor-pointer capitalize ${
+                            carTransmission === t.id
+                              ? 'bg-emerald-50 border-emerald-500 text-emerald-950 ring-2 ring-emerald-500/20'
+                              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* AC/Heater : */}
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1.5">AC/Heater :</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { id: 'AC_HEATER', label: 'AC / Heater installed' },
+                        { id: 'NONE', label: 'None' },
+                      ].map((a) => (
+                        <button
+                          key={a.id}
+                          type="button"
+                          onClick={() => setCarAcHeater(a.id as any)}
+                          className={`p-2.5 rounded-xl border text-center font-bold text-xs transition cursor-pointer ${
+                            carAcHeater === a.id
+                              ? 'bg-emerald-50 border-emerald-500 text-emerald-950 ring-2 ring-emerald-500/20'
+                              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          {a.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Seats : */}
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1.5">Seats :</label>
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                      {[2, 4, 5, 7, 9, 13].map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setCarSeats(s)}
+                          className={`p-2.5 rounded-xl border text-center font-bold text-xs transition cursor-pointer ${
+                            carSeats === s
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          {s} Persons
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setWizardStep(2)}
+                      className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5"
+                    >
+                      <span>Next: Upload Photos</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ========================================================================= */}
+              {/* STEP 2: UPLOAD PHOTOS (6 Photo Slots)                                     */}
+              {/* ========================================================================= */}
+              {wizardStep === 2 && (
+                <div className="space-y-5 text-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <h4 className="font-bold text-sm text-slate-900">Upload Photos</h4>
+                      <p className="text-[11px] text-slate-500">
+                        Upload clear photos of your {carBrand} {carModel}. 6 angles maximize renter trust.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleFillDemoPhotos}
+                      className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs border border-emerald-200 flex items-center gap-1.5 transition self-start sm:self-auto cursor-pointer"
+                    >
+                      <span>⚡ Auto-Fill Demo Photos</span>
+                    </button>
+                  </div>
+
+                  {/* 6 Photo Slots (Matching 6 'No file chosen' slots from prompt) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {carPhotoSlots.map((slot, idx) => (
+                      <div
+                        key={slot.id}
+                        className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col justify-between h-36 relative group"
+                      >
+                        {slot.url ? (
+                          <div className="relative w-full h-full rounded-xl overflow-hidden">
+                            <img src={slot.url} alt={slot.label} className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleRemovePhoto(idx)}
+                                className="p-1.5 bg-white text-rose-600 rounded-lg hover:bg-rose-50 shadow-sm cursor-pointer"
+                                title="Remove photo"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                            <span className="absolute bottom-1.5 left-1.5 bg-black/70 text-white text-[9px] px-2 py-0.5 rounded font-bold backdrop-blur-xs">
+                              {slot.label}
+                            </span>
+                          </div>
+                        ) : (
+                          <label className="w-full h-full border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-xl flex flex-col items-center justify-center p-2 text-center cursor-pointer transition bg-white group">
+                            <Upload className="w-5 h-5 text-slate-400 group-hover:text-emerald-600 mb-1" />
+                            <span className="font-bold text-xs text-slate-700">{slot.label}</span>
+                            <span className="text-[10px] text-slate-400 mt-0.5">No file chosen</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) handlePhotoUpload(idx, f);
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Optional Verified Lister Documents OCR */}
+                  <details className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 cursor-pointer">
+                    <summary className="font-bold text-slate-800 flex items-center justify-between text-xs outline-none">
+                      <span className="flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                        <span>Optional: Get "Verified Owner" Badge (Upload CNIC & Excise Smart Card)</span>
+                      </span>
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                        Recommended
+                      </span>
+                    </summary>
+
+                    <div className="pt-3 space-y-3 border-t border-slate-200">
+                      {/* CNIC Scan */}
+                      <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-slate-900">Owner National ID</span>
+                          <button
+                            type="button"
+                            onClick={() => handleCnicFileUpload()}
+                            className="text-emerald-700 font-bold hover:underline flex items-center gap-1"
+                          >
+                            <Scan className="w-3.5 h-3.5" />
+                            <span>⚡ Scan Demo CNIC</span>
+                          </button>
+                        </div>
+                        {cnicDocPreview ? (
+                          <div className="flex items-center gap-2 p-2 bg-emerald-50 rounded-lg">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            <span className="text-xs font-mono font-bold text-emerald-950">
+                              CNIC: {ownerCnic || '35201-9876543-1'}
+                            </span>
+                          </div>
+                        ) : (
+                          <label className="block p-3 border border-dashed border-slate-300 rounded-lg text-center cursor-pointer hover:border-emerald-500">
+                            <span className="text-xs text-slate-600 font-bold">Choose CNIC file (No file chosen)</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) handleCnicFileUpload(f);
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+
+                      {/* Smart Card Scan */}
+                      <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-slate-900">Excise Smart Card</span>
+                          <button
+                            type="button"
+                            onClick={() => handleSmartCardFileUpload()}
+                            className="text-emerald-700 font-bold hover:underline flex items-center gap-1"
+                          >
+                            <Scan className="w-3.5 h-3.5" />
+                            <span>⚡ Scan Demo Smart Card</span>
+                          </button>
+                        </div>
+                        {smartCardDocPreview ? (
+                          <div className="flex items-center gap-2 p-2 bg-emerald-50 rounded-lg">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            <span className="text-xs font-mono font-bold text-emerald-950">
+                              Reg: {regNumber || 'LEA-24-9988'} | Engine: {engineNumber || '1NZ-FE-829104'}
+                            </span>
+                          </div>
+                        ) : (
+                          <label className="block p-3 border border-dashed border-slate-300 rounded-lg text-center cursor-pointer hover:border-emerald-500">
+                            <span className="text-xs text-slate-600 font-bold">Choose Smart Card file (No file chosen)</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) handleSmartCardFileUpload(f);
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                  </details>
+
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setWizardStep(1)}
+                      className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl cursor-pointer"
+                    >
+                      ← Back
+                    </button>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handlePublishVehicle(true)}
+                        className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition cursor-pointer"
+                      >
+                        Save as Draft
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setWizardStep(3)}
+                        className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5"
+                      >
+                        <span>Next: Enter Personal Info</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ========================================================================= */}
+              {/* STEP 3: ENTER YOUR PERSONAL INFO (Matching Reference Image 1)             */}
+              {/* ========================================================================= */}
+              {wizardStep === 3 && (
+                <div className="space-y-4 text-xs">
+                  <div>
+                    <h4 className="font-black text-base text-slate-900">Personal Info</h4>
+                    <p className="text-[11px] text-slate-500">Please fill all fields marked required to continue.</p>
+                  </div>
+
+                  {/* First and Last Name */}
+                  <div>
+                    <input
+                      type="text"
+                      value={personalFullName}
+                      onChange={(e) => setPersonalFullName(e.target.value)}
+                      placeholder="First and Last Name"
+                      className="w-full p-3 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                      required
+                    />
+                  </div>
+
+                  {/* Primary Phone / WhatsApp */}
+                  <div>
+                    <input
+                      type="tel"
+                      value={personalPrimaryNumber}
+                      onChange={(e) => setPersonalPrimaryNumber(e.target.value)}
+                      placeholder="03102355671"
+                      className="w-full p-3 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                      required
+                    />
+                  </div>
+
+                  {/* Secondary Number */}
+                  <div>
+                    <input
+                      type="tel"
+                      value={personalSecondaryNumber}
+                      onChange={(e) => setPersonalSecondaryNumber(e.target.value)}
+                      placeholder="Secondary Number"
+                      className="w-full p-3 bg-white border border-slate-300 rounded-xl text-xs font-mono text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                    />
+                  </div>
+
+                  {/* Shop Name */}
+                  <div>
+                    <input
+                      type="text"
+                      value={shopName}
+                      onChange={(e) => setShopName(e.target.value)}
+                      placeholder="Shop Name"
+                      className="w-full p-3 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                    />
+                  </div>
+
+                  {/* City Dropdown with + Custom City Option */}
+                  <div>
+                    {!showCustomCityLister ? (
+                      <div className="relative">
+                        <select
+                          value={personalCity}
+                          onChange={(e) => {
+                            if (e.target.value === '__CUSTOM__') {
+                              setShowCustomCityLister(true);
+                            } else {
+                              setPersonalCity(e.target.value);
+                              setMapSearchTerm(`${e.target.value}, Pakistan`);
+                            }
+                          }}
+                          className="w-full p-3 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 appearance-none outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 cursor-pointer"
+                        >
+                          <option value="" disabled>
+                            City
+                          </option>
+                          {listerAvailableCities.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                          <option value="__CUSTOM__">+ Custom City (Add Your City)...</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
+                          <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20">
+                            <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                          </svg>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 p-1.5 bg-white border-2 border-emerald-600 rounded-xl">
+                        <input
+                          type="text"
+                          autoFocus
+                          value={customCityListerInput}
+                          onChange={(e) => setCustomCityListerInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const trimmed = customCityListerInput.trim();
+                              if (trimmed) {
+                                const formatted = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+                                if (!listerAvailableCities.includes(formatted)) {
+                                  setListerAvailableCities([formatted, ...listerAvailableCities]);
+                                }
+                                setPersonalCity(formatted);
+                                setMapSearchTerm(`${formatted}, Pakistan`);
+                                setCustomCityListerInput('');
+                                setShowCustomCityLister(false);
+                              }
+                            } else if (e.key === 'Escape') {
+                              setShowCustomCityLister(false);
+                            }
+                          }}
+                          placeholder="Type city name (e.g. Sargodha, Bahawalpur, Swat...)"
+                          className="flex-1 p-2 text-xs outline-none font-bold text-slate-900"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const trimmed = customCityListerInput.trim();
+                            if (trimmed) {
+                              const formatted = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+                              if (!listerAvailableCities.includes(formatted)) {
+                                setListerAvailableCities([formatted, ...listerAvailableCities]);
+                              }
+                              setPersonalCity(formatted);
+                              setMapSearchTerm(`${formatted}, Pakistan`);
+                              setCustomCityListerInput('');
+                              setShowCustomCityLister(false);
+                            }
+                          }}
+                          className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs cursor-pointer"
+                        >
+                          + Add City
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowCustomCityLister(false)}
+                          className="px-2 py-2 text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+                    <div className="flex justify-end mt-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowCustomCityLister(true)}
+                        className="text-[10px] font-bold text-emerald-700 hover:underline cursor-pointer"
+                      >
+                        + City not listed? Add custom city
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Search Location with Pin Icon on the Right (Matching Image 1) */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={personalSearchLocation}
+                      onClick={() => setShowMapModal(true)}
+                      readOnly
+                      placeholder="Search Location"
+                      className="w-full p-3 pr-10 bg-white border border-emerald-600 rounded-xl text-xs font-medium text-slate-900 outline-none cursor-pointer"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowMapModal(true)}
+                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-emerald-700 cursor-pointer"
+                      aria-label="Pick on Map"
+                    >
+                      <MapPin className="w-4 h-4 text-emerald-600" />
+                    </button>
+                  </div>
+
+                  {/* Platform Disclaimer */}
+                  <p className="text-[10px] text-slate-400 pt-1">
+                    * Renters will contact you directly ({personalPrimaryNumber || 'your number'}). SafarPK charges zero commission.
+                  </p>
+
+                  {/* Bottom Buttons (Matching Reference Image 1) */}
+                  <div className="flex items-center justify-between gap-4 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setWizardStep(2)}
+                      className="flex-1 py-3 px-6 rounded-xl border border-emerald-700 text-emerald-800 bg-white hover:bg-emerald-50 text-xs font-bold transition text-center cursor-pointer"
+                    >
+                      Back
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={wizardSubmitting}
+                      onClick={() => handlePublishVehicle(false)}
+                      className="flex-1 py-3 px-6 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold transition text-center shadow-md cursor-pointer disabled:bg-slate-300"
+                    >
+                      {wizardSubmitting ? 'Posting...' : 'Post Now'}
+                    </button>
+                  </div>
+
+                  <div className="text-center pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handlePublishVehicle(true)}
+                      className="text-[11px] font-bold text-slate-500 hover:text-slate-800 underline cursor-pointer"
+                    >
+                      Save as Draft
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 4: REQUESTS */}
+          {activeTab === 'requests' && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
+              <h3 className="font-extrabold text-base text-slate-900">Incoming Customer Booking Requests</h3>
+              <p className="text-xs text-slate-500">Review customer identity credentials before handing over vehicle keys.</p>
+
+              <div className="space-y-3">
+                {incomingRequests.map((r) => (
+                  <div key={r.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                      <div>
+                        <span className="font-mono text-xs font-bold text-emerald-800 bg-white px-2 py-0.5 rounded border border-emerald-200">
+                          {r.bookingRef}
+                        </span>
+                        <h4 className="font-bold text-sm text-slate-900 mt-1">{r.vehicleName}</h4>
+                      </div>
+                      <span className="text-sm font-black text-slate-900">PKR {formatPKR(r.totalAmount)}</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                      <div>
+                        <span className="text-slate-400 text-[10px] font-semibold block">Customer</span>
+                        <span className="font-bold text-slate-800">{r.customerName}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 text-[10px] font-semibold block">National ID</span>
+                        <span className="font-mono font-bold text-slate-800">{maskCnic(r.customerCnic)}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 text-[10px] font-semibold block">License #</span>
+                        <span className="font-mono font-bold text-slate-800">{maskLicense(r.customerLicense)}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 text-[10px] font-semibold block">Pickup Point</span>
+                        <span className="font-bold text-slate-800">{r.pickupArea}</span>
+                      </div>
+                    </div>
+
+                    {/* Driver Allotment & WhatsApp Dispatch */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-white rounded-xl border border-slate-200 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-700">Chauffeur Allotted:</span>
+                        <select
+                          value={r.assignedDriver || 'Muhammad Akram'}
+                          onChange={(e) => {
+                            setIncomingRequests(
+                              incomingRequests.map((item) => (item.id === r.id ? { ...item, assignedDriver: e.target.value } : item))
+                            );
+                          }}
+                          className="p-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold text-slate-800 cursor-pointer"
+                        >
+                          {listerDriverTeam.map((d) => (
+                            <option key={d.id} value={d.name}>
+                              {d.name} ({d.assignedVehicleTitle})
+                            </option>
+                          ))}
+                          <option value="Self-Drive (Customer Driving)">Self-Drive (Customer Driving)</option>
+                        </select>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCustomerVaultModal(r)}
+                          className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition cursor-pointer"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Inspect Verified License & CNIC Vault</span>
+                        </button>
+                        <a
+                          href={`https://wa.me/${r.customerPhone.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(r.customerName)}!%20Your%20booking%20${r.bookingRef}%20for%20${encodeURIComponent(r.vehicleName)}%20is%20confirmed.%20Assigned%20Driver:%20${encodeURIComponent(r.assignedDriver || 'Muhammad Akram')}.`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold flex items-center justify-center gap-1.5 shadow-2xs transition"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          <span>Confirm Booking ({r.customerPhone})</span>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: AVAILABILITY */}
+          {activeTab === 'availability' && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
+              <h3 className="font-extrabold text-base text-slate-900">Fleet Availability Calendar</h3>
+              <p className="text-xs text-slate-500">Block booked dates, maintenance downtime, and scheduled bookings.</p>
+              
+              <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200">
+                <Calendar className="w-10 h-10 text-emerald-600 mx-auto mb-2" />
+                <h4 className="font-bold text-sm text-slate-800">All 3 Vehicles Currently Available</h4>
+                <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                  Dates booked by customers are automatically blocked from receiving conflicting booking requests.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 6: SUBSCRIPTION */}
+          {activeTab === 'subscription' && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-5">
+              <div>
+                <h3 className="font-extrabold text-base text-slate-900">Lister Subscription & Billing</h3>
+                <p className="text-xs text-slate-500">Manage monthly listing quotas and submit payment verification slips.</p>
+              </div>
+
+              <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Active Plan</span>
+                  <h4 className="font-black text-lg text-emerald-950">Professional Fleet (15 Vehicles)</h4>
+                  <p className="text-xs text-emerald-800">Renews on 10 Dec 2026 · Meezan Bank Direct Transfer</p>
+                </div>
+                <span className="text-xl font-black text-emerald-950">PKR 12,000 / mo</span>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 7: PROFILE & MAP */}
+          {activeTab === 'profile' && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
+              <h3 className="font-extrabold text-base text-slate-900">Business Profile & Map Location</h3>
+              <p className="text-xs text-slate-500">Public profile details displayed on your vehicle listing cards.</p>
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Company Name</label>
+                  <input
+                    type="text"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Operating City</label>
+                  <input
+                    type="text"
+                    value={operatingCity}
+                    onChange={(e) => setOperatingCity(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Confirmed Location Pin</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={confirmedMapLocation}
+                    readOnly
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowMapModal(true)}
+                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold whitespace-nowrap cursor-pointer"
+                  >
+                    Change Pin
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 8: TEAM & DRIVERS ROSTER (COMPANY CHAUFFEURS ASSIGNED TO VEHICLES) */}
+          {activeTab === 'team' && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-5 text-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900">Company Drivers & Chauffeurs Roster</h3>
+                  <p className="text-slate-500">
+                    Register company drivers and assign them to your fleet vehicles. When a customer books a car with chauffeur, they receive the driver name and phone.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddListerDriverModal(true)}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center gap-2 shadow-sm cursor-pointer whitespace-nowrap"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>+ Add Driver / Chauffeur</span>
+                </button>
+              </div>
+
+              {/* Summary Metric Strip */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-[10px] text-slate-400 font-semibold block">Total Employed Drivers</span>
+                  <span className="text-xl font-black text-slate-900 mt-1 block">{listerDriverTeam.length}</span>
+                </div>
+                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
+                  <span className="text-[10px] text-emerald-700 font-semibold block">Assigned to Vehicles</span>
+                  <span className="text-xl font-black text-emerald-800 mt-1 block">
+                    {listerDriverTeam.filter((d) => d.assignedVehicleTitle).length}
+                  </span>
+                </div>
+                <div className="p-3 bg-sky-50 rounded-xl border border-sky-200">
+                  <span className="text-[10px] text-sky-700 font-semibold block">On Duty / Active</span>
+                  <span className="text-xl font-black text-sky-800 mt-1 block">
+                    {listerDriverTeam.filter((d) => d.status === 'ON_DUTY').length}
+                  </span>
+                </div>
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200">
+                  <span className="text-[10px] text-amber-700 font-semibold block">Available in Depot</span>
+                  <span className="text-xl font-black text-amber-800 mt-1 block">
+                    {listerDriverTeam.filter((d) => d.status === 'AVAILABLE').length}
+                  </span>
+                </div>
+              </div>
+
+              {/* Drivers Cards */}
+              <div className="space-y-3">
+                {listerDriverTeam.map((drv) => (
+                  <div
+                    key={drv.id}
+                    className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xl shrink-0">
+                        👨‍✈️
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-extrabold text-sm text-slate-900">{drv.name}</h4>
+                          <span className="font-mono text-[10px] font-bold bg-white px-2 py-0.5 rounded border border-slate-200">
+                            {drv.licenseCategory}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              drv.status === 'ON_DUTY' ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-900'
+                            }`}
+                          >
+                            {drv.status}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-1">
+                          Phone: <strong>{drv.phone}</strong> · ID: {drv.cnic} · ⭐ {drv.rating} ({drv.tripsCompleted} trips)
+                        </p>
+                        <div className="flex items-center gap-1.5 text-xs text-emerald-900 font-bold mt-1">
+                          <Car className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Currently Driving: {drv.assignedVehicleTitle}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div>
+                        <label className="text-[10px] text-slate-400 block font-semibold mb-0.5">Assign Fleet Vehicle</label>
+                        <select
+                          value={drv.assignedVehicleTitle}
+                          onChange={(e) => {
+                            const newCar = e.target.value;
+                            setListerDriverTeam(
+                              listerDriverTeam.map((d) => (d.id === drv.id ? { ...d, assignedVehicleTitle: newCar } : d))
+                            );
+                            setFleetList(
+                              fleetList.map((f) => (newCar.includes(f.reg) ? { ...f, assignedDriver: drv.name } : f))
+                            );
+                          }}
+                          className="p-2 bg-white border border-slate-300 rounded-xl font-bold text-xs text-slate-800 cursor-pointer"
+                        >
+                          {fleetList.map((f) => (
+                            <option key={f.id} value={`${f.title} (${f.reg})`}>
+                              {f.title} ({f.reg})
+                            </option>
+                          ))}
+                          <option value="Unassigned / Pool Reserve">Unassigned / Pool Reserve</option>
+                        </select>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setListerDriverTeam(listerDriverTeam.filter((d) => d.id !== drv.id))}
+                        className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition mt-4"
+                        title="Remove driver"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 9: SETTINGS */}
+          {activeTab === 'settings' && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4 text-xs">
+              <h3 className="font-extrabold text-base text-slate-900">Lister Portal Settings</h3>
+              <p className="text-slate-500">Manage notification preferences, automatic booking confirmations, and bank accounts.</p>
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-slate-900">Instant Direct Booking Alerts</h4>
+                    <p className="text-slate-500 text-[11px]">Forward booking leads and inquiries directly to your registered phone.</p>
+                  </div>
+                  <input type="checkbox" defaultChecked className="w-4 h-4 text-emerald-600 rounded" />
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                  <div>
+                    <h4 className="font-bold text-slate-900">Auto-Allot Dedicated Drivers</h4>
+                    <p className="text-slate-500 text-[11px]">Automatically include the assigned vehicle driver info on customer requests.</p>
+                  </div>
+                  <input type="checkbox" defaultChecked className="w-4 h-4 text-emerald-600 rounded" />
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* ADD DRIVER TO FLEET MODAL                                                 */}
+      {/* ========================================================================= */}
+      {showAddListerDriverModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowAddListerDriverModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 text-xs"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="font-extrabold text-base text-slate-900">+ Add Company Chauffeur</h3>
+                <p className="text-[11px] text-slate-500">Register a driver and assign them to your fleet car.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddListerDriverModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddListerDriverSubmit} className="space-y-3">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Driver Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={newListerDriverName}
+                  onChange={(e) => setNewListerDriverName(e.target.value)}
+                  placeholder="e.g. Zahid Iqbal"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Direct Contact / Phone *</label>
+                  <input
+                    type="tel"
+                    required
+                    value={newListerDriverPhone}
+                    onChange={(e) => setNewListerDriverPhone(e.target.value)}
+                    placeholder="+92 300 1234567"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">National ID (CNIC / Passport)</label>
+                  <input
+                    type="text"
+                    value={newListerDriverCnic}
+                    onChange={(e) => setNewListerDriverCnic(e.target.value)}
+                    placeholder="35201-1234567-1"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">License Category</label>
+                <select
+                  value={newListerDriverLicense}
+                  onChange={(e) => setNewListerDriverLicense(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                >
+                  <option value="HTV Commercial Chauffeur">HTV Commercial Chauffeur</option>
+                  <option value="LTV Certified Chauffeur">LTV Certified Chauffeur</option>
+                  <option value="VIP Executive Chauffeur">VIP Executive Chauffeur</option>
+                  <option value="Luxury 4x4 Specialist">Luxury 4x4 Specialist</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Assign to Fleet Vehicle *</label>
+                <select
+                  value={newListerDriverAssignVehicle}
+                  onChange={(e) => setNewListerDriverAssignVehicle(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900"
+                >
+                  {fleetList.map((f) => (
+                    <option key={f.id} value={`${f.title} (${f.reg})`}>
+                      {f.title} ({f.reg})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-sm cursor-pointer mt-2"
+              >
+                Confirm & Allot Driver to Vehicle
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOMER CREDENTIALS VAULT (UNMASKED FOR KEY HANDOVER COMPLIANCE) */}
+      {selectedCustomerVaultModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto"
+          onClick={() => setSelectedCustomerVaultModal(null)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-slate-100 my-auto text-xs"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+                  🛡️
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-slate-900">
+                    Customer Identity & License Vault
+                  </h3>
+                  <span className="text-[10px] text-emerald-700 font-bold">
+                    ✓ Unmasked under Mutual Consent for Key Handover
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedCustomerVaultModal(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Customer Contact & Booking Info */}
+            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] text-slate-400 block font-semibold">Customer Full Name</span>
+                  <strong className="text-slate-900 text-sm">{selectedCustomerVaultModal.customerName}</strong>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 block font-semibold">Booking Reference</span>
+                  <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    {selectedCustomerVaultModal.bookingRef}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-1 text-[11px] text-slate-600">
+                <span>Phone: <strong className="text-slate-900 font-mono">{selectedCustomerVaultModal.customerPhone}</strong></span>
+                <span>Vehicle: <strong className="text-slate-900">{selectedCustomerVaultModal.vehicleName}</strong></span>
+              </div>
+            </div>
+
+            {/* Driving License & CNIC Unmasked Details */}
+            <div className="p-3.5 bg-amber-50/70 rounded-2xl border border-amber-200 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="font-extrabold text-amber-950 flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-amber-700" />
+                  <span>Unmasked Identity Credentials (Key Handover Audit)</span>
+                </span>
+                <span className="text-[10px] font-bold bg-white text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300">
+                  DLIMS Audited
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 bg-white rounded-xl border border-amber-200">
+                  <span className="text-[10px] font-bold text-slate-500 block uppercase">National ID (Unmasked)</span>
+                  <span className="font-mono font-black text-slate-900 text-sm">
+                    {selectedCustomerVaultModal.customerCnic}
+                  </span>
+                  <span className="text-[9px] text-slate-400 block mt-0.5">Match with physical card</span>
+                </div>
+
+                <div className="p-2.5 bg-white rounded-xl border border-amber-200">
+                  <span className="text-[10px] font-bold text-slate-500 block uppercase">Driving License #</span>
+                  <span className="font-mono font-black text-slate-900 text-sm">
+                    {selectedCustomerVaultModal.customerLicense}
+                  </span>
+                  <span className="text-[9px] text-emerald-700 block mt-0.5">Valid Motorcar / LTV</span>
+                </div>
+              </div>
+
+              {/* License Preview */}
+              <div className="p-2.5 bg-white rounded-xl border border-slate-200 flex items-center gap-3">
+                <img
+                  src={selectedCustomerVaultModal.licensePreview || 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=400&auto=format&fit=crop&q=80'}
+                  alt="License Scan"
+                  className="w-14 h-10 object-cover rounded-md border shrink-0"
+                />
+                <div>
+                  <span className="font-bold text-xs text-slate-900 block">Driving License Document Scan</span>
+                  <span className="text-[10px] text-emerald-700 font-medium">✓ Uploaded & verified by customer during checkout</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Handover Security Checklist */}
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5 text-[11px] text-slate-700">
+              <span className="font-bold text-slate-900 block text-xs">Vehicle Handover Verification Checklist:</span>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" defaultChecked className="w-3.5 h-3.5 text-emerald-600 rounded" />
+                <span>Physical National ID inspected & matches {selectedCustomerVaultModal.customerCnic}</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" defaultChecked className="w-3.5 h-3.5 text-emerald-600 rounded" />
+                <span>Physical original Driving License checked before giving car keys</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" defaultChecked className="w-3.5 h-3.5 text-emerald-600 rounded" />
+                <span>Vehicle odometer reading & fuel level recorded in physical rental form</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" defaultChecked className="w-3.5 h-3.5 text-emerald-600 rounded" />
+                <span>Refundable security deposit / payment collected directly</span>
+              </label>
+            </div>
+
+            <p className="text-[10px] text-slate-500 leading-tight">
+              * Protected under Pakistan Electronic Crimes Act (PECA 2016) & Electronic Transactions Ordinance (ETO 2002). Customer details are unmasked strictly for key handover security verification.
+            </p>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  alert(`✅ Handover verified! Booking ${selectedCustomerVaultModal.bookingRef} marked as in-progress.`);
+                  setSelectedCustomerVaultModal(null);
+                }}
+                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                ✓ Mark Keys Handed Over & Verified
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedCustomerVaultModal(null)}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* INTERACTIVE FREE MAP LOCATION PICKER MODAL (Matching Reference Image 2)    */}
+      {/* ========================================================================= */}
+      {showMapModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 text-xs relative">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-emerald-600" />
+                <h3 className="font-black text-base text-slate-900">Search & Confirm Vehicle Location</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMapModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Browser Permission Popup Simulation (Matching Image 2) */}
+            {showGeoBanner && (
+              <div className="p-3.5 bg-white border border-slate-200 rounded-2xl shadow-lg space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-slate-700" />
+                    <div>
+                      <span className="font-bold text-slate-900 text-xs block">safarpk.com wants to</span>
+                      <span className="text-[11px] text-slate-600">Know your location</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowGeoBanner(false)}
+                    className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleUseCurrentLocation();
+                      setShowGeoBanner(false);
+                    }}
+                    className="flex-1 py-2 px-3 bg-blue-100 hover:bg-blue-200 text-blue-900 font-bold rounded-xl text-center text-xs transition cursor-pointer"
+                  >
+                    Allow while visiting the site
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleUseCurrentLocation();
+                      setShowGeoBanner(false);
+                    }}
+                    className="flex-1 py-2 px-3 bg-blue-50 hover:bg-blue-100 text-blue-800 font-semibold rounded-xl text-center text-xs transition cursor-pointer"
+                  >
+                    Allow this time
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowGeoBanner(false)}
+                    className="py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-center text-xs transition cursor-pointer"
+                  >
+                    Never allow
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Search Input for Pakistani Locations */}
+            <div>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <input
+                    type="text"
+                    value={mapSearchTerm}
+                    onChange={(e) => setMapSearchTerm(e.target.value)}
+                    placeholder="Search Location (e.g. Centaurus Mall, Islamabad / DHA Phase 5, Lahore)"
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium outline-none text-xs"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMapSearchTerm(mapSearchTerm)}
+                  className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold cursor-pointer"
+                >
+                  Search
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Pakistani Landmark Chips */}
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                'Centaurus Mall, Islamabad',
+                'F-8 Markaz, Islamabad',
+                'G-8 / Shifa Hospital, Islamabad',
+                'DHA Phase 5, Lahore',
+                'Gulberg Main Blvd, Lahore',
+                'Clifton Block 5, Karachi',
+                'Saddar, Rawalpindi',
+              ].map((chip) => (
+                <button
+                  key={chip}
+                  type="button"
+                  onClick={() => setMapSearchTerm(chip)}
+                  className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-emerald-50 hover:text-emerald-900 text-slate-600 text-[10px] font-semibold transition cursor-pointer"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+
+            {/* Keyless Live Google Maps Embed (Islamabad / Selected City) */}
+            <div className="relative w-full h-72 rounded-2xl overflow-hidden border border-slate-200 shadow-inner bg-slate-100">
+              <iframe
+                title="Location Map"
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                loading="lazy"
+                allowFullScreen
+                src={`https://maps.google.com/maps?q=${encodeURIComponent(mapSearchTerm || 'Islamabad, Pakistan')}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
+              />
+              <div className="absolute top-2 right-2 px-3 py-1 bg-white/95 backdrop-blur-md rounded-lg text-[10px] font-bold text-slate-800 shadow-sm border border-slate-200 pointer-events-none">
+                📍 {mapSearchTerm}
+              </div>
+            </div>
+
+            {/* Bottom Actions (Matching Reference Image 2: Cancel | Confirm Location) */}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowMapModal(false)}
+                className="px-6 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold transition cursor-pointer text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmLocation}
+                className="px-7 py-2.5 rounded-xl bg-slate-500 hover:bg-emerald-700 text-white font-black shadow-sm transition cursor-pointer text-xs"
+              >
+                Confirm Location
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: EDIT VEHICLE LISTING (FULL CRUD)                                   */}
+      {/* ========================================================================= */}
+      {editingVehicle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-4 text-xs my-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-emerald-600" />
+                <h3 className="font-black text-base text-slate-900">Edit Vehicle Listing</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingVehicle(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveVehicleEdit} className="space-y-3.5">
+              {/* Vehicle Title & Model */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Vehicle Make, Model & Year *</label>
+                <input
+                  type="text"
+                  required
+                  value={editingVehicle.title}
+                  onChange={(e) => setEditingVehicle({ ...editingVehicle, title: e.target.value })}
+                  placeholder="e.g. Toyota Corolla Altis Grande 2024"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900"
+                />
+              </div>
+
+              {/* Registration Number & City */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Registration # *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingVehicle.reg}
+                    onChange={(e) => setEditingVehicle({ ...editingVehicle, reg: e.target.value })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Operating City</label>
+                  <select
+                    value={editingVehicle.city}
+                    onChange={(e) => setEditingVehicle({ ...editingVehicle, city: e.target.value })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                  >
+                    {listerAvailableCities.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Rates */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Daily Rent Rate (PKR / Day) *</label>
+                  <input
+                    type="number"
+                    required
+                    value={editingVehicle.dailyRate}
+                    onChange={(e) => setEditingVehicle({ ...editingVehicle, dailyRate: Number(e.target.value) })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-emerald-800"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">With-Driver Daily Rent (PKR)</label>
+                  <input
+                    type="number"
+                    value={editingVehicle.withDriverRate || editingVehicle.dailyRate + 2500}
+                    onChange={(e) => setEditingVehicle({ ...editingVehicle, withDriverRate: Number(e.target.value) })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* Transmission & Status */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Transmission</label>
+                  <select
+                    value={editingVehicle.transmission || 'Automatic'}
+                    onChange={(e) => setEditingVehicle({ ...editingVehicle, transmission: e.target.value })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                  >
+                    <option value="Automatic">Automatic Transmission</option>
+                    <option value="Manual">Manual Transmission</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Listing Status</label>
+                  <select
+                    value={editingVehicle.status}
+                    onChange={(e) => setEditingVehicle({ ...editingVehicle, status: e.target.value })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                  >
+                    <option value="LIVE">🟢 LIVE on Marketplace</option>
+                    <option value="PAUSED">⏸️ Paused (Hidden)</option>
+                    <option value="MAINTENANCE">🔧 In Workshop / Maintenance</option>
+                    <option value="DRAFT">💾 Draft Roster</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Assigned Chauffeur */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Assigned Chauffeur / Driver Name</label>
+                <input
+                  type="text"
+                  value={editingVehicle.assignedDriver || ''}
+                  onChange={(e) => setEditingVehicle({ ...editingVehicle, assignedDriver: e.target.value })}
+                  placeholder="e.g. Tariq Mahmood (or leave empty for Self-Drive Only)"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium"
+                />
+              </div>
+
+              {/* Location Area */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Showroom / Pickup Location</label>
+                <input
+                  type="text"
+                  value={editingVehicle.location || ''}
+                  onChange={(e) => setEditingVehicle({ ...editingVehicle, location: e.target.value })}
+                  placeholder="e.g. DHA Phase 5 / Centaurus Mall"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium"
+                />
+              </div>
+
+              {/* Bottom Actions */}
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingVehicle(null)}
+                  className="px-4 py-2 border border-slate-200 bg-white rounded-xl font-bold text-slate-700 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-black rounded-xl shadow-sm transition cursor-pointer"
+                >
+                  Save Listing Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOMER CREDENTIALS VAULT (UNMASKED FOR KEY HANDOVER COMPLIANCE) */}
+      {selectedCustomerVaultModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto"
+          onClick={() => setSelectedCustomerVaultModal(null)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-slate-100 my-auto text-xs"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+                  🛡️
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-slate-900">
+                    Customer Identity & License Vault
+                  </h3>
+                  <span className="text-[10px] text-emerald-700 font-bold">
+                    ✓ Unmasked under Mutual Consent for Key Handover
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedCustomerVaultModal(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Customer Contact & Booking Info */}
+            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] text-slate-400 block font-semibold">Customer Full Name</span>
+                  <strong className="text-slate-900 text-sm">{selectedCustomerVaultModal.customerName}</strong>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 block font-semibold">Booking Reference</span>
+                  <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    {selectedCustomerVaultModal.bookingRef}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-1 text-[11px] text-slate-600">
+                <span>Phone: <strong className="text-slate-900 font-mono">{selectedCustomerVaultModal.customerPhone}</strong></span>
+                <span>Vehicle: <strong className="text-slate-900">{selectedCustomerVaultModal.vehicleName}</strong></span>
+              </div>
+            </div>
+
+            {/* Driving License & CNIC Unmasked Details */}
+            <div className="p-3.5 bg-amber-50/70 rounded-2xl border border-amber-200 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="font-extrabold text-amber-950 flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-amber-700" />
+                  <span>Unmasked Identity Credentials (Key Handover Audit)</span>
+                </span>
+                <span className="text-[10px] font-bold bg-white text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300">
+                  DLIMS Audited
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 bg-white rounded-xl border border-amber-200">
+                  <span className="text-[10px] font-bold text-slate-500 block uppercase">National ID (Unmasked)</span>
+                  <span className="font-mono font-black text-slate-900 text-sm">
+                    {selectedCustomerVaultModal.customerCnic}
+                  </span>
+                  <span className="text-[9px] text-slate-400 block mt-0.5">Match with physical card</span>
+                </div>
+
+                <div className="p-2.5 bg-white rounded-xl border border-amber-200">
+                  <span className="text-[10px] font-bold text-slate-500 block uppercase">Driving License #</span>
+                  <span className="font-mono font-black text-slate-900 text-sm">
+                    {selectedCustomerVaultModal.customerLicense}
+                  </span>
+                  <span className="text-[9px] text-emerald-700 block mt-0.5">Valid Motorcar / LTV</span>
+                </div>
+              </div>
+
+              {/* License Preview */}
+              <div className="p-2.5 bg-white rounded-xl border border-slate-200 flex items-center gap-3">
+                <img
+                  src={selectedCustomerVaultModal.licensePreview || 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=400&auto=format&fit=crop&q=80'}
+                  alt="License Scan"
+                  className="w-14 h-10 object-cover rounded-md border shrink-0"
+                />
+                <div>
+                  <span className="font-bold text-xs text-slate-900 block">Driving License Document Scan</span>
+                  <span className="text-[10px] text-emerald-700 font-medium">✓ Uploaded & verified by customer during checkout</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Handover Security Checklist */}
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5 text-[11px] text-slate-700">
+              <span className="font-bold text-slate-900 block text-xs">Vehicle Handover Verification Checklist:</span>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" defaultChecked className="w-3.5 h-3.5 text-emerald-600 rounded" />
+                <span>Physical National ID inspected & matches {selectedCustomerVaultModal.customerCnic}</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" defaultChecked className="w-3.5 h-3.5 text-emerald-600 rounded" />
+                <span>Physical original Driving License checked before giving car keys</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" defaultChecked className="w-3.5 h-3.5 text-emerald-600 rounded" />
+                <span>Vehicle odometer reading & fuel level recorded in physical rental form</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" defaultChecked className="w-3.5 h-3.5 text-emerald-600 rounded" />
+                <span>Refundable security deposit / payment collected directly</span>
+              </label>
+            </div>
+
+            <p className="text-[10px] text-slate-500 leading-tight">
+              * Protected under Pakistan Electronic Crimes Act (PECA 2016) & Electronic Transactions Ordinance (ETO 2002). Customer details are unmasked strictly for key handover security verification.
+            </p>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  alert(`✅ Handover verified! Booking ${selectedCustomerVaultModal.bookingRef} marked as in-progress.`);
+                  setSelectedCustomerVaultModal(null);
+                }}
+                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                ✓ Mark Keys Handed Over & Verified
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedCustomerVaultModal(null)}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
