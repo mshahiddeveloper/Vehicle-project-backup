@@ -1193,7 +1193,7 @@ export default function SuperAdminDashboardPage() {
               onClick={() => {
                 if (confirm('🧹 Clean / Purge all demo accounts?\n\nThis will remove demo users and leave only your Super Admin account (admin@safarpk.com) so that all new user registrations will be 100% REAL.')) {
                   purgeDemoData();
-                  setUsers(getAllRegisteredUsers());
+                  setRegisteredUsersList(getAllRegisteredUsers());
                   setAdminNotice('✅ Demo accounts purged! The portal is now 100% clean for real user registrations.');
                   setTimeout(() => setAdminNotice(null), 4000);
                 }
