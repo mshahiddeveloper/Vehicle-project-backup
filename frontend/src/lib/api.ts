@@ -1,9 +1,27 @@
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+export function getApiBaseUrl(): string {
+  // If running on server side in Vercel with Service Bindings
+  if (typeof window === 'undefined' && process.env.BACKEND_URL) {
+    return `${process.env.BACKEND_URL.replace(/\/$/, '')}/api/v1`;
+  }
+  // Client-side or explicit override
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
+  }
+  // When running in browser on deployed Vercel service or with rewrites
+  if (typeof window !== 'undefined') {
+    return '/api/v1';
+  }
+  // Fallback for local development server-side
+  return 'http://localhost:3001/api/v1';
+}
+
+export const API_BASE = getApiBaseUrl();
 
 // Real Database API Handlers
 export async function apiRegisterUser(data: any) {
   try {
-    const res = await fetch(`${API_BASE}/auth/register`, {
+    const baseUrl = getApiBaseUrl();
+    const res = await fetch(`${baseUrl}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -20,7 +38,8 @@ export async function apiRegisterUser(data: any) {
 
 export async function apiLoginUser(data: any) {
   try {
-    const res = await fetch(`${API_BASE}/auth/login`, {
+    const baseUrl = getApiBaseUrl();
+    const res = await fetch(`${baseUrl}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),

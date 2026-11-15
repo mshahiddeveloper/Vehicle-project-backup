@@ -1,6 +1,7 @@
 'use client';
 
 import { incrementUserMetrics, logUserActivity, getAllRegisteredUsers, getActiveUser } from './userAuth';
+import { getApiBaseUrl } from '../lib/api';
 
 // ==========================================
 // CANONICAL EVENT & LEAD INTERFACES
@@ -322,7 +323,7 @@ export function logLeadEvent(
     localStorage.setItem(STORAGE_LEAD_EVENTS_KEY, JSON.stringify(rawEvents));
 
     // Persist event to backend database analytics
-    fetch('http://localhost:3001/api/v1/analytics/track', {
+    fetch(`${getApiBaseUrl()}/analytics/track`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

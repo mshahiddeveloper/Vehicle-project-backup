@@ -1,6 +1,7 @@
 'use client';
 
 import { RegisteredUser, getActiveUser, DEMO_USERS } from './userAuth';
+import { getApiBaseUrl } from '../lib/api';
 
 export interface ChatMessage {
   id: string;
@@ -811,7 +812,7 @@ export function sendChatMessage({
 
   // Sync message with backend database
   if (typeof window !== 'undefined') {
-    fetch(`http://localhost:3001/api/v1/chat/conversations/${conversationId}/messages`, {
+    fetch(`${getApiBaseUrl()}/chat/conversations/${conversationId}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1387,7 +1388,7 @@ export function startOrOpenConversation({
 
   // Sync conversation & initial message with backend database
   if (typeof window !== 'undefined') {
-    fetch('http://localhost:3001/api/v1/chat/conversations', {
+    fetch(`${getApiBaseUrl()}/chat/conversations`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

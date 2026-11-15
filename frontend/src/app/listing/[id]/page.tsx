@@ -8,6 +8,7 @@ import { AppFooter } from '@/components/AppFooter';
 import { MobileNavBar } from '@/components/MobileNavBar';
 import { recordLead, recordClickEvent } from '@/data/activityTracker';
 import { getActiveUser, setActiveUser } from '@/data/userAuth';
+import { getApiBaseUrl } from '@/lib/api';
 import { startOrOpenConversation, getWhatsAppTargetUrl } from '@/data/chatEngine';
 import { getStoreSlugForOwner } from '@/data/storefrontEngine';
 import { useCountry } from '@/app/context/CountryContext';
@@ -478,7 +479,7 @@ export default function ListingDetailPage() {
 
     // Persist booking to backend database via REST API
     if (typeof window !== 'undefined') {
-      fetch('http://localhost:3001/api/v1/bookings', {
+      fetch(`${getApiBaseUrl()}/bookings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -497,7 +498,7 @@ export default function ListingDetailPage() {
         }),
       }).catch(() => {});
 
-      fetch('http://localhost:3001/api/v1/analytics/track', {
+      fetch(`${getApiBaseUrl()}/analytics/track`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

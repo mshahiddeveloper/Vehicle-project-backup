@@ -1,5 +1,7 @@
 'use client';
 
+import { getApiBaseUrl } from '../lib/api';
+
 /**
  * SafarPK Unified Booking Synchronization Engine
  * Milestone 1: Core Shared Data & Synchronization Engine
@@ -465,7 +467,7 @@ export function createUnifiedBooking(
 
   // Sync with Backend PostgreSQL / SQLite Database via REST API
   if (typeof window !== 'undefined') {
-    fetch('http://localhost:3001/api/v1/bookings', {
+    fetch(`${getApiBaseUrl()}/bookings`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -529,7 +531,7 @@ export function updateBookingStatus(
 
   // Sync status with Backend PostgreSQL / SQLite Database
   if (typeof window !== 'undefined') {
-    fetch(`http://localhost:3001/api/v1/bookings/${bookingId}/status`, {
+    fetch(`${getApiBaseUrl()}/bookings/${bookingId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),

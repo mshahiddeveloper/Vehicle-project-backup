@@ -71,7 +71,7 @@ import {
   getAgentAnalyticsPermission,
   setAgentAnalyticsPermission,
 } from '@/data/analyticsEngine';
-import { API_BASE, formatPKR, maskCnic, maskPhone } from '@/lib/api';
+import { API_BASE, getApiBaseUrl, formatPKR, maskCnic, maskPhone } from '@/lib/api';
 import {
   PromoCode,
   SubscriptionPlan,
@@ -1065,7 +1065,7 @@ export default function SuperAdminDashboardPage() {
     if (!editingAgent) return;
     setAgents(agents.map((ag) => (ag.id === editingAgent.id ? { ...ag, permissions: newPermissions } : ag)));
     if (typeof window !== 'undefined') {
-      fetch(`http://localhost:3001/api/v1/admin/agents/${editingAgent.id}/permissions`, {
+      fetch(`${getApiBaseUrl()}/admin/agents/${editingAgent.id}/permissions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ permissions: newPermissions }),
