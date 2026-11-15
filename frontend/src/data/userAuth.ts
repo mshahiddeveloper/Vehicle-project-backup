@@ -442,6 +442,21 @@ export function saveAllRegisteredUsers(users: RegisteredUser[]): void {
 }
 
 /**
+ * Purge all demo/dummy accounts so the portal operates with 100% REAL users,
+ * preserving only the Super Admin authority account.
+ */
+export function purgeDemoData(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const adminOnly = DEMO_USERS.filter((u) => u.role === 'SUPER_ADMIN');
+    localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(adminOnly));
+    window.dispatchEvent(new Event('safarpk_users_updated'));
+  } catch (e) {
+    console.error('Failed to purge demo data:', e);
+  }
+}
+
+/**
  * Get currently logged-in user session
  */
 export function getActiveUser(): RegisteredUser | null {

@@ -1,5 +1,40 @@
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
+// Real Database API Handlers
+export async function apiRegisterUser(data: any) {
+  try {
+    const res = await fetch(`${API_BASE}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { success: false, error: err.message || 'Server registration failed' };
+    }
+    return { success: true, data: await res.json() };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Network error connecting to API' };
+  }
+}
+
+export async function apiLoginUser(data: any) {
+  try {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { success: false, error: err.message || 'Login failed' };
+    }
+    return { success: true, data: await res.json() };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Network error connecting to API' };
+  }
+}
+
 // Privacy & Masking Helpers preserving full Pakistani ID & Licence patterns
 export function maskCnic(cnic?: string | null): string {
   if (!cnic) return '35201-212***1-1';

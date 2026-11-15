@@ -84,6 +84,7 @@ import {
 } from '@/data/promoCodes';
 import {
   getAllRegisteredUsers,
+  purgeDemoData,
   approveSubscriptionByAdmin,
   rejectSubscriptionByAdmin,
   assignUserToAgent,
@@ -1187,6 +1188,21 @@ export default function SuperAdminDashboardPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm('🧹 Clean / Purge all demo accounts?\n\nThis will remove demo users and leave only your Super Admin account (admin@safarpk.com) so that all new user registrations will be 100% REAL.')) {
+                  purgeDemoData();
+                  setUsers(getAllRegisteredUsers());
+                  setAdminNotice('✅ Demo accounts purged! The portal is now 100% clean for real user registrations.');
+                  setTimeout(() => setAdminNotice(null), 4000);
+                }
+              }}
+              className="text-xs font-bold px-3 py-1.5 rounded-xl text-amber-300 hover:text-white bg-amber-950/60 hover:bg-amber-900/80 border border-amber-800 transition cursor-pointer flex items-center gap-1.5"
+              title="Purge dummy accounts and start fresh for real users"
+            >
+              <span>🧹 Clean Demo Accounts</span>
+            </button>
             <Link
               href="/"
               className="text-xs font-bold px-3.5 py-2 rounded-xl text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 transition"
