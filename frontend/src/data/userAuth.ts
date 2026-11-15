@@ -2,9 +2,34 @@
 
 import { SubscriptionPlan } from './promoCodes';
 
-export type UserRole = 'CUSTOMER' | 'LISTER' | 'DRIVER' | 'PROVIDER';
+export type UserRole = 'CUSTOMER' | 'LISTER' | 'DRIVER' | 'PROVIDER' | 'AGENT' | 'SUPER_ADMIN';
 export type ProviderSubtype = 'PICK_AND_DROP' | 'COMMERCIAL_CARGO';
 export type SubscriptionStatus = 'UNSUBSCRIBED' | 'PENDING_APPROVAL' | 'ACTIVE' | 'REJECTED';
+export type KycStatus = 'UNVERIFIED' | 'PENDING_APPROVAL' | 'VERIFIED';
+
+/**
+ * EXACT FIVE MAIN CUSTOMER-FACING SERVICES OF SAFARPK
+ */
+export type SafarServiceType =
+  | 'RENT_A_CAR'      // 1. Rent a Car
+  | 'HIRE_A_DRIVER'   // 2. Hire a Driver
+  | 'CITY_TO_CITY'    // 3. City to City
+  | 'PICK_AND_DROP'   // 4. Pick & Drop
+  | 'HOME_SHIFTING';  // 5. Home Shifting
+
+export const ALL_SAFAR_SERVICES: {
+  id: SafarServiceType;
+  label: string;
+  number: number;
+  desc: string;
+  icon: string;
+}[] = [
+  { id: 'RENT_A_CAR', label: 'Rent a Car', number: 1, desc: 'Vehicle rental listings, fleet inventory & rental booking requests', icon: '🚗' },
+  { id: 'HIRE_A_DRIVER', label: 'Hire a Driver', number: 2, desc: 'Chauffeur profile, daily/monthly availability & hiring requests', icon: '👨‍✈️' },
+  { id: 'CITY_TO_CITY', label: 'City to City', number: 3, desc: 'Intercity travel routes, schedules & passenger bookings', icon: '🛣️' },
+  { id: 'PICK_AND_DROP', label: 'Pick & Drop', number: 4, desc: 'Daily commuter routes, university/office shuttles & seat bookings', icon: '🚌' },
+  { id: 'HOME_SHIFTING', label: 'Home Shifting', number: 5, desc: 'Household & office shifting, cargo trucks, helpers & moving quotations', icon: '📦' },
+];
 
 export interface UserSubscription {
   status: SubscriptionStatus;
@@ -65,14 +90,64 @@ export interface RegisteredUser {
   role: UserRole;
   providerSubtype?: ProviderSubtype;
   registeredAt: string;
+  kycStatus?: 'UNVERIFIED' | 'PENDING_APPROVAL' | 'VERIFIED';
   subscription: UserSubscription;
   bio?: string;
   licenseNumber?: string;
   nationalId?: string;
+  avatarUrl?: string;
+  cnicFrontUrl?: string;
+  cnicBackUrl?: string;
+  licenseUrl?: string;
+  tradeLicenseUrl?: string;
+  showroomAddress?: string;
+  gpsLocation?: string;
   assignedAgentId?: string;
   assignedAgentName?: string;
+  employeeId?: string;
+  staffId?: string;
+  desk?: string;
+  branch?: string;
+  permissions?: string[];
+  approvedServices?: SafarServiceType[];
   metrics: UserMetrics;
   activities: UserActivityLog[];
+}
+
+export function getApprovedServicesForUser(user: RegisteredUser): SafarServiceType[] {
+  if (user.approvedServices && user.approvedServices.length > 0) return user.approvedServices;
+  if (user.role === 'LISTER') return ['RENT_A_CAR'];
+  if (user.role === 'DRIVER') return ['HIRE_A_DRIVER'];
+  if (user.role === 'PROVIDER') {
+    if (user.providerSubtype === 'COMMERCIAL_CARGO') return ['HOME_SHIFTING'];
+    return ['PICK_AND_DROP'];
+  }
+  return ['RENT_A_CAR', 'HIRE_A_DRIVER', 'CITY_TO_CITY', 'PICK_AND_DROP', 'HOME_SHIFTING'];
+}
+
+export function isServiceApprovedForUser(user: RegisteredUser, service: SafarServiceType): boolean {
+  const approved = getApprovedServicesForUser(user);
+  return approved.includes(service);
+}
+
+export function updateUserApprovedServices(userId: string, services: SafarServiceType[]): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const all = getAllRegisteredUsers();
+    const target = all.find((u) => u.id === userId);
+    if (!target) return false;
+    target.approvedServices = services;
+    saveAllRegisteredUsers(all);
+    const active = getActiveUser();
+    if (active && active.id === userId) {
+      active.approvedServices = services;
+      setActiveUser(active);
+    }
+    window.dispatchEvent(new CustomEvent('safarpk_user_services_updated', { detail: { userId, services } }));
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 export const DEMO_USERS: RegisteredUser[] = [
@@ -718,6 +793,28 @@ export function approveSubscriptionByAdmin(userId: string): RegisteredUser | nul
 
   saveAllRegisteredUsers(all);
 
+  // Record into financial ledger if amount paid
+  if (user.subscription.amountPaid && user.subscription.amountPaid > 0) {
+    recordSubscriptionPayment({
+      userId: user.id,
+      userName: user.name,
+      businessName: user.businessName,
+      phone: user.phone,
+      role: user.role,
+      providerSubtype: user.providerSubtype,
+      planId: user.subscription.planId || 'standard-pass',
+      planName: user.subscription.planName || 'Monthly Subscription Pass',
+      amountPaid: user.subscription.amountPaid,
+      currency: user.subscription.currency || 'PKR',
+      symbol: user.subscription.symbol || 'Rs',
+      paymentMode: 'Bank / Mobile Wallet Deposit',
+      paymentRef: user.subscription.paymentRef || `REF-${Date.now().toString().slice(-6)}`,
+      status: 'CONFIRMED',
+      recordedBy: 'Super Admin',
+      notes: 'Approved via Super Admin approvals queue',
+    });
+  }
+
   const active = getActiveUser();
   if (active && active.id === userId) {
     setActiveUser(user);
@@ -767,6 +864,8 @@ export function logoutUser(): void {
   } catch (e) {}
 }
 
+export const logoutActiveUser = logoutUser;
+
 /**
  * Switch or Login as a Demo User
  */
@@ -784,3 +883,261 @@ export function loginAsDemoUser(role: UserRole, subtype?: ProviderSubtype): Regi
   }
   return null;
 }
+
+/**
+ * =========================================================================
+ * SUBSCRIPTION FINANCIAL LEDGER & MANUAL ONBOARDING
+ * =========================================================================
+ */
+
+export interface SubscriptionPaymentRecord {
+  id: string;
+  userId: string;
+  userName: string;
+  businessName?: string;
+  phone: string;
+  role: UserRole;
+  providerSubtype?: ProviderSubtype;
+  planId: string;
+  planName: string;
+  amountPaid: number;
+  currency: string;
+  symbol: string;
+  paymentMode: string; // 'Cash (Office)' | 'Bank Transfer / Raast' | 'JazzCash / Easypaisa' | 'Card' | 'Cheque'
+  paymentRef: string;
+  date: string; // ISO date
+  status: 'CONFIRMED' | 'PENDING' | 'REFUNDED';
+  recordedBy: string; // 'Super Admin' | 'Online Gateway' | 'Staff Agent'
+  notes?: string;
+}
+
+const STORAGE_SUBSCRIPTION_LEDGER_KEY = 'safarpk_subscription_ledger';
+
+const DEFAULT_SUBSCRIPTION_LEDGER: SubscriptionPaymentRecord[] = [
+  {
+    id: 'pay-seed-101',
+    userId: 'usr-demo-lister',
+    userName: 'Muhammad Salman',
+    businessName: 'Salman Rent a Car & Tours',
+    phone: '+92 300 1234567',
+    role: 'LISTER',
+    planId: 'p-2',
+    planName: 'Professional Fleet Hub (15 Vehicles)',
+    amountPaid: 12000,
+    currency: 'PKR',
+    symbol: 'Rs',
+    paymentMode: 'Bank Transfer / Raast',
+    paymentRef: 'RAAST-8829104',
+    date: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
+    status: 'CONFIRMED',
+    recordedBy: 'Super Admin',
+    notes: 'Paid via Meezan Bank Raast transfer',
+  },
+  {
+    id: 'pay-seed-102',
+    userId: 'usr-demo-driver',
+    userName: 'Tariq Mahmood',
+    phone: '+92 301 9821045',
+    role: 'DRIVER',
+    planId: 'p-drv1',
+    planName: 'Independent Chauffeur Pass',
+    amountPaid: 2000,
+    currency: 'PKR',
+    symbol: 'Rs',
+    paymentMode: 'JazzCash / Easypaisa',
+    paymentRef: 'JC-992104',
+    date: new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString(),
+    status: 'CONFIRMED',
+    recordedBy: 'Super Admin',
+    notes: 'JazzCash direct mobile transfer',
+  },
+  {
+    id: 'pay-seed-103',
+    userId: 'usr-demo-provider-pnd',
+    userName: 'Subhan Ahmed',
+    businessName: 'Subhan Commuter Shuttles',
+    phone: '+92 300 9876543',
+    role: 'PROVIDER',
+    providerSubtype: 'PICK_AND_DROP',
+    planId: 'p-prov2',
+    planName: 'Commuter Route Shuttle Pass',
+    amountPaid: 4800,
+    currency: 'PKR',
+    symbol: 'Rs',
+    paymentMode: 'Cash (Office)',
+    paymentRef: 'CASH-OFF-101',
+    date: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(),
+    status: 'CONFIRMED',
+    recordedBy: 'Super Admin',
+    notes: 'Cash received at Lahore regional desk',
+  },
+  {
+    id: 'pay-seed-104',
+    userId: 'usr-demo-provider-cargo',
+    userName: 'Haji Riaz Ahmed',
+    businessName: 'Al-Makkah Shifting Transport',
+    phone: '+92 333 5599182',
+    role: 'PROVIDER',
+    providerSubtype: 'COMMERCIAL_CARGO',
+    planId: 'p-prov1',
+    planName: 'Cargo & Shifting Mover Pass',
+    amountPaid: 5500,
+    currency: 'PKR',
+    symbol: 'Rs',
+    paymentMode: 'Bank Transfer / Raast',
+    paymentRef: 'MEZN-55102',
+    date: new Date(Date.now() - 6 * 24 * 3600 * 1000).toISOString(),
+    status: 'CONFIRMED',
+    recordedBy: 'Super Admin',
+    notes: 'Annual cargo logistics membership deposit',
+  },
+];
+
+export function getAllSubscriptionPayments(): SubscriptionPaymentRecord[] {
+  if (typeof window === 'undefined') return DEFAULT_SUBSCRIPTION_LEDGER;
+  try {
+    const raw = localStorage.getItem(STORAGE_SUBSCRIPTION_LEDGER_KEY);
+    if (!raw) {
+      localStorage.setItem(STORAGE_SUBSCRIPTION_LEDGER_KEY, JSON.stringify(DEFAULT_SUBSCRIPTION_LEDGER));
+      return DEFAULT_SUBSCRIPTION_LEDGER;
+    }
+    return JSON.parse(raw);
+  } catch (e) {
+    return DEFAULT_SUBSCRIPTION_LEDGER;
+  }
+}
+
+export function recordSubscriptionPayment(record: Omit<SubscriptionPaymentRecord, 'id' | 'date'>): SubscriptionPaymentRecord {
+  const current = getAllSubscriptionPayments();
+  const newRecord: SubscriptionPaymentRecord = {
+    ...record,
+    id: `pay-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+    date: new Date().toISOString(),
+  };
+
+  const updated = [newRecord, ...current];
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(STORAGE_SUBSCRIPTION_LEDGER_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new Event('safarpk_ledger_updated'));
+  }
+  return newRecord;
+}
+
+/**
+ * Super Admin manually registers a vendor and activates subscription with payment recorded
+ */
+export function createManualVendorWithSubscription(params: {
+  name: string;
+  businessName?: string;
+  phone: string;
+  email?: string;
+  password?: string;
+  city: string;
+  countryCode?: string;
+  role: UserRole;
+  providerSubtype?: ProviderSubtype;
+  planId: string;
+  planName: string;
+  quota: number;
+  amountPaid: number;
+  paymentMode: string;
+  paymentRef: string;
+  adminNotes?: string;
+}): { success: boolean; user: RegisteredUser; payment: SubscriptionPaymentRecord } {
+  const cleanPhone = params.phone.trim();
+  const cleanName = params.name.trim();
+  const cleanCity = params.city.trim() || 'Lahore';
+  const cleanBusiness = params.businessName?.trim() || `${cleanName} Fleet`;
+  const plainPassword = params.password?.trim() || 'Safar@2026';
+
+  const all = getAllRegisteredUsers();
+  const nowIso = new Date().toISOString();
+
+  // 1 calendar month expiry
+  const expiry = new Date();
+  expiry.setMonth(expiry.getMonth() + 1);
+  const renewsOnStr = expiry.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+
+  const newUser: RegisteredUser = {
+    id: `usr-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+    name: cleanName,
+    businessName: cleanBusiness,
+    phone: cleanPhone,
+    email: params.email?.trim() || undefined,
+    password: plainPassword,
+    city: cleanCity,
+    countryCode: params.countryCode || 'PK',
+    role: params.role,
+    providerSubtype: params.providerSubtype,
+    kycStatus: 'VERIFIED',
+    registeredAt: nowIso,
+    metrics: {
+      viewCount: 0,
+      leadsCount: 0,
+      clickCount: 0,
+      lastActive: nowIso,
+    },
+    activities: [
+      {
+        id: `act-${Date.now()}`,
+        type: 'REGISTER',
+        title: 'Vendor Created by Super Admin',
+        description: `Manual registration with activated ${params.planName}`,
+        timestamp: nowIso,
+      },
+      {
+        id: `act-${Date.now() + 1}`,
+        type: 'SUBSCRIPTION_REQUESTED',
+        title: 'Subscription Activated by Admin',
+        description: `Plan "${params.planName}" activated. Quota of ${params.quota} listings unlocked.`,
+        timestamp: nowIso,
+      },
+    ],
+    subscription: {
+      status: 'ACTIVE',
+      planId: params.planId,
+      planName: params.planName,
+      targetRole: params.role,
+      amountPaid: params.amountPaid,
+      currency: 'PKR',
+      symbol: 'Rs',
+      paymentRef: params.paymentRef,
+      requestedAt: nowIso,
+      approvedAt: nowIso,
+      quota: params.quota,
+      usedQuota: 0,
+      renewsOn: renewsOnStr,
+    },
+  };
+
+  // Add to user storage
+  all.unshift(newUser);
+  saveAllRegisteredUsers(all);
+
+  // Record payment in financial ledger
+  const paymentRecord = recordSubscriptionPayment({
+    userId: newUser.id,
+    userName: newUser.name,
+    businessName: newUser.businessName,
+    phone: newUser.phone,
+    role: newUser.role,
+    providerSubtype: newUser.providerSubtype,
+    planId: params.planId,
+    planName: params.planName,
+    amountPaid: params.amountPaid,
+    currency: 'PKR',
+    symbol: 'Rs',
+    paymentMode: params.paymentMode,
+    paymentRef: params.paymentRef || `MANUAL-${Date.now().toString().slice(-6)}`,
+    status: 'CONFIRMED',
+    recordedBy: 'Super Admin',
+    notes: params.adminNotes || 'Manually created and activated via Super Admin desk',
+  });
+
+  return { success: true, user: newUser, payment: paymentRecord };
+}
+

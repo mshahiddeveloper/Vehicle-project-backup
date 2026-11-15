@@ -15,6 +15,8 @@ import { ReviewModule } from './modules/review/review.module.js';
 import { ComplaintModule } from './modules/complaint/complaint.module.js';
 import { DocumentModule } from './modules/document/document.module.js';
 import { AgentModule } from './modules/agent/agent.module.js';
+import { ChatModule } from './modules/chat/chat.module.js';
+import { AnalyticsModule } from './modules/analytics/analytics.module.js';
 
 @Module({
   imports: [
@@ -32,6 +34,8 @@ import { AgentModule } from './modules/agent/agent.module.js';
     ComplaintModule,
     DocumentModule,
     AgentModule,
+    ChatModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -616,7 +616,7 @@ export function SubscriptionPricingSection({
           <div className="pt-3 border-t border-slate-800 flex items-baseline justify-between">
             <div>
               <span className="text-sm font-extrabold text-white block">Final Payable Amount:</span>
-              <span className="text-[10px] text-slate-400">Billed monthly · Zero commission</span>
+              <span className="text-[10px] text-slate-400">Billed monthly · Direct client connection</span>
             </div>
             <div className="text-right">
               <span className="text-3xl font-black text-emerald-400">

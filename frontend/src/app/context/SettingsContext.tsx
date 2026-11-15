@@ -120,8 +120,8 @@ const DEFAULT_SETTINGS: PlatformSettings = {
     hireDriver: true,
   },
   announcement: {
-    heading: '🔥 SafarPK Global Launch: 0% Platform Fee & Direct Booking Now Live',
-    message: 'Direct connections with verified fleet owners, chauffeurs, commuter shuttles, and cargo movers. Zero middleman commissions.',
+    heading: '🔥 SafarPK Direct Transport Marketplace is Live',
+    message: 'Direct connections with local fleet owners, private chauffeurs, commuter shuttles, and cargo movers. Connect directly with hosts.',
     badge: '⚡ FLASH ANNOUNCEMENT',
     style: 'MARQUEE_TICKER',
     enabled: true,

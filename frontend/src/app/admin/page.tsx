@@ -44,9 +44,33 @@ import {
   Tag,
   Percent,
   Gift,
+  BarChart2,
   BarChart3,
   Activity,
+  PhoneCall,
+  TrendingUp,
+  Wallet,
+  Copy,
+  Share2,
+  ArrowUpRight,
+  CheckCircle,
 } from 'lucide-react';
+import { AgentPermissionEditor } from '@/components/AgentPermissionEditor';
+import { SubscriptionFollowUpDesk } from '@/components/SubscriptionFollowUpDesk';
+import {
+  getAllCountryDocRules,
+  getDocRulesForCountry,
+  saveDocRulesForCountry,
+  isMasterDocAskEnabled,
+  setMasterDocAskEnabled,
+  DocRuleItem,
+  DocRequirement,
+} from '@/data/docRules';
+import { AnalyticsReportHub } from '@/components/AnalyticsReportHub';
+import {
+  getAgentAnalyticsPermission,
+  setAgentAnalyticsPermission,
+} from '@/data/analyticsEngine';
 import { API_BASE, formatPKR, maskCnic, maskPhone } from '@/lib/api';
 import {
   PromoCode,
@@ -64,6 +88,14 @@ import {
   rejectSubscriptionByAdmin,
   assignUserToAgent,
   RegisteredUser,
+  getApprovedServicesForUser,
+  updateUserApprovedServices,
+  SafarServiceType,
+  ALL_SAFAR_SERVICES,
+  getAllSubscriptionPayments,
+  recordSubscriptionPayment,
+  createManualVendorWithSubscription,
+  SubscriptionPaymentRecord,
 } from '@/data/userAuth';
 import {
   getAllLeads,
@@ -75,8 +107,19 @@ import {
 
 export default function SuperAdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<
-    'services' | 'listings' | 'plans' | 'promocodes' | 'promotions' | 'directory' | 'leads' | 'agents' | 'stealthAudit' | 'legal' | 'countries'
-  >('services');
+    'overview' | 'services' | 'listings' | 'plans' | 'promocodes' | 'promotions' | 'featured' | 'doc_rules' | 'directory' | 'analytics' | 'leads' | 'subscription_leads' | 'agents' | 'stealthAudit' | 'legal' | 'countries'
+  >('overview');
+
+  // Read URL search param (?tab=...) on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam) {
+        setActiveTab(tabParam as any);
+      }
+    }
+  }, []);
 
   // Master Service Switches
   const [modules, setModules] = useState({
@@ -244,6 +287,113 @@ export default function SuperAdminDashboardPage() {
       window.removeEventListener('safarpk_auth_state_changed', onUsersUpdate);
     };
   }, []);
+
+  // =========================================================================
+  // FINANCIAL LEDGER & TIME FILTERED SUBSCRIPTION METRICS
+  // =========================================================================
+  const [timeFilter, setTimeFilter] = useState<'TODAY' | 'WEEK' | 'MONTH' | 'ALL'>('MONTH');
+  const [subscriptionPayments, setSubscriptionPayments] = useState<SubscriptionPaymentRecord[]>([]);
+
+  // Manual Vendor Portal & Subscription Creation Modal
+  const [showManualVendorModal, setShowManualVendorModal] = useState(false);
+  const [mvName, setMvName] = useState('');
+  const [mvBusinessName, setMvBusinessName] = useState('');
+  const [mvPhone, setMvPhone] = useState('');
+  const [mvEmail, setMvEmail] = useState('');
+  const [mvCity, setMvCity] = useState('Lahore');
+  const [mvRole, setMvRole] = useState<'LISTER' | 'DRIVER' | 'PROVIDER'>('LISTER');
+  const [mvProviderSubtype, setMvProviderSubtype] = useState<'COMMERCIAL_CARGO' | 'PICK_AND_DROP'>('COMMERCIAL_CARGO');
+  const [mvPassword, setMvPassword] = useState('Safar@2026');
+  const [mvPlanId, setMvPlanId] = useState('p-2');
+  const [mvPlanName, setMvPlanName] = useState('Professional Fleet Hub (15 Vehicles)');
+  const [mvQuota, setMvQuota] = useState(15);
+  const [mvAmountPaid, setMvAmountPaid] = useState(12000);
+  const [mvPaymentMode, setMvPaymentMode] = useState('Cash (Office)');
+  const [mvPaymentRef, setMvPaymentRef] = useState('');
+  const [mvNotes, setMvNotes] = useState('');
+  const [createdVendorSlip, setCreatedVendorSlip] = useState<{
+    user: RegisteredUser;
+    payment: SubscriptionPaymentRecord;
+    passwordText: string;
+  } | null>(null);
+
+  useEffect(() => {
+    setSubscriptionPayments(getAllSubscriptionPayments());
+    const onLedgerUpdate = () => {
+      setSubscriptionPayments(getAllSubscriptionPayments());
+    };
+    window.addEventListener('safarpk_ledger_updated', onLedgerUpdate);
+    return () => {
+      window.removeEventListener('safarpk_ledger_updated', onLedgerUpdate);
+    };
+  }, []);
+
+  // Update Plan Defaults when Role is Selected in Manual Onboarding
+  const handleSelectMvRole = (role: 'LISTER' | 'DRIVER' | 'PROVIDER') => {
+    setMvRole(role);
+    if (role === 'LISTER') {
+      setMvPlanId('p-2');
+      setMvPlanName('Professional Fleet Hub (15 Vehicles)');
+      setMvQuota(15);
+      setMvAmountPaid(12000);
+    } else if (role === 'DRIVER') {
+      setMvPlanId('p-drv2');
+      setMvPlanName('VIP Executive Chauffeur Pass');
+      setMvQuota(1);
+      setMvAmountPaid(3000);
+    } else {
+      setMvPlanId('p-prov1');
+      setMvPlanName('Cargo & Shifting Mover Pass');
+      setMvQuota(5);
+      setMvAmountPaid(5500);
+    }
+  };
+
+  const handleCreateManualVendor = () => {
+    if (!mvName.trim() || !mvPhone.trim()) {
+      alert('Please enter Vendor Full Name and Phone Number');
+      return;
+    }
+
+    const res = createManualVendorWithSubscription({
+      name: mvName,
+      businessName: mvBusinessName,
+      phone: mvPhone,
+      email: mvEmail,
+      password: mvPassword,
+      city: mvCity,
+      countryCode: 'PK',
+      role: mvRole,
+      providerSubtype: mvRole === 'PROVIDER' ? mvProviderSubtype : undefined,
+      planId: mvPlanId,
+      planName: mvPlanName,
+      quota: mvQuota,
+      amountPaid: mvAmountPaid,
+      paymentMode: mvPaymentMode,
+      paymentRef: mvPaymentRef || `CASH-REC-${Date.now().toString().slice(-5)}`,
+      adminNotes: mvNotes,
+    });
+
+    if (res.success) {
+      setRegisteredUsersList(getAllRegisteredUsers());
+      setSubscriptionPayments(getAllSubscriptionPayments());
+      setCreatedVendorSlip({
+        user: res.user,
+        payment: res.payment,
+        passwordText: mvPassword,
+      });
+      setAdminNotice(`✅ Vendor "${res.user.name}" created and subscription of Rs. ${formatPKR(res.payment.amountPaid)} recorded!`);
+
+      // Reset form fields
+      setMvName('');
+      setMvBusinessName('');
+      setMvPhone('');
+      setMvEmail('');
+      setMvPassword('Safar@2026');
+      setMvPaymentRef('');
+      setMvNotes('');
+    }
+  };
 
   const handleApproveUserSubscription = (userId: string) => {
     const updated = approveSubscriptionByAdmin(userId);
@@ -558,8 +708,8 @@ export default function SuperAdminDashboardPage() {
   // =========================================================================
   // 3. SITE-WIDE PROMOTIONAL ANNOUNCEMENT & MARQUEE TICKER SYSTEM
   // =========================================================================
-  const [promoHeading, setPromoHeading] = useState('🔥 SafarPK Launch Announcement: 0% Platform Commission');
-  const [promoMessage, setPromoMessage] = useState('Direct verified vehicle rentals, passenger shuttles, and shifting movers across Islamabad, Rawalpindi, and Lahore.');
+  const [promoHeading, setPromoHeading] = useState('🔥 Welcome to SafarPK: Direct Mobility & Transport Marketplace');
+  const [promoMessage, setPromoMessage] = useState('Direct connections for vehicle rentals, passenger shuttles, and home shifting across Islamabad, Rawalpindi, Lahore, and nationwide.');
   const [promoEnabled, setPromoEnabled] = useState(true);
   const [promoStyle, setPromoStyle] = useState<'MARQUEE_TICKER' | 'POPUP_MODAL' | 'BANNER_STRIP'>('MARQUEE_TICKER');
   const [promoBadge, setPromoBadge] = useState('🔥 LIMITED LAUNCH PROMO');
@@ -609,6 +759,8 @@ export default function SuperAdminDashboardPage() {
   const [directorySearchTerm, setDirectorySearchTerm] = useState('');
   const [directoryCategoryFilter, setDirectoryCategoryFilter] = useState('ALL');
   const [inspectingUser, setInspectingUser] = useState<any | null>(null);
+  const [servicesModalUser, setServicesModalUser] = useState<any | null>(null);
+  const [selectedServicesForUser, setSelectedServicesForUser] = useState<SafarServiceType[]>([]);
 
   const mockDirectoryUsers = [
     {
@@ -739,6 +891,8 @@ export default function SuperAdminDashboardPage() {
       kycStatus: ru.subscription?.status === 'ACTIVE' ? 'VERIFIED' : ru.subscription?.status === 'PENDING_APPROVAL' ? 'PENDING' : 'UNVERIFIED',
       status: ru.subscription?.status === 'ACTIVE' ? 'ACTIVE' : ru.subscription?.status === 'PENDING_APPROVAL' ? 'PENDING' : 'INACTIVE',
       smartCardScan: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=600&auto=format&fit=crop&q=80',
+      rawUser: ru,
+      approvedServices: getApprovedServicesForUser(ru),
     })),
     ...mockDirectoryUsers,
   ];
@@ -889,12 +1043,76 @@ export default function SuperAdminDashboardPage() {
     );
   };
 
-  const handleSaveAgentPermissions = () => {
+  const getAgentPermissionsList = (permissions: any): string[] => {
+    if (Array.isArray(permissions)) return permissions;
+    if (permissions && typeof permissions === 'object') {
+      const list: string[] = [];
+      if (permissions.canVerifyCnic) list.push('customer.view', 'driver.verify');
+      if (permissions.canVerifyLicense) list.push('driver.verify', 'driver.approve');
+      if (permissions.canEditCustomer) list.push('customer.edit');
+      if (permissions.canEditLister) list.push('listing.edit');
+      if (permissions.canCreateListerManual) list.push('listing.create');
+      if (permissions.canApproveSubscription) list.push('payment.approve', 'payment.view');
+      if (permissions.canDeleteListings) list.push('listing.delete');
+      if (permissions.canViewUnmaskedData) list.push('platform.audit_logs');
+      return list;
+    }
+    return [];
+  };
+
+  const handleSaveAgentPermissionsFromEditor = (newPermissions: string[]) => {
     if (!editingAgent) return;
-    setAgents(agents.map((ag) => (ag.id === editingAgent.id ? { ...editingAgent } : ag)));
-    setAdminNotice(`Permissions updated for ${editingAgent.name} (${editingAgent.staffId}).`);
+    setAgents(agents.map((ag) => (ag.id === editingAgent.id ? { ...ag, permissions: newPermissions } : ag)));
+    if (typeof window !== 'undefined') {
+      fetch(`http://localhost:3001/api/v1/admin/agents/${editingAgent.id}/permissions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ permissions: newPermissions }),
+      }).catch(() => {});
+    }
+    setAdminNotice(`Enterprise permissions successfully updated for ${editingAgent.name} (${editingAgent.staffId}).`);
     setEditingAgent(null);
-    setTimeout(() => setAdminNotice(null), 3000);
+    setTimeout(() => setAdminNotice(null), 4000);
+  };
+
+  // Top 9 Featured Ads Placements
+  const [featuredSlots, setFeaturedSlots] = useState([
+    { slot: 1, title: 'Honda Civic Oriel Turbo 2024', lister: 'Kashif Motors Islamabad', city: 'Islamabad', dailyRate: 14000, pricePerDay: 1500, active: true, impressions: 3420, clicks: 184 },
+    { slot: 2, title: 'Toyota Corolla Altis Grande 1.8', lister: 'Lahore Premier Car Rentals', city: 'Lahore', dailyRate: 11000, pricePerDay: 1500, active: true, impressions: 2950, clicks: 142 },
+    { slot: 3, title: 'Toyota Fortuner Legender 2023', lister: 'Royal SUV Islamabad', city: 'Islamabad', dailyRate: 28000, pricePerDay: 2000, active: true, impressions: 4100, clicks: 230 },
+    { slot: 4, title: 'Hyundai Elantra GLS 2024', lister: 'Executive Wheels Karachi', city: 'Karachi', dailyRate: 12000, pricePerDay: 1500, active: true, impressions: 1820, clicks: 96 },
+    { slot: 5, title: 'KIA Sportage AWD 2023', lister: 'Frontier Fleet Peshawar', city: 'Peshawar', dailyRate: 16000, pricePerDay: 1500, active: true, impressions: 1640, clicks: 88 },
+    { slot: 6, title: 'Toyota Land Cruiser V8 ZX', lister: 'VIP Motors Lahore', city: 'Lahore', dailyRate: 45000, pricePerDay: 2500, active: true, impressions: 5310, clicks: 312 },
+    { slot: 7, title: 'Suzuki Alto VXR 2024 (Budget)', lister: 'City Economy Wheels Rawalpindi', city: 'Rawalpindi', dailyRate: 4500, pricePerDay: 1000, active: false, impressions: 980, clicks: 42 },
+    { slot: 8, title: 'Toyota Yaris ATIV X 1.5', lister: 'Capital Express Islamabad', city: 'Islamabad', dailyRate: 8500, pricePerDay: 1200, active: true, impressions: 1420, clicks: 75 },
+    { slot: 9, title: 'Changan Karvaan Plus 7-Seater', lister: 'Family Commute Lahore', city: 'Lahore', dailyRate: 8000, pricePerDay: 1200, active: true, impressions: 1250, clicks: 61 },
+  ]);
+
+  // Document Rules Matrix State
+  const [docCountry, setDocCountry] = useState<string>('PK');
+  const [docRulesList, setDocRulesList] = useState<DocRuleItem[]>(() => getDocRulesForCountry('PK'));
+  const [masterDocAsk, setMasterDocAsk] = useState<boolean>(() => isMasterDocAskEnabled());
+
+  useEffect(() => {
+    setDocRulesList(getDocRulesForCountry(docCountry));
+  }, [docCountry]);
+
+  const handleToggleDocRuleCell = (ruleIdx: number, roleKey: 'owner' | 'driver' | 'shuttle' | 'mover' | 'renter') => {
+    const states: DocRequirement[] = ['Upload', 'Type it', 'Optional', 'Off'];
+    const currentVal = docRulesList[ruleIdx][roleKey];
+    const nextIdx = (states.indexOf(currentVal) + 1) % states.length;
+    const nextVal = states[nextIdx];
+
+    const updated = [...docRulesList];
+    updated[ruleIdx] = { ...updated[ruleIdx], [roleKey]: nextVal };
+    setDocRulesList(updated);
+  };
+
+  const handleSaveDocRules = () => {
+    saveDocRulesForCountry(docCountry, docRulesList);
+    setMasterDocAskEnabled(masterDocAsk);
+    setAdminNotice(`✓ Document Verification Rules successfully saved and applied immediately across ${docCountry}.`);
+    setTimeout(() => setAdminNotice(null), 4000);
   };
 
   // =========================================================================
@@ -989,6 +1207,13 @@ export default function SuperAdminDashboardPage() {
         <aside className="space-y-1">
           <nav className="bg-slate-900/80 rounded-3xl border border-slate-800/90 p-2.5 space-y-1.5 text-xs font-semibold shadow-xl">
             {[
+              {
+                id: 'overview',
+                label: '👑 Platform Master Overview',
+                icon: TrendingUp,
+                badge: 'Live',
+                pendingCount: registeredUsersList.filter((u) => u.subscription?.status === 'PENDING_APPROVAL').length,
+              },
               { id: 'services', label: 'Service Master Switches', icon: SlidersHorizontal },
               { id: 'listings', label: 'All Listings (Full CRUD)', icon: Car, badge: listings.length },
               {
@@ -1000,13 +1225,33 @@ export default function SuperAdminDashboardPage() {
               },
               { id: 'promocodes', label: 'Promo Codes & Discounts', icon: Tag, badge: promoCodes.length },
               { id: 'promotions', label: 'Promotional Announcement Bar', icon: Bell, alert: promoEnabled ? 1 : 0 },
+              { id: 'featured', label: 'Featured Ads (Top 9 Slots)', icon: Sparkles },
+              { id: 'doc_rules', label: 'Document Rules Matrix', icon: FileCheck },
               { id: 'directory', label: 'User & Vendor Directory', icon: Search, badge: allMergedDirectoryUsers.length },
+              {
+                id: 'analytics',
+                label: '📊 Analytics & Intelligence Hub',
+                icon: BarChart2,
+                badge: 'Live',
+              },
               {
                 id: 'leads',
                 label: 'All Leads & Click Activity',
                 icon: BarChart3,
                 badge: leadsList.length,
                 pendingCount: leadsList.filter((l) => l.status === 'NEW').length,
+              },
+              {
+                id: 'subscription_leads',
+                label: '📞 Subscription Follow-Up Desk',
+                icon: PhoneCall,
+                badge: registeredUsersList.filter(
+                  (u) =>
+                    u.role !== 'CUSTOMER' &&
+                    u.role !== 'AGENT' &&
+                    u.role !== 'SUPER_ADMIN' &&
+                    (u.subscription?.status === 'UNSUBSCRIBED' || !u.subscription?.status)
+                ).length,
               },
               { id: 'agents', label: 'Staff / Agent Management', icon: Users, badge: agents.length },
               { id: 'stealthAudit', label: '🛡️ Stealth Anti-Fraud Log', icon: ShieldCheck, alert: stealthAuditLogs.filter(l => l.isSuspicious).length },
@@ -1057,6 +1302,638 @@ export default function SuperAdminDashboardPage() {
                 <span>{adminNotice}</span>
               </div>
               <button onClick={() => setAdminNotice(null)} className="text-emerald-400 hover:text-white cursor-pointer">✕</button>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 0: 👑 PLATFORM MASTER OVERVIEW & REVENUE OPERATIONS                    */}
+          {/* ========================================================================= */}
+          {activeTab === 'overview' && (() => {
+            const now = new Date();
+            const todayStr = now.toISOString().slice(0, 10);
+            const startOfWeek = new Date();
+            startOfWeek.setDate(now.getDate() - 7);
+
+            const filteredPayments = subscriptionPayments.filter((p) => {
+              if (timeFilter === 'TODAY') {
+                return p.date.startsWith(todayStr);
+              }
+              if (timeFilter === 'WEEK') {
+                return new Date(p.date) >= startOfWeek;
+              }
+              if (timeFilter === 'MONTH') {
+                const d = new Date(p.date);
+                return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+              }
+              return true;
+            });
+
+            const periodRevenue = filteredPayments.reduce((sum, p) => sum + (p.amountPaid || 0), 0);
+            const allTimeRevenue = subscriptionPayments.reduce((sum, p) => sum + (p.amountPaid || 0), 0);
+
+            const activeSubscribersCount = registeredUsersList.filter(
+              (u) => u.subscription?.status === 'ACTIVE'
+            ).length;
+
+            const pendingSubs = registeredUsersList.filter(
+              (u) => u.subscription?.status === 'PENDING_APPROVAL'
+            );
+
+            const pendingKycCount = registeredUsersList.filter(
+              (u) => u.kycStatus === 'PENDING_APPROVAL'
+            ).length;
+
+            const totalVendorsCount = registeredUsersList.filter(
+              (u) => u.role !== 'CUSTOMER' && u.role !== 'SUPER_ADMIN'
+            ).length;
+
+            const listerRevenue = filteredPayments.filter(p => p.role === 'LISTER').reduce((s, p) => s + p.amountPaid, 0);
+            const driverRevenue = filteredPayments.filter(p => p.role === 'DRIVER').reduce((s, p) => s + p.amountPaid, 0);
+            const cargoRevenue = filteredPayments.filter(p => p.role === 'PROVIDER' && p.providerSubtype === 'COMMERCIAL_CARGO').reduce((s, p) => s + p.amountPaid, 0);
+            const shuttleRevenue = filteredPayments.filter(p => p.role === 'PROVIDER' && p.providerSubtype === 'PICK_AND_DROP').reduce((s, p) => s + p.amountPaid, 0);
+
+            return (
+              <div className="space-y-6">
+                {/* Header & Quick Action */}
+                <div className="bg-slate-900/90 rounded-3xl border border-slate-800 p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-950 text-rose-300 border border-rose-800">
+                        EXECUTIVE COMMAND CENTER
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        Real-time Platform Revenue & Operational Health
+                      </span>
+                    </div>
+                    <h2 className="text-xl sm:text-2xl font-black text-white">
+                      Platform Master Overview
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Monitors all vendor subscriptions, incoming payments, and pending administrative tasks across Pakistan.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setShowManualVendorModal(true)}
+                      className="h-11 px-5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs rounded-xl shadow-lg shadow-emerald-950/50 flex items-center gap-2 transition cursor-pointer active:scale-95 shrink-0"
+                    >
+                      <PlusCircle className="w-4 h-4" />
+                      <span>+ Manually Register & Activate Vendor</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Filter Selector Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-900/60 rounded-2xl border border-slate-800">
+                  <div className="flex items-center gap-2 text-xs text-slate-400 font-bold">
+                    <Filter className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Time Window Revenue Filter:</span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs font-bold">
+                    {[
+                      { id: 'TODAY', label: '📅 Today' },
+                      { id: 'WEEK', label: '🗓️ This Week' },
+                      { id: 'MONTH', label: '📊 This Month' },
+                      { id: 'ALL', label: '🌐 All Time' },
+                    ].map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setTimeFilter(f.id as any)}
+                        className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                          timeFilter === f.id
+                            ? 'bg-rose-600 text-white shadow-md'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 4 Primary Executive Metric Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Card 1: Subscription Revenue */}
+                  <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-950 border border-emerald-500/30 flex flex-col justify-between shadow-lg">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <span className="text-xs font-bold text-slate-400">Subscription Revenue</span>
+                      <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-sm">
+                        ₨
+                      </div>
+                    </div>
+                    <div className="py-3">
+                      <span className="text-[11px] text-emerald-400 font-bold uppercase tracking-wider block">
+                        {timeFilter === 'TODAY' ? "Today's Inflow" : timeFilter === 'WEEK' ? "Past 7 Days" : timeFilter === 'MONTH' ? "This Month's Inflow" : "All Time Total"}
+                      </span>
+                      <h3 className="text-2xl sm:text-3xl font-black text-white font-mono mt-0.5">
+                        PKR {formatPKR(periodRevenue)}
+                      </h3>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        All-Time Lifetime: <strong className="text-slate-200">PKR {formatPKR(allTimeRevenue)}</strong>
+                      </p>
+                    </div>
+                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-emerald-400">
+                      <span>✓ 100% Platform Retained</span>
+                      <span>{filteredPayments.length} txns</span>
+                    </div>
+                  </div>
+
+                  {/* Card 2: Active Subscribers */}
+                  <div className="p-5 rounded-2xl bg-gradient-to-br from-blue-950/40 via-slate-900 to-slate-950 border border-blue-500/30 flex flex-col justify-between shadow-lg">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <span className="text-xs font-bold text-slate-400">Paying Subscribers</span>
+                      <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-black text-sm">
+                        <Users className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <div className="py-3">
+                      <span className="text-[11px] text-blue-400 font-bold uppercase tracking-wider block">
+                        Active Subscribed Vendors
+                      </span>
+                      <h3 className="text-2xl sm:text-3xl font-black text-white font-mono mt-0.5">
+                        {activeSubscribersCount} Active
+                      </h3>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        Out of <strong className="text-slate-200">{totalVendorsCount} Total Partners</strong>
+                      </p>
+                    </div>
+                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-blue-400">
+                      <span>Listers, Drivers & Movers</span>
+                      <span>0% Commission</span>
+                    </div>
+                  </div>
+
+                  {/* Card 3: Pending Approvals & Requests */}
+                  <div className="p-5 rounded-2xl bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-950 border border-amber-500/30 flex flex-col justify-between shadow-lg">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <span className="text-xs font-bold text-slate-400">Action Required</span>
+                      <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-black text-sm">
+                        ⏳
+                      </div>
+                    </div>
+                    <div className="py-3">
+                      <span className="text-[11px] text-amber-400 font-bold uppercase tracking-wider block">
+                        Pending Admin Verification
+                      </span>
+                      <h3 className="text-2xl sm:text-3xl font-black text-white font-mono mt-0.5">
+                        {pendingSubs.length} Payments
+                      </h3>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        <strong className="text-slate-200">{pendingKycCount} Identity Docs</strong> awaiting check
+                      </p>
+                    </div>
+                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px]">
+                      {pendingSubs.length > 0 ? (
+                        <span className="text-amber-400 font-black animate-pulse">⚡ Needs Approval</span>
+                      ) : (
+                        <span className="text-emerald-400 font-bold">✓ Queue Cleared</span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('plans')}
+                        className="text-amber-300 underline font-bold hover:text-white"
+                      >
+                        Open Queue ➔
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Card 4: Total Live Inventory */}
+                  <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-950/40 via-slate-900 to-slate-950 border border-purple-500/30 flex flex-col justify-between shadow-lg">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <span className="text-xs font-bold text-slate-400">Active Listings</span>
+                      <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center font-black text-sm">
+                        <Car className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <div className="py-3">
+                      <span className="text-[11px] text-purple-400 font-bold uppercase tracking-wider block">
+                        Marketplace Inventory
+                      </span>
+                      <h3 className="text-2xl sm:text-3xl font-black text-white font-mono mt-0.5">
+                        {listings.length} Units
+                      </h3>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        Vehicles, Chauffeurs & Shuttles
+                      </p>
+                    </div>
+                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-purple-400">
+                      <span>Across 8 Major Cities</span>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('listings')}
+                        className="text-purple-300 underline font-bold hover:text-white"
+                      >
+                        Manage ➔
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Category Revenue Breakdown Matrix */}
+                <div className="p-5 bg-slate-900/80 rounded-2xl border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-sm text-white flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-emerald-400" />
+                      <span>Subscription Inflow by Sector ({timeFilter})</span>
+                    </h4>
+                    <span className="text-xs text-slate-400">Direct Partner Memberships</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                      <span className="text-slate-400 block text-[11px]">🚗 Car Rental Hosts</span>
+                      <strong className="text-base font-mono font-bold text-emerald-400 mt-1 block">
+                        PKR {formatPKR(listerRevenue)}
+                      </strong>
+                    </div>
+
+                    <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                      <span className="text-slate-400 block text-[11px]">👨‍✈️ Independent Chauffeurs</span>
+                      <strong className="text-base font-mono font-bold text-blue-400 mt-1 block">
+                        PKR {formatPKR(driverRevenue)}
+                      </strong>
+                    </div>
+
+                    <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                      <span className="text-slate-400 block text-[11px]">📦 Cargo & Home Shifting</span>
+                      <strong className="text-base font-mono font-bold text-orange-400 mt-1 block">
+                        PKR {formatPKR(cargoRevenue)}
+                      </strong>
+                    </div>
+
+                    <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                      <span className="text-slate-400 block text-[11px]">🚌 Commuter Shuttles</span>
+                      <strong className="text-base font-mono font-bold text-teal-400 mt-1 block">
+                        PKR {formatPKR(shuttleRevenue)}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* FAST APPROVAL ACTION BOX (If any subscription is pending) */}
+                {pendingSubs.length > 0 && (
+                  <div className="p-5 rounded-2xl bg-amber-950/50 border-2 border-amber-500/50 space-y-3 shadow-xl">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-3 h-3 rounded-full bg-amber-400 animate-ping" />
+                        <h4 className="font-black text-sm text-white">
+                          ⚠️ Attention: {pendingSubs.length} Pending Subscription Payment(s) Awaiting Approval
+                        </h4>
+                      </div>
+                      <span className="text-xs text-amber-300 font-bold">Immediate Action Required</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {pendingSubs.map((u) => (
+                        <div
+                          key={u.id}
+                          className="p-4 bg-slate-900/90 rounded-xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                        >
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-white text-sm">{u.name}</span>
+                              {u.businessName && <span className="text-slate-400">({u.businessName})</span>}
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300">
+                                {u.role}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3 text-slate-400 mt-1">
+                              <span>📞 {u.phone}</span>
+                              <span>Plan: <strong className="text-amber-300">{u.subscription.planName}</strong></span>
+                              <span>Amount: <strong className="text-emerald-400">PKR {formatPKR(u.subscription.amountPaid || 0)}</strong></span>
+                              <span>Ref: <strong className="text-white font-mono">{u.subscription.paymentRef || 'N/A'}</strong></span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleApproveUserSubscription(u.id)}
+                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md"
+                            >
+                              <Check className="w-4 h-4" />
+                              <span>Approve & Unlock Quota</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRejectUserSubscription(u.id)}
+                              className="px-3 py-2 bg-rose-950 text-rose-300 hover:bg-rose-900 border border-rose-800 rounded-xl font-bold transition cursor-pointer"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* SUBSCRIPTION FINANCIAL REVENUE LEDGER TABLE */}
+                <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-4 shadow-xl">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                    <div>
+                      <h3 className="font-extrabold text-base text-white flex items-center gap-2">
+                        <Wallet className="w-5 h-5 text-emerald-400" />
+                        <span>Live Subscription Revenue & Transaction Ledger</span>
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Every confirmed membership deposit and manual admin entry is audited and reflected in real-time.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
+                        {filteredPayments.length} Transactions Recorded
+                      </span>
+                    </div>
+                  </div>
+
+                  {filteredPayments.length === 0 ? (
+                    <div className="p-8 text-center bg-slate-950/60 rounded-2xl border border-slate-800">
+                      <p className="text-xs text-slate-400">
+                        No transactions recorded for the selected time filter ({timeFilter}). Click "All Time" to view full ledger.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-slate-800 text-slate-400 font-bold bg-slate-900/60">
+                            <th className="p-3.5">Subscriber / Business</th>
+                            <th className="p-3.5">Category</th>
+                            <th className="p-3.5">Plan Activated</th>
+                            <th className="p-3.5">Amount Paid</th>
+                            <th className="p-3.5">Payment Mode & Ref</th>
+                            <th className="p-3.5">Date & Time</th>
+                            <th className="p-3.5">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/60">
+                          {filteredPayments.map((pay) => (
+                            <tr key={pay.id} className="hover:bg-slate-900/40 transition">
+                              <td className="p-3.5">
+                                <div className="font-bold text-white text-sm">{pay.userName}</div>
+                                {pay.businessName && (
+                                  <div className="text-[11px] text-slate-400">{pay.businessName}</div>
+                                )}
+                                <div className="text-[10px] text-slate-500 font-mono mt-0.5">📞 {pay.phone}</div>
+                              </td>
+
+                              <td className="p-3.5">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                  pay.role === 'LISTER'
+                                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                    : pay.role === 'DRIVER'
+                                    ? 'bg-blue-950 text-blue-300 border border-blue-800'
+                                    : 'bg-orange-950 text-orange-300 border border-orange-800'
+                                }`}>
+                                  {pay.role === 'LISTER'
+                                    ? 'Car Rental'
+                                    : pay.role === 'DRIVER'
+                                    ? 'Chauffeur'
+                                    : pay.providerSubtype === 'COMMERCIAL_CARGO'
+                                    ? 'Cargo Mover'
+                                    : 'Commuter Shuttle'}
+                                </span>
+                              </td>
+
+                              <td className="p-3.5">
+                                <div className="font-bold text-slate-200">{pay.planName}</div>
+                                <div className="text-[10px] text-slate-400">{pay.notes || 'Monthly Subscription'}</div>
+                              </td>
+
+                              <td className="p-3.5">
+                                <span className="font-black text-sm text-emerald-400 font-mono">
+                                  PKR {formatPKR(pay.amountPaid)}
+                                </span>
+                              </td>
+
+                              <td className="p-3.5">
+                                <div className="font-bold text-slate-300">{pay.paymentMode}</div>
+                                <div className="text-[10px] text-slate-400 font-mono">Ref: {pay.paymentRef}</div>
+                              </td>
+
+                              <td className="p-3.5 text-slate-400 text-[11px] whitespace-nowrap">
+                                {new Date(pay.date).toLocaleDateString('en-GB', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                                })}{' '}
+                                ·{' '}
+                                {new Date(pay.date).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </td>
+
+                              <td className="p-3.5">
+                                <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-950 text-emerald-300 border border-emerald-800 inline-flex items-center gap-1">
+                                  <span>✓</span>
+                                  <span>CONFIRMED</span>
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+
+          {/* ========================================================================= */}
+          {/* TAB: FEATURED ADS (TOP 9 SPONSORED SLOTS)                                 */}
+          {/* ========================================================================= */}
+          {activeTab === 'featured' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Featured Ads & Sponsored Placements (Top 9 Slots)</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Manage the premier top-9 slots displayed on the SafarPK homepage. Allocate premium visibility to subscribed listers and monitor impressions.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    9 Active Tier Slots
+                  </span>
+                </div>
+              </div>
+
+              {/* 9 Slots Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {featuredSlots.map((slot) => (
+                  <div
+                    key={slot.slot}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      slot.active
+                        ? 'bg-slate-950/80 border-slate-800 hover:border-amber-500/50'
+                        : 'bg-slate-950/40 border-slate-900 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 text-xs font-mono font-black flex items-center justify-center border border-amber-500/30">
+                          #{slot.slot}
+                        </span>
+                        <span className="text-xs font-bold text-slate-300">{slot.city}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFeaturedSlots(
+                            featuredSlots.map((s) => (s.slot === slot.slot ? { ...s, active: !s.active } : s))
+                          );
+                        }}
+                        className={`text-[10px] font-extrabold px-2 py-0.5 rounded cursor-pointer ${
+                          slot.active
+                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}
+                      >
+                        {slot.active ? 'ACTIVE' : 'INACTIVE'}
+                      </button>
+                    </div>
+
+                    <div className="py-2.5 space-y-1">
+                      <h4 className="font-bold text-sm text-white truncate">{slot.title}</h4>
+                      <p className="text-[11px] text-slate-400 truncate">Host: {slot.lister}</p>
+                      <div className="flex items-center justify-between text-xs pt-1">
+                        <span className="text-slate-400">Rate: {formatPKR(slot.dailyRate)}/day</span>
+                        <span className="font-mono text-amber-300 font-bold">Fee: {formatPKR(slot.pricePerDay)}/day</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                      <span>👁️ {slot.impressions.toLocaleString()} views</span>
+                      <span>🖱️ {slot.clicks.toLocaleString()} clicks</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB: DOCUMENT RULES MATRIX (MULTI-COUNTRY & WORKFLOW RULES)                */}
+          {/* ========================================================================= */}
+          {activeTab === 'doc_rules' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Document Verification Rules Matrix</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Configure document submission requirements for hosts, drivers, shuttles, movers, and customers. Click any badge to cycle: Upload → Type it → Optional → Off.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMasterDocAsk(!masterDocAsk)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      masterDocAsk ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <span>Master Ask: {masterDocAsk ? 'ENABLED' : 'PAUSED'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Country Selection Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {[
+                  { code: 'PK', name: 'Pakistan (PK)' },
+                  { code: 'AE', name: 'United Arab Emirates (AE)' },
+                  { code: 'SA', name: 'Saudi Arabia (SA)' },
+                  { code: 'GB', name: 'United Kingdom (GB)' },
+                  { code: 'DE', name: 'Germany (DE)' },
+                ].map((c) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => setDocCountry(c.code)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
+                      docCountry === c.code
+                        ? 'bg-rose-600 text-white shadow-md'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Matrix Table */}
+              <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400 font-bold bg-slate-900/60">
+                      <th className="p-3.5">Document Name</th>
+                      <th className="p-3.5">Car Rental Host</th>
+                      <th className="p-3.5">Driver</th>
+                      <th className="p-3.5">Shuttle Operator</th>
+                      <th className="p-3.5">Mover</th>
+                      <th className="p-3.5">Renter / Customer</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {docRulesList.map((rule, idx) => {
+                      const getBadgeClass = (req: DocRequirement) => {
+                        switch (req) {
+                          case 'Upload':
+                            return 'bg-emerald-950 text-emerald-300 border border-emerald-800';
+                          case 'Type it':
+                            return 'bg-blue-950 text-blue-300 border border-blue-800';
+                          case 'Optional':
+                            return 'bg-amber-950 text-amber-300 border border-amber-800';
+                          case 'Off':
+                          default:
+                            return 'bg-slate-900 text-slate-500 border border-slate-800';
+                        }
+                      };
+
+                      return (
+                        <tr key={rule.docName} className="hover:bg-slate-900/40 transition">
+                          <td className="p-3.5 font-bold text-white">{rule.docName}</td>
+                          {(['owner', 'driver', 'shuttle', 'mover', 'renter'] as const).map((role) => (
+                            <td key={role} className="p-3.5">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleDocRuleCell(idx, role)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition hover:opacity-80 ${getBadgeClass(
+                                  rule[role]
+                                )}`}
+                                title="Click to cycle status"
+                              >
+                                {rule[role]}
+                              </button>
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveDocRules}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileCheck className="w-4 h-4" />
+                  <span>Save Document Matrix Platform-wide</span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -1113,6 +1990,195 @@ export default function SuperAdminDashboardPage() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+
+          {/* ========================================================================= */}
+          {/* TAB: FEATURED ADS (TOP 9 SPONSORED SLOTS)                                 */}
+          {/* ========================================================================= */}
+          {activeTab === 'featured' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Featured Ads & Sponsored Placements (Top 9 Slots)</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Manage the premier top-9 slots displayed on the SafarPK homepage. Allocate premium visibility to subscribed listers and monitor impressions.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    9 Active Tier Slots
+                  </span>
+                </div>
+              </div>
+
+              {/* 9 Slots Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {featuredSlots.map((slot) => (
+                  <div
+                    key={slot.slot}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      slot.active
+                        ? 'bg-slate-950/80 border-slate-800 hover:border-amber-500/50'
+                        : 'bg-slate-950/40 border-slate-900 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 text-xs font-mono font-black flex items-center justify-center border border-amber-500/30">
+                          #{slot.slot}
+                        </span>
+                        <span className="text-xs font-bold text-slate-300">{slot.city}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFeaturedSlots(
+                            featuredSlots.map((s) => (s.slot === slot.slot ? { ...s, active: !s.active } : s))
+                          );
+                        }}
+                        className={`text-[10px] font-extrabold px-2 py-0.5 rounded cursor-pointer ${
+                          slot.active
+                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}
+                      >
+                        {slot.active ? 'ACTIVE' : 'INACTIVE'}
+                      </button>
+                    </div>
+
+                    <div className="py-2.5 space-y-1">
+                      <h4 className="font-bold text-sm text-white truncate">{slot.title}</h4>
+                      <p className="text-[11px] text-slate-400 truncate">Host: {slot.lister}</p>
+                      <div className="flex items-center justify-between text-xs pt-1">
+                        <span className="text-slate-400">Rate: {formatPKR(slot.dailyRate)}/day</span>
+                        <span className="font-mono text-amber-300 font-bold">Fee: {formatPKR(slot.pricePerDay)}/day</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                      <span>👁️ {slot.impressions.toLocaleString()} views</span>
+                      <span>🖱️ {slot.clicks.toLocaleString()} clicks</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB: DOCUMENT RULES MATRIX (MULTI-COUNTRY & WORKFLOW RULES)                */}
+          {/* ========================================================================= */}
+          {activeTab === 'doc_rules' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Document Verification Rules Matrix</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Configure document submission requirements for hosts, drivers, shuttles, movers, and customers. Click any badge to cycle: Upload → Type it → Optional → Off.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMasterDocAsk(!masterDocAsk)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      masterDocAsk ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <span>Master Ask: {masterDocAsk ? 'ENABLED' : 'PAUSED'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Country Selection Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {[
+                  { code: 'PK', name: 'Pakistan (PK)' },
+                  { code: 'AE', name: 'United Arab Emirates (AE)' },
+                  { code: 'SA', name: 'Saudi Arabia (SA)' },
+                  { code: 'GB', name: 'United Kingdom (GB)' },
+                  { code: 'DE', name: 'Germany (DE)' },
+                ].map((c) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => setDocCountry(c.code)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
+                      docCountry === c.code
+                        ? 'bg-rose-600 text-white shadow-md'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Matrix Table */}
+              <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400 font-bold bg-slate-900/60">
+                      <th className="p-3.5">Document Name</th>
+                      <th className="p-3.5">Car Rental Host</th>
+                      <th className="p-3.5">Driver</th>
+                      <th className="p-3.5">Shuttle Operator</th>
+                      <th className="p-3.5">Mover</th>
+                      <th className="p-3.5">Renter / Customer</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {docRulesList.map((rule, idx) => {
+                      const getBadgeClass = (req: DocRequirement) => {
+                        switch (req) {
+                          case 'Upload':
+                            return 'bg-emerald-950 text-emerald-300 border border-emerald-800';
+                          case 'Type it':
+                            return 'bg-blue-950 text-blue-300 border border-blue-800';
+                          case 'Optional':
+                            return 'bg-amber-950 text-amber-300 border border-amber-800';
+                          case 'Off':
+                          default:
+                            return 'bg-slate-900 text-slate-500 border border-slate-800';
+                        }
+                      };
+
+                      return (
+                        <tr key={rule.docName} className="hover:bg-slate-900/40 transition">
+                          <td className="p-3.5 font-bold text-white">{rule.docName}</td>
+                          {(['owner', 'driver', 'shuttle', 'mover', 'renter'] as const).map((role) => (
+                            <td key={role} className="p-3.5">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleDocRuleCell(idx, role)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition hover:opacity-80 ${getBadgeClass(
+                                  rule[role]
+                                )}`}
+                                title="Click to cycle status"
+                              >
+                                {rule[role]}
+                              </button>
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveDocRules}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileCheck className="w-4 h-4" />
+                  <span>Save Document Matrix Platform-wide</span>
+                </button>
               </div>
             </div>
           )}
@@ -1189,6 +2255,195 @@ export default function SuperAdminDashboardPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+
+          {/* ========================================================================= */}
+          {/* TAB: FEATURED ADS (TOP 9 SPONSORED SLOTS)                                 */}
+          {/* ========================================================================= */}
+          {activeTab === 'featured' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Featured Ads & Sponsored Placements (Top 9 Slots)</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Manage the premier top-9 slots displayed on the SafarPK homepage. Allocate premium visibility to subscribed listers and monitor impressions.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    9 Active Tier Slots
+                  </span>
+                </div>
+              </div>
+
+              {/* 9 Slots Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {featuredSlots.map((slot) => (
+                  <div
+                    key={slot.slot}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      slot.active
+                        ? 'bg-slate-950/80 border-slate-800 hover:border-amber-500/50'
+                        : 'bg-slate-950/40 border-slate-900 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 text-xs font-mono font-black flex items-center justify-center border border-amber-500/30">
+                          #{slot.slot}
+                        </span>
+                        <span className="text-xs font-bold text-slate-300">{slot.city}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFeaturedSlots(
+                            featuredSlots.map((s) => (s.slot === slot.slot ? { ...s, active: !s.active } : s))
+                          );
+                        }}
+                        className={`text-[10px] font-extrabold px-2 py-0.5 rounded cursor-pointer ${
+                          slot.active
+                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}
+                      >
+                        {slot.active ? 'ACTIVE' : 'INACTIVE'}
+                      </button>
+                    </div>
+
+                    <div className="py-2.5 space-y-1">
+                      <h4 className="font-bold text-sm text-white truncate">{slot.title}</h4>
+                      <p className="text-[11px] text-slate-400 truncate">Host: {slot.lister}</p>
+                      <div className="flex items-center justify-between text-xs pt-1">
+                        <span className="text-slate-400">Rate: {formatPKR(slot.dailyRate)}/day</span>
+                        <span className="font-mono text-amber-300 font-bold">Fee: {formatPKR(slot.pricePerDay)}/day</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                      <span>👁️ {slot.impressions.toLocaleString()} views</span>
+                      <span>🖱️ {slot.clicks.toLocaleString()} clicks</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB: DOCUMENT RULES MATRIX (MULTI-COUNTRY & WORKFLOW RULES)                */}
+          {/* ========================================================================= */}
+          {activeTab === 'doc_rules' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Document Verification Rules Matrix</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Configure document submission requirements for hosts, drivers, shuttles, movers, and customers. Click any badge to cycle: Upload → Type it → Optional → Off.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMasterDocAsk(!masterDocAsk)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      masterDocAsk ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <span>Master Ask: {masterDocAsk ? 'ENABLED' : 'PAUSED'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Country Selection Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {[
+                  { code: 'PK', name: 'Pakistan (PK)' },
+                  { code: 'AE', name: 'United Arab Emirates (AE)' },
+                  { code: 'SA', name: 'Saudi Arabia (SA)' },
+                  { code: 'GB', name: 'United Kingdom (GB)' },
+                  { code: 'DE', name: 'Germany (DE)' },
+                ].map((c) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => setDocCountry(c.code)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
+                      docCountry === c.code
+                        ? 'bg-rose-600 text-white shadow-md'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Matrix Table */}
+              <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400 font-bold bg-slate-900/60">
+                      <th className="p-3.5">Document Name</th>
+                      <th className="p-3.5">Car Rental Host</th>
+                      <th className="p-3.5">Driver</th>
+                      <th className="p-3.5">Shuttle Operator</th>
+                      <th className="p-3.5">Mover</th>
+                      <th className="p-3.5">Renter / Customer</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {docRulesList.map((rule, idx) => {
+                      const getBadgeClass = (req: DocRequirement) => {
+                        switch (req) {
+                          case 'Upload':
+                            return 'bg-emerald-950 text-emerald-300 border border-emerald-800';
+                          case 'Type it':
+                            return 'bg-blue-950 text-blue-300 border border-blue-800';
+                          case 'Optional':
+                            return 'bg-amber-950 text-amber-300 border border-amber-800';
+                          case 'Off':
+                          default:
+                            return 'bg-slate-900 text-slate-500 border border-slate-800';
+                        }
+                      };
+
+                      return (
+                        <tr key={rule.docName} className="hover:bg-slate-900/40 transition">
+                          <td className="p-3.5 font-bold text-white">{rule.docName}</td>
+                          {(['owner', 'driver', 'shuttle', 'mover', 'renter'] as const).map((role) => (
+                            <td key={role} className="p-3.5">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleDocRuleCell(idx, role)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition hover:opacity-80 ${getBadgeClass(
+                                  rule[role]
+                                )}`}
+                                title="Click to cycle status"
+                              >
+                                {rule[role]}
+                              </button>
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveDocRules}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileCheck className="w-4 h-4" />
+                  <span>Save Document Matrix Platform-wide</span>
+                </button>
               </div>
             </div>
           )}
@@ -1412,6 +2667,195 @@ export default function SuperAdminDashboardPage() {
             </div>
           )}
 
+
+          {/* ========================================================================= */}
+          {/* TAB: FEATURED ADS (TOP 9 SPONSORED SLOTS)                                 */}
+          {/* ========================================================================= */}
+          {activeTab === 'featured' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Featured Ads & Sponsored Placements (Top 9 Slots)</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Manage the premier top-9 slots displayed on the SafarPK homepage. Allocate premium visibility to subscribed listers and monitor impressions.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    9 Active Tier Slots
+                  </span>
+                </div>
+              </div>
+
+              {/* 9 Slots Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {featuredSlots.map((slot) => (
+                  <div
+                    key={slot.slot}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      slot.active
+                        ? 'bg-slate-950/80 border-slate-800 hover:border-amber-500/50'
+                        : 'bg-slate-950/40 border-slate-900 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 text-xs font-mono font-black flex items-center justify-center border border-amber-500/30">
+                          #{slot.slot}
+                        </span>
+                        <span className="text-xs font-bold text-slate-300">{slot.city}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFeaturedSlots(
+                            featuredSlots.map((s) => (s.slot === slot.slot ? { ...s, active: !s.active } : s))
+                          );
+                        }}
+                        className={`text-[10px] font-extrabold px-2 py-0.5 rounded cursor-pointer ${
+                          slot.active
+                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}
+                      >
+                        {slot.active ? 'ACTIVE' : 'INACTIVE'}
+                      </button>
+                    </div>
+
+                    <div className="py-2.5 space-y-1">
+                      <h4 className="font-bold text-sm text-white truncate">{slot.title}</h4>
+                      <p className="text-[11px] text-slate-400 truncate">Host: {slot.lister}</p>
+                      <div className="flex items-center justify-between text-xs pt-1">
+                        <span className="text-slate-400">Rate: {formatPKR(slot.dailyRate)}/day</span>
+                        <span className="font-mono text-amber-300 font-bold">Fee: {formatPKR(slot.pricePerDay)}/day</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                      <span>👁️ {slot.impressions.toLocaleString()} views</span>
+                      <span>🖱️ {slot.clicks.toLocaleString()} clicks</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB: DOCUMENT RULES MATRIX (MULTI-COUNTRY & WORKFLOW RULES)                */}
+          {/* ========================================================================= */}
+          {activeTab === 'doc_rules' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Document Verification Rules Matrix</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Configure document submission requirements for hosts, drivers, shuttles, movers, and customers. Click any badge to cycle: Upload → Type it → Optional → Off.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMasterDocAsk(!masterDocAsk)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      masterDocAsk ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <span>Master Ask: {masterDocAsk ? 'ENABLED' : 'PAUSED'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Country Selection Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {[
+                  { code: 'PK', name: 'Pakistan (PK)' },
+                  { code: 'AE', name: 'United Arab Emirates (AE)' },
+                  { code: 'SA', name: 'Saudi Arabia (SA)' },
+                  { code: 'GB', name: 'United Kingdom (GB)' },
+                  { code: 'DE', name: 'Germany (DE)' },
+                ].map((c) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => setDocCountry(c.code)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
+                      docCountry === c.code
+                        ? 'bg-rose-600 text-white shadow-md'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Matrix Table */}
+              <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400 font-bold bg-slate-900/60">
+                      <th className="p-3.5">Document Name</th>
+                      <th className="p-3.5">Car Rental Host</th>
+                      <th className="p-3.5">Driver</th>
+                      <th className="p-3.5">Shuttle Operator</th>
+                      <th className="p-3.5">Mover</th>
+                      <th className="p-3.5">Renter / Customer</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {docRulesList.map((rule, idx) => {
+                      const getBadgeClass = (req: DocRequirement) => {
+                        switch (req) {
+                          case 'Upload':
+                            return 'bg-emerald-950 text-emerald-300 border border-emerald-800';
+                          case 'Type it':
+                            return 'bg-blue-950 text-blue-300 border border-blue-800';
+                          case 'Optional':
+                            return 'bg-amber-950 text-amber-300 border border-amber-800';
+                          case 'Off':
+                          default:
+                            return 'bg-slate-900 text-slate-500 border border-slate-800';
+                        }
+                      };
+
+                      return (
+                        <tr key={rule.docName} className="hover:bg-slate-900/40 transition">
+                          <td className="p-3.5 font-bold text-white">{rule.docName}</td>
+                          {(['owner', 'driver', 'shuttle', 'mover', 'renter'] as const).map((role) => (
+                            <td key={role} className="p-3.5">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleDocRuleCell(idx, role)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition hover:opacity-80 ${getBadgeClass(
+                                  rule[role]
+                                )}`}
+                                title="Click to cycle status"
+                              >
+                                {rule[role]}
+                              </button>
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveDocRules}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileCheck className="w-4 h-4" />
+                  <span>Save Document Matrix Platform-wide</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ========================================================================= */}
           {/* TAB 3B: SUBSCRIPTION PROMO CODES & COUNTRY-RESTRICTED DISCOUNTS            */}
           {/* ========================================================================= */}
@@ -1578,6 +3022,195 @@ export default function SuperAdminDashboardPage() {
             </div>
           )}
 
+
+          {/* ========================================================================= */}
+          {/* TAB: FEATURED ADS (TOP 9 SPONSORED SLOTS)                                 */}
+          {/* ========================================================================= */}
+          {activeTab === 'featured' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Featured Ads & Sponsored Placements (Top 9 Slots)</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Manage the premier top-9 slots displayed on the SafarPK homepage. Allocate premium visibility to subscribed listers and monitor impressions.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    9 Active Tier Slots
+                  </span>
+                </div>
+              </div>
+
+              {/* 9 Slots Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {featuredSlots.map((slot) => (
+                  <div
+                    key={slot.slot}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      slot.active
+                        ? 'bg-slate-950/80 border-slate-800 hover:border-amber-500/50'
+                        : 'bg-slate-950/40 border-slate-900 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 text-xs font-mono font-black flex items-center justify-center border border-amber-500/30">
+                          #{slot.slot}
+                        </span>
+                        <span className="text-xs font-bold text-slate-300">{slot.city}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFeaturedSlots(
+                            featuredSlots.map((s) => (s.slot === slot.slot ? { ...s, active: !s.active } : s))
+                          );
+                        }}
+                        className={`text-[10px] font-extrabold px-2 py-0.5 rounded cursor-pointer ${
+                          slot.active
+                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}
+                      >
+                        {slot.active ? 'ACTIVE' : 'INACTIVE'}
+                      </button>
+                    </div>
+
+                    <div className="py-2.5 space-y-1">
+                      <h4 className="font-bold text-sm text-white truncate">{slot.title}</h4>
+                      <p className="text-[11px] text-slate-400 truncate">Host: {slot.lister}</p>
+                      <div className="flex items-center justify-between text-xs pt-1">
+                        <span className="text-slate-400">Rate: {formatPKR(slot.dailyRate)}/day</span>
+                        <span className="font-mono text-amber-300 font-bold">Fee: {formatPKR(slot.pricePerDay)}/day</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                      <span>👁️ {slot.impressions.toLocaleString()} views</span>
+                      <span>🖱️ {slot.clicks.toLocaleString()} clicks</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB: DOCUMENT RULES MATRIX (MULTI-COUNTRY & WORKFLOW RULES)                */}
+          {/* ========================================================================= */}
+          {activeTab === 'doc_rules' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Document Verification Rules Matrix</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Configure document submission requirements for hosts, drivers, shuttles, movers, and customers. Click any badge to cycle: Upload → Type it → Optional → Off.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMasterDocAsk(!masterDocAsk)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      masterDocAsk ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <span>Master Ask: {masterDocAsk ? 'ENABLED' : 'PAUSED'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Country Selection Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {[
+                  { code: 'PK', name: 'Pakistan (PK)' },
+                  { code: 'AE', name: 'United Arab Emirates (AE)' },
+                  { code: 'SA', name: 'Saudi Arabia (SA)' },
+                  { code: 'GB', name: 'United Kingdom (GB)' },
+                  { code: 'DE', name: 'Germany (DE)' },
+                ].map((c) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => setDocCountry(c.code)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
+                      docCountry === c.code
+                        ? 'bg-rose-600 text-white shadow-md'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Matrix Table */}
+              <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400 font-bold bg-slate-900/60">
+                      <th className="p-3.5">Document Name</th>
+                      <th className="p-3.5">Car Rental Host</th>
+                      <th className="p-3.5">Driver</th>
+                      <th className="p-3.5">Shuttle Operator</th>
+                      <th className="p-3.5">Mover</th>
+                      <th className="p-3.5">Renter / Customer</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {docRulesList.map((rule, idx) => {
+                      const getBadgeClass = (req: DocRequirement) => {
+                        switch (req) {
+                          case 'Upload':
+                            return 'bg-emerald-950 text-emerald-300 border border-emerald-800';
+                          case 'Type it':
+                            return 'bg-blue-950 text-blue-300 border border-blue-800';
+                          case 'Optional':
+                            return 'bg-amber-950 text-amber-300 border border-amber-800';
+                          case 'Off':
+                          default:
+                            return 'bg-slate-900 text-slate-500 border border-slate-800';
+                        }
+                      };
+
+                      return (
+                        <tr key={rule.docName} className="hover:bg-slate-900/40 transition">
+                          <td className="p-3.5 font-bold text-white">{rule.docName}</td>
+                          {(['owner', 'driver', 'shuttle', 'mover', 'renter'] as const).map((role) => (
+                            <td key={role} className="p-3.5">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleDocRuleCell(idx, role)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition hover:opacity-80 ${getBadgeClass(
+                                  rule[role]
+                                )}`}
+                                title="Click to cycle status"
+                              >
+                                {rule[role]}
+                              </button>
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveDocRules}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileCheck className="w-4 h-4" />
+                  <span>Save Document Matrix Platform-wide</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ========================================================================= */}
           {/* TAB 4: SITE-WIDE PROMOTIONAL MARQUEE ANNOUNCEMENT                          */}
           {/* ========================================================================= */}
@@ -1587,7 +3220,7 @@ export default function SuperAdminDashboardPage() {
                 <div>
                   <h3 className="font-extrabold text-base text-white">Site-wide Promotional Announcement & Marquee</h3>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Broadcast platform announcements, zero-commission launch promotions, or emergency travel alerts across the public website.
+                    Broadcast platform announcements, seasonal service updates, or travel notices across the public website.
                   </p>
                 </div>
                 <button
@@ -1675,6 +3308,383 @@ export default function SuperAdminDashboardPage() {
                     <span>Save & Broadcast Announcement Platform-wide</span>
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB: FEATURED ADS (TOP 9 SPONSORED SLOTS)                                 */}
+          {/* ========================================================================= */}
+          {activeTab === 'featured' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Featured Ads & Sponsored Placements (Top 9 Slots)</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Manage the premier top-9 slots displayed on the SafarPK homepage. Allocate premium visibility to subscribed listers and monitor impressions.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    9 Active Tier Slots
+                  </span>
+                </div>
+              </div>
+
+              {/* 9 Slots Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {featuredSlots.map((slot) => (
+                  <div
+                    key={slot.slot}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      slot.active
+                        ? 'bg-slate-950/80 border-slate-800 hover:border-amber-500/50'
+                        : 'bg-slate-950/40 border-slate-900 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 text-xs font-mono font-black flex items-center justify-center border border-amber-500/30">
+                          #{slot.slot}
+                        </span>
+                        <span className="text-xs font-bold text-slate-300">{slot.city}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFeaturedSlots(
+                            featuredSlots.map((s) => (s.slot === slot.slot ? { ...s, active: !s.active } : s))
+                          );
+                        }}
+                        className={`text-[10px] font-extrabold px-2 py-0.5 rounded cursor-pointer ${
+                          slot.active
+                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}
+                      >
+                        {slot.active ? 'ACTIVE' : 'INACTIVE'}
+                      </button>
+                    </div>
+
+                    <div className="py-2.5 space-y-1">
+                      <h4 className="font-bold text-sm text-white truncate">{slot.title}</h4>
+                      <p className="text-[11px] text-slate-400 truncate">Host: {slot.lister}</p>
+                      <div className="flex items-center justify-between text-xs pt-1">
+                        <span className="text-slate-400">Rate: {formatPKR(slot.dailyRate)}/day</span>
+                        <span className="font-mono text-amber-300 font-bold">Fee: {formatPKR(slot.pricePerDay)}/day</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                      <span>👁️ {slot.impressions.toLocaleString()} views</span>
+                      <span>🖱️ {slot.clicks.toLocaleString()} clicks</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB: DOCUMENT RULES MATRIX (MULTI-COUNTRY & WORKFLOW RULES)                */}
+          {/* ========================================================================= */}
+          {activeTab === 'doc_rules' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Document Verification Rules Matrix</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Configure document submission requirements for hosts, drivers, shuttles, movers, and customers. Click any badge to cycle: Upload → Type it → Optional → Off.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMasterDocAsk(!masterDocAsk)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      masterDocAsk ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <span>Master Ask: {masterDocAsk ? 'ENABLED' : 'PAUSED'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Country Selection Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {[
+                  { code: 'PK', name: 'Pakistan (PK)' },
+                  { code: 'AE', name: 'United Arab Emirates (AE)' },
+                  { code: 'SA', name: 'Saudi Arabia (SA)' },
+                  { code: 'GB', name: 'United Kingdom (GB)' },
+                  { code: 'DE', name: 'Germany (DE)' },
+                ].map((c) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => setDocCountry(c.code)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
+                      docCountry === c.code
+                        ? 'bg-rose-600 text-white shadow-md'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Matrix Table */}
+              <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400 font-bold bg-slate-900/60">
+                      <th className="p-3.5">Document Name</th>
+                      <th className="p-3.5">Car Rental Host</th>
+                      <th className="p-3.5">Driver</th>
+                      <th className="p-3.5">Shuttle Operator</th>
+                      <th className="p-3.5">Mover</th>
+                      <th className="p-3.5">Renter / Customer</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {docRulesList.map((rule, idx) => {
+                      const getBadgeClass = (req: DocRequirement) => {
+                        switch (req) {
+                          case 'Upload':
+                            return 'bg-emerald-950 text-emerald-300 border border-emerald-800';
+                          case 'Type it':
+                            return 'bg-blue-950 text-blue-300 border border-blue-800';
+                          case 'Optional':
+                            return 'bg-amber-950 text-amber-300 border border-amber-800';
+                          case 'Off':
+                          default:
+                            return 'bg-slate-900 text-slate-500 border border-slate-800';
+                        }
+                      };
+
+                      return (
+                        <tr key={rule.docName} className="hover:bg-slate-900/40 transition">
+                          <td className="p-3.5 font-bold text-white">{rule.docName}</td>
+                          {(['owner', 'driver', 'shuttle', 'mover', 'renter'] as const).map((role) => (
+                            <td key={role} className="p-3.5">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleDocRuleCell(idx, role)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition hover:opacity-80 ${getBadgeClass(
+                                  rule[role]
+                                )}`}
+                                title="Click to cycle status"
+                              >
+                                {rule[role]}
+                              </button>
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveDocRules}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileCheck className="w-4 h-4" />
+                  <span>Save Document Matrix Platform-wide</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+
+          {/* ========================================================================= */}
+          {/* TAB: FEATURED ADS (TOP 9 SPONSORED SLOTS)                                 */}
+          {/* ========================================================================= */}
+          {activeTab === 'featured' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Featured Ads & Sponsored Placements (Top 9 Slots)</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Manage the premier top-9 slots displayed on the SafarPK homepage. Allocate premium visibility to subscribed listers and monitor impressions.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    9 Active Tier Slots
+                  </span>
+                </div>
+              </div>
+
+              {/* 9 Slots Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {featuredSlots.map((slot) => (
+                  <div
+                    key={slot.slot}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      slot.active
+                        ? 'bg-slate-950/80 border-slate-800 hover:border-amber-500/50'
+                        : 'bg-slate-950/40 border-slate-900 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 text-xs font-mono font-black flex items-center justify-center border border-amber-500/30">
+                          #{slot.slot}
+                        </span>
+                        <span className="text-xs font-bold text-slate-300">{slot.city}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFeaturedSlots(
+                            featuredSlots.map((s) => (s.slot === slot.slot ? { ...s, active: !s.active } : s))
+                          );
+                        }}
+                        className={`text-[10px] font-extrabold px-2 py-0.5 rounded cursor-pointer ${
+                          slot.active
+                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}
+                      >
+                        {slot.active ? 'ACTIVE' : 'INACTIVE'}
+                      </button>
+                    </div>
+
+                    <div className="py-2.5 space-y-1">
+                      <h4 className="font-bold text-sm text-white truncate">{slot.title}</h4>
+                      <p className="text-[11px] text-slate-400 truncate">Host: {slot.lister}</p>
+                      <div className="flex items-center justify-between text-xs pt-1">
+                        <span className="text-slate-400">Rate: {formatPKR(slot.dailyRate)}/day</span>
+                        <span className="font-mono text-amber-300 font-bold">Fee: {formatPKR(slot.pricePerDay)}/day</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                      <span>👁️ {slot.impressions.toLocaleString()} views</span>
+                      <span>🖱️ {slot.clicks.toLocaleString()} clicks</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB: DOCUMENT RULES MATRIX (MULTI-COUNTRY & WORKFLOW RULES)                */}
+          {/* ========================================================================= */}
+          {activeTab === 'doc_rules' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Document Verification Rules Matrix</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Configure document submission requirements for hosts, drivers, shuttles, movers, and customers. Click any badge to cycle: Upload → Type it → Optional → Off.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMasterDocAsk(!masterDocAsk)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      masterDocAsk ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <span>Master Ask: {masterDocAsk ? 'ENABLED' : 'PAUSED'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Country Selection Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {[
+                  { code: 'PK', name: 'Pakistan (PK)' },
+                  { code: 'AE', name: 'United Arab Emirates (AE)' },
+                  { code: 'SA', name: 'Saudi Arabia (SA)' },
+                  { code: 'GB', name: 'United Kingdom (GB)' },
+                  { code: 'DE', name: 'Germany (DE)' },
+                ].map((c) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => setDocCountry(c.code)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
+                      docCountry === c.code
+                        ? 'bg-rose-600 text-white shadow-md'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Matrix Table */}
+              <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400 font-bold bg-slate-900/60">
+                      <th className="p-3.5">Document Name</th>
+                      <th className="p-3.5">Car Rental Host</th>
+                      <th className="p-3.5">Driver</th>
+                      <th className="p-3.5">Shuttle Operator</th>
+                      <th className="p-3.5">Mover</th>
+                      <th className="p-3.5">Renter / Customer</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {docRulesList.map((rule, idx) => {
+                      const getBadgeClass = (req: DocRequirement) => {
+                        switch (req) {
+                          case 'Upload':
+                            return 'bg-emerald-950 text-emerald-300 border border-emerald-800';
+                          case 'Type it':
+                            return 'bg-blue-950 text-blue-300 border border-blue-800';
+                          case 'Optional':
+                            return 'bg-amber-950 text-amber-300 border border-amber-800';
+                          case 'Off':
+                          default:
+                            return 'bg-slate-900 text-slate-500 border border-slate-800';
+                        }
+                      };
+
+                      return (
+                        <tr key={rule.docName} className="hover:bg-slate-900/40 transition">
+                          <td className="p-3.5 font-bold text-white">{rule.docName}</td>
+                          {(['owner', 'driver', 'shuttle', 'mover', 'renter'] as const).map((role) => (
+                            <td key={role} className="p-3.5">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleDocRuleCell(idx, role)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition hover:opacity-80 ${getBadgeClass(
+                                  rule[role]
+                                )}`}
+                                title="Click to cycle status"
+                              >
+                                {rule[role]}
+                              </button>
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveDocRules}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileCheck className="w-4 h-4" />
+                  <span>Save Document Matrix Platform-wide</span>
+                </button>
               </div>
             </div>
           )}
@@ -1790,6 +3800,26 @@ export default function SuperAdminDashboardPage() {
                             </select>
                           </div>
                         </div>
+
+                        {/* Approved Service Badges */}
+                        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase">Services:</span>
+                          {((user.approvedServices && user.approvedServices.length > 0)
+                            ? user.approvedServices
+                            : (user.rawUser ? getApprovedServicesForUser(user.rawUser) : [])
+                          ).map((srv: SafarServiceType) => {
+                            const svcMeta = ALL_SAFAR_SERVICES.find((s) => s.id === srv);
+                            return (
+                              <span
+                                key={srv}
+                                className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-emerald-400 border border-slate-700 flex items-center gap-1"
+                              >
+                                <span>{svcMeta?.icon || '🚗'}</span>
+                                <span>{svcMeta?.label || srv}</span>
+                              </span>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
 
@@ -1804,6 +3834,20 @@ export default function SuperAdminDashboardPage() {
                           <span>Approve Sub</span>
                         </button>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const targetUser = user.rawUser || user;
+                          const currentApproved = user.approvedServices || getApprovedServicesForUser(targetUser);
+                          setServicesModalUser(user);
+                          setSelectedServicesForUser(currentApproved);
+                        }}
+                        className="px-3 py-1.5 bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-800 rounded-xl font-bold flex items-center gap-1.5 transition cursor-pointer text-xs"
+                        title="Manage Approved Services for this User"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Services</span>
+                      </button>
                       <a
                         href={`https://wa.me/${user.phone.replace(/[^0-9]/g, '')}`}
                         target="_blank"
@@ -1824,6 +3868,399 @@ export default function SuperAdminDashboardPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+
+          {/* ========================================================================= */}
+          {/* TAB: FEATURED ADS (TOP 9 SPONSORED SLOTS)                                 */}
+          {/* ========================================================================= */}
+          {activeTab === 'featured' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Featured Ads & Sponsored Placements (Top 9 Slots)</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Manage the premier top-9 slots displayed on the SafarPK homepage. Allocate premium visibility to subscribed listers and monitor impressions.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    9 Active Tier Slots
+                  </span>
+                </div>
+              </div>
+
+              {/* 9 Slots Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {featuredSlots.map((slot) => (
+                  <div
+                    key={slot.slot}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      slot.active
+                        ? 'bg-slate-950/80 border-slate-800 hover:border-amber-500/50'
+                        : 'bg-slate-950/40 border-slate-900 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 text-xs font-mono font-black flex items-center justify-center border border-amber-500/30">
+                          #{slot.slot}
+                        </span>
+                        <span className="text-xs font-bold text-slate-300">{slot.city}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFeaturedSlots(
+                            featuredSlots.map((s) => (s.slot === slot.slot ? { ...s, active: !s.active } : s))
+                          );
+                        }}
+                        className={`text-[10px] font-extrabold px-2 py-0.5 rounded cursor-pointer ${
+                          slot.active
+                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}
+                      >
+                        {slot.active ? 'ACTIVE' : 'INACTIVE'}
+                      </button>
+                    </div>
+
+                    <div className="py-2.5 space-y-1">
+                      <h4 className="font-bold text-sm text-white truncate">{slot.title}</h4>
+                      <p className="text-[11px] text-slate-400 truncate">Host: {slot.lister}</p>
+                      <div className="flex items-center justify-between text-xs pt-1">
+                        <span className="text-slate-400">Rate: {formatPKR(slot.dailyRate)}/day</span>
+                        <span className="font-mono text-amber-300 font-bold">Fee: {formatPKR(slot.pricePerDay)}/day</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                      <span>👁️ {slot.impressions.toLocaleString()} views</span>
+                      <span>🖱️ {slot.clicks.toLocaleString()} clicks</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB: DOCUMENT RULES MATRIX (MULTI-COUNTRY & WORKFLOW RULES)                */}
+          {/* ========================================================================= */}
+          {activeTab === 'doc_rules' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Document Verification Rules Matrix</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Configure document submission requirements for hosts, drivers, shuttles, movers, and customers. Click any badge to cycle: Upload → Type it → Optional → Off.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMasterDocAsk(!masterDocAsk)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      masterDocAsk ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <span>Master Ask: {masterDocAsk ? 'ENABLED' : 'PAUSED'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Country Selection Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {[
+                  { code: 'PK', name: 'Pakistan (PK)' },
+                  { code: 'AE', name: 'United Arab Emirates (AE)' },
+                  { code: 'SA', name: 'Saudi Arabia (SA)' },
+                  { code: 'GB', name: 'United Kingdom (GB)' },
+                  { code: 'DE', name: 'Germany (DE)' },
+                ].map((c) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => setDocCountry(c.code)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
+                      docCountry === c.code
+                        ? 'bg-rose-600 text-white shadow-md'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Matrix Table */}
+              <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400 font-bold bg-slate-900/60">
+                      <th className="p-3.5">Document Name</th>
+                      <th className="p-3.5">Car Rental Host</th>
+                      <th className="p-3.5">Driver</th>
+                      <th className="p-3.5">Shuttle Operator</th>
+                      <th className="p-3.5">Mover</th>
+                      <th className="p-3.5">Renter / Customer</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {docRulesList.map((rule, idx) => {
+                      const getBadgeClass = (req: DocRequirement) => {
+                        switch (req) {
+                          case 'Upload':
+                            return 'bg-emerald-950 text-emerald-300 border border-emerald-800';
+                          case 'Type it':
+                            return 'bg-blue-950 text-blue-300 border border-blue-800';
+                          case 'Optional':
+                            return 'bg-amber-950 text-amber-300 border border-amber-800';
+                          case 'Off':
+                          default:
+                            return 'bg-slate-900 text-slate-500 border border-slate-800';
+                        }
+                      };
+
+                      return (
+                        <tr key={rule.docName} className="hover:bg-slate-900/40 transition">
+                          <td className="p-3.5 font-bold text-white">{rule.docName}</td>
+                          {(['owner', 'driver', 'shuttle', 'mover', 'renter'] as const).map((role) => (
+                            <td key={role} className="p-3.5">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleDocRuleCell(idx, role)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition hover:opacity-80 ${getBadgeClass(
+                                  rule[role]
+                                )}`}
+                                title="Click to cycle status"
+                              >
+                                {rule[role]}
+                              </button>
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveDocRules}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileCheck className="w-4 h-4" />
+                  <span>Save Document Matrix Platform-wide</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 5A: MASTER ANALYTICS & INTELLIGENCE HUB (VISUAL BARS, ACTIONS, EXPORT) */}
+          {/* ========================================================================= */}
+          {activeTab === 'analytics' && (
+            <div className="space-y-6">
+              <AnalyticsReportHub
+                role="SUPER_ADMIN"
+                viewerName="Super Administrator"
+                allowExport={true}
+                allowClaim={true}
+                accentColor="#E11D48"
+              />
+            </div>
+          )}
+
+
+          {/* ========================================================================= */}
+          {/* TAB: FEATURED ADS (TOP 9 SPONSORED SLOTS)                                 */}
+          {/* ========================================================================= */}
+          {activeTab === 'featured' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Featured Ads & Sponsored Placements (Top 9 Slots)</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Manage the premier top-9 slots displayed on the SafarPK homepage. Allocate premium visibility to subscribed listers and monitor impressions.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    9 Active Tier Slots
+                  </span>
+                </div>
+              </div>
+
+              {/* 9 Slots Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {featuredSlots.map((slot) => (
+                  <div
+                    key={slot.slot}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      slot.active
+                        ? 'bg-slate-950/80 border-slate-800 hover:border-amber-500/50'
+                        : 'bg-slate-950/40 border-slate-900 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 text-xs font-mono font-black flex items-center justify-center border border-amber-500/30">
+                          #{slot.slot}
+                        </span>
+                        <span className="text-xs font-bold text-slate-300">{slot.city}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFeaturedSlots(
+                            featuredSlots.map((s) => (s.slot === slot.slot ? { ...s, active: !s.active } : s))
+                          );
+                        }}
+                        className={`text-[10px] font-extrabold px-2 py-0.5 rounded cursor-pointer ${
+                          slot.active
+                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}
+                      >
+                        {slot.active ? 'ACTIVE' : 'INACTIVE'}
+                      </button>
+                    </div>
+
+                    <div className="py-2.5 space-y-1">
+                      <h4 className="font-bold text-sm text-white truncate">{slot.title}</h4>
+                      <p className="text-[11px] text-slate-400 truncate">Host: {slot.lister}</p>
+                      <div className="flex items-center justify-between text-xs pt-1">
+                        <span className="text-slate-400">Rate: {formatPKR(slot.dailyRate)}/day</span>
+                        <span className="font-mono text-amber-300 font-bold">Fee: {formatPKR(slot.pricePerDay)}/day</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                      <span>👁️ {slot.impressions.toLocaleString()} views</span>
+                      <span>🖱️ {slot.clicks.toLocaleString()} clicks</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB: DOCUMENT RULES MATRIX (MULTI-COUNTRY & WORKFLOW RULES)                */}
+          {/* ========================================================================= */}
+          {activeTab === 'doc_rules' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Document Verification Rules Matrix</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Configure document submission requirements for hosts, drivers, shuttles, movers, and customers. Click any badge to cycle: Upload → Type it → Optional → Off.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMasterDocAsk(!masterDocAsk)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      masterDocAsk ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <span>Master Ask: {masterDocAsk ? 'ENABLED' : 'PAUSED'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Country Selection Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {[
+                  { code: 'PK', name: 'Pakistan (PK)' },
+                  { code: 'AE', name: 'United Arab Emirates (AE)' },
+                  { code: 'SA', name: 'Saudi Arabia (SA)' },
+                  { code: 'GB', name: 'United Kingdom (GB)' },
+                  { code: 'DE', name: 'Germany (DE)' },
+                ].map((c) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => setDocCountry(c.code)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
+                      docCountry === c.code
+                        ? 'bg-rose-600 text-white shadow-md'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Matrix Table */}
+              <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400 font-bold bg-slate-900/60">
+                      <th className="p-3.5">Document Name</th>
+                      <th className="p-3.5">Car Rental Host</th>
+                      <th className="p-3.5">Driver</th>
+                      <th className="p-3.5">Shuttle Operator</th>
+                      <th className="p-3.5">Mover</th>
+                      <th className="p-3.5">Renter / Customer</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {docRulesList.map((rule, idx) => {
+                      const getBadgeClass = (req: DocRequirement) => {
+                        switch (req) {
+                          case 'Upload':
+                            return 'bg-emerald-950 text-emerald-300 border border-emerald-800';
+                          case 'Type it':
+                            return 'bg-blue-950 text-blue-300 border border-blue-800';
+                          case 'Optional':
+                            return 'bg-amber-950 text-amber-300 border border-amber-800';
+                          case 'Off':
+                          default:
+                            return 'bg-slate-900 text-slate-500 border border-slate-800';
+                        }
+                      };
+
+                      return (
+                        <tr key={rule.docName} className="hover:bg-slate-900/40 transition">
+                          <td className="p-3.5 font-bold text-white">{rule.docName}</td>
+                          {(['owner', 'driver', 'shuttle', 'mover', 'renter'] as const).map((role) => (
+                            <td key={role} className="p-3.5">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleDocRuleCell(idx, role)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition hover:opacity-80 ${getBadgeClass(
+                                  rule[role]
+                                )}`}
+                                title="Click to cycle status"
+                              >
+                                {rule[role]}
+                              </button>
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveDocRules}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileCheck className="w-4 h-4" />
+                  <span>Save Document Matrix Platform-wide</span>
+                </button>
               </div>
             </div>
           )}
@@ -2029,6 +4466,205 @@ export default function SuperAdminDashboardPage() {
             </div>
           )}
 
+
+          {/* ========================================================================= */}
+          {/* TAB: FEATURED ADS (TOP 9 SPONSORED SLOTS)                                 */}
+          {/* ========================================================================= */}
+          {activeTab === 'featured' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Featured Ads & Sponsored Placements (Top 9 Slots)</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Manage the premier top-9 slots displayed on the SafarPK homepage. Allocate premium visibility to subscribed listers and monitor impressions.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    9 Active Tier Slots
+                  </span>
+                </div>
+              </div>
+
+              {/* 9 Slots Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {featuredSlots.map((slot) => (
+                  <div
+                    key={slot.slot}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      slot.active
+                        ? 'bg-slate-950/80 border-slate-800 hover:border-amber-500/50'
+                        : 'bg-slate-950/40 border-slate-900 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 text-xs font-mono font-black flex items-center justify-center border border-amber-500/30">
+                          #{slot.slot}
+                        </span>
+                        <span className="text-xs font-bold text-slate-300">{slot.city}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFeaturedSlots(
+                            featuredSlots.map((s) => (s.slot === slot.slot ? { ...s, active: !s.active } : s))
+                          );
+                        }}
+                        className={`text-[10px] font-extrabold px-2 py-0.5 rounded cursor-pointer ${
+                          slot.active
+                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}
+                      >
+                        {slot.active ? 'ACTIVE' : 'INACTIVE'}
+                      </button>
+                    </div>
+
+                    <div className="py-2.5 space-y-1">
+                      <h4 className="font-bold text-sm text-white truncate">{slot.title}</h4>
+                      <p className="text-[11px] text-slate-400 truncate">Host: {slot.lister}</p>
+                      <div className="flex items-center justify-between text-xs pt-1">
+                        <span className="text-slate-400">Rate: {formatPKR(slot.dailyRate)}/day</span>
+                        <span className="font-mono text-amber-300 font-bold">Fee: {formatPKR(slot.pricePerDay)}/day</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                      <span>👁️ {slot.impressions.toLocaleString()} views</span>
+                      <span>🖱️ {slot.clicks.toLocaleString()} clicks</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB: DOCUMENT RULES MATRIX (MULTI-COUNTRY & WORKFLOW RULES)                */}
+          {/* ========================================================================= */}
+          {activeTab === 'doc_rules' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Document Verification Rules Matrix</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Configure document submission requirements for hosts, drivers, shuttles, movers, and customers. Click any badge to cycle: Upload → Type it → Optional → Off.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMasterDocAsk(!masterDocAsk)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      masterDocAsk ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <span>Master Ask: {masterDocAsk ? 'ENABLED' : 'PAUSED'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Country Selection Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {[
+                  { code: 'PK', name: 'Pakistan (PK)' },
+                  { code: 'AE', name: 'United Arab Emirates (AE)' },
+                  { code: 'SA', name: 'Saudi Arabia (SA)' },
+                  { code: 'GB', name: 'United Kingdom (GB)' },
+                  { code: 'DE', name: 'Germany (DE)' },
+                ].map((c) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => setDocCountry(c.code)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
+                      docCountry === c.code
+                        ? 'bg-rose-600 text-white shadow-md'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Matrix Table */}
+              <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400 font-bold bg-slate-900/60">
+                      <th className="p-3.5">Document Name</th>
+                      <th className="p-3.5">Car Rental Host</th>
+                      <th className="p-3.5">Driver</th>
+                      <th className="p-3.5">Shuttle Operator</th>
+                      <th className="p-3.5">Mover</th>
+                      <th className="p-3.5">Renter / Customer</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {docRulesList.map((rule, idx) => {
+                      const getBadgeClass = (req: DocRequirement) => {
+                        switch (req) {
+                          case 'Upload':
+                            return 'bg-emerald-950 text-emerald-300 border border-emerald-800';
+                          case 'Type it':
+                            return 'bg-blue-950 text-blue-300 border border-blue-800';
+                          case 'Optional':
+                            return 'bg-amber-950 text-amber-300 border border-amber-800';
+                          case 'Off':
+                          default:
+                            return 'bg-slate-900 text-slate-500 border border-slate-800';
+                        }
+                      };
+
+                      return (
+                        <tr key={rule.docName} className="hover:bg-slate-900/40 transition">
+                          <td className="p-3.5 font-bold text-white">{rule.docName}</td>
+                          {(['owner', 'driver', 'shuttle', 'mover', 'renter'] as const).map((role) => (
+                            <td key={role} className="p-3.5">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleDocRuleCell(idx, role)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition hover:opacity-80 ${getBadgeClass(
+                                  rule[role]
+                                )}`}
+                                title="Click to cycle status"
+                              >
+                                {rule[role]}
+                              </button>
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveDocRules}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileCheck className="w-4 h-4" />
+                  <span>Save Document Matrix Platform-wide</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB: SUBSCRIPTION FOLLOW-UP LEADS (SUPER ADMIN & AGENT SALES DESK)       */}
+          {/* ========================================================================= */}
+          {activeTab === 'subscription_leads' && (
+            <SubscriptionFollowUpDesk
+              currentRole="SUPER_ADMIN"
+              agentName="Super Admin"
+            />
+          )}
+
           {/* ========================================================================= */}
           {/* TAB 6: STAFF / AGENT MANAGEMENT (SUPER ADMIN EXCLUSIVE)                    */}
           {/* ========================================================================= */}
@@ -2142,10 +4778,215 @@ export default function SuperAdminDashboardPage() {
                             ✓ Lawful Unmasked View
                           </span>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const cur = getAgentAnalyticsPermission(ag.id);
+                            setAgentAnalyticsPermission(ag.id, !cur);
+                            setAdminNotice(`✓ Analytics access for ${ag.name} set to ${!cur ? 'ALLOWED' : 'RESTRICTED'}`);
+                            setTimeout(() => setAdminNotice(null), 3000);
+                          }}
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold border transition cursor-pointer ${
+                            getAgentAnalyticsPermission(ag.id)
+                              ? 'bg-emerald-950/90 text-emerald-300 border-emerald-700'
+                              : 'bg-rose-950/90 text-rose-300 border-rose-700'
+                          }`}
+                        >
+                          {getAgentAnalyticsPermission(ag.id) ? '✓ Analytics & Export Allowed' : '✕ Analytics Restricted'}
+                        </button>
                       </div>
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+
+          {/* ========================================================================= */}
+          {/* TAB: FEATURED ADS (TOP 9 SPONSORED SLOTS)                                 */}
+          {/* ========================================================================= */}
+          {activeTab === 'featured' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Featured Ads & Sponsored Placements (Top 9 Slots)</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Manage the premier top-9 slots displayed on the SafarPK homepage. Allocate premium visibility to subscribed listers and monitor impressions.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    9 Active Tier Slots
+                  </span>
+                </div>
+              </div>
+
+              {/* 9 Slots Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {featuredSlots.map((slot) => (
+                  <div
+                    key={slot.slot}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      slot.active
+                        ? 'bg-slate-950/80 border-slate-800 hover:border-amber-500/50'
+                        : 'bg-slate-950/40 border-slate-900 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 text-xs font-mono font-black flex items-center justify-center border border-amber-500/30">
+                          #{slot.slot}
+                        </span>
+                        <span className="text-xs font-bold text-slate-300">{slot.city}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFeaturedSlots(
+                            featuredSlots.map((s) => (s.slot === slot.slot ? { ...s, active: !s.active } : s))
+                          );
+                        }}
+                        className={`text-[10px] font-extrabold px-2 py-0.5 rounded cursor-pointer ${
+                          slot.active
+                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}
+                      >
+                        {slot.active ? 'ACTIVE' : 'INACTIVE'}
+                      </button>
+                    </div>
+
+                    <div className="py-2.5 space-y-1">
+                      <h4 className="font-bold text-sm text-white truncate">{slot.title}</h4>
+                      <p className="text-[11px] text-slate-400 truncate">Host: {slot.lister}</p>
+                      <div className="flex items-center justify-between text-xs pt-1">
+                        <span className="text-slate-400">Rate: {formatPKR(slot.dailyRate)}/day</span>
+                        <span className="font-mono text-amber-300 font-bold">Fee: {formatPKR(slot.pricePerDay)}/day</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                      <span>👁️ {slot.impressions.toLocaleString()} views</span>
+                      <span>🖱️ {slot.clicks.toLocaleString()} clicks</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB: DOCUMENT RULES MATRIX (MULTI-COUNTRY & WORKFLOW RULES)                */}
+          {/* ========================================================================= */}
+          {activeTab === 'doc_rules' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Document Verification Rules Matrix</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Configure document submission requirements for hosts, drivers, shuttles, movers, and customers. Click any badge to cycle: Upload → Type it → Optional → Off.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMasterDocAsk(!masterDocAsk)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      masterDocAsk ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <span>Master Ask: {masterDocAsk ? 'ENABLED' : 'PAUSED'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Country Selection Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {[
+                  { code: 'PK', name: 'Pakistan (PK)' },
+                  { code: 'AE', name: 'United Arab Emirates (AE)' },
+                  { code: 'SA', name: 'Saudi Arabia (SA)' },
+                  { code: 'GB', name: 'United Kingdom (GB)' },
+                  { code: 'DE', name: 'Germany (DE)' },
+                ].map((c) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => setDocCountry(c.code)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
+                      docCountry === c.code
+                        ? 'bg-rose-600 text-white shadow-md'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Matrix Table */}
+              <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400 font-bold bg-slate-900/60">
+                      <th className="p-3.5">Document Name</th>
+                      <th className="p-3.5">Car Rental Host</th>
+                      <th className="p-3.5">Driver</th>
+                      <th className="p-3.5">Shuttle Operator</th>
+                      <th className="p-3.5">Mover</th>
+                      <th className="p-3.5">Renter / Customer</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {docRulesList.map((rule, idx) => {
+                      const getBadgeClass = (req: DocRequirement) => {
+                        switch (req) {
+                          case 'Upload':
+                            return 'bg-emerald-950 text-emerald-300 border border-emerald-800';
+                          case 'Type it':
+                            return 'bg-blue-950 text-blue-300 border border-blue-800';
+                          case 'Optional':
+                            return 'bg-amber-950 text-amber-300 border border-amber-800';
+                          case 'Off':
+                          default:
+                            return 'bg-slate-900 text-slate-500 border border-slate-800';
+                        }
+                      };
+
+                      return (
+                        <tr key={rule.docName} className="hover:bg-slate-900/40 transition">
+                          <td className="p-3.5 font-bold text-white">{rule.docName}</td>
+                          {(['owner', 'driver', 'shuttle', 'mover', 'renter'] as const).map((role) => (
+                            <td key={role} className="p-3.5">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleDocRuleCell(idx, role)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition hover:opacity-80 ${getBadgeClass(
+                                  rule[role]
+                                )}`}
+                                title="Click to cycle status"
+                              >
+                                {rule[role]}
+                              </button>
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveDocRules}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileCheck className="w-4 h-4" />
+                  <span>Save Document Matrix Platform-wide</span>
+                </button>
               </div>
             </div>
           )}
@@ -2281,6 +5122,195 @@ export default function SuperAdminDashboardPage() {
             </div>
           )}
 
+
+          {/* ========================================================================= */}
+          {/* TAB: FEATURED ADS (TOP 9 SPONSORED SLOTS)                                 */}
+          {/* ========================================================================= */}
+          {activeTab === 'featured' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Featured Ads & Sponsored Placements (Top 9 Slots)</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Manage the premier top-9 slots displayed on the SafarPK homepage. Allocate premium visibility to subscribed listers and monitor impressions.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    9 Active Tier Slots
+                  </span>
+                </div>
+              </div>
+
+              {/* 9 Slots Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {featuredSlots.map((slot) => (
+                  <div
+                    key={slot.slot}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      slot.active
+                        ? 'bg-slate-950/80 border-slate-800 hover:border-amber-500/50'
+                        : 'bg-slate-950/40 border-slate-900 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 text-xs font-mono font-black flex items-center justify-center border border-amber-500/30">
+                          #{slot.slot}
+                        </span>
+                        <span className="text-xs font-bold text-slate-300">{slot.city}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFeaturedSlots(
+                            featuredSlots.map((s) => (s.slot === slot.slot ? { ...s, active: !s.active } : s))
+                          );
+                        }}
+                        className={`text-[10px] font-extrabold px-2 py-0.5 rounded cursor-pointer ${
+                          slot.active
+                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}
+                      >
+                        {slot.active ? 'ACTIVE' : 'INACTIVE'}
+                      </button>
+                    </div>
+
+                    <div className="py-2.5 space-y-1">
+                      <h4 className="font-bold text-sm text-white truncate">{slot.title}</h4>
+                      <p className="text-[11px] text-slate-400 truncate">Host: {slot.lister}</p>
+                      <div className="flex items-center justify-between text-xs pt-1">
+                        <span className="text-slate-400">Rate: {formatPKR(slot.dailyRate)}/day</span>
+                        <span className="font-mono text-amber-300 font-bold">Fee: {formatPKR(slot.pricePerDay)}/day</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                      <span>👁️ {slot.impressions.toLocaleString()} views</span>
+                      <span>🖱️ {slot.clicks.toLocaleString()} clicks</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB: DOCUMENT RULES MATRIX (MULTI-COUNTRY & WORKFLOW RULES)                */}
+          {/* ========================================================================= */}
+          {activeTab === 'doc_rules' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Document Verification Rules Matrix</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Configure document submission requirements for hosts, drivers, shuttles, movers, and customers. Click any badge to cycle: Upload → Type it → Optional → Off.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMasterDocAsk(!masterDocAsk)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      masterDocAsk ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <span>Master Ask: {masterDocAsk ? 'ENABLED' : 'PAUSED'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Country Selection Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {[
+                  { code: 'PK', name: 'Pakistan (PK)' },
+                  { code: 'AE', name: 'United Arab Emirates (AE)' },
+                  { code: 'SA', name: 'Saudi Arabia (SA)' },
+                  { code: 'GB', name: 'United Kingdom (GB)' },
+                  { code: 'DE', name: 'Germany (DE)' },
+                ].map((c) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => setDocCountry(c.code)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
+                      docCountry === c.code
+                        ? 'bg-rose-600 text-white shadow-md'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Matrix Table */}
+              <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400 font-bold bg-slate-900/60">
+                      <th className="p-3.5">Document Name</th>
+                      <th className="p-3.5">Car Rental Host</th>
+                      <th className="p-3.5">Driver</th>
+                      <th className="p-3.5">Shuttle Operator</th>
+                      <th className="p-3.5">Mover</th>
+                      <th className="p-3.5">Renter / Customer</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {docRulesList.map((rule, idx) => {
+                      const getBadgeClass = (req: DocRequirement) => {
+                        switch (req) {
+                          case 'Upload':
+                            return 'bg-emerald-950 text-emerald-300 border border-emerald-800';
+                          case 'Type it':
+                            return 'bg-blue-950 text-blue-300 border border-blue-800';
+                          case 'Optional':
+                            return 'bg-amber-950 text-amber-300 border border-amber-800';
+                          case 'Off':
+                          default:
+                            return 'bg-slate-900 text-slate-500 border border-slate-800';
+                        }
+                      };
+
+                      return (
+                        <tr key={rule.docName} className="hover:bg-slate-900/40 transition">
+                          <td className="p-3.5 font-bold text-white">{rule.docName}</td>
+                          {(['owner', 'driver', 'shuttle', 'mover', 'renter'] as const).map((role) => (
+                            <td key={role} className="p-3.5">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleDocRuleCell(idx, role)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition hover:opacity-80 ${getBadgeClass(
+                                  rule[role]
+                                )}`}
+                                title="Click to cycle status"
+                              >
+                                {rule[role]}
+                              </button>
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveDocRules}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileCheck className="w-4 h-4" />
+                  <span>Save Document Matrix Platform-wide</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ========================================================================= */}
           {/* TAB 8: LEGAL TERMS & MULTI-POLICY DEPLOYMENT (GOV PECA / ETO 2002)        */}
           {/* ========================================================================= */}
@@ -2336,6 +5366,195 @@ export default function SuperAdminDashboardPage() {
                 >
                   <FileCheck className="w-4 h-4" />
                   <span>Deploy Updated Policy Live Platform-Wide</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+
+          {/* ========================================================================= */}
+          {/* TAB: FEATURED ADS (TOP 9 SPONSORED SLOTS)                                 */}
+          {/* ========================================================================= */}
+          {activeTab === 'featured' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Featured Ads & Sponsored Placements (Top 9 Slots)</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Manage the premier top-9 slots displayed on the SafarPK homepage. Allocate premium visibility to subscribed listers and monitor impressions.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    9 Active Tier Slots
+                  </span>
+                </div>
+              </div>
+
+              {/* 9 Slots Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {featuredSlots.map((slot) => (
+                  <div
+                    key={slot.slot}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      slot.active
+                        ? 'bg-slate-950/80 border-slate-800 hover:border-amber-500/50'
+                        : 'bg-slate-950/40 border-slate-900 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 text-xs font-mono font-black flex items-center justify-center border border-amber-500/30">
+                          #{slot.slot}
+                        </span>
+                        <span className="text-xs font-bold text-slate-300">{slot.city}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFeaturedSlots(
+                            featuredSlots.map((s) => (s.slot === slot.slot ? { ...s, active: !s.active } : s))
+                          );
+                        }}
+                        className={`text-[10px] font-extrabold px-2 py-0.5 rounded cursor-pointer ${
+                          slot.active
+                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}
+                      >
+                        {slot.active ? 'ACTIVE' : 'INACTIVE'}
+                      </button>
+                    </div>
+
+                    <div className="py-2.5 space-y-1">
+                      <h4 className="font-bold text-sm text-white truncate">{slot.title}</h4>
+                      <p className="text-[11px] text-slate-400 truncate">Host: {slot.lister}</p>
+                      <div className="flex items-center justify-between text-xs pt-1">
+                        <span className="text-slate-400">Rate: {formatPKR(slot.dailyRate)}/day</span>
+                        <span className="font-mono text-amber-300 font-bold">Fee: {formatPKR(slot.pricePerDay)}/day</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                      <span>👁️ {slot.impressions.toLocaleString()} views</span>
+                      <span>🖱️ {slot.clicks.toLocaleString()} clicks</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB: DOCUMENT RULES MATRIX (MULTI-COUNTRY & WORKFLOW RULES)                */}
+          {/* ========================================================================= */}
+          {activeTab === 'doc_rules' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Document Verification Rules Matrix</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Configure document submission requirements for hosts, drivers, shuttles, movers, and customers. Click any badge to cycle: Upload → Type it → Optional → Off.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMasterDocAsk(!masterDocAsk)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      masterDocAsk ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <span>Master Ask: {masterDocAsk ? 'ENABLED' : 'PAUSED'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Country Selection Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {[
+                  { code: 'PK', name: 'Pakistan (PK)' },
+                  { code: 'AE', name: 'United Arab Emirates (AE)' },
+                  { code: 'SA', name: 'Saudi Arabia (SA)' },
+                  { code: 'GB', name: 'United Kingdom (GB)' },
+                  { code: 'DE', name: 'Germany (DE)' },
+                ].map((c) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => setDocCountry(c.code)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
+                      docCountry === c.code
+                        ? 'bg-rose-600 text-white shadow-md'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Matrix Table */}
+              <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400 font-bold bg-slate-900/60">
+                      <th className="p-3.5">Document Name</th>
+                      <th className="p-3.5">Car Rental Host</th>
+                      <th className="p-3.5">Driver</th>
+                      <th className="p-3.5">Shuttle Operator</th>
+                      <th className="p-3.5">Mover</th>
+                      <th className="p-3.5">Renter / Customer</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {docRulesList.map((rule, idx) => {
+                      const getBadgeClass = (req: DocRequirement) => {
+                        switch (req) {
+                          case 'Upload':
+                            return 'bg-emerald-950 text-emerald-300 border border-emerald-800';
+                          case 'Type it':
+                            return 'bg-blue-950 text-blue-300 border border-blue-800';
+                          case 'Optional':
+                            return 'bg-amber-950 text-amber-300 border border-amber-800';
+                          case 'Off':
+                          default:
+                            return 'bg-slate-900 text-slate-500 border border-slate-800';
+                        }
+                      };
+
+                      return (
+                        <tr key={rule.docName} className="hover:bg-slate-900/40 transition">
+                          <td className="p-3.5 font-bold text-white">{rule.docName}</td>
+                          {(['owner', 'driver', 'shuttle', 'mover', 'renter'] as const).map((role) => (
+                            <td key={role} className="p-3.5">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleDocRuleCell(idx, role)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition hover:opacity-80 ${getBadgeClass(
+                                  rule[role]
+                                )}`}
+                                title="Click to cycle status"
+                              >
+                                {rule[role]}
+                              </button>
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveDocRules}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileCheck className="w-4 h-4" />
+                  <span>Save Document Matrix Platform-wide</span>
                 </button>
               </div>
             </div>
@@ -2507,6 +5726,195 @@ export default function SuperAdminDashboardPage() {
                   </div>
                 );
               })()}
+            </div>
+          )}
+
+
+          {/* ========================================================================= */}
+          {/* TAB: FEATURED ADS (TOP 9 SPONSORED SLOTS)                                 */}
+          {/* ========================================================================= */}
+          {activeTab === 'featured' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Featured Ads & Sponsored Placements (Top 9 Slots)</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Manage the premier top-9 slots displayed on the SafarPK homepage. Allocate premium visibility to subscribed listers and monitor impressions.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    9 Active Tier Slots
+                  </span>
+                </div>
+              </div>
+
+              {/* 9 Slots Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {featuredSlots.map((slot) => (
+                  <div
+                    key={slot.slot}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      slot.active
+                        ? 'bg-slate-950/80 border-slate-800 hover:border-amber-500/50'
+                        : 'bg-slate-950/40 border-slate-900 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 text-xs font-mono font-black flex items-center justify-center border border-amber-500/30">
+                          #{slot.slot}
+                        </span>
+                        <span className="text-xs font-bold text-slate-300">{slot.city}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFeaturedSlots(
+                            featuredSlots.map((s) => (s.slot === slot.slot ? { ...s, active: !s.active } : s))
+                          );
+                        }}
+                        className={`text-[10px] font-extrabold px-2 py-0.5 rounded cursor-pointer ${
+                          slot.active
+                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}
+                      >
+                        {slot.active ? 'ACTIVE' : 'INACTIVE'}
+                      </button>
+                    </div>
+
+                    <div className="py-2.5 space-y-1">
+                      <h4 className="font-bold text-sm text-white truncate">{slot.title}</h4>
+                      <p className="text-[11px] text-slate-400 truncate">Host: {slot.lister}</p>
+                      <div className="flex items-center justify-between text-xs pt-1">
+                        <span className="text-slate-400">Rate: {formatPKR(slot.dailyRate)}/day</span>
+                        <span className="font-mono text-amber-300 font-bold">Fee: {formatPKR(slot.pricePerDay)}/day</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+                      <span>👁️ {slot.impressions.toLocaleString()} views</span>
+                      <span>🖱️ {slot.clicks.toLocaleString()} clicks</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB: DOCUMENT RULES MATRIX (MULTI-COUNTRY & WORKFLOW RULES)                */}
+          {/* ========================================================================= */}
+          {activeTab === 'doc_rules' && (
+            <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Document Verification Rules Matrix</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Configure document submission requirements for hosts, drivers, shuttles, movers, and customers. Click any badge to cycle: Upload → Type it → Optional → Off.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMasterDocAsk(!masterDocAsk)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      masterDocAsk ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <span>Master Ask: {masterDocAsk ? 'ENABLED' : 'PAUSED'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Country Selection Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {[
+                  { code: 'PK', name: 'Pakistan (PK)' },
+                  { code: 'AE', name: 'United Arab Emirates (AE)' },
+                  { code: 'SA', name: 'Saudi Arabia (SA)' },
+                  { code: 'GB', name: 'United Kingdom (GB)' },
+                  { code: 'DE', name: 'Germany (DE)' },
+                ].map((c) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => setDocCountry(c.code)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
+                      docCountry === c.code
+                        ? 'bg-rose-600 text-white shadow-md'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Matrix Table */}
+              <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400 font-bold bg-slate-900/60">
+                      <th className="p-3.5">Document Name</th>
+                      <th className="p-3.5">Car Rental Host</th>
+                      <th className="p-3.5">Driver</th>
+                      <th className="p-3.5">Shuttle Operator</th>
+                      <th className="p-3.5">Mover</th>
+                      <th className="p-3.5">Renter / Customer</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {docRulesList.map((rule, idx) => {
+                      const getBadgeClass = (req: DocRequirement) => {
+                        switch (req) {
+                          case 'Upload':
+                            return 'bg-emerald-950 text-emerald-300 border border-emerald-800';
+                          case 'Type it':
+                            return 'bg-blue-950 text-blue-300 border border-blue-800';
+                          case 'Optional':
+                            return 'bg-amber-950 text-amber-300 border border-amber-800';
+                          case 'Off':
+                          default:
+                            return 'bg-slate-900 text-slate-500 border border-slate-800';
+                        }
+                      };
+
+                      return (
+                        <tr key={rule.docName} className="hover:bg-slate-900/40 transition">
+                          <td className="p-3.5 font-bold text-white">{rule.docName}</td>
+                          {(['owner', 'driver', 'shuttle', 'mover', 'renter'] as const).map((role) => (
+                            <td key={role} className="p-3.5">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleDocRuleCell(idx, role)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition hover:opacity-80 ${getBadgeClass(
+                                  rule[role]
+                                )}`}
+                                title="Click to cycle status"
+                              >
+                                {rule[role]}
+                              </button>
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveDocRules}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileCheck className="w-4 h-4" />
+                  <span>Save Document Matrix Platform-wide</span>
+                </button>
+              </div>
             </div>
           )}
         </main>
@@ -3280,6 +6688,116 @@ export default function SuperAdminDashboardPage() {
       )}
 
       {/* ========================================================================= */}
+      {/* MODAL 3B: MANAGE APPROVED SERVICES (EXACT 5 SERVICES MATRIX)               */}
+      {/* ========================================================================= */}
+      {servicesModalUser && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in"
+          onClick={() => setServicesModalUser(null)}
+        >
+          <div
+            className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5 my-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div>
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-indigo-400" />
+                  <h3 className="font-heading font-extrabold text-base text-white">
+                    Manage Approved Services
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Provider: <strong>{servicesModalUser.name}</strong> · ID: {servicesModalUser.id}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setServicesModalUser(null)}
+                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-slate-950/80 rounded-2xl border border-slate-800 text-xs text-slate-300 leading-relaxed">
+              Super Admin assigns and authorizes exactly which of the <strong>5 Main Services</strong> this provider may access. Providers can only see dashboards, create listings, and receive inquiries for approved services.
+            </div>
+
+            <div className="space-y-2.5">
+              {ALL_SAFAR_SERVICES.map((svc) => {
+                const isChecked = selectedServicesForUser.includes(svc.id);
+                return (
+                  <label
+                    key={svc.id}
+                    className={`flex items-start gap-3 p-3 rounded-2xl border transition cursor-pointer ${
+                      isChecked
+                        ? 'bg-emerald-950/40 border-emerald-500/80 text-white'
+                        : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedServicesForUser((prev) => [...prev, svc.id]);
+                        } else {
+                          setSelectedServicesForUser((prev) => prev.filter((id) => id !== svc.id));
+                        }
+                      }}
+                      className="mt-1 rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                    />
+                    <div className="flex-1 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">{svc.icon}</span>
+                        <span className="font-bold text-white">{svc.label}</span>
+                        <span className="font-mono text-[10px] text-slate-500">({svc.id})</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5">{svc.desc}</p>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-800">
+              <span className="text-[11px] text-slate-400">
+                Selected: <strong>{selectedServicesForUser.length} / 5</strong> services
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setServicesModalUser(null)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold cursor-pointer transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (servicesModalUser) {
+                      updateUserApprovedServices(servicesModalUser.id, selectedServicesForUser);
+                      setRegisteredUsersList(getAllRegisteredUsers());
+                      setAdminNotice(
+                        `✅ Approved services updated for ${servicesModalUser.name} (${selectedServicesForUser.length} services enabled).`
+                      );
+                      setTimeout(() => setAdminNotice(null), 4000);
+                      setServicesModalUser(null);
+                    }
+                  }}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-heading font-extrabold flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Save Approved Services</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
       {/* MODAL 4: EDIT LISTING (FULL CRUD)                                         */}
       {/* ========================================================================= */}
       {editingListing && (
@@ -3682,76 +7200,15 @@ export default function SuperAdminDashboardPage() {
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL 7: EDIT AGENT PERMISSIONS                                           */}
+      {/* MODAL 7: ENTERPRISE HIERARCHICAL PERMISSION EDITOR (SHOPIFY-GRADE)        */}
       {/* ========================================================================= */}
       {editingAgent && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-hidden"
-          onClick={() => setEditingAgent(null)}
-        >
-          <div
-            className="bg-slate-950 border border-slate-800 w-full max-w-lg rounded-3xl p-6 text-xs space-y-4 text-slate-200 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div>
-                <h4 className="font-black text-sm text-white">Edit Permissions: {editingAgent.name}</h4>
-                <p className="text-[11px] text-slate-400">Staff ID: {editingAgent.staffId} · {editingAgent.branch}</p>
-              </div>
-              <button onClick={() => setEditingAgent(null)} className="text-slate-400 hover:text-white cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-2.5">
-              {[
-                { key: 'canVerifyCnic', label: 'Verify National ID / CNIC' },
-                { key: 'canVerifyLicense', label: 'Verify Driving Licenses' },
-                { key: 'canCreateListerManual', label: 'Manual Lister Registration & Cash Handling' },
-                { key: 'canEditLister', label: 'Edit Lister Fleet Listings' },
-                { key: 'canEditCustomer', label: 'Edit Customer Profiles' },
-                { key: 'canApproveSubscription', label: 'Approve Bank/JazzCash Subscriptions' },
-                { key: 'canDeleteListings', label: 'Delete Flagged / Inactive Listings' },
-                { key: 'canViewUnmaskedData', label: 'Lawful Audit: View Unmasked CNIC & Phone' },
-              ].map((perm) => (
-                <label key={perm.key} className="flex items-center justify-between p-2.5 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer">
-                  <span className="font-bold text-slate-200">{perm.label}</span>
-                  <input
-                    type="checkbox"
-                    checked={editingAgent.permissions[perm.key]}
-                    onChange={(e) =>
-                      setEditingAgent({
-                        ...editingAgent,
-                        permissions: {
-                          ...editingAgent.permissions,
-                          [perm.key]: e.target.checked,
-                        },
-                      })
-                    }
-                    className="rounded accent-rose-600 w-4 h-4"
-                  />
-                </label>
-              ))}
-            </div>
-
-            <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
-              <button
-                type="button"
-                onClick={() => setEditingAgent(null)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-bold cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveAgentPermissions}
-                className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-bold cursor-pointer"
-              >
-                Save Permissions
-              </button>
-            </div>
-          </div>
-        </div>
+        <AgentPermissionEditor
+          initialPermissions={getAgentPermissionsList(editingAgent.permissions)}
+          agentName={editingAgent.name}
+          onSave={handleSaveAgentPermissionsFromEditor}
+          onCancel={() => setEditingAgent(null)}
+        />
       )}
 
       {/* ========================================================================= */}
@@ -3818,6 +7275,397 @@ export default function SuperAdminDashboardPage() {
                 Close Audit Viewer
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 1: MANUALLY REGISTER & ACTIVATE VENDOR SUBSCRIPTION                 */}
+      {/* ========================================================================= */}
+      {showManualVendorModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 sm:p-7 shadow-2xl space-y-5 my-8 text-xs text-slate-300">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div>
+                <h3 className="text-lg font-black text-white flex items-center gap-2">
+                  <PlusCircle className="w-5 h-5 text-emerald-400" />
+                  <span>Manually Register & Activate Vendor Portal</span>
+                </h3>
+                <p className="text-slate-400 text-xs mt-0.5">
+                  Direct Super Admin onboarding: Creates vendor login credentials, assigns listing quota, and records payment into the platform ledger.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowManualVendorModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Form Fields */}
+            <div className="space-y-4">
+              {/* Role Selection */}
+              <div>
+                <label className="block text-slate-400 font-bold mb-1.5">
+                  1. Select Vendor Category / Partner Role *
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectMvRole('LISTER')}
+                    className={`p-2.5 rounded-xl border text-center font-bold cursor-pointer transition ${
+                      mvRole === 'LISTER'
+                        ? 'border-emerald-500 bg-emerald-950 text-emerald-300'
+                        : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    🚗 Car Rental Fleet
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectMvRole('DRIVER')}
+                    className={`p-2.5 rounded-xl border text-center font-bold cursor-pointer transition ${
+                      mvRole === 'DRIVER'
+                        ? 'border-blue-500 bg-blue-950 text-blue-300'
+                        : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    👨‍✈️ Chauffeur Driver
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleSelectMvRole('PROVIDER');
+                      setMvProviderSubtype('COMMERCIAL_CARGO');
+                      setMvPlanId('p-prov1');
+                      setMvPlanName('Cargo & Shifting Mover Pass');
+                      setMvQuota(5);
+                      setMvAmountPaid(5500);
+                    }}
+                    className={`p-2.5 rounded-xl border text-center font-bold cursor-pointer transition ${
+                      mvRole === 'PROVIDER' && mvProviderSubtype === 'COMMERCIAL_CARGO'
+                        ? 'border-orange-500 bg-orange-950 text-orange-300'
+                        : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    📦 Cargo & Movers
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleSelectMvRole('PROVIDER');
+                      setMvProviderSubtype('PICK_AND_DROP');
+                      setMvPlanId('p-prov2');
+                      setMvPlanName('Commuter Route Shuttle Pass');
+                      setMvQuota(5);
+                      setMvAmountPaid(4800);
+                    }}
+                    className={`p-2.5 rounded-xl border text-center font-bold cursor-pointer transition ${
+                      mvRole === 'PROVIDER' && mvProviderSubtype === 'PICK_AND_DROP'
+                        ? 'border-teal-500 bg-teal-950 text-teal-300'
+                        : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    🚌 Commuter Shuttles
+                  </button>
+                </div>
+              </div>
+
+              {/* Personal & Business Info */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1 font-semibold">
+                  <span>Vendor Full Name *</span>
+                  <input
+                    type="text"
+                    value={mvName}
+                    onChange={(e) => setMvName(e.target.value)}
+                    placeholder="e.g. Asad Mehmood"
+                    className="h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-emerald-500"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1 font-semibold">
+                  <span>Business / Company Name</span>
+                  <input
+                    type="text"
+                    value={mvBusinessName}
+                    onChange={(e) => setMvBusinessName(e.target.value)}
+                    placeholder="e.g. Mehmood Rent a Car"
+                    className="h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-emerald-500"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1 font-semibold">
+                  <span>WhatsApp Phone Number (Login ID) *</span>
+                  <input
+                    type="tel"
+                    value={mvPhone}
+                    onChange={(e) => setMvPhone(e.target.value)}
+                    placeholder="e.g. +92 300 1234567"
+                    className="h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono outline-none focus:border-emerald-500"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1 font-semibold">
+                  <span>City *</span>
+                  <select
+                    value={mvCity}
+                    onChange={(e) => setMvCity(e.target.value)}
+                    className="h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-emerald-500 cursor-pointer"
+                  >
+                    <option value="Lahore">Lahore</option>
+                    <option value="Karachi">Karachi</option>
+                    <option value="Islamabad">Islamabad</option>
+                    <option value="Rawalpindi">Rawalpindi</option>
+                    <option value="Faisalabad">Faisalabad</option>
+                    <option value="Multan">Multan</option>
+                    <option value="Peshawar">Peshawar</option>
+                    <option value="Quetta">Quetta</option>
+                  </select>
+                </label>
+              </div>
+
+              {/* Login Password */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                <label className="flex flex-col gap-1 font-semibold">
+                  <span>Login Password *</span>
+                  <input
+                    type="text"
+                    value={mvPassword}
+                    onChange={(e) => setMvPassword(e.target.value)}
+                    className="h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono outline-none focus:border-emerald-500"
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => setMvPassword(`Safar@${Math.floor(1000 + Math.random() * 9000)}`)}
+                  className="h-10 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Auto-Generate Password</span>
+                </button>
+              </div>
+
+              {/* Subscription Plan & Payment Details */}
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                <h4 className="font-bold text-white text-xs uppercase tracking-wider text-emerald-400">
+                  2. Subscription Plan & Financial Collection
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="flex flex-col gap-1 font-semibold">
+                    <span>Subscription Plan</span>
+                    <select
+                      value={mvPlanId}
+                      onChange={(e) => {
+                        const pid = e.target.value;
+                        setMvPlanId(pid);
+                        if (pid === 'p-1') {
+                          setMvPlanName('Starter Fleet Pass');
+                          setMvQuota(2);
+                          setMvAmountPaid(3500);
+                        } else if (pid === 'p-2') {
+                          setMvPlanName('Professional Fleet Hub');
+                          setMvQuota(15);
+                          setMvAmountPaid(12000);
+                        } else if (pid === 'p-3') {
+                          setMvPlanName('Enterprise Corporate Fleet');
+                          setMvQuota(50);
+                          setMvAmountPaid(30000);
+                        } else if (pid === 'p-drv1') {
+                          setMvPlanName('Independent Chauffeur Pass');
+                          setMvQuota(1);
+                          setMvAmountPaid(2000);
+                        } else if (pid === 'p-drv2') {
+                          setMvPlanName('VIP Executive Chauffeur Pass');
+                          setMvQuota(1);
+                          setMvAmountPaid(3000);
+                        } else if (pid === 'p-prov1') {
+                          setMvPlanName('Cargo & Shifting Mover Pass');
+                          setMvQuota(5);
+                          setMvAmountPaid(5500);
+                        } else if (pid === 'p-prov2') {
+                          setMvPlanName('Commuter Route Shuttle Pass');
+                          setMvQuota(5);
+                          setMvAmountPaid(4800);
+                        } else {
+                          setMvPlanName('Enterprise Transport Operator');
+                          setMvQuota(25);
+                          setMvAmountPaid(18000);
+                        }
+                      }}
+                      className="h-10 px-3 bg-slate-900 border border-slate-800 rounded-xl text-white outline-none cursor-pointer"
+                    >
+                      <optgroup label="Car Rental Plans">
+                        <option value="p-1">Starter Fleet Pass (Rs. 3,500 · 2 Cars)</option>
+                        <option value="p-2">Professional Fleet Hub (Rs. 12,000 · 15 Cars)</option>
+                        <option value="p-3">Enterprise Corporate Fleet (Rs. 30,000 · 50 Cars)</option>
+                      </optgroup>
+                      <optgroup label="Driver & Chauffeur Plans">
+                        <option value="p-drv1">Independent Chauffeur Pass (Rs. 2,000 · 1 Profile)</option>
+                        <option value="p-drv2">VIP Executive Chauffeur Pass (Rs. 3,000 · Top Ranking)</option>
+                      </optgroup>
+                      <optgroup label="Transport & Provider Passes">
+                        <option value="p-prov1">Cargo & Shifting Mover Pass (Rs. 5,500 · 5 Trucks)</option>
+                        <option value="p-prov2">Commuter Route Shuttle Pass (Rs. 4,800 · 5 Routes)</option>
+                        <option value="p-prov3">Enterprise Transport Operator (Rs. 18,000 · 25 Units)</option>
+                      </optgroup>
+                    </select>
+                  </label>
+
+                  <label className="flex flex-col gap-1 font-semibold">
+                    <span>Amount Collected (PKR) *</span>
+                    <input
+                      type="number"
+                      value={mvAmountPaid}
+                      onChange={(e) => setMvAmountPaid(Number(e.target.value))}
+                      className="h-10 px-3 bg-slate-900 border border-slate-800 rounded-xl text-emerald-400 font-mono font-bold text-sm outline-none"
+                    />
+                  </label>
+
+                  <label className="flex flex-col gap-1 font-semibold">
+                    <span>Payment Mode *</span>
+                    <select
+                      value={mvPaymentMode}
+                      onChange={(e) => setMvPaymentMode(e.target.value)}
+                      className="h-10 px-3 bg-slate-900 border border-slate-800 rounded-xl text-white outline-none cursor-pointer"
+                    >
+                      <option value="Cash (Office)">Cash Handover (Office)</option>
+                      <option value="Bank Transfer / Raast">Bank Transfer / Raast</option>
+                      <option value="JazzCash / Easypaisa">JazzCash / Easypaisa</option>
+                      <option value="Credit / Debit Card">Credit / Debit Card</option>
+                      <option value="Cheque">Bank Cheque</option>
+                    </select>
+                  </label>
+
+                  <label className="flex flex-col gap-1 font-semibold">
+                    <span>Payment Reference / Receipt ID</span>
+                    <input
+                      type="text"
+                      value={mvPaymentRef}
+                      onChange={(e) => setMvPaymentRef(e.target.value)}
+                      placeholder="e.g. CASH-OFFICE-801 or TRX-829104"
+                      className="h-10 px-3 bg-slate-900 border border-slate-800 rounded-xl text-white font-mono outline-none"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowManualVendorModal(false)}
+                className="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold hover:bg-slate-700 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCreateManualVendor}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black transition cursor-pointer shadow-lg shadow-emerald-950/50 flex items-center gap-2"
+              >
+                <Check className="w-4 h-4" />
+                <span>Create Account & Activate Subscription</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 2: CREATED VENDOR CREDENTIALS SLIP & WHATSAPP SHARE                 */}
+      {/* ========================================================================= */}
+      {createdVendorSlip && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border-2 border-emerald-500/50 rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl space-y-5 text-xs text-slate-300 animate-in fade-in zoom-in-95 duration-200">
+            <div className="text-center space-y-1">
+              <div className="w-14 h-14 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-700 flex items-center justify-center mx-auto text-2xl font-black">
+                ✓
+              </div>
+              <h3 className="text-xl font-black text-white">
+                Vendor Portal & Subscription Live!
+              </h3>
+              <p className="text-slate-400 text-xs">
+                Account created successfully. Payment of <strong className="text-emerald-400 font-mono">PKR {formatPKR(createdVendorSlip.payment.amountPaid)}</strong> recorded into financial ledger.
+              </p>
+            </div>
+
+            {/* Credentials Card */}
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2 text-xs font-mono">
+              <div className="flex justify-between border-b border-slate-800/80 pb-1.5">
+                <span className="text-slate-400 font-sans">Vendor Name:</span>
+                <strong className="text-white font-sans">{createdVendorSlip.user.name}</strong>
+              </div>
+              <div className="flex justify-between border-b border-slate-800/80 pb-1.5">
+                <span className="text-slate-400 font-sans">Login Phone / User:</span>
+                <strong className="text-emerald-400">{createdVendorSlip.user.phone}</strong>
+              </div>
+              <div className="flex justify-between border-b border-slate-800/80 pb-1.5">
+                <span className="text-slate-400 font-sans">Password:</span>
+                <strong className="text-amber-400">{createdVendorSlip.passwordText}</strong>
+              </div>
+              <div className="flex justify-between border-b border-slate-800/80 pb-1.5">
+                <span className="text-slate-400 font-sans">Role / Category:</span>
+                <strong className="text-white font-sans">{createdVendorSlip.user.role}</strong>
+              </div>
+              <div className="flex justify-between border-b border-slate-800/80 pb-1.5">
+                <span className="text-slate-400 font-sans">Subscription Plan:</span>
+                <strong className="text-white font-sans">{createdVendorSlip.payment.planName}</strong>
+              </div>
+              <div className="flex justify-between border-b border-slate-800/80 pb-1.5">
+                <span className="text-slate-400 font-sans">Payment Mode:</span>
+                <span className="text-slate-300 font-sans">{createdVendorSlip.payment.paymentMode}</span>
+              </div>
+              <div className="flex justify-between pt-0.5">
+                <span className="text-slate-400 font-sans">Portal URL:</span>
+                <span className="text-blue-400 underline font-sans">http://localhost:3000/login</span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const txt = `Salam ${createdVendorSlip.user.name}!\nAap ka SafarPK Partner Portal account create aur subscription activate ho chuki hai.\n\n🌐 Portal Login: http://localhost:3000/login\n📱 Login Phone: ${createdVendorSlip.user.phone}\n🔑 Password: ${createdVendorSlip.passwordText}\n📦 Package: ${createdVendorSlip.payment.planName} (ACTIVE)\n💰 Amount Received: PKR ${formatPKR(createdVendorSlip.payment.amountPaid)}\nReceipt Ref: ${createdVendorSlip.payment.paymentRef}\n\nAb aap foran login kar ke apni listings publish kar sakty hain!`;
+                  navigator.clipboard.writeText(txt);
+                  alert('✓ Login credentials copied to clipboard!');
+                }}
+                className="flex-1 py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition"
+              >
+                <Copy className="w-4 h-4 text-slate-300" />
+                <span>Copy Credentials Slip</span>
+              </button>
+
+              <a
+                href={`https://wa.me/${createdVendorSlip.user.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                  `Salam ${createdVendorSlip.user.name}!\nAap ka SafarPK Partner Portal account create aur subscription activate ho chuki hai.\n\n🌐 Portal Login: http://localhost:3000/login\n📱 Login Phone: ${createdVendorSlip.user.phone}\n🔑 Password: ${createdVendorSlip.passwordText}\n📦 Package: ${createdVendorSlip.payment.planName} (ACTIVE)\n💰 Amount Received: PKR ${formatPKR(createdVendorSlip.payment.amountPaid)}\nReceipt Ref: ${createdVendorSlip.payment.paymentRef}\n\nAb aap foran login kar ke apni listings publish kar sakty hain!`
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition shadow-md"
+              >
+                <Share2 className="w-4 h-4" />
+                <span>Send on WhatsApp</span>
+              </a>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setCreatedVendorSlip(null);
+                setShowManualVendorModal(false);
+              }}
+              className="w-full py-2.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white font-bold text-xs transition cursor-pointer"
+            >
+              Done & Return to Overview
+            </button>
           </div>
         </div>
       )}

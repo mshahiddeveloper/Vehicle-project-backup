@@ -35,12 +35,18 @@ yarn-error.log*
 coverage/
 .nyc_output/
 
-# Prisma
+# Prisma & SQLite
 prisma/*.db
 prisma/*.db-journal
+backend/prisma/*.db
+backend/prisma/*.db-journal
+*.db
+*.db-journal
 
 # Docker
 docker-compose.override.yml
 
 # Misc
 *.tsbuildinfo
+scratch/
+extracted_designs/

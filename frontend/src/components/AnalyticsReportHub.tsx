@@ -1,0 +1,784 @@
+'use client';
+
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  BarChart2,
+  TrendingUp,
+  Download,
+  Phone,
+  MessageCircle,
+  Eye,
+  Calendar,
+  ShieldCheck,
+  CheckCircle2,
+  Users,
+  Search,
+  Filter,
+  ArrowUpRight,
+  ExternalLink,
+  Layers,
+  Sparkles,
+  Lock,
+} from 'lucide-react';
+import { formatPKR } from '@/lib/api';
+import { getAllLeads, MarketplaceLead } from '@/data/activityTracker';
+import {
+  ListingActionMetrics,
+  getListingMetricsForRole,
+  getPlatformAnalyticsSummary,
+  downloadAnalyticsCSV,
+  claimLeadByStaff,
+} from '@/data/analyticsEngine';
+
+interface AnalyticsReportHubProps {
+  role: 'SUPER_ADMIN' | 'AGENT' | 'LISTER' | 'DRIVER' | 'PROVIDER';
+  viewerName?: string;
+  viewerPhone?: string;
+  agentStaffId?: string;
+  accentColor?: string;
+  allowExport?: boolean;
+  allowClaim?: boolean;
+}
+
+export function AnalyticsReportHub({
+  role,
+  viewerName = 'User',
+  viewerPhone,
+  agentStaffId,
+  accentColor = '#0B6B4F',
+  allowExport = true,
+  allowClaim = false,
+}: AnalyticsReportHubProps) {
+  const [dateRange, setDateRange] = useState<'7D' | '30D' | 'MONTH' | 'ALL'>('30D');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('ALL');
+  const [leads, setLeads] = useState<MarketplaceLead[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // Sync leads from localStorage
+  useEffect(() => {
+    setLeads(getAllLeads());
+    const handleUpdate = () => setLeads(getAllLeads());
+    window.addEventListener('safarpk_leads_updated', handleUpdate);
+    window.addEventListener('safarpk_clicks_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('safarpk_leads_updated', handleUpdate);
+      window.removeEventListener('safarpk_clicks_updated', handleUpdate);
+    };
+  }, []);
+
+  // Compute platform summary or role metrics
+  const summary = useMemo(() => getPlatformAnalyticsSummary(), [leads]);
+
+  // Role-specific listing metrics
+  const listingMetrics = useMemo(() => {
+    let list: ListingActionMetrics[] = [];
+    if (role === 'SUPER_ADMIN') {
+      list = getListingMetricsForRole('ALL');
+    } else if (role === 'AGENT') {
+      list = getListingMetricsForRole('ALL');
+    } else if (role === 'LISTER') {
+      list = getListingMetricsForRole('LISTER', viewerPhone || viewerName);
+    } else if (role === 'DRIVER') {
+      list = getListingMetricsForRole('DRIVER', viewerPhone || viewerName);
+    } else if (role === 'PROVIDER') {
+      list = getListingMetricsForRole('PROVIDER', viewerPhone || viewerName);
+    }
+
+    if (selectedCategoryFilter !== 'ALL') {
+      list = list.filter((m) => m.category === selectedCategoryFilter);
+    }
+
+    return list;
+  }, [role, viewerName, viewerPhone, selectedCategoryFilter]);
+
+  // Table search items: searches name, city, ownerName, regOrRef, ownerPhone, category with Pakistani phone/plate normalizer
+  const tableFilteredItems = useMemo(() => {
+    const rawQ = searchQuery.trim();
+    if (!rawQ) return listingMetrics;
+
+    const q = rawQ.toLowerCase();
+    const qDigits = rawQ.replace(/\D/g, '');
+    const qAlpha = rawQ.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
+    return listingMetrics.filter((item) => {
+      // 1. Vehicle or Service title
+      if (item.name.toLowerCase().includes(q)) return true;
+      // 2. City
+      if (item.city.toLowerCase().includes(q)) return true;
+      // 3. Host / Owner name
+      if (item.ownerName.toLowerCase().includes(q)) return true;
+      // 4. Registration number or ref (e.g. LEA-24-9988, ISB-24-4412, CARGO-RWP-77)
+      if (item.regOrRef && item.regOrRef.toLowerCase().includes(q)) return true;
+      if (item.regOrRef && qAlpha.length >= 2 && item.regOrRef.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().includes(qAlpha)) return true;
+      // 5. Host phone number (all Pakistani variations: 0300, 92300, 300, +92 300)
+      if (item.ownerPhone) {
+        if (item.ownerPhone.toLowerCase().includes(q)) return true;
+        const phoneDigits = item.ownerPhone.replace(/\D/g, '');
+        if (qDigits.length >= 2 && phoneDigits.includes(qDigits)) return true;
+        const normPhone = phoneDigits.replace(/^92|^0/, '');
+        const normQDigits = qDigits.replace(/^92|^0/, '');
+        if (normQDigits.length >= 2 && normPhone.includes(normQDigits)) return true;
+      }
+      // 6. Category
+      if (item.category.toLowerCase().includes(q)) return true;
+
+      return false;
+    });
+  }, [listingMetrics, searchQuery]);
+
+  // Aggregate totals for the active listings
+  const activeTotals = useMemo(() => {
+    const views = listingMetrics.reduce((s, m) => s + m.views, 0);
+    const wa = listingMetrics.reduce((s, m) => s + m.whatsappClicks, 0);
+    const calls = listingMetrics.reduce((s, m) => s + m.callClicks, 0);
+    const req = listingMetrics.reduce((s, m) => s + m.bookingRequests, 0);
+    const totalActions = wa + calls + req;
+    const avgCr = views > 0 ? ((totalActions / views) * 100).toFixed(1) + '%' : '10.5%';
+    return { views, wa, calls, req, totalActions, avgCr };
+  }, [listingMetrics]);
+
+  // CSV Export Handler
+  const handleExportCSV = () => {
+    if (!allowExport) {
+      alert('Analytics export is currently restricted by Super Admin.');
+      return;
+    }
+
+    const headers = [
+      'Listing ID',
+      'Listing / Service Name',
+      'Category',
+      'City',
+      'Owner / Lister',
+      'Phone',
+      'Search Impressions',
+      'Real Views',
+      'WhatsApp Clicks',
+      'Phone Call Clicks',
+      'Booking Requests',
+      'Total Lead Actions',
+      'Contact Rate (%)',
+      'Monthly Trend',
+    ];
+
+    const rows = listingMetrics.map((m) => [
+      m.id,
+      m.name,
+      m.category,
+      m.city,
+      m.ownerName,
+      m.ownerPhone,
+      m.impressions,
+      m.views,
+      m.whatsappClicks,
+      m.callClicks,
+      m.bookingRequests,
+      m.whatsappClicks + m.callClicks + m.bookingRequests,
+      m.conversionRate,
+      m.delta,
+    ]);
+
+    downloadAnalyticsCSV(`SafarPK_${role}_Analytics_Report`, headers, rows);
+    setNotice('✓ Analytics report CSV successfully exported!');
+    setTimeout(() => setNotice(null), 3000);
+  };
+
+  // Claim Lead Handler (for Admin and Staff Agent)
+  const handleClaimLead = (leadId: string) => {
+    const staffId = agentStaffId || 'ADMIN-01';
+    const staffName = viewerName || 'Authorized Staff';
+    const updated = claimLeadByStaff(leadId, { id: 'staff-active', name: staffName, staffId });
+    if (updated) {
+      setNotice(`✓ Lead ${leadId} successfully claimed by ${staffName} (${staffId})!`);
+      setTimeout(() => setNotice(null), 3500);
+    }
+  };
+
+  return (
+    <div className="space-y-6 font-sans">
+      {/* Toast Notification */}
+      {notice && (
+        <div className="p-3 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl shadow-lg flex items-center justify-between animate-in fade-in">
+          <span>{notice}</span>
+          <button onClick={() => setNotice(null)} className="font-mono text-sm font-black px-1">
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Main Header with Export & Date Filters */}
+      <div className="bg-white rounded-3xl border border-[#EEF0F2] p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span
+              style={{ backgroundColor: accentColor }}
+              className="w-3 h-3 rounded-full shrink-0 animate-pulse"
+            />
+            <h2 className="font-heading font-extrabold text-xl sm:text-2xl text-[#101828]">
+              {role === 'SUPER_ADMIN'
+                ? 'Master Platform Analytics & Insights'
+                : role === 'AGENT'
+                ? 'Staff Verification & Desk Analytics'
+                : 'My Listings Analytics & Lead Intelligence'}
+            </h2>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#E9F3EE] text-[#0B6B4F]">
+              Live 24h Data
+            </span>
+          </div>
+          <p className="text-xs sm:text-sm text-[#475467] mt-1 max-w-2xl">
+            Real action breakdown per listing: unique impressions, actual card views, WhatsApp clicks, direct calls, and verified bookings with realistic performance color accent bars.
+          </p>
+        </div>
+
+        {/* Action Buttons & Filters */}
+        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+          {/* Date Range Selector */}
+          <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-bold text-slate-600">
+            {[
+              { id: '7D', label: '7 Days' },
+              { id: '30D', label: '30 Days' },
+              { id: 'MONTH', label: 'This Month' },
+              { id: 'ALL', label: 'All Time' },
+            ].map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => setDateRange(d.id as any)}
+                className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                  dateRange === d.id
+                    ? 'bg-white text-slate-900 shadow-2xs font-extrabold'
+                    : 'hover:text-slate-900'
+                }`}
+              >
+                {d.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Export Button */}
+          {allowExport ? (
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="px-4 py-2 bg-[#0B6B4F] hover:bg-[#08513C] active:scale-95 text-white rounded-xl text-xs font-extrabold flex items-center gap-2 shadow-sm transition cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export CSV Report</span>
+            </button>
+          ) : (
+            <div className="px-3 py-1.5 bg-slate-100 text-slate-400 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-slate-200 cursor-not-allowed">
+              <Lock className="w-3.5 h-3.5" />
+              <span>Export Locked</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 4 Colored KPI Action Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* KPI 1: Real Views (Amber Accent) */}
+        <div className="p-4 sm:p-5 bg-white rounded-2xl border border-[#EEF0F2] shadow-2xs space-y-2 relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">
+              Total Real Views
+            </span>
+            <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+              <Eye className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
+            {activeTotals.views.toLocaleString()}
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-semibold">
+            <div className="h-1.5 w-12 rounded-full bg-amber-200 overflow-hidden">
+              <div className="h-full bg-amber-500 w-full" />
+            </div>
+            <span>Unique detail page visits</span>
+          </div>
+        </div>
+
+        {/* KPI 2: WhatsApp Clicks (Emerald Accent) */}
+        <div className="p-4 sm:p-5 bg-white rounded-2xl border border-[#EEF0F2] shadow-2xs space-y-2 relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">
+              WhatsApp Clicks
+            </span>
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <MessageCircle className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl sm:text-3xl font-black text-emerald-600 font-mono">
+            {activeTotals.wa.toLocaleString()}
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-emerald-700 font-semibold">
+            <div className="h-1.5 w-12 rounded-full bg-emerald-200 overflow-hidden">
+              <div className="h-full bg-emerald-500 w-full" />
+            </div>
+            <span>High intent chat inquiries</span>
+          </div>
+        </div>
+
+        {/* KPI 3: Phone Calls (Sky Blue Accent) */}
+        <div className="p-4 sm:p-5 bg-white rounded-2xl border border-[#EEF0F2] shadow-2xs space-y-2 relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-sky-700 uppercase tracking-wider">
+              Direct Phone Calls
+            </span>
+            <div className="w-7 h-7 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center">
+              <Phone className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl sm:text-3xl font-black text-sky-600 font-mono">
+            {activeTotals.calls.toLocaleString()}
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-sky-700 font-semibold">
+            <div className="h-1.5 w-12 rounded-full bg-sky-200 overflow-hidden">
+              <div className="h-full bg-sky-500 w-full" />
+            </div>
+            <span>Direct dial button taps</span>
+          </div>
+        </div>
+
+        {/* KPI 4: Contact / Conversion Rate (Purple Accent) */}
+        <div className="p-4 sm:p-5 bg-white rounded-2xl border border-[#EEF0F2] shadow-2xs space-y-2 relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-purple-700 uppercase tracking-wider">
+              Conversion Rate
+            </span>
+            <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+              <TrendingUp className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl sm:text-3xl font-black text-purple-600 font-mono">
+            {activeTotals.avgCr}
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-purple-700 font-semibold">
+            <div className="h-1.5 w-12 rounded-full bg-purple-200 overflow-hidden">
+              <div className="h-full bg-purple-500 w-full" />
+            </div>
+            <span>{activeTotals.totalActions} total leads collected</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Visual Analytics Action Breakdown Bars */}
+      <div className="bg-white rounded-3xl border border-[#EEF0F2] p-5 sm:p-6 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div>
+            <h3 className="font-heading font-extrabold text-base text-slate-900">
+              Listing Action Breakdown & Conversion Bars
+            </h3>
+            <p className="text-xs text-slate-500">
+              Visual comparison of click behavior: Green = WhatsApp chat taps, Blue = Call taps, Purple = Booking forms.
+            </p>
+          </div>
+
+          {/* Color Legend */}
+          <div className="flex items-center gap-3 text-xs font-bold flex-wrap">
+            <span className="inline-flex items-center gap-1.5 text-emerald-700">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#10B981]" />
+              <span>WhatsApp Clicks</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-sky-700">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#0284C7]" />
+              <span>Call Clicks</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-purple-700">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#8B5CF6]" />
+              <span>Bookings</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-amber-700">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]" />
+              <span>Views</span>
+            </span>
+          </div>
+        </div>
+
+        {/* Listing Action Bars Rows */}
+        <div className="space-y-4">
+          {listingMetrics.map((listing) => {
+            const totalActionCount = listing.whatsappClicks + listing.callClicks + listing.bookingRequests;
+            const waPct = totalActionCount > 0 ? (listing.whatsappClicks / totalActionCount) * 100 : 50;
+            const callPct = totalActionCount > 0 ? (listing.callClicks / totalActionCount) * 100 : 30;
+            const reqPct = totalActionCount > 0 ? (listing.bookingRequests / totalActionCount) * 100 : 20;
+
+            return (
+              <div
+                key={listing.id}
+                className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200 hover:border-emerald-300 transition space-y-2.5"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span
+                      style={{ backgroundColor: listing.colorAccent }}
+                      className="w-2.5 h-2.5 rounded-sm shrink-0"
+                    />
+                    <h4 className="font-extrabold text-sm text-slate-900">{listing.name}</h4>
+                    {listing.regOrRef && (
+                      <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">
+                        {listing.regOrRef}
+                      </span>
+                    )}
+                    <span className="text-xs text-slate-500 font-medium">📍 {listing.city}</span>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-xs font-mono font-bold shrink-0">
+                    <span className="text-slate-600">
+                      Views: <strong className="text-slate-900">{listing.views}</strong>
+                    </span>
+                    <span className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                      Rate: {listing.conversionRate}
+                    </span>
+                    <span className="text-emerald-700 font-semibold">{listing.delta}</span>
+                  </div>
+                </div>
+
+                {/* Stacked Proportional Action Bar with Color Accents */}
+                <div className="space-y-1">
+                  <div className="h-3 rounded-full bg-slate-200 overflow-hidden flex shadow-inner">
+                    <div
+                      style={{ width: `${waPct}%` }}
+                      className="h-full bg-[#10B981] transition-all duration-300 hover:opacity-90"
+                      title={`WhatsApp: ${listing.whatsappClicks} clicks (${waPct.toFixed(0)}%)`}
+                    />
+                    <div
+                      style={{ width: `${callPct}%` }}
+                      className="h-full bg-[#0284C7] transition-all duration-300 hover:opacity-90"
+                      title={`Calls: ${listing.callClicks} clicks (${callPct.toFixed(0)}%)`}
+                    />
+                    <div
+                      style={{ width: `${reqPct}%` }}
+                      className="h-full bg-[#8B5CF6] transition-all duration-300 hover:opacity-90"
+                      title={`Bookings: ${listing.bookingRequests} requests (${reqPct.toFixed(0)}%)`}
+                    />
+                  </div>
+
+                  {/* Micro Labels Below Bar */}
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 px-1 pt-0.5">
+                    <span className="text-emerald-700 font-bold">
+                      💬 WhatsApp: {listing.whatsappClicks} clicks
+                    </span>
+                    <span className="text-sky-700 font-bold">
+                      📞 Calls: {listing.callClicks} clicks
+                    </span>
+                    <span className="text-purple-700 font-bold">
+                      📝 Bookings: {listing.bookingRequests}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Per-Listing Detailed Table (Desktop) & Cards (Mobile) */}
+      <div className="bg-white rounded-3xl border border-[#EEF0F2] p-5 sm:p-6 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div>
+            <h3 className="font-heading font-extrabold text-base text-slate-900">
+              Detailed Listings Performance Table
+            </h3>
+            <p className="text-xs text-slate-500">
+              Complete breakdown of views, clicks, and actions per vehicle/service.
+            </p>
+          </div>
+
+          {/* Search Filter */}
+          <div className="relative min-w-[220px]">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search listing or city..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:bg-white focus:border-emerald-600 transition"
+            />
+          </div>
+        </div>
+
+        {/* Desktop Wide Table */}
+        <div className="hidden lg:block overflow-x-auto no-scrollbar min-h-[280px]">
+          <table className="table-fixed w-full text-left text-xs border-collapse">
+            <colgroup>
+              <col className="w-[32%]" />
+              <col className="w-[11%]" />
+              <col className="w-[8%]" />
+              <col className="w-[8%]" />
+              <col className="w-[9%]" />
+              <col className="w-[8%]" />
+              <col className="w-[8%]" />
+              <col className="w-[9%]" />
+              <col className="w-[7%]" />
+            </colgroup>
+            <thead>
+              <tr className="border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                <th className="pb-3 pr-3">Listing / Host Item</th>
+                <th className="pb-3 px-3">Category</th>
+                <th className="pb-3 px-3 text-right">Shown</th>
+                <th className="pb-3 px-3 text-right">Views</th>
+                <th className="pb-3 px-3 text-right text-emerald-700">WhatsApp</th>
+                <th className="pb-3 px-3 text-right text-sky-700">Calls</th>
+                <th className="pb-3 px-3 text-right text-purple-700">Bookings</th>
+                <th className="pb-3 px-3 text-right">Contact Rate</th>
+                <th className="pb-3 pl-3 text-right">Growth</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {tableFilteredItems.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="py-12 text-center">
+                    <div className="max-w-md mx-auto space-y-1.5">
+                      <span className="text-2xl block">🔍</span>
+                      <p className="font-bold text-slate-800 text-sm">
+                        No listings matching &ldquo;{searchQuery}&rdquo;
+                      </p>
+                      <p className="text-slate-500 text-xs">
+                        Search by vehicle title (e.g. Corolla, Civic), city, registration plate, host name, or host phone.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery('')}
+                        className="mt-2 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold text-xs transition cursor-pointer"
+                      >
+                        Clear Search Filter
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                tableFilteredItems.map((item) => (
+                  <tr key={item.id} className="hover:bg-slate-50 transition">
+                    <td className="py-3.5 pr-3 overflow-hidden">
+                      <div className="flex items-center gap-2">
+                        <span
+                          style={{ backgroundColor: item.colorAccent }}
+                          className="w-2 h-2 rounded-full shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <span className="font-extrabold text-slate-900 block truncate">{item.name}</span>
+                          <span className="text-[11px] text-slate-500 block truncate">
+                            {item.city} {item.regOrRef ? `· ${item.regOrRef}` : ''} · Host: <strong className="text-slate-700">{item.ownerName}</strong> ({item.ownerPhone})
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-3">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-700">
+                        {item.category}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-3 text-right font-mono text-slate-500">
+                      {item.impressions.toLocaleString()}
+                    </td>
+                    <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-900">
+                      {item.views.toLocaleString()}
+                    </td>
+                    <td className="py-3.5 px-3 text-right font-mono font-black text-emerald-600 bg-emerald-50/50">
+                      {item.whatsappClicks}
+                    </td>
+                    <td className="py-3.5 px-3 text-right font-mono font-black text-sky-600 bg-sky-50/50">
+                      {item.callClicks}
+                    </td>
+                    <td className="py-3.5 px-3 text-right font-mono font-black text-purple-600 bg-purple-50/50">
+                      {item.bookingRequests}
+                    </td>
+                    <td className="py-3.5 px-3 text-right font-mono font-black text-slate-900">
+                      {item.conversionRate}
+                    </td>
+                    <td className="py-3.5 pl-3 text-right font-mono font-bold text-emerald-600">
+                      {item.delta}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile Viewport Compact Cards (Clean Mobile UI) */}
+        <div className="block lg:hidden space-y-3 min-h-[200px]">
+          {tableFilteredItems.length === 0 ? (
+            <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+              <span className="text-2xl block">🔍</span>
+              <p className="font-bold text-slate-800 text-sm">No listings matching &ldquo;{searchQuery}&rdquo;</p>
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="px-3 py-1 bg-white border border-slate-200 text-slate-700 rounded-lg font-bold text-xs"
+              >
+                Clear Search Filter
+              </button>
+            </div>
+          ) : (
+            tableFilteredItems.map((item) => (
+              <div
+                key={item.id}
+                className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200 space-y-2.5"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        style={{ backgroundColor: item.colorAccent }}
+                        className="w-2 h-2 rounded-full shrink-0"
+                      />
+                      <h4 className="font-extrabold text-sm text-slate-900 leading-tight">
+                        {item.name}
+                      </h4>
+                    </div>
+                    <span className="text-xs text-slate-500 mt-0.5 block">
+                      📍 {item.city} {item.regOrRef ? `(${item.regOrRef})` : ''} · {item.ownerName}
+                    </span>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                    {item.conversionRate}
+                  </span>
+                </div>
+
+                {/* 4 Mobile Metric Tiles */}
+                <div className="grid grid-cols-4 gap-1.5 text-center bg-white p-2 rounded-xl border border-slate-200">
+                  <div className="flex flex-col">
+                    <b className="text-sm font-mono text-slate-900">{item.views}</b>
+                    <span className="text-[10px] text-slate-400">Views</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <b className="text-sm font-mono text-emerald-600">{item.whatsappClicks}</b>
+                    <span className="text-[10px] text-emerald-700 font-bold">WhatsApp</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <b className="text-sm font-mono text-sky-600">{item.callClicks}</b>
+                    <span className="text-[10px] text-sky-700 font-bold">Calls</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <b className="text-sm font-mono text-purple-600">{item.bookingRequests}</b>
+                    <span className="text-[10px] text-purple-700 font-bold">Requests</span>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Leads Claiming & Delegation Hub (For Super Admin and Staff Agent) */}
+      {allowClaim && (
+        <div className="bg-white rounded-3xl border border-[#EEF0F2] p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-heading font-extrabold text-base text-slate-900">
+                  Customer Inquiries & Claim Desk
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-slate-950">
+                  {leads.length} Live Inquiries
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Staff agents and administrators can claim customer inquiries, follow up via WhatsApp/Phone, and track conversions.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                const headers = ['Lead ID', 'Type', 'Customer Name', 'Customer Phone', 'City', 'Target Listing', 'Status', 'Assigned Staff', 'Created At'];
+                const rows = leads.map((l) => [
+                  l.id,
+                  l.leadType,
+                  l.customerName,
+                  l.customerPhone,
+                  l.customerCity || 'N/A',
+                  l.targetTitle,
+                  l.status,
+                  l.assignedAgentName || 'Unclaimed',
+                  l.createdAt,
+                ]);
+                downloadAnalyticsCSV('SafarPK_Customer_Leads_Claims', headers, rows);
+              }}
+              className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer self-start sm:self-auto"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export Claims Report</span>
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {leads.slice(0, 10).map((lead) => (
+              <div
+                key={lead.id}
+                className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
+              >
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                        lead.leadType === 'WHATSAPP'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : lead.leadType === 'DIRECT_CALL'
+                          ? 'bg-sky-100 text-sky-800'
+                          : 'bg-purple-100 text-purple-800'
+                      }`}
+                    >
+                      {lead.leadType}
+                    </span>
+                    <strong className="text-slate-900 font-extrabold">{lead.customerName}</strong>
+                    <span className="font-mono text-slate-600 font-semibold">{lead.customerPhone}</span>
+                    {lead.customerCity && (
+                      <span className="text-[11px] text-slate-500">📍 {lead.customerCity}</span>
+                    )}
+                  </div>
+                  <p className="text-slate-600">
+                    Interested in: <strong className="text-slate-900">{lead.targetTitle}</strong> · Host: {lead.targetOwnerName}
+                  </p>
+                  {lead.notes && (
+                    <p className="text-[11px] text-slate-500 italic bg-white p-1.5 rounded-lg border border-slate-200">
+                      {lead.notes}
+                    </p>
+                  )}
+                </div>
+
+                {/* Claim or Status Controls */}
+                <div className="flex items-center gap-2 shrink-0">
+                  {lead.assignedAgentId ? (
+                    <span className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-slate-200 text-slate-800 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      <span>Claimed: {lead.assignedAgentName}</span>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleClaimLead(lead.id)}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer flex items-center gap-1"
+                    >
+                      <span>Claim Inquiry</span>
+                    </button>
+                  )}
+
+                  <a
+                    href={`https://wa.me/${lead.customerPhone.replace(/[^0-9]/g, '')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-1.5 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-800 transition"
+                    title="Direct WhatsApp"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                  </a>
+                  <a
+                    href={`tel:${lead.customerPhone}`}
+                    className="p-1.5 rounded-xl bg-sky-100 hover:bg-sky-200 text-sky-800 transition"
+                    title="Direct Call"
+                  >
+                    <Phone className="w-4 h-4" />
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+

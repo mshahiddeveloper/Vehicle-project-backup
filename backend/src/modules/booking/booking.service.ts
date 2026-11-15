@@ -89,7 +89,14 @@ export class BookingService {
   }
 
   async createBooking(dto: {
-    userId: string;
+    userId?: string;
+    customerId?: string;
+    isGuest?: boolean;
+    customerName?: string;
+    customerPhone?: string;
+    customerCnic?: string;
+    serviceCategory?: string;
+    bookingRef?: string;
     listingId: string;
     startDate: string;
     endDate: string;
@@ -97,7 +104,6 @@ export class BookingService {
     pickupAddress?: string;
     withDriver?: boolean;
     driverId?: string;
-    customerCnic?: string;
     customerLicenceNumber?: string;
     customerLicenceExpiry?: string;
     customerLicenceCategory?: string;
@@ -107,6 +113,13 @@ export class BookingService {
   }) {
     const {
       userId,
+      customerId,
+      isGuest,
+      customerName,
+      customerPhone,
+      customerCnic,
+      serviceCategory,
+      bookingRef: customRef,
       listingId,
       startDate,
       endDate,
@@ -114,7 +127,6 @@ export class BookingService {
       pickupAddress,
       withDriver,
       driverId,
-      customerCnic,
       customerLicenceNumber,
       customerLicenceExpiry,
       customerLicenceCategory,
@@ -155,25 +167,15 @@ export class BookingService {
       );
     }
 
-    let effectiveCustId = userId;
-    if (!effectiveCustId) {
+    let effectiveCustId = userId || customerId;
+    const isGuestCheckout = isGuest || !effectiveCustId;
+
+    if (!isGuestCheckout && !effectiveCustId) {
       const fallbackUser = await this.prisma.user.findFirst({
         where: { userType: 'CUSTOMER' },
       });
       if (fallbackUser) {
         effectiveCustId = fallbackUser.id;
-      } else {
-        const pkCountry = await this.prisma.country.findFirst({ where: { code: 'PK' } });
-        const newUser = await this.prisma.user.create({
-          data: {
-            phone: `+92300${Math.floor(1000000 + Math.random() * 9000000)}`,
-            phoneCountryCode: '+92',
-            userType: 'CUSTOMER',
-            accountStatus: 'APPROVED',
-            countryId: pkCountry ? pkCountry.id : 'demo-country-pk',
-          },
-        });
-        effectiveCustId = newUser.id;
       }
     }
 
@@ -186,7 +188,7 @@ export class BookingService {
       totalAmount = listing.weeklyRate * Math.ceil(days / 7);
     }
 
-    // Calculate Driver charges if chauffeur requested or independently hired
+    // Calculate Driver charges if chauffeur requested
     let driverCharge = 0;
     if (withDriver || driverId) {
       const dailyDriverFee = listing.driverDailyCharge || 2500;
@@ -194,9 +196,9 @@ export class BookingService {
       totalAmount += driverCharge;
     }
 
-    const bookingRef = `BKG-${Date.now().toString().slice(-6)}`;
+    const finalBookingRef = customRef || `SF-${Date.now().toString().slice(-6)}`;
 
-    // Pack customer verification credentials for Self-Drive security
+    // Pack customer verification credentials for Self-Drive security (sensitive docs stored safely)
     const securityCredentials = JSON.stringify({
       customerCnic: customerCnic || null,
       customerLicenceNumber: customerLicenceNumber || null,
@@ -204,14 +206,19 @@ export class BookingService {
       customerLicenceCategory: customerLicenceCategory || 'LTV / Motorcar',
       drivingLicenceUrl: drivingLicenceUrl || null,
       cnicUrl: cnicUrl || null,
-      verifiedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
       notes: specialRequests || null,
     });
 
     const booking = await this.prisma.booking.create({
       data: {
-        bookingRef,
-        customerId: effectiveCustId,
+        bookingRef: finalBookingRef,
+        customerId: isGuestCheckout ? null : effectiveCustId,
+        isGuest: isGuestCheckout,
+        customerName: customerName || null,
+        customerPhone: customerPhone || null,
+        customerCnic: customerCnic || null,
+        serviceCategory: serviceCategory || 'CAR_RENTAL',
         listingId,
         driverId: driverId || null,
         startDate: start,
@@ -240,13 +247,50 @@ export class BookingService {
     return {
       success: true,
       data: booking,
-      message: 'Booking request sent to lister. You will be notified once accepted.',
+      message: 'Booking request sent to host. Zero advance payment online - pay at pick-up.',
     };
   }
 
-  async getUserBookings(userId: string) {
+  async searchBookings(query: string) {
+    if (!query || !query.trim()) {
+      return this.prisma.booking.findMany({
+        take: 30,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          listing: { include: { manufacturer: true, model: true } },
+          customer: true,
+        },
+      });
+    }
+
+    const cleanQuery = query.trim();
+
+    return this.prisma.booking.findMany({
+      where: {
+        OR: [
+          { bookingRef: { contains: cleanQuery } },
+          { customerPhone: { contains: cleanQuery } },
+          { customerName: { contains: cleanQuery } },
+          { customerCnic: { contains: cleanQuery } },
+        ],
+      },
+      include: {
+        listing: { include: { manufacturer: true, model: true } },
+        customer: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+  }
+
+  async getUserBookings(userId: string, phone?: string) {
     const bookings = await this.prisma.booking.findMany({
-      where: { customerId: userId },
+      where: {
+        OR: [
+          { customerId: userId },
+          ...(phone ? [{ customerPhone: phone }] : []),
+        ],
+      },
       include: {
         listing: {
           include: {
@@ -277,6 +321,23 @@ export class BookingService {
       orderBy: { createdAt: 'desc' },
     });
     return { success: true, data: bookings };
+  }
+
+  async associateGuestBookings(phone: string, customerId: string) {
+    if (!phone || !customerId) return { count: 0 };
+
+    const result = await this.prisma.booking.updateMany({
+      where: {
+        customerPhone: phone,
+        customerId: null,
+      },
+      data: {
+        customerId,
+        isGuest: false,
+      },
+    });
+
+    return { count: result.count };
   }
 
   async updateBookingStatus(bookingId: string, status: string, notes?: string) {

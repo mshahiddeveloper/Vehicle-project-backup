@@ -418,7 +418,7 @@ export class AdminService {
       enabled: true,
       title: '🎉 Welcome to SafarPK Marketplace',
       badge: 'Pakistan Official Launch',
-      message: 'Direct connections with verified car owners, daily pick & drop vans, intercity rides, and home shifting cargo. Zero platform commission!',
+      message: 'Direct connections with local car hosts, daily pick & drop shuttles, intercity rides, and home shifting cargo across Pakistan.',
       linkText: 'Explore Fleet',
       linkUrl: '#',
     };
@@ -455,7 +455,23 @@ export class AdminService {
     return { success: true, listing };
   }
 
-  async createAgent(dto: { name: string; phone: string; email?: string; permissions: string[] }) {
+  async getAgents() {
+    return this.prisma.agentProfile.findMany({
+      include: {
+        user: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createAgent(dto: {
+    name: string;
+    phone: string;
+    email?: string;
+    permissions: string[];
+    department?: string;
+    employeeId?: string;
+  }) {
     const pk = await this.prisma.country.findFirst({ where: { code: 'PK' } });
     const user = await this.prisma.user.create({
       data: {
@@ -464,7 +480,7 @@ export class AdminService {
         email: dto.email || null,
         userType: 'AGENT',
         accountStatus: 'APPROVED',
-        countryId: pk!.id,
+        countryId: pk ? pk.id : 'demo-country-pk',
       },
     });
 
@@ -474,8 +490,8 @@ export class AdminService {
         userId: user.id,
         firstName: nameParts[0] || 'Agent',
         lastName: nameParts.slice(1).join(' ') || 'Staff',
-        employeeId: `AGY-PK-${Math.floor(100 + Math.random() * 900)}`,
-        department: JSON.stringify(dto.permissions || ['APPROVE_LISTINGS', 'VERIFY_PAYMENTS']),
+        employeeId: dto.employeeId || `AGY-PK-${Math.floor(100 + Math.random() * 900)}`,
+        department: JSON.stringify(dto.permissions || ['customer.view', 'listing.view']),
       },
     });
 
@@ -494,7 +510,92 @@ export class AdminService {
       where: { id: agentId },
       data: { department: JSON.stringify(permissions) },
     });
+    await this.logAudit({
+      action: 'ADMIN_UPDATE_AGENT_PERMISSIONS',
+      resourceType: 'AGENT_PROFILE',
+      resourceId: agentId,
+      newState: { permissionsCount: permissions.length },
+    });
     return { success: true, agent: updated };
+  }
+
+  async setAgentStatus(agentId: string, isActive: boolean) {
+    const agent = await this.prisma.agentProfile.update({
+      where: { id: agentId },
+      data: { isActive },
+      include: { user: true },
+    });
+
+    await this.prisma.user.update({
+      where: { id: agent.userId },
+      data: { accountStatus: isActive ? 'APPROVED' : 'BLOCKED' },
+    });
+
+    await this.logAudit({
+      action: isActive ? 'ADMIN_ACTIVATE_AGENT' : 'ADMIN_SUSPEND_AGENT',
+      resourceType: 'AGENT_PROFILE',
+      resourceId: agentId,
+      newState: { isActive },
+    });
+
+    return { success: true, agent };
+  }
+
+  async resetAgentPassword(agentId: string, tempSecret?: string) {
+    const agent = await this.prisma.agentProfile.findUnique({
+      where: { id: agentId },
+      include: { user: true },
+    });
+    if (!agent) throw new NotFoundException('Agent not found');
+
+    const generatedKey = tempSecret || `SafarAgent-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    await this.prisma.user.update({
+      where: { id: agent.userId },
+      data: { passwordHash: generatedKey },
+    });
+
+    await this.logAudit({
+      action: 'ADMIN_RESET_AGENT_CREDENTIALS',
+      resourceType: 'AGENT_PROFILE',
+      resourceId: agentId,
+    });
+
+    return {
+      success: true,
+      message: 'Agent credentials reset successfully. Share this temporary key securely with the agent.',
+      tempKey: generatedKey,
+    };
+  }
+
+  async getAgentActivity(agentId: string, startDate?: string, endDate?: string) {
+    const agent = await this.prisma.agentProfile.findUnique({
+      where: { id: agentId },
+    });
+    if (!agent) throw new NotFoundException('Agent not found');
+
+    const whereClause: any = {
+      userId: agent.userId,
+    };
+
+    if (startDate || endDate) {
+      whereClause.createdAt = {};
+      if (startDate) whereClause.createdAt.gte = new Date(startDate);
+      if (endDate) whereClause.createdAt.lte = new Date(endDate);
+    }
+
+    const logs = await this.prisma.auditLog.findMany({
+      where: whereClause,
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    return {
+      agentId,
+      agentName: `${agent.firstName} ${agent.lastName}`,
+      totalActions: logs.length,
+      logs,
+    };
   }
 
   async adjustListerQuota(listerId: string, newQuota: number) {

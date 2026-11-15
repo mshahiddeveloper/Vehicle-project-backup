@@ -1,16 +1,21 @@
+export type PromoDiscountType = 'PERCENTAGE' | 'FIXED_AMOUNT' | 'EXTRA_TIME';
+
 export interface PromoCode {
   id: string;
   code: string;
-  discountType: 'PERCENTAGE' | 'FIXED_AMOUNT';
+  discountType: PromoDiscountType;
   discountValue: number;
   currency?: string; // For FIXED_AMOUNT (e.g. 'PKR', 'EUR', 'USD', 'AED', 'GBP')
   targetCountries: string[]; // ['GLOBAL'] or specific country codes like ['PK'], ['DE']
+  countryCodes?: string[]; // Alias for targetCountries
   targetRoles: string[]; // ['ALL'] or specific roles like ['CAR_RENTAL', 'DRIVER', 'PROVIDER']
   expiryDate: string; // YYYY-MM-DD
   maxUses?: number;
   currentUses: number;
   isActive: boolean;
   description: string;
+  extraDurationDays?: number;
+  extraDurationMonths?: number;
 }
 
 export interface SubscriptionPlan {
@@ -108,6 +113,36 @@ export const DEFAULT_PROMO_CODES: PromoCode[] = [
     isActive: true,
     description: 'Exclusive 50% Early Bird Partner Discount',
   },
+  {
+    id: 'promo-freetime30',
+    code: 'FREETIME30',
+    discountType: 'EXTRA_TIME',
+    discountValue: 0,
+    extraDurationMonths: 1,
+    extraDurationDays: 0,
+    targetCountries: ['GLOBAL'],
+    targetRoles: ['ALL'],
+    expiryDate: '2026-12-31',
+    maxUses: 200,
+    currentUses: 15,
+    isActive: true,
+    description: '+1 Month Free Bonus Extension for All Registered Partners',
+  },
+  {
+    id: 'promo-bonus14d',
+    code: 'BONUS14D',
+    discountType: 'EXTRA_TIME',
+    discountValue: 0,
+    extraDurationMonths: 0,
+    extraDurationDays: 14,
+    targetCountries: ['PK', 'GLOBAL'],
+    targetRoles: ['CAR_RENTAL', 'DRIVER'],
+    expiryDate: '2026-12-31',
+    maxUses: 500,
+    currentUses: 34,
+    isActive: true,
+    description: '+14 Days Free Extra Extension on Fleet & Chauffeur Passes',
+  },
 ];
 
 export const DEFAULT_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
@@ -144,7 +179,7 @@ export const DEFAULT_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     price: 30000,
     billingCycle: 'MONTHLY',
     maxListings: 50,
-    features: ['Up to 50 Vehicle Listings', 'Top Homepage Featured Carousel', 'Dedicated Account Manager', 'Custom City Expansion', 'Zero Commission Guarantee'],
+    features: ['Up to 50 Vehicle Listings', 'Top Homepage Featured Carousel', 'Dedicated Account Manager', 'Custom City Expansion', '100% Direct Connector · Direct Client Payment'],
     isActive: true,
     subscribersCount: 8,
     badge: 'Best Value',
@@ -157,7 +192,7 @@ export const DEFAULT_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     price: 2000,
     billingCycle: 'MONTHLY',
     maxListings: 1,
-    features: ['Verified Driver Profile', 'Local & Outstation Direct Hiring', 'Customer Direct Booking Call', 'Traffic Police License Badge'],
+    features: ['Driver Profile on File', 'Local & Outstation Direct Hiring', 'Customer Direct Booking Call', 'CNIC & Licence Record Badge'],
     isActive: true,
     subscribersCount: 29,
     badge: 'Standard Pass',
@@ -328,6 +363,51 @@ export function getAvailablePromosForCountry(countryCode: string = 'PK'): PromoC
   });
 }
 
+/**
+ * Calculates an extended subscription renewal date by adding extra days and/or months
+ * using clamped calendar month math.
+ */
+export function calculateExtendedRenewsOn(
+  currentRenewsOn?: string,
+  extraDays: number = 0,
+  extraMonths: number = 0
+): string {
+  const now = new Date();
+  let base: Date;
+
+  if (currentRenewsOn) {
+    const parsed = new Date(currentRenewsOn);
+    if (!isNaN(parsed.getTime()) && parsed.getTime() > now.getTime()) {
+      base = parsed;
+    } else {
+      base = now;
+    }
+  } else {
+    base = now;
+  }
+
+  // 1. Add calendar months with month-clamping
+  const target = new Date(base.getTime());
+  if (extraMonths > 0) {
+    const origDay = target.getDate();
+    target.setDate(1);
+    target.setMonth(target.getMonth() + extraMonths);
+    const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+    target.setDate(Math.min(origDay, lastDay));
+  }
+
+  // 2. Add extra days
+  if (extraDays > 0) {
+    target.setDate(target.getDate() + extraDays);
+  }
+
+  return target.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 export interface PromoValidationResult {
   valid: boolean;
   error?: string;
@@ -338,6 +418,9 @@ export interface PromoValidationResult {
   nowPrice: number;
   totalSaved: number;
   savingsPercentage: number;
+  extraDurationDays?: number;
+  extraDurationMonths?: number;
+  extendedRenewsOn?: string;
 }
 
 /**
@@ -347,9 +430,10 @@ export function validatePromoCode(
   inputCode: string,
   countryCode: string = 'PK',
   role: string = 'CAR_RENTAL',
-  baseNowPrice: number,
-  baseWasPrice: number,
-  currencySymbol: string = 'Rs'
+  baseNowPrice: number = 0,
+  baseWasPrice: number = 0,
+  currencySymbol: string = 'Rs',
+  currentRenewsOn?: string
 ): PromoValidationResult {
   const clean = inputCode.trim().toUpperCase();
   const fallbackResult: PromoValidationResult = {
@@ -408,13 +492,23 @@ export function validatePromoCode(
     };
   }
 
-  // Calculate discount amount
+  // Calculate discount amount and duration extension
   let discount = 0;
+  let extendedRenewsOn: string | undefined = undefined;
+  const extraDurationDays = promo.extraDurationDays || 0;
+  const extraDurationMonths = promo.extraDurationMonths || 0;
+
   if (promo.discountType === 'PERCENTAGE') {
     discount = Math.round((baseNowPrice * promo.discountValue) / 100);
-  } else {
-    // FIXED_AMOUNT
+  } else if (promo.discountType === 'FIXED_AMOUNT') {
     discount = promo.discountValue;
+  } else if (promo.discountType === 'EXTRA_TIME') {
+    discount = 0;
+    extendedRenewsOn = calculateExtendedRenewsOn(currentRenewsOn, extraDurationDays, extraDurationMonths);
+  }
+
+  if (extraDurationDays > 0 || extraDurationMonths > 0) {
+    extendedRenewsOn = calculateExtendedRenewsOn(currentRenewsOn, extraDurationDays, extraDurationMonths);
   }
 
   // Discount cannot exceed the price
@@ -432,7 +526,31 @@ export function validatePromoCode(
     nowPrice: baseNowPrice,
     totalSaved,
     savingsPercentage,
+    extraDurationDays: extraDurationDays > 0 ? extraDurationDays : undefined,
+    extraDurationMonths: extraDurationMonths > 0 ? extraDurationMonths : undefined,
+    extendedRenewsOn,
   };
+}
+
+/**
+ * Convenience helper to apply and calculate promo code savings and duration extension
+ */
+export function applyPromoCode(
+  code: string,
+  currentAmount: number,
+  currentRenewsOn?: string,
+  countryCode: string = 'PK',
+  role: string = 'CAR_RENTAL'
+): PromoValidationResult {
+  return validatePromoCode(
+    code,
+    countryCode,
+    role,
+    currentAmount,
+    currentAmount,
+    'Rs',
+    currentRenewsOn
+  );
 }
 
 /**
@@ -455,3 +573,10 @@ export function incrementPromoUsage(code: string): boolean {
     return false;
   }
 }
+
+export const PROMO_CODES: PromoCode[] = DEFAULT_PROMO_CODES.map((p) => ({
+  ...p,
+  countryCodes: p.targetCountries,
+  extraDurationDays: p.extraDurationDays !== undefined ? p.extraDurationDays : (p.code === 'LAUNCHPK' ? 14 : undefined),
+}));
+

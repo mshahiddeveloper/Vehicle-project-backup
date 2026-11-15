@@ -32,10 +32,16 @@ import {
   Check,
   Edit3,
   Sparkles,
+  BarChart2,
+  TrendingUp,
+  Eye,
+  Download,
 } from 'lucide-react';
 import { API_BASE, formatPKR, maskCnic, maskLicense, maskPhone } from '@/lib/api';
 import { SubscriptionPricingSection } from '@/components/SubscriptionPricingSection';
 import { getActiveUser, RegisteredUser } from '@/data/userAuth';
+import { DashboardStoreWidget } from '@/components/DashboardStoreWidget';
+import { AnalyticsReportHub } from '@/components/AnalyticsReportHub';
 
 const POPULAR_CAR_SUGGESTIONS = [
   'Toyota Corolla',
@@ -64,7 +70,7 @@ const AVAILABLE_SERVICE_TAGS = [
 
 export default function ListerDashboardPage() {
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'fleet' | 'add_vehicle' | 'requests' | 'availability' | 'pricing' | 'reviews' | 'subscription' | 'profile' | 'team' | 'settings'
+    'overview' | 'fleet' | 'analytics' | 'add_vehicle' | 'requests' | 'availability' | 'pricing' | 'reviews' | 'subscription' | 'profile' | 'team' | 'settings'
   >('overview');
 
   // Handle URL query parameters (?tab=add_vehicle&step=1)
@@ -77,6 +83,7 @@ export default function ListerDashboardPage() {
         [
           'overview',
           'fleet',
+          'analytics',
           'add_vehicle',
           'requests',
           'availability',
@@ -863,6 +870,7 @@ export default function ListerDashboardPage() {
             {[
               { id: 'overview', label: 'Fleet Overview', icon: Car },
               { id: 'fleet', label: 'My Vehicles Roster', icon: Car, badge: fleetList.length },
+              { id: 'analytics', label: 'Ad Analytics & Leads', icon: BarChart2, badge: 'Live' },
               { id: 'add_vehicle', label: '+ Add New Vehicle', icon: PlusCircle },
               { id: 'requests', label: 'Customer Requests', icon: Calendar, badge: incomingRequests.length },
               { id: 'availability', label: 'Availability Calendar', icon: Clock },
@@ -983,6 +991,13 @@ export default function ListerDashboardPage() {
                 </button>
               </div>
 
+              {/* Shareable Public Storefront Widget */}
+              <DashboardStoreWidget
+                type="STORE"
+                identifier={businessName}
+                subtitle="Share your dedicated store link with private clients or on WhatsApp status to let anyone view all your active vehicles in one place without needing to send individual car links."
+              />
+
               {/* KPI Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs">
@@ -990,11 +1005,19 @@ export default function ListerDashboardPage() {
                   <span className="text-2xl font-black text-slate-900 mt-1 block">{fleetList.length} Cars</span>
                   <span className="text-[10px] text-emerald-600 font-bold mt-1 block">All LIVE & Inspected</span>
                 </div>
-                <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs">
-                  <span className="text-[11px] text-slate-400 font-semibold block">Monthly Leads</span>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('analytics')}
+                  className="p-4 bg-white hover:bg-emerald-50/50 rounded-2xl border border-slate-200 hover:border-emerald-300 shadow-2xs transition text-left cursor-pointer group"
+                  title="Click to view full Ad Analytics & Customer Leads"
+                >
+                  <span className="text-[11px] text-slate-400 font-semibold block group-hover:text-emerald-700">Monthly Leads</span>
                   <span className="text-2xl font-black text-emerald-600 mt-1 block">135</span>
-                  <span className="text-[10px] text-slate-500 mt-1 block">Direct Inquiries</span>
-                </div>
+                  <span className="text-[10px] text-emerald-600 font-bold mt-1 flex items-center gap-1">
+                    <span>View Ad Analytics</span>
+                    <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition" />
+                  </span>
+                </button>
                 <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs">
                   <span className="text-[11px] text-slate-400 font-semibold block">Booking Requests</span>
                   <span className="text-2xl font-black text-slate-900 mt-1 block">{incomingRequests.length} Active</span>
@@ -1005,6 +1028,32 @@ export default function ListerDashboardPage() {
                   <span className="text-2xl font-black text-slate-900 mt-1 block">{fleetList.length} / 15</span>
                   <span className="text-[10px] text-slate-500 mt-1 block">12 Slots Remaining</span>
                 </div>
+              </div>
+
+              {/* Ad Analytics & Customer Leads Banner in Overview */}
+              <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 rounded-2xl border border-emerald-800/60 p-5 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-md">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="text-xs font-black uppercase tracking-wider text-emerald-300">
+                      Live Vehicle Ad Analytics
+                    </span>
+                  </div>
+                  <h4 className="font-heading font-extrabold text-base text-white">
+                    Track Customer Clicks, Number Reveals & WhatsApp Leads
+                  </h4>
+                  <p className="text-xs text-slate-300 max-w-xl">
+                    View real-time impressions, page views, click-to-reveals, and direct inquiries for all {fleetList.length} cars in your fleet roster.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('analytics')}
+                  className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-1.5 shadow-sm shrink-0 cursor-pointer"
+                >
+                  <BarChart2 className="w-4 h-4" />
+                  <span>Open Ad Analytics →</span>
+                </button>
               </div>
 
               {/* Incoming Booking Requests Alert */}
@@ -1180,6 +1229,20 @@ export default function ListerDashboardPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* TAB 2B: CAR RENTAL AD ANALYTICS & LEADS HUB */}
+          {activeTab === 'analytics' && (
+            <div className="space-y-6">
+              <AnalyticsReportHub
+                role="LISTER"
+                viewerName={businessName}
+                viewerPhone={listerPhone}
+                allowExport={true}
+                allowClaim={false}
+                accentColor="#059669"
+              />
             </div>
           )}
 
@@ -1869,7 +1932,7 @@ export default function ListerDashboardPage() {
 
                   {/* Platform Disclaimer */}
                   <p className="text-[10px] text-slate-400 pt-1">
-                    * Renters will contact you directly ({personalPrimaryNumber || 'your number'}). SafarPK charges zero commission.
+                    * Renters will contact you directly ({personalPrimaryNumber || 'your number'}). Direct marketplace contact between parties.
                   </p>
 
                   {/* Bottom Buttons (Matching Reference Image 1) */}
@@ -2383,7 +2446,7 @@ export default function ListerDashboardPage() {
                   <span>Unmasked Identity Credentials (Key Handover Audit)</span>
                 </span>
                 <span className="text-[10px] font-bold bg-white text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300">
-                  DLIMS Audited
+                  Customer Direct Disclosure
                 </span>
               </div>
 
@@ -2414,7 +2477,7 @@ export default function ListerDashboardPage() {
                 />
                 <div>
                   <span className="font-bold text-xs text-slate-900 block">Driving License Document Scan</span>
-                  <span className="text-[10px] text-emerald-700 font-medium">✓ Uploaded & verified by customer during checkout</span>
+                  <span className="text-[10px] text-emerald-700 font-medium">✓ Uploaded by customer for direct host review</span>
                 </div>
               </div>
             </div>
@@ -2872,7 +2935,7 @@ export default function ListerDashboardPage() {
                   <span>Unmasked Identity Credentials (Key Handover Audit)</span>
                 </span>
                 <span className="text-[10px] font-bold bg-white text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300">
-                  DLIMS Audited
+                  Customer Direct Disclosure
                 </span>
               </div>
 
@@ -2903,7 +2966,7 @@ export default function ListerDashboardPage() {
                 />
                 <div>
                   <span className="font-bold text-xs text-slate-900 block">Driving License Document Scan</span>
-                  <span className="text-[10px] text-emerald-700 font-medium">✓ Uploaded & verified by customer during checkout</span>
+                  <span className="text-[10px] text-emerald-700 font-medium">✓ Uploaded by customer for direct host review</span>
                 </div>
               </div>
             </div>
@@ -2989,7 +3052,7 @@ export default function ListerDashboardPage() {
               </div>
               <div className="flex items-center gap-2 font-bold">
                 <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>0% commission on all rental bookings</span>
+                <span>Direct client bookings and direct payment handover</span>
               </div>
               <div className="flex items-center gap-2 font-bold">
                 <Check className="w-4 h-4 text-emerald-600 shrink-0" />

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
   ShieldCheck,
@@ -30,37 +30,221 @@ import {
   Eye,
   MousePointerClick,
   Sparkles,
+  Lock,
+  BarChart2,
 } from 'lucide-react';
+import { AnalyticsReportHub } from '@/components/AnalyticsReportHub';
+import { SubscriptionFollowUpDesk } from '@/components/SubscriptionFollowUpDesk';
+import { isSubscriptionFollowUpEnabled } from '@/data/subscriptionLeads';
+import { getAgentAnalyticsPermission } from '@/data/analyticsEngine';
 import { API_BASE, formatPKR, maskCnic, maskPhone } from '@/lib/api';
 import {
   getAllRegisteredUsers,
+  saveAllRegisteredUsers,
   RegisteredUser,
   assignUserToAgent,
   logUserActivity,
   incrementUserMetrics,
+  getActiveUser,
+  setActiveUser,
+  logoutActiveUser,
 } from '@/data/userAuth';
+import { hasAgentPermission, ENTERPRISE_PERMISSION_TREE } from '@/data/agentPermissions';
 import {
   getAllLeads,
   updateLead,
   MarketplaceLead,
 } from '@/data/activityTracker';
+import {
+  getFeaturedAdIds,
+  toggleFeaturedAd,
+  MAX_FEATURED_ADS,
+  getAgentFeaturedPermission,
+} from '@/data/featuredAds';
+import {
+  CARS_DATA,
+  DRIVERS_DATA,
+  CITY_RIDES_DATA,
+  SHUTTLES_DATA,
+  MOVERS_DATA,
+} from '@/data/marketplaceData';
 
-const STAFF_AGENTS = [
-  { id: 'ag-1', name: 'Kashif Raza', staffId: 'AG-101', role: 'Senior Verification Officer', branch: 'Lahore Regional Desk' },
-  { id: 'ag-2', name: 'Bilal Ahmed', staffId: 'AG-102', role: 'Compliance & Lister Onboarding', branch: 'Islamabad HQ Operations' },
-  { id: 'ag-3', name: 'Ayesha Khan', staffId: 'AG-103', role: 'Dispute Resolution & Chauffeur Audits', branch: 'Karachi Regional Desk' },
+const REGISTERED_AGENTS_CATALOG: RegisteredUser[] = [
+  {
+    id: 'ag-1',
+    name: 'Kashif Raza',
+    phone: '+92 300 4455661',
+    email: 'kashif.raza@safarpk.com',
+    password: 'password123',
+    city: 'Lahore',
+    countryCode: 'PK',
+    role: 'AGENT',
+    employeeId: 'AGY-PK-101',
+    desk: 'Punjab & Islamabad Desk',
+    permissions: [
+      'customer.view',
+      'customer.search',
+      'customer.view_details',
+      'customer.view_bookings',
+      'listing.view',
+      'listing.search',
+      'listing.approve',
+      'listing.reject',
+      'listing.activate',
+      'listing.edit',
+      'driver.view',
+      'driver.search',
+      'driver.verify_docs',
+      'driver.approve',
+      'payment.view',
+      'payment.view_proof',
+      'payment.approve',
+      'booking.view',
+      'booking.search',
+      'booking.view_details',
+      'booking.view_contact',
+      'complaint.view',
+      'complaint.assign',
+      'complaint.respond',
+      'complaint.resolve',
+      'reports.view_dashboard',
+      'reports.export',
+      'platform.featured',
+    ],
+    registeredAt: '2026-01-01T09:00:00Z',
+    metrics: { viewCount: 0, leadsCount: 0, clickCount: 0, lastActive: '2026-11-14T10:00:00Z' },
+    activities: [],
+    subscription: { status: 'ACTIVE', quota: 0, usedQuota: 0 },
+  },
+  {
+    id: 'ag-2',
+    name: 'Ayesha Khan',
+    phone: '+92 321 5566772',
+    email: 'ayesha.khan@safarpk.com',
+    password: 'password123',
+    city: 'Karachi',
+    countryCode: 'PK',
+    role: 'AGENT',
+    employeeId: 'AGY-PK-102',
+    desk: 'Karachi & Sindh Desk',
+    permissions: [
+      'listing.view',
+      'listing.search',
+      'listing.approve',
+      'listing.reject',
+      'listing.activate',
+      'driver.view',
+      'driver.search',
+      'driver.verify_docs',
+      'customer.view',
+      'customer.search',
+      'booking.view',
+      'booking.search',
+      'reports.view_dashboard',
+    ],
+    registeredAt: '2026-01-05T09:00:00Z',
+    metrics: { viewCount: 0, leadsCount: 0, clickCount: 0, lastActive: '2026-11-14T09:30:00Z' },
+    activities: [],
+    subscription: { status: 'ACTIVE', quota: 0, usedQuota: 0 },
+  },
+  {
+    id: 'ag-3',
+    name: 'Bilal Ahmed',
+    phone: '+92 333 6677883',
+    email: 'bilal.ahmed@safarpk.com',
+    password: 'password123',
+    city: 'Islamabad',
+    countryCode: 'PK',
+    role: 'AGENT',
+    employeeId: 'AGY-PK-103',
+    desk: 'Verification & Compliance Desk',
+    permissions: [
+      'driver.view',
+      'driver.search',
+      'driver.verify_docs',
+      'driver.approve',
+      'customer.view',
+      'customer.search',
+      'customer.view_details',
+      'payment.view',
+      'payment.view_proof',
+      'complaint.view',
+      'complaint.respond',
+    ],
+    registeredAt: '2026-01-10T09:00:00Z',
+    metrics: { viewCount: 0, leadsCount: 0, clickCount: 0, lastActive: '2026-11-14T08:00:00Z' },
+    activities: [],
+    subscription: { status: 'ACTIVE', quota: 0, usedQuota: 0 },
+  },
 ];
 
 export default function AgentDashboardPage() {
+  const [currentUser, setCurrentUser] = useState<RegisteredUser | null>(null);
+  const [authEmail, setAuthEmail] = useState('kashif.raza@safarpk.com');
+  const [authPassword, setAuthPassword] = useState('password123');
+  const [authError, setAuthError] = useState('');
+  const [isAuthLoaded, setIsAuthLoaded] = useState(false);
+
+  useEffect(() => {
+    const user = getActiveUser();
+    if (user && user.role === 'AGENT') {
+      setCurrentUser(user);
+    }
+    setIsAuthLoaded(true);
+  }, []);
+
+  const handleAgentLogin = (agentDirect?: RegisteredUser) => {
+    setAuthError('');
+    if (agentDirect) {
+      setActiveUser(agentDirect);
+      setCurrentUser(agentDirect);
+      return;
+    }
+    const allUsers = getAllRegisteredUsers();
+    const found = allUsers.find(
+      (u) =>
+        u.role === 'AGENT' &&
+        (u.email?.toLowerCase() === authEmail.toLowerCase().trim() ||
+          u.phone === authEmail.trim() ||
+          u.employeeId?.toLowerCase() === authEmail.toLowerCase().trim())
+    ) || REGISTERED_AGENTS_CATALOG.find(
+      (u) =>
+        u.email?.toLowerCase() === authEmail.toLowerCase().trim() ||
+        u.phone === authEmail.trim() ||
+        u.employeeId?.toLowerCase() === authEmail.toLowerCase().trim()
+    );
+
+    if (!found) {
+      setAuthError('No staff agent account found with these credentials.');
+      return;
+    }
+    setActiveUser(found);
+    setCurrentUser(found);
+  };
+
+  const handleAgentLogout = () => {
+    logoutActiveUser();
+    setCurrentUser(null);
+  };
+
   const [activeTab, setActiveTab] = useState<
-    'listings' | 'payments' | 'assigned_leads' | 'lookup' | 'manual_lister' | 'drivers' | 'complaints' | 'permissions'
+    | 'assigned_leads'
+    | 'subscription_leads'
+    | 'listings'
+    | 'payments'
+    | 'lookup'
+    | 'manual_lister'
+    | 'drivers'
+    | 'complaints'
+    | 'featured_ads'
+    | 'analytics'
+    | 'profile'
   >('assigned_leads');
 
-  // Active Selected Staff Agent (Synchronized with Super Admin Directory)
-  const [currentAgent, setCurrentAgent] = useState(STAFF_AGENTS[0]);
-  const agentName = `${currentAgent.name} (${currentAgent.branch})`;
-  const agentStaffId = currentAgent.staffId;
-  const agentRole = currentAgent.role;
+  const currentAgent = currentUser || REGISTERED_AGENTS_CATALOG[0];
+  const agentName = `${currentAgent.name} (${currentAgent.desk || 'Regional Desk'})`;
+  const agentStaffId = currentAgent.employeeId || 'AGY-PK-101';
+  const agentRole = 'Verification & Operations Staff';
 
   // Dynamic Registered Users & Leads System
   const [registeredUsers, setRegisteredUsers] = useState<RegisteredUser[]>([]);
@@ -70,6 +254,169 @@ export default function AgentDashboardPage() {
   const [agentNotice, setAgentNotice] = useState<string | null>(null);
   const [leadNoteInputs, setLeadNoteInputs] = useState<{ [leadId: string]: string }>({});
   const [userNoteInputs, setUserNoteInputs] = useState<{ [userId: string]: string }>({});
+
+  // Featured Ads State for Agent
+  const [featuredIds, setFeaturedIds] = useState<string[]>([]);
+  const [featuredFilter, setFeaturedFilter] = useState<string>('ALL');
+  const [featuredSearch, setFeaturedSearch] = useState<string>('');
+  const [hasFeaturedPerm, setHasFeaturedPerm] = useState<boolean>(false);
+  const [hasAnalyticsPerm, setHasAnalyticsPerm] = useState<boolean>(true);
+
+  // Staff Account Self-Service State (Private to agent)
+  const [staffNewPassword, setStaffNewPassword] = useState('');
+  const [staffConfirmPassword, setStaffConfirmPassword] = useState('');
+
+  const handleUpdateStaffPassword = () => {
+    if (!staffNewPassword || staffNewPassword.length < 6) {
+      alert('Password must be at least 6 characters long.');
+      return;
+    }
+    if (staffNewPassword !== staffConfirmPassword) {
+      alert('Passwords do not match. Please re-enter.');
+      return;
+    }
+    const allUsers = getAllRegisteredUsers();
+    const me = allUsers.find((u) => u.id === currentAgent.id || u.phone === currentAgent.phone);
+    if (me) {
+      me.password = staffNewPassword;
+      saveAllRegisteredUsers(allUsers);
+    }
+    setStaffNewPassword('');
+    setStaffConfirmPassword('');
+    setActionNotice('✓ Your staff account password has been updated securely.');
+    setTimeout(() => setActionNotice(null), 4000);
+  };
+
+  useEffect(() => {
+    setFeaturedIds(getFeaturedAdIds());
+    setHasFeaturedPerm(getAgentFeaturedPermission(currentAgent.id));
+    setHasAnalyticsPerm(getAgentAnalyticsPermission(currentAgent.id));
+
+    const handleFeaturedUpdate = () => {
+      setFeaturedIds(getFeaturedAdIds());
+    };
+    const handlePermsUpdate = () => {
+      setHasFeaturedPerm(getAgentFeaturedPermission(currentAgent.id));
+      setHasAnalyticsPerm(getAgentAnalyticsPermission(currentAgent.id));
+    };
+
+    window.addEventListener('safarpk_featured_updated', handleFeaturedUpdate);
+    window.addEventListener('safarpk_agent_perms_updated', handlePermsUpdate);
+    return () => {
+      window.removeEventListener('safarpk_featured_updated', handleFeaturedUpdate);
+      window.removeEventListener('safarpk_agent_perms_updated', handlePermsUpdate);
+    };
+  }, [currentAgent.id]);
+
+  const handleToggleFeaturedAgent = (id: string, title: string) => {
+    if (!hasFeaturedPerm) {
+      setAgentNotice(`⚠️ Authority Required: You do not have Super Admin permission to feature ads.`);
+      setTimeout(() => setAgentNotice(null), 4000);
+      return;
+    }
+    const res = toggleFeaturedAd(id);
+    if (!res.success && res.error) {
+      setAgentNotice(`⚠️ ${res.error}`);
+      setTimeout(() => setAgentNotice(null), 4500);
+      return;
+    }
+    setFeaturedIds(getFeaturedAdIds());
+    setAgentNotice(
+      res.isFeatured
+        ? `★ "${title}" promoted to Top Slot #1 (${res.remainingSlots} slots remaining)`
+        : `✓ "${title}" removed from Featured slots (${res.remainingSlots} slots available)`
+    );
+    setTimeout(() => setAgentNotice(null), 3500);
+  };
+
+  const allMarketplaceListings = useMemo(() => {
+    return [
+      ...CARS_DATA.map((c) => ({
+        id: c.id,
+        title: c.name,
+        service: 'CAR_RENTAL' as const,
+        serviceLabel: 'Rent a car',
+        category: c.category,
+        city: c.city,
+        owner: c.owner,
+        price: `PKR ${c.priceNum.toLocaleString()} /day`,
+        image: c.image as string | undefined,
+      })),
+      ...DRIVERS_DATA.map((d) => ({
+        id: d.id,
+        title: d.name,
+        service: 'DRIVER' as const,
+        serviceLabel: 'Hire a driver',
+        category: 'Chauffeur',
+        city: d.city,
+        owner: d.name,
+        price: d.city12,
+        image: undefined as string | undefined,
+      })),
+      ...CITY_RIDES_DATA.map((r) => ({
+        id: r.id,
+        title: `${r.fromCity} ➔ ${r.toCity} (${r.car})`,
+        service: 'CITY_TO_CITY' as const,
+        serviceLabel: 'City to city',
+        category: 'Intercity Ride',
+        city: `${r.fromCity} - ${r.toCity}`,
+        owner: r.op,
+        price: `PKR ${r.one.toLocaleString()} one-way`,
+        image: undefined as string | undefined,
+      })),
+      ...SHUTTLES_DATA.map((s) => ({
+        id: s.id,
+        title: `${s.from} ➔ ${s.to}`,
+        service: 'PICK_AND_DROP' as const,
+        serviceLabel: 'Pick & drop',
+        category: s.van,
+        city: s.city,
+        owner: s.op,
+        price: `${s.fare} /month`,
+        image: undefined as string | undefined,
+      })),
+      ...MOVERS_DATA.map((m) => ({
+        id: m.id,
+        title: m.name,
+        service: 'MOVERS' as const,
+        serviceLabel: 'Home shifting',
+        category: m.trucks,
+        city: m.city,
+        owner: m.name,
+        price: m.base,
+        image: undefined as string | undefined,
+      })),
+    ];
+  }, []);
+
+  const filteredAgentFeaturedListings = useMemo(() => {
+    return allMarketplaceListings
+      .filter((item) => {
+        if (featuredFilter === 'FEATURED_ONLY' && !featuredIds.includes(item.id)) {
+          return false;
+        }
+        if (featuredFilter !== 'ALL' && featuredFilter !== 'FEATURED_ONLY') {
+          if (item.service !== featuredFilter) return false;
+        }
+        if (featuredSearch.trim()) {
+          const q = featuredSearch.toLowerCase().trim();
+          const matchTitle = item.title.toLowerCase().includes(q);
+          const matchCity = item.city.toLowerCase().includes(q);
+          const matchOwner = item.owner.toLowerCase().includes(q);
+          const matchId = item.id.toLowerCase().includes(q);
+          if (!matchTitle && !matchCity && !matchOwner && !matchId) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        const idxA = featuredIds.indexOf(a.id);
+        const idxB = featuredIds.indexOf(b.id);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return 0;
+      });
+  }, [allMarketplaceListings, featuredFilter, featuredSearch, featuredIds]);
 
   useEffect(() => {
     // Load initial users & leads
@@ -175,6 +522,75 @@ export default function AgentDashboardPage() {
       verificationStatus: 'VERIFIED',
     },
   ]);
+
+  // Persistent Resolved Callers & Disputes Registry (persists across page reloads & sessions)
+  const [resolvedCallerIds, setResolvedCallerIds] = useState<Record<string, { resolvedAt: string; resolvedBy: string }>>({});
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('safarpk_resolved_callers');
+      if (stored) {
+        setResolvedCallerIds(JSON.parse(stored));
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+
+  const handleResolveCallerDispute = (callerId: string, callerName?: string) => {
+    const updatedMap = {
+      ...resolvedCallerIds,
+      [callerId]: {
+        resolvedAt: new Date().toISOString(),
+        resolvedBy: agentName,
+      },
+    };
+    try {
+      localStorage.setItem('safarpk_resolved_callers', JSON.stringify(updatedMap));
+    } catch (e) {
+      // ignore
+    }
+    setResolvedCallerIds(updatedMap);
+
+    // 1. Update callerDirectory state
+    setCallerDirectory((prev) =>
+      prev.map((c) =>
+        c.id === callerId
+          ? { ...c, activeComplaint: null, verificationStatus: 'VERIFIED (Agent Cleared)' }
+          : c
+      )
+    );
+
+    // 2. Update registeredUsers (and persist to localStorage so it stays verified everywhere!)
+    const allUsers = getAllRegisteredUsers();
+    const matchedUser = allUsers.find((u) => u.id === callerId);
+    if (matchedUser) {
+      matchedUser.subscription.status = 'ACTIVE';
+      matchedUser.subscription.rejectionReason = undefined;
+      matchedUser.kycStatus = 'VERIFIED';
+      matchedUser.subscription.approvedAt = new Date().toISOString();
+      saveAllRegisteredUsers(allUsers);
+      setRegisteredUsers([...allUsers]);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('safarpk_auth_state_changed'));
+      }
+    }
+
+    // 3. Update active modal if open
+    setSelectedCallerModal((prev: any) => {
+      if (prev && prev.id === callerId) {
+        return {
+          ...prev,
+          activeComplaint: null,
+          verificationStatus: 'VERIFIED (Agent Cleared)',
+          bookingStatus: 'ACTIVE_PLAN',
+        };
+      }
+      return prev;
+    });
+
+    setCallerNotice(`✓ Issue marked resolved & clearance granted for ${callerName || 'caller'} by ${agentName}.`);
+  };
 
   // Agent Granular Permissions (granted by Super Admin)
   const permissions = {
@@ -399,100 +815,273 @@ export default function AgentDashboardPage() {
     setTimeout(() => setActionNotice(null), 3000);
   };
 
+  if (isAuthLoaded && !currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
+        <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
+          <div className="w-12 h-12 rounded-2xl bg-[#0B6B4F] text-white flex items-center justify-center font-black text-2xl mx-auto shadow-lg">
+            S
+          </div>
+          <h2 className="mt-4 text-2xl font-heading font-black text-white">
+            SafarPK Agent & Staff Desk
+          </h2>
+          <p className="mt-1 text-xs text-slate-400">
+            Dedicated administrative portal for verified compliance, operations, and support officers
+          </p>
+        </div>
+
+        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-0">
+          <div className="bg-slate-950 border border-slate-800 py-8 px-6 sm:px-8 rounded-3xl shadow-2xl space-y-6">
+            {/* Quick Switcher for Testing Registered Staff */}
+            <div className="p-3 bg-slate-900/90 rounded-2xl border border-slate-800 space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                ⚡ Select Authorized Staff Identity:
+              </span>
+              <div className="flex flex-col gap-1.5">
+                {REGISTERED_AGENTS_CATALOG.map((ag) => (
+                  <button
+                    key={ag.id}
+                    type="button"
+                    onClick={() => handleAgentLogin(ag)}
+                    className="p-2.5 rounded-xl border border-slate-800 bg-slate-950 hover:bg-emerald-950/40 hover:border-emerald-600/60 text-left transition flex items-center justify-between text-xs cursor-pointer"
+                  >
+                    <div>
+                      <strong className="text-white block">{ag.name}</strong>
+                      <span className="text-[11px] text-slate-400">{ag.employeeId} · {ag.desk}</span>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                      Sign In ➔
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Credentials Form */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleAgentLogin();
+              }}
+              className="space-y-4 pt-2 border-t border-slate-800/80"
+            >
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  Agent Email or Staff ID
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  placeholder="e.g. kashif.raza@safarpk.com"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  Access Key / Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              {authError && (
+                <div className="p-2.5 rounded-xl bg-rose-950/50 border border-rose-800 text-rose-300 text-xs font-semibold">
+                  ⚠️ {authError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="w-full h-11 rounded-xl bg-[#0B6B4F] hover:bg-[#08513C] text-white font-heading font-extrabold text-xs transition shadow cursor-pointer flex items-center justify-center gap-2"
+              >
+                <span>Authenticate & Access Workspace</span>
+              </button>
+            </form>
+
+            <div className="text-center pt-2">
+              <Link href="/" className="text-xs text-slate-400 hover:text-white transition">
+                ← Return to Public Marketplace
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
       {/* Top Navbar */}
-      <header className="sticky top-0 z-40 bg-slate-900 text-white border-b border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-40 bg-slate-900 text-white border-b border-slate-800 shadow-sm">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 min-h-14 sm:h-16 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Link href="/" className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-lg shadow-sm">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#0B6B4F] text-white flex items-center justify-center font-black text-base sm:text-lg shadow-sm shrink-0">
                 S
               </div>
-              <span className="font-extrabold text-xl text-white tracking-tight">SafarPK Staff Desk</span>
+              <span className="font-extrabold text-base sm:text-xl text-white tracking-tight">Staff Desk</span>
             </Link>
-            <span className="hidden sm:inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-900/60 text-blue-200 border border-blue-700">
-              Staff ID: {agentStaffId} · {agentRole}
+            <span className="hidden sm:inline-block text-[11px] sm:text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 truncate max-w-[200px]">
+              ID: {agentStaffId} · {currentAgent.desk || 'Operations Desk'}
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-300 hidden md:inline">
+              Officer: <strong className="text-white">{currentAgent.name}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={handleAgentLogout}
+              className="text-xs font-bold px-2.5 sm:px-3 py-1.5 rounded-xl text-rose-300 hover:text-white bg-rose-950/60 hover:bg-rose-900 border border-rose-800 transition cursor-pointer"
+            >
+              Sign Out
+            </button>
             <Link
               href="/"
-              className="text-xs font-bold px-3 py-1.5 rounded-xl text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition"
+              className="text-xs font-bold px-2.5 sm:px-3 py-1.5 rounded-xl text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition"
             >
-              Public Website
+              Exit
             </Link>
-            <div className="flex items-center gap-2 pl-2 border-l border-slate-700 text-xs">
-              <label className="text-slate-400 font-bold hidden sm:inline">Active Desk:</label>
-              <select
-                value={currentAgent.id}
-                onChange={(e) => {
-                  const found = STAFF_AGENTS.find((a) => a.id === e.target.value);
-                  if (found) setCurrentAgent(found);
-                }}
-                className="bg-slate-800 text-slate-100 font-bold text-xs px-2.5 py-1.5 rounded-xl border border-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
-              >
-                {STAFF_AGENTS.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} ({a.staffId} · {a.branch.split(' ')[0]})
-                  </option>
-                ))}
-              </select>
-            </div>
           </div>
         </div>
       </header>
 
       {/* Main Layout */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Sidebar Nav */}
-        <aside className="space-y-1">
-          <nav className="bg-white rounded-2xl border border-slate-200 p-2 space-y-1 shadow-xs text-xs font-semibold">
-            {(() => {
-              const myUsers = registeredUsers.filter((u) => u.assignedAgentId === currentAgent.id);
-              const myLeads = marketplaceLeads.filter((l) => l.assignedAgentId === currentAgent.id);
-              return [
-                { id: 'assigned_leads', label: '🎯 Assigned Leads & Accounts', icon: Target, badge: myLeads.length + myUsers.length },
-                { id: 'listings', label: 'Listing Approvals Queue', icon: Car, badge: pendingListings.length },
-                { id: 'payments', label: 'Payment Verifications', icon: CreditCard, badge: pendingPayments.length },
-                { id: 'lookup', label: '🔍 Caller & Dispute Search Desk', icon: Search },
-                { id: 'manual_lister', label: '➕ Register Walk-in Lister', icon: PlusCircle },
-                { id: 'drivers', label: 'Driver License Audits', icon: User, badge: 3 },
-                { id: 'complaints', label: 'Customer Complaints', icon: AlertCircle, badge: 1 },
-                { id: 'permissions', label: 'My Permissions & Scope', icon: ShieldCheck },
-              ];
-            })().map((item) => {
-              const Icon = item.icon;
-              const active = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id as any)}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer ${
-                    active
-                      ? 'bg-blue-600 text-white shadow-sm font-bold'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Icon className="w-4 h-4" />
-                    <span>{item.label}</span>
-                  </div>
-                  {item.badge !== undefined && (
-                    <span
-                      className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${
-                        active ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </aside>
+      <div className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
+        {(() => {
+          const myUsers = registeredUsers.filter((u) => u.assignedAgentId === currentAgent.id);
+          const myLeads = marketplaceLeads.filter((l) => l.assignedAgentId === currentAgent.id);
+          const perms = currentAgent.permissions || [];
+
+          const navMenuItems: { id: any; label: string; icon: any; badge?: any }[] = [
+            { id: 'assigned_leads', label: '🎯 Assigned Leads & Tasks', icon: Target, badge: myLeads.length + myUsers.length },
+          ];
+
+          // Subscription Follow-Up Leads (enabled by default; Super Admin can hide/show)
+          if (isSubscriptionFollowUpEnabled()) {
+            const unsubscribedCount = registeredUsers.filter(
+              (u) =>
+                u.role !== 'CUSTOMER' &&
+                u.role !== 'AGENT' &&
+                u.role !== 'SUPER_ADMIN' &&
+                (u.subscription?.status === 'UNSUBSCRIBED' || !u.subscription?.status)
+            ).length;
+            navMenuItems.push({
+              id: 'subscription_leads',
+              label: '📞 Subscription Follow-Up Leads',
+              icon: PhoneCall,
+              badge: unsubscribedCount,
+            });
+          }
+
+          if (hasAgentPermission(perms, 'listing.view') || hasAgentPermission(perms, 'listing.approve')) {
+            navMenuItems.push({ id: 'listings', label: 'Listing Approvals Queue', icon: Car, badge: pendingListings.length });
+          }
+          if (hasAgentPermission(perms, 'driver.view') || hasAgentPermission(perms, 'driver.verify_docs')) {
+            navMenuItems.push({ id: 'drivers', label: 'Driver License Audits', icon: User, badge: 3 });
+          }
+          if (hasAgentPermission(perms, 'payment.view') || hasAgentPermission(perms, 'payment.approve')) {
+            navMenuItems.push({ id: 'payments', label: 'Payment Verifications', icon: CreditCard, badge: pendingPayments.length });
+          }
+          if (hasAgentPermission(perms, 'customer.view') || hasAgentPermission(perms, 'booking.view')) {
+            navMenuItems.push({ id: 'lookup', label: '🔍 Caller & Dispute Search Desk', icon: Search });
+          }
+          if (hasAgentPermission(perms, 'listing.create')) {
+            navMenuItems.push({ id: 'manual_lister', label: '➕ Register Walk-in Lister', icon: PlusCircle });
+          }
+          if (hasAgentPermission(perms, 'complaint.view')) {
+            navMenuItems.push({ id: 'complaints', label: 'Customer Complaints', icon: AlertCircle, badge: 1 });
+          }
+          if (hasAgentPermission(perms, 'platform.featured')) {
+            navMenuItems.push({ id: 'featured_ads', label: '⭐ Featured & Promoted (Top 9)', icon: Sparkles, badge: `${featuredIds.length}/9` });
+          }
+          if (hasAgentPermission(perms, 'reports.view_dashboard')) {
+            navMenuItems.push({ id: 'analytics', label: '📊 Analytics Hub', icon: BarChart2, badge: 'Active' });
+          }
+          navMenuItems.push({ id: 'profile', label: '👤 My Account', icon: User });
+
+          return (
+            <>
+              {/* Mobile Horizontal App-style Tab Scrollbar (< lg screens) */}
+              <div className="lg:hidden col-span-1 -mx-3 px-3 overflow-x-auto no-scrollbar pb-1">
+                <div className="flex items-center gap-1.5 min-w-max bg-white p-1.5 rounded-2xl border border-slate-200/90 shadow-2xs">
+                  {navMenuItems.map((item) => {
+                    const Icon = item.icon;
+                    const active = activeTab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setActiveTab(item.id as any)}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer active:scale-95 ${
+                          active
+                            ? 'bg-[#0B6B4F] text-white shadow-sm'
+                            : 'bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5 shrink-0" />
+                        <span>{item.label}</span>
+                        {item.badge !== undefined && (
+                          <span
+                            className={`px-1.5 py-0.2 rounded-md text-[10px] font-bold ${
+                              active ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-700'
+                            }`}
+                          >
+                            {item.badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Desktop Sidebar Nav (Hidden on Mobile) */}
+              <aside className="hidden lg:block space-y-1">
+                <nav className="bg-white rounded-2xl border border-slate-200 p-2 space-y-1 shadow-xs text-xs font-semibold sticky top-20">
+                  {navMenuItems.map((item) => {
+                    const Icon = item.icon;
+                    const active = activeTab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setActiveTab(item.id as any)}
+                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer ${
+                          active
+                            ? 'bg-[#0B6B4F] text-white shadow-sm font-bold'
+                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Icon className="w-4 h-4" />
+                          <span>{item.label}</span>
+                        </div>
+                        {item.badge !== undefined && (
+                          <span
+                            className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${
+                              active ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
+                            }`}
+                          >
+                            {item.badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </nav>
+              </aside>
+            </>
+          );
+        })()}
 
         {/* Canvas */}
         <main className="lg:col-span-3 space-y-6">
@@ -923,6 +1512,36 @@ export default function AgentDashboardPage() {
             </div>
           )}
 
+          {/* TAB: SUBSCRIPTION FOLLOW-UP LEADS (UNSUBSCRIBED REGISTRATIONS) */}
+          {activeTab === 'subscription_leads' && (
+            <SubscriptionFollowUpDesk
+              currentRole="AGENT"
+              agentName={currentAgent.name}
+            />
+          )}
+
+          {/* TAB 0B: ANALYTICS & INTELLIGENCE REPORT */}
+          {activeTab === 'analytics' && (
+            <div className="space-y-6">
+              {!hasAnalyticsPerm && (
+                <div className="p-4 bg-amber-50 border border-amber-300 rounded-2xl text-amber-900 text-xs font-bold flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-amber-700 shrink-0" />
+                  <span>
+                    Notice: Export capability is currently restricted for staff profile {currentAgent.staffId}. You may view metrics below; contact Super Admin to unlock full CSV export.
+                  </span>
+                </div>
+              )}
+              <AnalyticsReportHub
+                role="AGENT"
+                viewerName={currentAgent.name}
+                agentStaffId={currentAgent.staffId}
+                allowExport={hasAnalyticsPerm}
+                allowClaim={true}
+                accentColor="#0B6B4F"
+              />
+            </div>
+          )}
+
           {/* TAB 1: LISTING APPROVALS */}
           {activeTab === 'listings' && (
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-5">
@@ -1083,7 +1702,7 @@ export default function AgentDashboardPage() {
                     type="text"
                     value={callerSearchQuery}
                     onChange={(e) => setCallerSearchQuery(e.target.value)}
-                    placeholder="Search caller by Name, WhatsApp number (+92 3xx), CNIC, or Booking ref (e.g. BKG-8492)..."
+                    placeholder="Search caller by Phone (03xx, 923xx, 3xx), CNIC (with/without dashes), Name, Licence, or Booking Ref..."
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:border-blue-500 outline-none transition"
                   />
                   {callerSearchQuery && (
@@ -1125,42 +1744,126 @@ export default function AgentDashboardPage() {
               <div className="space-y-3">
                 {(() => {
                   const combinedDirectory = [
-                    ...registeredUsers.map((u) => ({
-                      id: u.id,
-                      name: u.name + (u.businessName ? ` (${u.businessName})` : ''),
-                      phone: u.phone,
-                      email: u.email,
-                      cnic: u.nationalId || 'Verified NADRA Profile',
-                      role: u.role === 'PROVIDER' ? (u.providerSubtype === 'PICK_AND_DROP' ? 'SHUTTLE' : 'CARGO') : u.role,
-                      city: u.city,
-                      license: u.licenseNumber || 'Verified ID',
-                      recentBookingRef: `ACC-${u.id.slice(-5).toUpperCase()}`,
-                      bookingStatus: u.subscription?.status === 'ACTIVE' ? 'ACTIVE_PLAN' : 'PENDING_SUBSCRIPTION',
-                      assignedVehicle: u.businessName || `${u.role} Account (${u.city})`,
-                      activeComplaint: u.subscription?.rejectionReason || null,
-                      verificationStatus: u.subscription?.status === 'ACTIVE' ? 'VERIFIED' : 'PENDING',
-                      fbrNtn: undefined,
-                      activeListingsCount: u.subscription?.usedQuota || 0,
-                      subscriptionPlan: u.subscription?.planName || undefined,
-                    })),
-                    ...callerDirectory,
+                    ...registeredUsers.map((u) => {
+                      const isResolved = !!resolvedCallerIds[u.id];
+                      const isPlanActive = u.subscription?.status === 'ACTIVE' || isResolved;
+                      return {
+                        id: u.id,
+                        name: u.name + (u.businessName ? ` (${u.businessName})` : ''),
+                        phone: u.phone,
+                        email: u.email,
+                        cnic: u.nationalId || 'Verified NADRA Profile',
+                        role: u.role === 'PROVIDER' ? (u.providerSubtype === 'PICK_AND_DROP' ? 'SHUTTLE' : 'CARGO') : u.role,
+                        city: u.city,
+                        license: u.licenseNumber || 'Verified ID',
+                        recentBookingRef: `ACC-${u.id.slice(-5).toUpperCase()}`,
+                        bookingStatus: isPlanActive ? 'ACTIVE_PLAN' : 'PENDING_SUBSCRIPTION',
+                        assignedVehicle: u.businessName || `${u.role} Account (${u.city})`,
+                        activeComplaint: isResolved ? null : (u.subscription?.rejectionReason || null),
+                        verificationStatus: isPlanActive ? (isResolved ? 'VERIFIED (Agent Cleared)' : 'VERIFIED') : 'PENDING',
+                        fbrNtn: undefined,
+                        activeListingsCount: u.subscription?.usedQuota || 0,
+                        subscriptionPlan: u.subscription?.planName || undefined,
+                      };
+                    }),
+                    ...callerDirectory.map((c) => {
+                      if (resolvedCallerIds[c.id]) {
+                        return {
+                          ...c,
+                          activeComplaint: null,
+                          verificationStatus: 'VERIFIED (Agent Cleared)',
+                        };
+                      }
+                      return c;
+                    }),
                   ];
 
-                  return combinedDirectory
-                    .filter((c) => {
-                      const matchesCat = callerCategory === 'ALL' || c.role === callerCategory;
-                      const q = callerSearchQuery.toLowerCase().trim();
-                      const matchesQ =
-                        !q ||
-                        c.name.toLowerCase().includes(q) ||
-                        c.phone.toLowerCase().includes(q) ||
-                        c.cnic.toLowerCase().includes(q) ||
-                        (c.recentBookingRef && c.recentBookingRef.toLowerCase().includes(q)) ||
-                        (c.businessName && c.businessName.toLowerCase().includes(q)) ||
-                        (c.city && c.city.toLowerCase().includes(q));
-                      return matchesCat && matchesQ;
-                    })
-                    .map((caller) => (
+                  const filteredList = combinedDirectory.filter((c) => {
+                    const matchesCat = callerCategory === 'ALL' || c.role === callerCategory;
+                    const rawQ = callerSearchQuery.trim();
+                    if (!rawQ) return matchesCat;
+
+                    const q = rawQ.toLowerCase();
+                    const qDigits = rawQ.replace(/\D/g, '');
+                    const qAlpha = rawQ.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
+                    // 1. Phone number smart matching across all Pakistani formats:
+                    // Matches: 033312, 030044, 9230044, 30044, +92 300 44, 3331286257, etc.
+                    let matchesPhone = (c.phone || '').toLowerCase().includes(q);
+                    if (!matchesPhone && qDigits.length >= 2) {
+                      const cDigits = (c.phone || '').replace(/\D/g, '');
+                      const cCore = cDigits.startsWith('92') ? cDigits.slice(2) : cDigits.startsWith('0') ? cDigits.slice(1) : cDigits;
+                      const qCore = qDigits.startsWith('92') ? qDigits.slice(2) : qDigits.startsWith('0') ? qDigits.slice(1) : qDigits;
+                      const cLocal = '0' + cCore;
+                      const cIntl = '92' + cCore;
+
+                      matchesPhone =
+                        cDigits.includes(qDigits) ||
+                        cCore.includes(qCore) ||
+                        cLocal.includes(qDigits) ||
+                        cIntl.includes(qDigits) ||
+                        cCore.includes(qDigits) ||
+                        (qCore.length >= 2 && cDigits.includes(qCore)) ||
+                        (qCore.length >= 2 && cLocal.includes(qCore));
+                    }
+
+                    // 2. CNIC smart matching (with or without dashes: 3520198210453 vs 35201-9821045-3):
+                    let matchesCnic = (c.cnic || '').toLowerCase().includes(q);
+                    if (!matchesCnic && qDigits.length >= 3) {
+                      const cnicDigits = (c.cnic || '').replace(/\D/g, '');
+                      matchesCnic = cnicDigits.includes(qDigits);
+                    }
+
+                    // 3. Driving Licence smart matching (with or without dashes / spaces: LHR-DL-449102 vs 449102):
+                    let matchesLicense = (c.license || '').toLowerCase().includes(q);
+                    if (!matchesLicense && qAlpha.length >= 3) {
+                      const licenseAlpha = (c.license || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                      matchesLicense = licenseAlpha.includes(qAlpha);
+                    }
+
+                    // 4. Booking Reference / Account Reference smart matching (BKG-8492 vs bkg8492 vs 8492):
+                    let matchesRef = (c.recentBookingRef || '').toLowerCase().includes(q);
+                    if (!matchesRef && qAlpha.length >= 3) {
+                      const refAlpha = (c.recentBookingRef || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                      matchesRef = refAlpha.includes(qAlpha);
+                    }
+
+                    // 5. Name, Business Name, City, Email, Vehicle, NTN matching:
+                    const matchesName = (c.name || '').toLowerCase().includes(q);
+                    const matchesBusiness = Boolean(c.businessName && c.businessName.toLowerCase().includes(q));
+                    const matchesCity = Boolean(c.city && c.city.toLowerCase().includes(q));
+                    const matchesEmail = Boolean(c.email && c.email.toLowerCase().includes(q));
+                    const matchesVehicle = Boolean(c.assignedVehicle && c.assignedVehicle.toLowerCase().includes(q));
+                    const matchesNtn = Boolean(c.fbrNtn && (c.fbrNtn.toLowerCase().includes(q) || (qDigits.length >= 3 && c.fbrNtn.replace(/\D/g, '').includes(qDigits))));
+
+                    const matchesQ =
+                      matchesPhone ||
+                      matchesCnic ||
+                      matchesLicense ||
+                      matchesRef ||
+                      matchesName ||
+                      matchesBusiness ||
+                      matchesCity ||
+                      matchesEmail ||
+                      matchesVehicle ||
+                      matchesNtn;
+
+                    return matchesCat && matchesQ;
+                  });
+
+                  if (filteredList.length === 0) {
+                    return (
+                      <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                        <Search className="w-8 h-8 text-slate-300 mx-auto" />
+                        <h4 className="font-bold text-sm text-slate-800">No Callers or Complaints Found</h4>
+                        <p className="text-xs text-slate-500 max-w-md mx-auto">
+                          No records matched "{callerSearchQuery}". You can search by any Pakistani phone format (e.g. 03xx, 923xx, 3xx), CNIC with or without dashes, driving licence, name, or booking ref.
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return filteredList.map((caller) => (
                     <div
                       key={caller.id}
                       className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 hover:bg-slate-50 transition space-y-3 text-xs"
@@ -1222,16 +1925,11 @@ export default function AgentDashboardPage() {
                           <button
                             type="button"
                             onClick={() => {
-                              setCallerDirectory(
-                                callerDirectory.map((c) =>
-                                  c.id === caller.id ? { ...c, activeComplaint: null } : c
-                                )
-                              );
-                              setCallerNotice(`✅ Issue marked resolved for ${caller.name} by ${agentName}.`);
+                              handleResolveCallerDispute(caller.id, caller.name);
                             }}
-                            className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[10px] shrink-0 cursor-pointer"
+                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[10px] shrink-0 cursor-pointer transition"
                           >
-                            Mark Issue Resolved
+                            ✓ Mark Issue Resolved
                           </button>
                         </div>
                       )}
@@ -1470,7 +2168,7 @@ export default function AgentDashboardPage() {
                   <span className="text-[11px] text-slate-500">LTV / HTV Commercial License · Expiry: 2028-11-20</span>
                 </div>
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                  ✓ Verified by Compliance
+                  ✓ Document on Record
                 </span>
               </div>
             </div>
@@ -1492,24 +2190,436 @@ export default function AgentDashboardPage() {
             </div>
           )}
 
-          {/* TAB 6: PERMISSIONS */}
-          {activeTab === 'permissions' && (
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
-              <h3 className="font-extrabold text-base text-slate-900">My Permissions & Operational Scope</h3>
-              <p className="text-xs text-slate-500">Granted by SafarPK Super Admin Root Authority.</p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                {Object.entries(permissions).map(([key, val]) => (
-                  <div key={key} className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
-                    <span className="font-bold text-slate-700">{key}</span>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      val ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
-                    }`}>
-                      {val ? 'GRANTED' : 'DENIED'}
-                    </span>
+          {/* TAB: AGENT PROFILE - MY ACCOUNT (PRIVATE SELF-DETAILS ONLY) */}
+          {activeTab === 'profile' && (
+            <div className="bg-white rounded-3xl border border-slate-200 p-4 sm:p-6 lg:p-8 shadow-xs space-y-6">
+              {/* Profile Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-heading font-black text-xl shadow-xs shrink-0">
+                    {currentAgent.name.slice(0, 2).toUpperCase()}
                   </div>
-                ))}
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-heading font-extrabold text-lg sm:text-xl text-slate-900">{currentAgent.name}</h3>
+                      <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        {currentAgent.employeeId || 'AGY-PK-101'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {currentAgent.desk || 'Punjab & Islamabad Operations Desk'} · SafarPK Staff Identity
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1.5 shadow-2xs">
+                    <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+                    <span>Active on Duty · Staff Clearance Active</span>
+                  </span>
+                </div>
               </div>
+
+              {/* Profile Contact & Hub Meta Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Official Work Email</span>
+                  <span className="font-bold text-xs text-slate-900 mt-0.5 block truncate">{currentAgent.email || 'staff@safarpk.com'}</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Direct Contact Phone</span>
+                  <span className="font-bold text-xs text-slate-900 mt-0.5 block font-mono">{currentAgent.phone}</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Operational Hub / City</span>
+                  <span className="font-bold text-xs text-slate-900 mt-0.5 block">{currentAgent.city} Operations Hub</span>
+                </div>
+              </div>
+
+              {/* Duty Shift & Work Schedule Card */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200/60">
+                  <span className="font-bold text-xs text-slate-800">Operational Shift & Duty Details</span>
+                  <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-[10px] font-bold rounded">
+                    Core Operations
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <span className="text-slate-400 text-[10px] block">Standard Shift Hours:</span>
+                    <strong className="text-slate-800">09:00 AM – 06:00 PM (PKT)</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 text-[10px] block">Desk Assignment:</span>
+                    <strong className="text-slate-800">{currentAgent.desk || 'Operations Desk'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 text-[10px] block">Duty Station:</span>
+                    <strong className="text-slate-800">{currentAgent.branch || 'Punjab Regional Centre'}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Password & Account Security Self-Service Card */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 space-y-4 shadow-2xs">
+                <div>
+                  <h4 className="font-heading font-extrabold text-sm text-slate-900">
+                    Staff Account Password & Security PIN
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Update your staff login password or security PIN for accessing this workspace.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700 block">New Password</label>
+                    <input
+                      type="password"
+                      placeholder="••••••••••••"
+                      value={staffNewPassword}
+                      onChange={(e) => setStaffNewPassword(e.target.value)}
+                      className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold outline-none focus:bg-white focus:border-emerald-600 transition"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700 block">Confirm Password</label>
+                    <input
+                      type="password"
+                      placeholder="••••••••••••"
+                      value={staffConfirmPassword}
+                      onChange={(e) => setStaffConfirmPassword(e.target.value)}
+                      className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold outline-none focus:bg-white focus:border-emerald-600 transition"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                  <span className="text-[11px] text-slate-400">
+                    Minimum 6 characters. Kept private to your staff session.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleUpdateStaffPassword}
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm self-start sm:self-auto"
+                  >
+                    Update Password
+                  </button>
+                </div>
+              </div>
+
+              {/* Internal Staff Gateway Notice */}
+              <div className="p-4 rounded-2xl bg-slate-900 text-white space-y-1.5 text-xs shadow-md">
+                <div className="flex items-center gap-2 font-bold text-amber-400">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>SafarPK Staff Gateway & Quality Assurance Policy</span>
+                </div>
+                <p className="text-slate-300 text-[11px] leading-relaxed">
+                  Your session is authenticated via SafarPK Secure Internal Staff Gateway. All customer dispute resolutions, caller lookups, listing reviews, and onboarding outreach calls are securely logged for customer service quality assurance.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 7: FEATURED & PROMOTED ADS (SUPER ADMIN DELEGATED AUTHORITY) */}
+          {activeTab === 'featured_ads' && (
+            <div className="space-y-6">
+              {/* Header Banner & Slot Status */}
+              <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
+                <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="space-y-1.5 max-w-xl">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400 text-slate-900 text-xs font-black uppercase tracking-wider">
+                      <Sparkles className="w-3.5 h-3.5 fill-current" />
+                      <span>Promoted Ads Desk · Top 9 Slots</span>
+                    </div>
+                    <h2 className="text-2xl font-heading font-black">
+                      Featured Listings Showcase Management
+                    </h2>
+                    <p className="text-xs text-blue-200 leading-relaxed">
+                      Assigned agents can promote verified listings to the top of public category search results. Each newly featured listing automatically shifts to <strong>Slot #1 (Top Priority)</strong>.
+                    </p>
+                  </div>
+
+                  <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl text-center shrink-0 min-w-[180px]">
+                    <div className="text-3xl font-black font-heading text-amber-300">
+                      {featuredIds.length} / {MAX_FEATURED_ADS}
+                    </div>
+                    <div className="text-[11px] font-bold text-blue-200 uppercase tracking-wider mt-0.5">
+                      Slots Occupied
+                    </div>
+                    <div className="text-[10px] text-blue-300 mt-1">
+                      {MAX_FEATURED_ADS - featuredIds.length} slots available
+                    </div>
+                  </div>
+                </div>
+
+                {/* Authority Status Pill */}
+                <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between flex-wrap gap-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-blue-300">Operational Desk:</span>
+                    <span className="font-bold text-white">{currentAgent.name} ({currentAgent.staffId})</span>
+                  </div>
+                  <div>
+                    {hasFeaturedPerm ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[11px] font-bold">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                        <span>Super Admin Authorization Active</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-400/30 text-[11px] font-bold">
+                        <Lock className="w-3 h-3 text-rose-400" />
+                        <span>Permission Locked by Super Admin</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {!hasFeaturedPerm ? (
+                /* Locked State if Super Admin has not granted authority */
+                <div className="bg-white rounded-3xl border border-amber-200 p-8 shadow-xs text-center space-y-4">
+                  <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+                    <Lock className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-lg font-heading font-extrabold text-slate-900">
+                    Featured Ads Permission Not Assigned
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
+                    Your agent desk account (<strong>{currentAgent.name}</strong>) currently does not have authority to edit or promote Featured Ads. The Super Admin must enable <strong>&ldquo;Promote & Feature Ads (Top 9 slots)&rdquo;</strong> in the Staff Agents & Access console.
+                  </p>
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('profile')}
+                      className="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 transition"
+                    >
+                      View Current Agent Permissions
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Authorized Management Desk */
+                <div className="space-y-6">
+                  {/* 9 Slots Visualizer Grid */}
+                  <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-3">
+                    <div className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center justify-between">
+                      <span>Top 9 Priority Slots Visualizer:</span>
+                      <span className="text-[11px] text-slate-500 font-normal">
+                        Order reflects public marketplace display priority (Slot #1 is top-most)
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-9 gap-2">
+                      {Array.from({ length: MAX_FEATURED_ADS }).map((_, slotIdx) => {
+                        const adId = featuredIds[slotIdx];
+                        const matchedItem = adId
+                          ? allMarketplaceListings.find((l) => l.id === adId)
+                          : null;
+
+                        return (
+                          <div
+                            key={slotIdx}
+                            className={`p-2.5 rounded-xl border text-xs flex flex-col justify-between min-h-[72px] transition ${
+                              matchedItem
+                                ? 'bg-amber-50 border-amber-300 text-amber-900'
+                                : 'bg-slate-50 border-slate-200 text-slate-400'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between text-[11px] font-bold">
+                              <span className={matchedItem ? 'text-amber-700' : 'text-slate-400'}>
+                                Slot #{slotIdx + 1}
+                              </span>
+                              {matchedItem && <Sparkles className="w-3 h-3 text-amber-500 fill-current" />}
+                            </div>
+
+                            {matchedItem ? (
+                              <div
+                                className="truncate font-bold text-slate-900 text-[11px] mt-1"
+                                title={matchedItem.title}
+                              >
+                                {matchedItem.title}
+                              </div>
+                            ) : (
+                              <span className="text-[10px] italic text-slate-400 mt-1">Empty</span>
+                            )}
+
+                            {matchedItem && (
+                              <button
+                                type="button"
+                                onClick={() => handleToggleFeaturedAgent(matchedItem.id, matchedItem.title)}
+                                className="text-[10px] font-bold text-rose-600 hover:text-rose-800 underline text-left mt-1 cursor-pointer"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Listings Inventory Table with Search & Category Filters */}
+                  <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-4">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                      {/* Filter Chips */}
+                      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+                        {[
+                          { id: 'ALL', label: `All (${allMarketplaceListings.length})` },
+                          { id: 'FEATURED_ONLY', label: `★ Featured (${featuredIds.length})` },
+                          { id: 'CAR_RENTAL', label: 'Cars' },
+                          { id: 'DRIVER', label: 'Drivers' },
+                          { id: 'CITY_TO_CITY', label: 'City to City' },
+                          { id: 'PICK_AND_DROP', label: 'Shuttles' },
+                          { id: 'MOVERS', label: 'Movers' },
+                        ].map((btn) => {
+                          const active = featuredFilter === btn.id;
+                          return (
+                            <button
+                              key={btn.id}
+                              type="button"
+                              onClick={() => setFeaturedFilter(btn.id)}
+                              className={`px-3 py-1 rounded-full text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+                                active
+                                  ? 'bg-blue-600 text-white shadow-2xs'
+                                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                              }`}
+                            >
+                              {btn.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Search */}
+                      <div className="relative min-w-[220px]">
+                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          placeholder="Search title, city, owner..."
+                          value={featuredSearch}
+                          onChange={(e) => setFeaturedSearch(e.target.value)}
+                          className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold outline-none focus:border-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Table */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs text-slate-700">
+                        <thead className="bg-slate-50 text-[11px] font-bold uppercase text-slate-500 border-b border-slate-200">
+                          <tr>
+                            <th className="py-2.5 px-3">Slot / Rank</th>
+                            <th className="py-2.5 px-3">Listing</th>
+                            <th className="py-2.5 px-3">Service & City</th>
+                            <th className="py-2.5 px-3">Owner / Driver</th>
+                            <th className="py-2.5 px-3">Price</th>
+                            <th className="py-2.5 px-3 text-right">Promotion Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {filteredAgentFeaturedListings.length > 0 ? (
+                            filteredAgentFeaturedListings.map((item) => {
+                              const isFeatured = featuredIds.includes(item.id);
+                              const slotIdx = featuredIds.indexOf(item.id);
+                              const isSlotsFull = featuredIds.length >= MAX_FEATURED_ADS;
+
+                              return (
+                                <tr
+                                  key={item.id}
+                                  className={`hover:bg-slate-50/80 transition ${
+                                    isFeatured ? 'bg-amber-50/40' : ''
+                                  }`}
+                                >
+                                  <td className="py-3 px-3 font-semibold">
+                                    {isFeatured ? (
+                                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black bg-amber-400 text-slate-900 shadow-2xs">
+                                        <Sparkles className="w-3 h-3 fill-current" />
+                                        <span>Slot #{slotIdx + 1}</span>
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-400 font-medium">Standard</span>
+                                    )}
+                                  </td>
+
+                                  <td className="py-3 px-3">
+                                    <div className="flex items-center gap-2.5">
+                                      {item.image ? (
+                                        <img
+                                          src={item.image}
+                                          alt={item.title}
+                                          className="w-10 h-10 rounded-lg object-cover border border-slate-200"
+                                        />
+                                      ) : (
+                                        <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center font-bold text-slate-500 border border-slate-200">
+                                          {item.service === 'DRIVER' ? 'DRV' : item.service === 'MOVERS' ? 'MOV' : 'RIDE'}
+                                        </div>
+                                      )}
+                                      <div className="min-w-0">
+                                        <div className="font-extrabold text-slate-900 truncate max-w-xs">
+                                          {item.title}
+                                        </div>
+                                        <div className="text-[10px] text-slate-400 font-mono">
+                                          {item.id} · {item.category}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  <td className="py-3 px-3">
+                                    <span className="font-bold text-slate-800 block">{item.serviceLabel}</span>
+                                    <span className="text-slate-500">{item.city}</span>
+                                  </td>
+
+                                  <td className="py-3 px-3 font-medium text-slate-800">
+                                    {item.owner}
+                                  </td>
+
+                                  <td className="py-3 px-3 font-extrabold text-[#0B6B4F]">
+                                    {item.price}
+                                  </td>
+
+                                  <td className="py-3 px-3 text-right">
+                                    {isFeatured ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleToggleFeaturedAgent(item.id, item.title)}
+                                        className="px-3 py-1.5 rounded-xl border border-rose-200 bg-white hover:bg-rose-50 text-rose-700 font-bold text-xs transition cursor-pointer"
+                                      >
+                                        Remove from Featured
+                                      </button>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        disabled={isSlotsFull}
+                                        onClick={() => handleToggleFeaturedAgent(item.id, item.title)}
+                                        className={`px-3 py-1.5 rounded-xl font-bold text-xs transition cursor-pointer flex items-center gap-1.5 ml-auto ${
+                                          isSlotsFull
+                                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                            : 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs'
+                                        }`}
+                                        title={isSlotsFull ? 'Max 9 slots filled' : 'Promote to Slot #1 Top'}
+                                      >
+                                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                                        <span>{isSlotsFull ? 'Slots Full' : 'Feature to Top (#1)'}</span>
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          ) : (
+                            <tr>
+                              <td colSpan={6} className="py-8 text-center text-slate-400 italic">
+                                No listings matching filters
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </main>
@@ -1656,21 +2766,26 @@ export default function AgentDashboardPage() {
             {/* Agent Actions */}
             <div className="space-y-2 pt-1">
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCallerDirectory(
-                      callerDirectory.map((c) =>
-                        c.id === selectedCallerModal.id ? { ...c, activeComplaint: null, verificationStatus: 'VERIFIED (Agent Cleared)' } : c
-                      )
-                    );
-                    setCallerNotice(`✅ Issue resolved & cleared for ${selectedCallerModal.name} by ${agentName}.`);
-                    setSelectedCallerModal(null);
-                  }}
-                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition cursor-pointer"
-                >
-                  ✓ Mark Dispute Resolved & Clear Caller
-                </button>
+                {resolvedCallerIds[selectedCallerModal.id] || selectedCallerModal.verificationStatus?.includes('Agent Cleared') ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="flex-1 py-2.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-default"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>✓ Dispute Cleared & Verified</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleResolveCallerDispute(selectedCallerModal.id, selectedCallerModal.name);
+                    }}
+                    className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition cursor-pointer active:scale-98 shadow-sm flex items-center justify-center gap-1.5"
+                  >
+                    <span>✓ Mark Dispute Resolved & Clear Caller</span>
+                  </button>
+                )}
                 <a
                   href={`https://wa.me/${selectedCallerModal.phone.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(selectedCallerModal.name)},%20this%20is%20Agent%20Farhan%20from%20SafarPK%20following%20up%20on%20your%20call.`}
                   target="_blank"

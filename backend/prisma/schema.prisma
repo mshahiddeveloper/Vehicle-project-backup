@@ -487,6 +487,7 @@ model VehicleListing {
   leads               Lead[]
   savedByCustomers    SavedVehicle[]
   complaints          Complaint[]
+  analyticsEvents     AnalyticsEvent[]
 }
 
 model ListingImage {
@@ -505,7 +506,12 @@ model ListingImage {
 model Booking {
   id                 String          @id @default(uuid())
   bookingRef         String          @unique // BKG-2026-0001
-  customerId         String
+  customerId         String?
+  isGuest            Boolean         @default(false)
+  customerName       String?
+  customerPhone      String?
+  customerCnic       String?
+  serviceCategory    String          @default("CAR_RENTAL")
   listingId          String
   driverId           String?
   bookingType        String          @default("ONLINE") // ONLINE, LEAD
@@ -529,7 +535,7 @@ model Booking {
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
 
-  customer           User            @relation("CustomerBookings", fields: [customerId], references: [id])
+  customer           User?           @relation("CustomerBookings", fields: [customerId], references: [id], onDelete: SetNull)
   listing            VehicleListing  @relation(fields: [listingId], references: [id])
   driver             DriverProfile?  @relation(fields: [driverId], references: [id], onDelete: SetNull)
 
@@ -665,3 +671,83 @@ model SavedVehicle {
 
   @@unique([customerId, listingId])
 }
+
+model ChatConversation {
+  id                  String                    @id @default(uuid())
+  bookingRef          String?
+  about               String?
+  category            String                    @default("CAR_RENTAL")
+  customerPhone       String?
+  customerName        String?
+  listerPhone         String?
+  listerName          String?
+  bookingStatus       String?                   @default("PENDING")
+  lastMessageText     String?
+  lastMessageAt       DateTime                  @default(now())
+  unreadCountCustomer Int                       @default(0)
+  unreadCountLister   Int                       @default(0)
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+
+  participants        ConversationParticipant[]
+  messages            ChatMessage[]
+}
+
+model ConversationParticipant {
+  id             String           @id @default(uuid())
+  conversationId String
+  userId         String?
+  role           String           // CUSTOMER, LISTER, DRIVER, PROVIDER, AGENT, ADMIN
+  name           String
+  phone          String
+  unreadCount    Int              @default(0)
+  joinedAt       DateTime         @default(now())
+
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+model ChatMessage {
+  id             String           @id @default(uuid())
+  conversationId String
+  senderId       String?
+  senderName     String
+  senderRole     String
+  receiverId     String?
+  receiverName   String?
+  text           String
+  attachments    String?          // JSON
+  read           Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+model AnalyticsEvent {
+  id           String          @id @default(uuid())
+  eventType    String          // listing_view, unique_listing_view, phone_click, whatsapp_click, chat_initiated, booking_form_opened, booking_request_submitted, booking_confirmed, booking_cancelled, listing_shared, profile_view
+  listingId    String?
+  listerId     String?
+  customerId   String?
+  visitorId    String?         // anonymous visitor / session id
+  countryCode  String          @default("PK")
+  serviceType  String?         @default("CAR_RENTAL")
+  deviceType   String?         @default("WEB") // MOBILE, DESKTOP, TABLET
+  metadata     String?         // JSON
+  createdAt    DateTime        @default(now())
+
+  listing      VehicleListing? @relation(fields: [listingId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id         String    @id @default(uuid())
+  userId     String?
+  userPhone  String?
+  role       String    @default("CUSTOMER")
+  type       String    // BOOKING_REQUEST, BOOKING_UPDATE, CHAT_MESSAGE, PAYMENT_VERIFIED, LISTING_APPROVED, SUBSCRIPTION_EXPIRING
+  title      String
+  message    String
+  linkUrl    String?
+  isRead     Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+}
+

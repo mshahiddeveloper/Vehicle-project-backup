@@ -29,6 +29,14 @@ import {
   Check,
 } from 'lucide-react';
 import { API_BASE, formatPKR, maskCnic, maskLicense, maskPhone } from '@/lib/api';
+import { getActiveUser, setActiveUser, RegisteredUser } from '@/data/userAuth';
+import {
+  getDriverBookings,
+  confirmDriverBooking,
+  maskPakistaniCnic,
+  maskPakistaniLicense,
+  DriverBooking,
+} from '@/data/driverBookings';
 
 export default function CustomerDashboardPage() {
   const [activeTab, setActiveTab] = useState<
@@ -61,13 +69,29 @@ export default function CustomerDashboardPage() {
       setLicenseScanning(false);
       setCustomerLicense('LHR-DL-449102');
       setCustomerLicenseExpiry('2028-11-20');
-      setLicenseUploadNotice('✅ Driving License OCR scanned & verified successfully.');
+      setLicenseUploadNotice('Driving License OCR scanned & verified successfully.');
+      const user = getActiveUser();
+      if (user) {
+        user.licenseNumber = 'LHR-DL-449102';
+        setActiveUser(user);
+      }
       setTimeout(() => setLicenseUploadNotice(null), 3000);
     }, 1200);
   };
 
   // Data states
   const [selectedSmartCardModal, setSelectedSmartCardModal] = useState<any | null>(null);
+  const [driverBookings, setDriverBookings] = useState<DriverBooking[]>([]);
+
+  useEffect(() => {
+    setDriverBookings(getDriverBookings());
+    const handleDriverBookings = () => {
+      setDriverBookings(getDriverBookings());
+    };
+    window.addEventListener('safarpk_driver_booking_status_updated', handleDriverBookings);
+    return () => window.removeEventListener('safarpk_driver_booking_status_updated', handleDriverBookings);
+  }, []);
+
   const [bookings, setBookings] = useState<any[]>([
     {
       id: 'bkg-101',
@@ -124,6 +148,17 @@ export default function CustomerDashboardPage() {
 
   // Load newly submitted bookings from localStorage
   useEffect(() => {
+    // Sync active authenticated profile
+    const user = getActiveUser();
+    if (user) {
+      if (user.name) setCustomerName(user.name);
+      if (user.phone) setCustomerPhone(user.phone);
+      if (user.email) setCustomerEmail(user.email);
+      if (user.city) setCustomerCity(user.city);
+      if (user.nationalId) setCustomerCnic(user.nationalId);
+      if (user.licenseNumber) setCustomerLicense(user.licenseNumber);
+    }
+
     try {
       const saved = localStorage.getItem('safarpk_customer_bookings');
       if (saved) {
@@ -296,10 +331,10 @@ export default function CustomerDashboardPage() {
           <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl mt-4 text-xs text-emerald-950 space-y-2">
             <span className="font-bold flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              Platform Safety Guarantee
+              Helpful Safety Guide
             </span>
             <p className="text-[11px] text-emerald-800 leading-relaxed">
-              Always physically inspect vehicles, check original registration cards, and never transfer 100% advance payments without a verified contract.
+              SafarPK connects you directly with independent hosts and drivers. For your peace of mind, always inspect the vehicle in person, check original registration documents upon arrival, and settle rental payments directly with the host at handover.
             </p>
           </div>
         </aside>
@@ -475,9 +510,25 @@ export default function CustomerDashboardPage() {
                             <h5 className="font-extrabold text-xs text-slate-900 mt-0.5">
                               {b.assignedDriver.name} · <span className="text-emerald-800 font-semibold font-mono">Reg: {b.assignedVehicleReg}</span>
                             </h5>
-                            <span className="text-[11px] text-slate-500 font-mono">
-                              Phone: {b.assignedDriver.phone} · {b.assignedDriver.license}
-                            </span>
+                            <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono mt-0.5">
+                              <span className="text-slate-600">Phone: {b.assignedDriver.phone}</span>
+                              <span className="text-slate-300">·</span>
+                              {b.status === 'CONFIRMED' ? (
+                                <>
+                                  <span className="text-slate-700">CNIC: <strong className="text-slate-900">{b.assignedDriver.cnic || '35201-4412098-5'}</strong></span>
+                                  <span className="text-slate-300">·</span>
+                                  <span className="text-slate-700">Licence: <strong className="text-slate-900">{b.assignedDriver.license || 'LHR-DL-99210'}</strong></span>
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-sans font-bold bg-emerald-100 text-emerald-800">✓ ID Unlocked</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="text-slate-500">CNIC: <strong>{maskPakistaniCnic(b.assignedDriver.cnic || '35201-4412098-5')}</strong></span>
+                                  <span className="text-slate-300">·</span>
+                                  <span className="text-slate-500">Licence: <strong>{maskPakistaniLicense(b.assignedDriver.license || 'LHR-DL-99210')}</strong></span>
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-sans font-bold bg-amber-100 text-amber-800">Unlocks on Confirmation</span>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
 
@@ -544,22 +595,56 @@ export default function CustomerDashboardPage() {
 
           {/* TAB 3: RIDES (CITY TO CITY & PICK AND DROP) */}
           {activeTab === 'rides' && (
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
-              <h3 className="font-extrabold text-base text-slate-900">Scheduled Shuttles & Intercity Rides</h3>
-              <p className="text-xs text-slate-500">Fixed daily routes, office pick & drop passes, and motorway city-to-city rides.</p>
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900">Intercity Rides & Commuter Shuttles</h3>
+                  <p className="text-xs text-slate-500">Fixed daily routes, office pick & drop passes, and motorway city-to-city rides.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href="/city-to-city"
+                    className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                  >
+                    🛣️ City to City
+                  </Link>
+                  <Link
+                    href="/shuttles"
+                    className="px-3.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                  >
+                    🚌 Pick & Drop
+                  </Link>
+                </div>
+              </div>
               
-              <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-                <Bus className="w-10 h-10 text-slate-400 mx-auto mb-1" />
-                <h4 className="font-bold text-sm text-slate-800">No Active Shuttle Passes</h4>
-                <p className="text-xs text-slate-500 max-w-md mx-auto">
-                  You can subscribe to monthly office commutes or book seat-sharing rides from Lahore to Islamabad directly from the marketplace.
-                </p>
-                <Link
-                  href="/"
-                  className="inline-block mt-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold"
-                >
-                  Explore Route Shuttles
-                </Link>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-6 text-center bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                  <span className="text-2xl">🛣️</span>
+                  <h4 className="font-bold text-sm text-slate-800">City to City Intercity Rides</h4>
+                  <p className="text-xs text-slate-500">
+                    Book dedicated or shared rides on Lahore – Islamabad – Peshawar motorways with verified fleet drivers.
+                  </p>
+                  <Link
+                    href="/city-to-city"
+                    className="inline-block mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold"
+                  >
+                    Explore Intercity Routes
+                  </Link>
+                </div>
+
+                <div className="p-6 text-center bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                  <span className="text-2xl">🚌</span>
+                  <h4 className="font-bold text-sm text-slate-800">Pick & Drop Commuter Passes</h4>
+                  <p className="text-xs text-slate-500">
+                    Subscribe to monthly office commutes or school routes with reserved seat allocation and chilled AC.
+                  </p>
+                  <Link
+                    href="/shuttles"
+                    className="inline-block mt-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold"
+                  >
+                    Explore Commuter Vans
+                  </Link>
+                </div>
               </div>
             </div>
           )}
@@ -567,22 +652,172 @@ export default function CustomerDashboardPage() {
           {/* TAB 4: MY HIRED DRIVERS */}
           {activeTab === 'drivers' && (
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
-              <h3 className="font-extrabold text-base text-slate-900">Independent Drivers Hired</h3>
-              <p className="text-xs text-slate-500">Chauffeurs hired for your personal or company vehicles.</p>
-              
-              <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-                <User className="w-10 h-10 text-slate-400 mx-auto mb-1" />
-                <h4 className="font-bold text-sm text-slate-800">No Active Chauffeur Bookings</h4>
-                <p className="text-xs text-slate-500 max-w-md mx-auto">
-                  Need a professional driver for within-city meetings or outstation family trips? Hire verified drivers with 1-tap.
-                </p>
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-2">
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900">Independent Drivers Hired</h3>
+                  <p className="text-xs text-slate-500">Chauffeurs hired for your personal or company vehicles.</p>
+                </div>
                 <Link
-                  href="/"
-                  className="inline-block mt-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold"
+                  href="/drivers"
+                  className="px-3.5 py-1.5 bg-[#0B6B4F] hover:bg-[#08513C] text-white rounded-xl text-xs font-bold transition shadow-xs"
                 >
-                  Hire a Driver
+                  + Hire Another Driver
                 </Link>
               </div>
+
+              {driverBookings.length === 0 ? (
+                <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                  <User className="w-10 h-10 text-slate-400 mx-auto mb-1" />
+                  <h4 className="font-bold text-sm text-slate-800">No Active Chauffeur Bookings</h4>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto">
+                    Need a professional driver for within-city meetings or outstation family trips? Hire verified drivers with 1-tap.
+                  </p>
+                  <Link
+                    href="/drivers"
+                    className="inline-block mt-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold"
+                  >
+                    Hire a Driver
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {driverBookings.map((b) => {
+                    const isConfirmed = b.status === 'CONFIRMED';
+                    return (
+                      <div
+                        key={b.id}
+                        className={`p-4 rounded-2xl border transition-all ${
+                          isConfirmed
+                            ? 'border-emerald-200 bg-white shadow-xs'
+                            : 'border-amber-200 bg-amber-50/20'
+                        }`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-mono text-xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                {b.bookingRef}
+                              </span>
+                              <h4 className="font-bold text-sm text-slate-900">{b.driverName}</h4>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  isConfirmed
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : 'bg-amber-100 text-amber-800'
+                                }`}
+                              >
+                                {isConfirmed ? '✓ Booking Confirmed by Driver' : '⏳ Awaiting Driver Confirmation'}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-1">
+                              Pickup: <strong>{b.startDate}</strong> ({b.days} days) · {b.dutyType} · {b.destination}
+                            </p>
+                          </div>
+
+                          <div className="text-left sm:text-right">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Fare</span>
+                            <span className="text-sm font-extrabold text-[#101828]">
+                              PKR {formatPKR(b.totalFare)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Driver Verified Credential Card */}
+                        <div className="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                          <div className="flex items-center justify-between flex-wrap gap-1">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                              <ShieldCheck className="w-4 h-4 text-[#0B6B4F]" />
+                              <span>Driver Credentials on File</span>
+                            </div>
+                            {isConfirmed ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800">
+                                ✓ Full ID Details Unlocked
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                                🔒 Masked (Unlocks on Confirmation)
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                            {/* CNIC */}
+                            <div className="p-2.5 rounded-lg bg-white border border-slate-200 flex items-center justify-between">
+                              <div>
+                                <span className="text-[10px] font-bold uppercase text-slate-400 block">
+                                  CNIC Number (13 Digits)
+                                </span>
+                                <span className="font-mono text-xs font-extrabold text-slate-900">
+                                  {isConfirmed ? b.driverCnic : maskPakistaniCnic(b.driverCnic)}
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-semibold text-slate-500">
+                                {isConfirmed ? 'Verified Match' : 'Masked Pattern'}
+                              </span>
+                            </div>
+
+                            {/* Driving Licence */}
+                            <div className="p-2.5 rounded-lg bg-white border border-slate-200 flex items-center justify-between">
+                              <div>
+                                <span className="text-[10px] font-bold uppercase text-slate-400 block">
+                                  Driving Licence Number
+                                </span>
+                                <span className="font-mono text-xs font-extrabold text-slate-900">
+                                  {isConfirmed ? b.driverLicense : maskPakistaniLicense(b.driverLicense)}
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-semibold text-slate-500">
+                                {isConfirmed ? 'Verified Active' : 'Masked Pattern'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {!isConfirmed && (
+                            <p className="text-[11px] text-amber-800 bg-amber-50 p-2 rounded-lg leading-relaxed">
+                              ℹ️ <strong>Privacy Protection:</strong> Driver ID and licence are on file. The complete unmasked numbers ({b.driverCnic.slice(0, 5)}-... & {b.driverLicense.slice(0, 4)}...) will be disclosed to you automatically once the driver reviews and confirms your booking request from their dashboard.
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex items-center justify-between gap-2 pt-3 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={`https://wa.me/${b.driverPhone.replace(/[^0-9]/g, '')}?text=Assalam-o-Alaikum%20${encodeURIComponent(b.driverName)},%20regarding%20booking%20ref%20${b.bookingRef}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-3.5 py-1.5 bg-[#0B6B4F] hover:bg-[#08513C] text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs transition"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" />
+                              <span>WhatsApp Driver</span>
+                            </a>
+                            <a
+                              href={`tel:${b.driverPhone}`}
+                              className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 rounded-lg text-xs font-bold transition"
+                            >
+                              Call
+                            </a>
+                          </div>
+
+                          {!isConfirmed && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                confirmDriverBooking(b.id);
+                                setDriverBookings(getDriverBookings());
+                              }}
+                              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+                              title="Test confirmation action"
+                            >
+                              <span>Simulate Driver Confirmation</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -599,8 +834,8 @@ export default function CustomerDashboardPage() {
                   Get instant quotes for Shehzore and Ravi pickups with Mazdoor labor helpers across Pakistan.
                 </p>
                 <Link
-                  href="/"
-                  className="inline-block mt-2 px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold"
+                  href="/movers"
+                  className="inline-block mt-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold"
                 >
                   Request Moving Quote
                 </Link>
@@ -920,8 +1155,8 @@ export default function CustomerDashboardPage() {
                   <h3 className="font-extrabold text-sm text-slate-900">
                     Vehicle Registration & Owner FBR Credentials
                   </h3>
-                  <span className="text-[10px] text-emerald-700 font-bold">
-                    ✓ Verified by SafarPK Compliance & Excise Records
+                  <span className="text-[10px] text-slate-600 font-bold">
+                    ✓ Registered Document · Review in person at handover
                   </span>
                 </div>
               </div>

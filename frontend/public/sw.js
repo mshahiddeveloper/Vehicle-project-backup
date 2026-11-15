@@ -1,5 +1,5 @@
 // SafarPK Service Worker (PWA Offline Capability & Fast Cache)
-const CACHE_NAME = 'safarpk-cache-v1';
+const CACHE_NAME = 'safarpk-cache-v5';
 const PRECACHE_ASSETS = [
   '/',
   '/manifest.json',

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   User,
+  UserCheck,
   Clock,
   ShieldCheck,
   Star,
@@ -31,18 +32,52 @@ import {
   Edit3,
   X,
   Sparkles,
+  MessageSquare,
+  ExternalLink,
+  Send,
+  ArrowRight,
+  BarChart2,
 } from 'lucide-react';
+import { AnalyticsReportHub } from '@/components/AnalyticsReportHub';
 import { API_BASE, formatPKR, maskCnic, maskLicense, maskPhone } from '@/lib/api';
 import { SubscriptionPricingSection } from '@/components/SubscriptionPricingSection';
-import { getActiveUser, RegisteredUser } from '@/data/userAuth';
+import { getActiveUser, RegisteredUser, logoutActiveUser } from '@/data/userAuth';
+import {
+  getDriverBookings,
+  confirmDriverBooking,
+  declineDriverBooking,
+  maskPakistaniCnic,
+  maskPakistaniLicense,
+  DriverBooking,
+} from '@/data/driverBookings';
+import { MobileNavBar } from '@/components/MobileNavBar';
+import { DashboardStoreWidget } from '@/components/DashboardStoreWidget';
+import {
+  getUserConversations,
+  getConversationMessages,
+  sendChatMessage,
+  markConversationAsRead,
+  ChatConversation,
+  ChatMessage,
+  formatMessageTime,
+  getWhatsAppTargetUrl,
+  generateOwnerFollowUpWhatsAppText,
+} from '@/data/chatEngine';
 
 export default function DriverDashboardPage() {
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'availability' | 'rates' | 'requests' | 'documents' | 'reviews' | 'subscription'
+    'overview' | 'analytics' | 'availability' | 'rates' | 'requests' | 'chats' | 'documents' | 'reviews' | 'subscription'
   >('overview');
 
   // Active Driver User Session
   const [currentUser, setCurrentUser] = useState<RegisteredUser | null>(null);
+
+  // Driver In-App Customer Chats State
+  const [driverConversations, setDriverConversations] = useState<ChatConversation[]>([]);
+  const [activeDriverChatId, setActiveDriverChatId] = useState<string>('');
+  const [driverChatMessages, setDriverChatMessages] = useState<ChatMessage[]>([]);
+  const [driverChatInput, setDriverChatInput] = useState<string>('');
+  const [driverChatMobileView, setDriverChatMobileView] = useState<'LIST' | 'CONV'>('LIST');
 
   // Driver Profile State
   const [driverName, setDriverName] = useState('Tariq Mahmood');
@@ -52,9 +87,16 @@ export default function DriverDashboardPage() {
     'Ex-Executive Chauffeur for corporate MNCs. Non-smoker, fluent in Urdu and Punjabi, experienced on M-2 & M-3 Motorways.'
   );
 
+  const [isCustomerBlocked, setIsCustomerBlocked] = useState(false);
+
   // Sync with logged in driver profile
   useEffect(() => {
     const user = getActiveUser();
+    if (user && user.role === 'CUSTOMER') {
+      setIsCustomerBlocked(true);
+      setCurrentUser(user);
+      return;
+    }
     if (user && user.role === 'DRIVER') {
       setCurrentUser(user);
       if (user.name) {
@@ -73,7 +115,36 @@ export default function DriverDashboardPage() {
         setEditDriverBio(user.bio);
       }
     }
+
+    // Sync bookings queue
+    setRequests(getDriverBookings());
+    const handleBookingUpdate = () => {
+      setRequests(getDriverBookings());
+    };
+    window.addEventListener('safarpk_driver_booking_status_updated', handleBookingUpdate);
+    return () => {
+      window.removeEventListener('safarpk_driver_booking_status_updated', handleBookingUpdate);
+    };
   }, []);
+
+  // Booking Confirmation Handlers
+  const [bookingNotice, setBookingNotice] = useState<string | null>(null);
+
+  const handleConfirmBooking = (bookingId: string, clientName: string) => {
+    const res = confirmDriverBooking(bookingId);
+    if (res.success) {
+      setBookingNotice(`✓ Booking confirmed for ${clientName}! Your verified CNIC (${driverCnic}) and Driving Licence (${licenseNumber}) have been securely released to the customer's portal.`);
+      setRequests(getDriverBookings());
+      setTimeout(() => setBookingNotice(null), 5000);
+    }
+  };
+
+  const handleDeclineBooking = (bookingId: string) => {
+    declineDriverBooking(bookingId);
+    setBookingNotice('Booking request declined.');
+    setRequests(getDriverBookings());
+    setTimeout(() => setBookingNotice(null), 3000);
+  };
 
   // Edit Driver Profile Modal State (FULL CRUD)
   const [showEditDriverModal, setShowEditDriverModal] = useState(false);
@@ -90,6 +161,106 @@ export default function DriverDashboardPage() {
     setRatesSavedNotice('✅ Driver Profile, contact details & bio successfully updated live!');
     setTimeout(() => setRatesSavedNotice(null), 3500);
   };
+
+  // Driver In-App Customer Chats Synchronization
+  useEffect(() => {
+    const activeDriver = currentUser || {
+      id: 'usr-demo-driver',
+      name: driverName || 'Tariq Mahmood',
+      role: 'DRIVER' as any,
+      city: driverCity || 'Lahore',
+      phone: driverPhone || '+92 301 9821045',
+      countryCode: 'PK',
+      registeredAt: new Date().toISOString(),
+      subscription: { status: 'ACTIVE', quota: 10, usedQuota: 1 },
+      metrics: { viewCount: 0, leadsCount: 0, clickCount: 0, lastActive: 'Now' },
+      activities: [],
+    };
+    const convs = getUserConversations(activeDriver as any);
+    setDriverConversations(convs);
+    if (convs.length > 0 && !activeDriverChatId) {
+      setActiveDriverChatId(convs[0].id);
+    }
+  }, [currentUser, driverName, driverPhone]);
+
+  useEffect(() => {
+    if (!activeDriverChatId) return;
+    const driverId = currentUser?.id || 'usr-demo-driver';
+    markConversationAsRead(activeDriverChatId, driverId);
+    setDriverChatMessages(getConversationMessages(activeDriverChatId));
+    const activeDriver = currentUser || {
+      id: 'usr-demo-driver',
+      name: driverName || 'Tariq',
+      role: 'DRIVER' as any,
+      phone: driverPhone,
+      city: driverCity,
+    };
+    setDriverConversations(getUserConversations(activeDriver as any));
+  }, [activeDriverChatId]);
+
+  useEffect(() => {
+    const handleChatUpdate = (e: any) => {
+      const activeDriver = currentUser || {
+        id: 'usr-demo-driver',
+        name: driverName || 'Tariq',
+        role: 'DRIVER' as any,
+        phone: driverPhone,
+        city: driverCity,
+      };
+      const convs = getUserConversations(activeDriver as any);
+      setDriverConversations(convs);
+      if (activeDriverChatId && e.detail?.conversationId === activeDriverChatId) {
+        setDriverChatMessages(getConversationMessages(activeDriverChatId));
+      }
+    };
+    window.addEventListener('safarpk_chat_updated', handleChatUpdate);
+    window.addEventListener('storage', handleChatUpdate);
+    return () => {
+      window.removeEventListener('safarpk_chat_updated', handleChatUpdate);
+      window.removeEventListener('storage', handleChatUpdate);
+    };
+  }, [activeDriverChatId, currentUser]);
+
+  const handleSendDriverMessage = () => {
+    if (!driverChatInput.trim() || !activeDriverChatId) return;
+    const activeDriver = currentUser || {
+      id: 'usr-demo-driver',
+      name: driverName || 'Tariq Mahmood',
+      role: 'DRIVER' as any,
+      city: driverCity || 'Lahore',
+      phone: driverPhone || '+92 301 9821045',
+      countryCode: 'PK',
+      registeredAt: new Date().toISOString(),
+      subscription: { status: 'ACTIVE', quota: 10, usedQuota: 1 },
+      metrics: { viewCount: 0, leadsCount: 0, clickCount: 0, lastActive: 'Now' },
+      activities: [],
+    };
+
+    const activeConv = driverConversations.find((c) => c.id === activeDriverChatId);
+    if (!activeConv) return;
+
+    const partnerId =
+      activeConv.participantIds.find((id) => id !== activeDriver.id) || 'usr-demo-customer';
+    const partnerName = activeConv.participantNames[partnerId] || 'Customer Booker';
+
+    sendChatMessage({
+      conversationId: activeDriverChatId,
+      senderUser: activeDriver as any,
+      receiverId: partnerId,
+      receiverName: partnerName,
+      text: driverChatInput.trim(),
+      ref: activeConv.bookingRef,
+      itemDetails: activeConv.about,
+    });
+
+    setDriverChatInput('');
+    setDriverChatMessages(getConversationMessages(activeDriverChatId));
+  };
+
+  const unreadDriverChatsCount = driverConversations.reduce((acc, c) => {
+    const driverId = currentUser?.id || 'usr-demo-driver';
+    return acc + (c.unreadCountFor?.[driverId] || 0);
+  }, 0);
 
   // Master Availability Switch (3 States: AVAILABLE, BUSY, OFFLINE)
   const [availability, setAvailability] = useState<'AVAILABLE' | 'BUSY' | 'OFFLINE'>('AVAILABLE');
@@ -324,6 +495,88 @@ export default function DriverDashboardPage() {
     }, 1000);
   };
 
+  if (isCustomerBlocked) {
+    return (
+      <div className="min-h-screen bg-[#F4F7F5] flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-[#EEF0F2] p-8 text-center space-y-4 shadow-xl">
+          <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+            <AlertCircle className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-extrabold text-[#101828]">Access Restricted</h2>
+          <p className="text-sm text-[#475467] leading-relaxed">
+            You are signed in as a <strong>Customer</strong> ({currentUser?.name}).
+            The Driver Cockpit is only accessible to registered Independent Chauffeurs & Drivers.
+          </p>
+          <div className="pt-2 flex flex-col gap-2.5">
+            <Link
+              href="/customer"
+              className="w-full py-3 rounded-xl bg-[#0B6B4F] text-white font-bold text-sm hover:bg-[#08513C] transition"
+            >
+              Go to Customer Dashboard
+            </Link>
+            <button
+              type="button"
+              onClick={() => {
+                logoutActiveUser();
+                window.location.href = '/register';
+              }}
+              className="w-full py-3 rounded-xl border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition cursor-pointer"
+            >
+              Sign Out & Register as Driver
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Active Customer Chat Contact Calculations
+  const activeDriverConv =
+    driverConversations.find((c) => c.id === activeDriverChatId) || driverConversations[0] || null;
+  const driverEffectiveId = currentUser?.id || 'usr-demo-driver';
+  const activeCustomerPartnerId =
+    activeDriverConv?.participantIds.find((id) => id !== driverEffectiveId) || 'usr-demo-customer';
+  const activeCustomerName =
+    activeDriverConv?.participantNames[activeCustomerPartnerId] || 'Customer Booker';
+  const activeCustomerPhone =
+    activeDriverConv?.participantPhones[activeCustomerPartnerId] || '+92 300 0000000';
+
+  const activeCustomerMeta = activeDriverConv?.bookingMetadata || {
+    category: 'driver' as const,
+    customerName: activeCustomerName,
+    customerPhone: activeCustomerPhone,
+    customerCity: activeDriverConv?.bookingMetadata?.customerCity || driverCity,
+    providerName: driverName,
+    providerManager: driverName,
+    providerPhone: driverPhone,
+    itemName: activeDriverConv?.about || 'Chauffeur Hiring Duty',
+    pickupDate: activeDriverConv?.dates || 'Scheduled Date',
+    bookingRef: activeDriverConv?.bookingRef || 'SF-DriverInquiry',
+  };
+
+  const activeCustomerWhatsAppUrl = getWhatsAppTargetUrl(
+    activeCustomerPhone,
+    generateOwnerFollowUpWhatsAppText(activeCustomerMeta)
+  );
+
+  const driverNavItems = [
+    { id: 'overview', label: 'Driver Cockpit', icon: User },
+    { id: 'analytics', label: '📊 Analytics & Actions', icon: BarChart2 },
+    { id: 'availability', label: 'Availability & Duty Switch', icon: Clock },
+    { id: 'rates', label: 'Duty Charges & Rates', icon: DollarSign },
+    { id: 'requests', label: 'Hiring Requests', icon: Calendar, badge: requests.length },
+    {
+      id: 'chats',
+      label: 'Passenger Chats (Inbox)',
+      icon: MessageSquare,
+      badge: unreadDriverChatsCount > 0 ? unreadDriverChatsCount : driverConversations.length,
+      isHighlight: unreadDriverChatsCount > 0,
+    },
+    { id: 'documents', label: 'License & CNIC Verification', icon: ShieldCheck },
+    { id: 'reviews', label: 'Passenger Ratings', icon: Star },
+    { id: 'subscription', label: 'Driver Monthly Pass', icon: CreditCard },
+  ];
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       {/* Top Navbar */}
@@ -341,12 +594,37 @@ export default function DriverDashboardPage() {
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Quick Passenger Chats Button in Top Navbar */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('chats')}
+              className={`h-9 px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                activeTab === 'chats'
+                  ? 'bg-sky-600 text-white border-sky-600 shadow-sm'
+                  : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-50'
+              }`}
+              title="Passenger Inquiries & Live In-App Chats"
+            >
+              <MessageSquare className="w-4 h-4 text-sky-600" />
+              <span className="hidden sm:inline">Passenger Chats</span>
+              {unreadDriverChatsCount > 0 ? (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-rose-500 text-white animate-pulse">
+                  {unreadDriverChatsCount}
+                </span>
+              ) : (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 hidden sm:inline">
+                  {driverConversations.length}
+                </span>
+              )}
+            </button>
+
             <Link
               href="/"
               className="text-xs font-bold px-3 py-1.5 rounded-xl text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 transition"
             >
-              ← Public Marketplace
+              <span className="hidden sm:inline">← Public Marketplace</span>
+              <span className="sm:hidden">← Market</span>
             </Link>
 
             {/* Quick Status Pill */}
@@ -367,13 +645,48 @@ export default function DriverDashboardPage() {
       </header>
 
       {/* Main Grid */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 pb-24 grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Mobile Horizontal Pill Bar */}
+        <div className="lg:hidden col-span-1 flex items-center gap-1.5 overflow-x-auto pb-2 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
+          {driverNavItems.map((item) => {
+            const Icon = item.icon;
+            const active = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id as any)}
+                className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition shrink-0 cursor-pointer ${
+                  active
+                    ? 'bg-sky-600 text-white shadow-xs'
+                    : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span>{item.label}</span>
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                      item.isHighlight
+                        ? 'bg-rose-500 text-white font-black animate-pulse'
+                        : active
+                        ? 'bg-white/30 text-white'
+                        : 'bg-sky-100 text-sky-900 font-bold'
+                    }`}
+                  >
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Sidebar Nav */}
-        <aside className="space-y-1">
+        <aside className="hidden lg:block space-y-1">
           <div className="p-4 bg-white rounded-2xl border border-slate-200 mb-4 shadow-xs">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-sky-100 text-sky-800 flex items-center justify-center text-xl font-bold">
-                👨‍✈️
+              <div className="w-11 h-11 rounded-xl bg-sky-50 text-sky-700 border border-sky-200 flex items-center justify-center shrink-0">
+                <UserCheck className="w-6 h-6 text-sky-700" />
               </div>
               <div>
                 <h3 className="font-bold text-sm text-slate-900">{driverName}</h3>
@@ -419,15 +732,7 @@ export default function DriverDashboardPage() {
           </div>
 
           <nav className="bg-white rounded-2xl border border-slate-200 p-2 space-y-1 shadow-xs text-xs font-semibold">
-            {[
-              { id: 'overview', label: 'Driver Cockpit', icon: User },
-              { id: 'availability', label: 'Availability & Duty Switch', icon: Clock },
-              { id: 'rates', label: 'Duty Charges & Rates', icon: DollarSign },
-              { id: 'requests', label: 'Hiring Requests', icon: Calendar, badge: requests.length },
-              { id: 'documents', label: 'License & CNIC Verification', icon: ShieldCheck },
-              { id: 'reviews', label: 'Passenger Ratings', icon: Star },
-              { id: 'subscription', label: 'Driver Monthly Pass', icon: CreditCard },
-            ].map((item) => {
+            {driverNavItems.map((item) => {
               const Icon = item.icon;
               const active = activeTab === item.id;
               return (
@@ -447,7 +752,11 @@ export default function DriverDashboardPage() {
                   {item.badge !== undefined && (
                     <span
                       className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${
-                        active ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
+                        item.isHighlight
+                          ? 'bg-rose-500 text-white font-black animate-pulse'
+                          : active
+                          ? 'bg-white/20 text-white'
+                          : 'bg-slate-100 text-slate-700'
                       }`}
                     >
                       {item.badge}
@@ -506,7 +815,7 @@ export default function DriverDashboardPage() {
                     </span>
                   </div>
                   <p className="text-[11px] text-amber-800 mt-0.5">
-                    Your payment receipt for &ldquo;{currentUser.subscription.planName}&rdquo; is being verified by admin. Once approved, your chauffeur profile will go LIVE on the public driver directory.
+                    Your payment receipt for &ldquo;{currentUser.subscription.planName}&rdquo; is under review by admin. Once approved, your chauffeur profile will go LIVE on the public driver directory.
                   </p>
                 </div>
               </div>
@@ -610,6 +919,13 @@ export default function DriverDashboardPage() {
                   </button>
                 </div>
               )}
+
+              {/* Public Driver Profile Shareable Widget */}
+              <DashboardStoreWidget
+                type="DRIVER"
+                identifier={driverName}
+                subtitle="Share your dedicated public chauffeur profile link on WhatsApp status or with private clients to let anyone inspect your licence categories, rates, and contact you directly without needing to log in."
+              />
 
               {/* Client Hire & Direct Contact Policy Switch */}
               <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-3 text-xs">
@@ -726,6 +1042,20 @@ export default function DriverDashboardPage() {
                   ))}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* TAB 1B: DRIVER ANALYTICS & LEAD METRICS */}
+          {activeTab === 'analytics' && (
+            <div className="space-y-6">
+              <AnalyticsReportHub
+                role="DRIVER"
+                viewerName={driverName}
+                viewerPhone={driverPhone}
+                allowExport={true}
+                allowClaim={false}
+                accentColor="#D97706"
+              />
             </div>
           )}
 
@@ -1089,58 +1419,365 @@ export default function DriverDashboardPage() {
           {/* TAB 4: HIRING REQUESTS */}
           {activeTab === 'requests' && (
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
-              <div>
-                <h3 className="font-extrabold text-base text-slate-900">Customer Hiring Requests Queue</h3>
-                <p className="text-xs text-slate-500">Review requests from customers seeking drivers for their own vehicles.</p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900">Customer Hiring Requests Queue</h3>
+                  <p className="text-xs text-slate-500">
+                    Review and confirm customer requests. Confirming a booking safely unlocks your verified CNIC & Licence to the booker.
+                  </p>
+                </div>
+                <span className="self-start px-2.5 py-1 rounded-full text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200">
+                  {requests.filter((r) => r.status === 'PENDING_CONFIRMATION').length} Pending Confirmation
+                </span>
               </div>
 
+              {bookingNotice && (
+                <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-xs text-emerald-900 font-bold flex items-center gap-2 animate-in fade-in">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{bookingNotice}</span>
+                </div>
+              )}
+
               <div className="space-y-3 text-xs">
-                {requests.map((r) => (
-                  <div key={r.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                      <div>
-                        <span className="font-mono text-xs font-bold text-sky-800 bg-white px-2 py-0.5 rounded border border-sky-200">
-                          {r.bookingRef}
-                        </span>
-                        <h4 className="font-bold text-sm text-slate-900 mt-1">{r.destination}</h4>
+                {requests.map((r) => {
+                  const isConfirmed = r.status === 'CONFIRMED';
+                  return (
+                    <div key={r.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                        <div>
+                          <span className="font-mono text-xs font-bold text-sky-800 bg-white px-2 py-0.5 rounded border border-sky-200">
+                            {r.bookingRef}
+                          </span>
+                          <h4 className="font-bold text-sm text-slate-900 mt-1">{r.destination}</h4>
+                        </div>
+                        <span className="text-sm font-black text-slate-900">PKR {formatPKR(r.totalFare)}</span>
                       </div>
-                      <span className="text-sm font-black text-slate-900">PKR {formatPKR(r.totalFare)}</span>
-                    </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      <div>
-                        <span className="text-slate-400 text-[10px] font-semibold block">Client</span>
-                        <span className="font-bold text-slate-800">{r.customerName}</span>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <div>
+                          <span className="text-slate-400 text-[10px] font-semibold block">Client</span>
+                          <span className="font-bold text-slate-800">{r.customerName}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 text-[10px] font-semibold block">Date & Duration</span>
+                          <span className="font-bold text-slate-800">{r.startDate} ({r.days} Days)</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 text-[10px] font-semibold block">Vehicle Provided</span>
+                          <span className="font-bold text-slate-800">{r.vehicleProvided}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 text-[10px] font-semibold block">Booking Status</span>
+                          <span className={`font-bold px-2 py-0.5 rounded border inline-block ${
+                            isConfirmed
+                              ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                              : 'text-amber-700 bg-amber-50 border-amber-200'
+                          }`}>
+                            {isConfirmed ? 'CONFIRMED' : 'PENDING YOUR CONFIRMATION'}
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-slate-400 text-[10px] font-semibold block">Date & Duration</span>
-                        <span className="font-bold text-slate-800">{r.startDate} ({r.days} Days)</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 text-[10px] font-semibold block">Vehicle Provided</span>
-                        <span className="font-bold text-slate-800">{r.vehicleProvided}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 text-[10px] font-semibold block">Status</span>
-                        <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block">
-                          {r.status}
-                        </span>
-                      </div>
-                    </div>
 
-                    <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                      <a
-                        href={`https://wa.me/${r.customerPhone.replace(/[^0-9]/g, '')}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center gap-1.5 transition cursor-pointer"
-                      >
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        <span>Direct Contact ({r.customerPhone})</span>
-                      </a>
+                      {/* Verification Status & Confirmation Actions */}
+                      {!isConfirmed ? (
+                        <div className="p-3 bg-amber-50/80 rounded-xl border border-amber-200 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                              <AlertCircle className="w-4 h-4 text-amber-600" />
+                              Awaiting Your Confirmation
+                            </span>
+                            <span className="text-[10px] font-bold text-amber-800 bg-white px-2 py-0.5 rounded border border-amber-300">
+                              Credentials Currently Masked
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-amber-900 leading-snug">
+                            This customer currently sees your masked credentials (CNIC: <span className="font-mono font-bold">{maskPakistaniCnic(driverCnic)}</span>, Licence: <span className="font-mono font-bold">{maskPakistaniLicense(licenseNumber)}</span>). Tap confirm below to accept the ride and release your full unmasked credentials to their portal.
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => handleConfirmBooking(r.id, r.customerName)}
+                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                              <span>✓ Confirm Booking & Share Verified ID</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeclineBooking(r.id)}
+                              className="px-3 py-2 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 rounded-xl font-bold text-xs transition cursor-pointer"
+                            >
+                              Decline
+                            </button>
+                            <a
+                              href={`https://wa.me/${r.customerPhone.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(r.customerName)},%20I%20am%20reviewing%20your%20booking%20request%20${r.bookingRef}.`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="ml-auto px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Chat with Client</span>
+                            </a>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-1.5 font-bold text-xs text-emerald-950">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                              <span>Booking Confirmed · Verified Credentials Released to Client</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono text-emerald-900 pt-0.5">
+                              <span>Shared CNIC: <strong>{driverCnic}</strong></span>
+                              <span>·</span>
+                              <span>Driving Licence: <strong>{licenseNumber}</strong></span>
+                              <span>·</span>
+                              <span>Contact: <strong>{r.customerPhone}</strong></span>
+                            </div>
+                          </div>
+                          <a
+                            href={`https://wa.me/${r.customerPhone.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(r.customerName)},%20I%20have%20confirmed%20your%20driver%20booking%20${r.bookingRef}.%20My%20verified%20CNIC%20is%20${driverCnic}%20and%20Licence%20is%20${licenseNumber}.`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            <span>WhatsApp Client</span>
+                          </a>
+                        </div>
+                      )}
                     </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* TAB: PASSENGER CHATS (INBOX & INQUIRIES) */}
+          {activeTab === 'chats' && (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col">
+              {/* Tab Header */}
+              <div className="p-4 sm:p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center">
+                      <MessageSquare className="w-4 h-4" />
+                    </div>
+                    <h3 className="font-extrabold text-base text-slate-900">
+                      Passenger Inquiries & Direct In-App Chats
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-sky-100 text-sky-800">
+                      {driverConversations.length} Active Threads
+                    </span>
                   </div>
-                ))}
+                  <p className="text-xs text-slate-500 mt-1">
+                    Real-time messaging with passengers who booked your chauffeur service. Agree on pickup address, motorway route, and reporting timing.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Link
+                    href="/inbox"
+                    className="h-9 px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-1.5 transition shadow-2xs"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Open Full Screen Inbox</span>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Chat Workspace: Threads Sidebar + Active Chat Stream */}
+              <div className="flex flex-col md:flex-row h-[580px] bg-slate-50/50">
+                {/* Conversation Threads Sidebar */}
+                <div
+                  className={`w-full md:w-72 lg:w-80 border-r border-slate-200 flex flex-col bg-white ${
+                    driverChatMobileView === 'CONV' ? 'hidden md:flex' : 'flex'
+                  }`}
+                >
+                  <div className="p-3 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between text-xs font-bold text-slate-600">
+                    <span>Passenger Inquiries</span>
+                    <span className="text-[10px] font-mono text-slate-400">TTL: 7 Days</span>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto divide-y divide-slate-100 no-scrollbar">
+                    {driverConversations.length > 0 ? (
+                      driverConversations.map((c) => {
+                        const selected = c.id === activeDriverChatId;
+                        const partnerId = currentUser
+                          ? c.participantIds.find((id) => id !== currentUser.id) || ''
+                          : '';
+                        const partnerName = c.participantNames[partnerId] || 'Passenger Booker';
+                        const unread = (currentUser && c.unreadCountFor?.[currentUser.id]) || 0;
+
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => {
+                              setActiveDriverChatId(c.id);
+                              setDriverChatMobileView('CONV');
+                            }}
+                            className={`w-full p-3.5 text-left flex items-start gap-2.5 transition cursor-pointer ${
+                              selected ? 'bg-sky-50/60 border-l-4 border-l-sky-600' : 'hover:bg-slate-50'
+                            }`}
+                          >
+                            <div className="w-10 h-10 rounded-full bg-sky-100 text-sky-800 flex items-center justify-center font-bold text-xs shrink-0">
+                              {partnerName.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="font-bold text-xs text-slate-900 truncate">
+                                  {partnerName}
+                                </span>
+                                <span className="text-[10px] text-slate-400 shrink-0">
+                                  {formatMessageTime(c.lastMessageTimestamp)}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-600 font-medium truncate mt-0.5">
+                                {c.about}
+                              </p>
+                              <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                                {c.lastMessageText}
+                              </p>
+                            </div>
+                            {unread > 0 && (
+                              <span className="w-5 h-5 rounded-full bg-sky-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                                {unread}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="p-8 text-center text-xs text-slate-400 space-y-2">
+                        <MessageSquare className="w-8 h-8 text-slate-300 mx-auto" />
+                        <p>No passenger chats yet.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Active Conversation Pane */}
+                <div
+                  className={`flex-1 flex flex-col min-w-0 bg-[#FAFBFC] ${
+                    driverChatMobileView === 'LIST' ? 'hidden md:flex' : 'flex'
+                  }`}
+                >
+                  {activeDriverConv ? (
+                    <>
+                      {/* Active Conversation Top Bar */}
+                      <div className="p-3.5 bg-white border-b border-slate-200 flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => setDriverChatMobileView('LIST')}
+                            className="md:hidden p-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer"
+                          >
+                            <ArrowRight className="w-4 h-4 rotate-180" />
+                          </button>
+                          <div className="w-9 h-9 rounded-full bg-sky-100 text-sky-800 flex items-center justify-center font-bold text-xs shrink-0">
+                            {activeCustomerName.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-bold text-sm text-slate-900">{activeCustomerName}</h4>
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-slate-100 text-slate-600">
+                                Passenger
+                              </span>
+                              {activeDriverConv.bookingRef && (
+                                <span className="font-mono text-[10px] font-bold px-1.5 py-0.2 rounded bg-sky-50 text-sky-800 border border-sky-200">
+                                  {activeDriverConv.bookingRef}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-500 truncate max-w-xs">
+                              {activeDriverConv.about} {activeDriverConv.dates ? `· ${activeDriverConv.dates}` : ''}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Customer Direct Contact Actions */}
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={`tel:${activeCustomerPhone}`}
+                            className="h-8 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold flex items-center gap-1 transition"
+                            title={`Call Passenger (${activeCustomerPhone})`}
+                          >
+                            <Phone className="w-3 h-3 text-sky-600" />
+                            <span className="hidden sm:inline">Call Passenger</span>
+                          </a>
+
+                          <a
+                            href={activeCustomerWhatsAppUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="h-8 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 transition shadow-2xs"
+                            title={`WhatsApp Passenger (${activeCustomerPhone})`}
+                          >
+                            <MessageSquare className="w-3 h-3" />
+                            <span>Direct WhatsApp</span>
+                          </a>
+                        </div>
+                      </div>
+
+                      {/* Messages Stream */}
+                      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                        {driverChatMessages.map((m) => {
+                          const isMe = currentUser ? m.senderId === currentUser.id : m.senderRole === 'DRIVER';
+                          return (
+                            <div
+                              key={m.id}
+                              className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
+                            >
+                              <div
+                                className={`max-w-[85%] sm:max-w-[75%] p-3 rounded-2xl text-xs leading-relaxed ${
+                                  isMe
+                                    ? 'bg-sky-800 text-white rounded-br-xs shadow-xs'
+                                    : 'bg-white border border-slate-200 text-slate-900 rounded-bl-xs shadow-2xs'
+                                }`}
+                              >
+                                <p className="whitespace-pre-wrap">{m.text}</p>
+                              </div>
+                              <span className="text-[10px] text-slate-400 px-1 mt-0.5">
+                                {m.timeStr}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Reply Input Bar */}
+                      <div className="p-3 bg-white border-t border-slate-200 flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={driverChatInput}
+                          onChange={(e) => setDriverChatInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSendDriverMessage();
+                            }
+                          }}
+                          placeholder={`Reply to ${activeCustomerName} as ${driverName}...`}
+                          className="flex-1 h-10 px-3.5 border border-slate-300 rounded-xl font-sans text-xs text-slate-900 outline-none focus:border-sky-600"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSendDriverMessage}
+                          className="h-10 px-4 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          <span>Send</span>
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400 space-y-2">
+                      <MessageSquare className="w-10 h-10 text-slate-300" />
+                      <p className="text-xs font-semibold">Select an inquiry to view messages.</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -1277,6 +1914,73 @@ export default function DriverDashboardPage() {
                   </div>
                 )}
               </div>
+
+              {/* Manual Verification Number Adjustments */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-white border border-slate-200 rounded-2xl">
+                <label className="flex flex-col gap-1">
+                  <span className="font-bold text-slate-700">Official CNIC (13 Digits)</span>
+                  <input
+                    type="text"
+                    value={driverCnic}
+                    onChange={(e) => setDriverCnic(e.target.value)}
+                    className="h-10 px-3 rounded-xl border border-slate-300 font-mono font-bold text-xs text-slate-900 outline-none focus:border-emerald-600"
+                  />
+                  <span className="text-[10px] text-slate-400">Stored securely with SafarPK</span>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="font-bold text-slate-700">Commercial Driving Licence Number</span>
+                  <input
+                    type="text"
+                    value={licenseNumber}
+                    onChange={(e) => setLicenseNumber(e.target.value)}
+                    className="h-10 px-3 rounded-xl border border-slate-300 font-mono font-bold text-xs text-slate-900 outline-none focus:border-emerald-600"
+                  />
+                  <span className="text-[10px] text-slate-400">e.g. LHR-LTV-99210 or ISB-DL-49201</span>
+                </label>
+              </div>
+
+              {/* Customer Privacy Disclosure Preview */}
+              <div className="p-4 bg-slate-100 rounded-2xl border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <span>How Customers See Your Credentials (Privacy Protection)</span>
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                    Automated Rule
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* State 1: Public / Before Confirmation */}
+                  <div className="p-3 bg-white rounded-xl border border-amber-200 space-y-1.5">
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-300 inline-block">
+                      Before Booking Confirmation
+                    </span>
+                    <p className="text-[11px] text-slate-600 leading-snug">
+                      Public directory and pending bookers see that you are verified, but sensitive digits are masked:
+                    </p>
+                    <div className="font-mono text-xs font-bold text-slate-800 space-y-0.5 pt-1">
+                      <p>CNIC: <span className="text-amber-900">{maskPakistaniCnic(driverCnic)}</span></p>
+                      <p>Licence: <span className="text-amber-900">{maskPakistaniLicense(licenseNumber)}</span></p>
+                    </div>
+                  </div>
+
+                  {/* State 2: After Confirmation */}
+                  <div className="p-3 bg-white rounded-xl border border-emerald-200 space-y-1.5">
+                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-300 inline-block">
+                      After You Confirm Booking
+                    </span>
+                    <p className="text-[11px] text-slate-600 leading-snug">
+                      The specific customer whose ride you confirm can view your full unmasked credentials:
+                    </p>
+                    <div className="font-mono text-xs font-bold text-slate-800 space-y-0.5 pt-1">
+                      <p>CNIC: <span className="text-emerald-800">{driverCnic}</span></p>
+                      <p>Licence: <span className="text-emerald-800">{licenseNumber}</span></p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1319,7 +2023,7 @@ export default function DriverDashboardPage() {
               <div>
                 <h3 className="font-extrabold text-base text-slate-900">Driver Monthly Pass & Direct Leads</h3>
                 <p className="text-slate-500">
-                  Zero commission model. Enjoy WAS - NOW rates, regional launch promo codes, and keep 100% of your earnings from every trip.
+                  Fixed monthly listing pass. Connect directly with clients, enjoy regional launch rates, and arrange your trips directly.
                 </p>
               </div>
 
@@ -1421,6 +2125,9 @@ export default function DriverDashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Persistent Mobile Bottom Navigation Bar */}
+      <MobileNavBar />
     </div>
   );
 }

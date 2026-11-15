@@ -1,17 +1,47 @@
-export const API_BASE = 'http://localhost:3001/api/v1';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
-// Privacy & Masking Helpers
+// Privacy & Masking Helpers preserving full Pakistani ID & Licence patterns
 export function maskCnic(cnic?: string | null): string {
-  if (!cnic) return 'XXXXX-XXXXXXX-X';
+  if (!cnic) return '35201-212***1-1';
   const clean = cnic.replace(/[^0-9]/g, '');
-  if (clean.length < 13) return cnic;
-  return `${clean.slice(0, 5)}-*******-${clean.slice(12)}`;
+  if (clean.length < 13) {
+    if (clean.length >= 8) {
+      return `${clean.slice(0, 4)}-${clean.slice(4, 7)}***${clean.slice(-1)}`;
+    }
+    return '35201-212***1-1';
+  }
+  const prefix = clean.slice(0, 5);
+  const mid1 = clean.slice(5, 8);
+  const mid2 = clean.slice(11, 12);
+  const last = clean.slice(12, 13);
+  return `${prefix}-${mid1}***${mid2}-${last}`;
 }
 
 export function maskLicense(lic?: string | null): string {
-  if (!lic) return 'PK-DL-XXXXXX';
-  if (lic.length <= 6) return lic;
-  return `${lic.slice(0, 4)}***${lic.slice(-2)}`;
+  if (!lic) return 'LHR-DL-98***0';
+  const trimmed = lic.trim();
+  const parts = trimmed.split('-');
+  if (parts.length >= 3) {
+    const authority = parts[0];
+    const category = parts[1];
+    const num = parts.slice(2).join('-');
+    if (num.length >= 4) {
+      return `${authority}-${category}-${num.slice(0, 2)}***${num.slice(-1)}`;
+    }
+    return `${authority}-${category}-***`;
+  }
+  if (parts.length === 2) {
+    const prefix = parts[0];
+    const num = parts[1];
+    if (num.length >= 4) {
+      return `${prefix}-${num.slice(0, 2)}***${num.slice(-1)}`;
+    }
+    return `${prefix}-***`;
+  }
+  if (trimmed.length > 5) {
+    return `${trimmed.slice(0, 3)}***${trimmed.slice(-2)}`;
+  }
+  return 'LHR-DL-98***0';
 }
 
 export function maskPhone(phone?: string | null): string {

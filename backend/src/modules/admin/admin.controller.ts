@@ -96,6 +96,11 @@ export class AdminController {
     return this.adminService.toggleListingStatus(id, status);
   }
 
+  @Get('agents')
+  async getAgents() {
+    return this.adminService.getAgents();
+  }
+
   @Post('agents')
   async createAgent(@Body() body: any) {
     return this.adminService.createAgent(body);
@@ -107,6 +112,31 @@ export class AdminController {
     @Body('permissions') permissions: string[],
   ) {
     return this.adminService.updateAgentPermissions(id, permissions);
+  }
+
+  @Patch('agents/:id/status')
+  async setAgentStatus(
+    @Param('id') id: string,
+    @Body('isActive') isActive: boolean,
+  ) {
+    return this.adminService.setAgentStatus(id, Boolean(isActive));
+  }
+
+  @Post('agents/:id/reset-password')
+  async resetAgentPassword(
+    @Param('id') id: string,
+    @Body('tempKey') tempKey?: string,
+  ) {
+    return this.adminService.resetAgentPassword(id, tempKey);
+  }
+
+  @Get('agents/:id/activity')
+  async getAgentActivity(
+    @Param('id') id: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.adminService.getAgentActivity(id, startDate, endDate);
   }
 
   @Post('listers/:id/quota')

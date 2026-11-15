@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { BookingService } from './booking.service.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 
@@ -13,14 +13,27 @@ export class BookingController {
 
   @Post('bookings')
   async createBooking(@Req() req: any, @Body() body: any) {
-    const userId = req.user?.sub || body.userId;
+    const userId = req.user?.sub || body.userId || body.customerId;
     return this.bookingService.createBooking({ ...body, userId });
+  }
+
+  @Get('bookings/search')
+  async searchBookings(@Query('q') query?: string, @Query('phone') phone?: string) {
+    return this.bookingService.searchBookings(query || phone || '');
+  }
+
+  @Post('bookings/associate-guest')
+  async associateGuest(
+    @Body('phone') phone: string,
+    @Body('customerId') customerId: string,
+  ) {
+    return this.bookingService.associateGuestBookings(phone, customerId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('bookings/my')
-  async getMyBookings(@Req() req: any) {
-    return this.bookingService.getUserBookings(req.user.sub);
+  async getMyBookings(@Req() req: any, @Query('phone') phone?: string) {
+    return this.bookingService.getUserBookings(req.user.sub, phone);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -38,4 +51,3 @@ export class BookingController {
     return this.bookingService.updateBookingStatus(id, status, notes);
   }
 }
-
