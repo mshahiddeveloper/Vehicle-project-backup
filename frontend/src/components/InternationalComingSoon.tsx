@@ -106,7 +106,7 @@ export function InternationalComingSoon({
               <span>Visiting or Sending Family to Pakistan from {country.name}?</span>
             </div>
             <h3 className="font-heading font-extrabold text-xl sm:text-2xl tracking-tight text-white">
-              Book Rent-a-Car, Chauffeurs & Shuttles in Pakistan (in {currency.code} {currency.symbol})
+              Book Rent-a-Car, Drivers & Shuttles in Pakistan (in {currency.code} {currency.symbol})
             </h3>
             <p className="text-emerald-100/90 text-sm leading-relaxed">
               Traveling to Lahore, Karachi, or Islamabad? Browse 150+ verified Pakistani vehicles and drivers right now. All rental rates and fuel calculations are automatically converted to your local <strong className="text-white">{currency.name} ({currency.code})</strong>.
@@ -362,3 +362,4 @@ export function InternationalComingSoon({
     </div>
   );
 }
+

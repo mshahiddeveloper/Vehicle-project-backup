@@ -10,6 +10,39 @@ import {
   formatPriceWithRate,
 } from '@/data/countries';
 
+export interface TerminologyInfo {
+  isPakistan: boolean;
+  driverLabel: string;
+  driverPlural: string;
+  driverSingle: string;
+  captainLabel: string;
+  verifiedLabel: string;
+  verifiedBadge: string;
+  movingBadge: string;
+  movingTitle: string;
+  helpersLabel: string;
+  driverServiceTab: string;
+  carRentalBadge: string;
+}
+
+export function getTerminology(countryCode?: string): TerminologyInfo {
+  const isPakistan = !countryCode || countryCode === 'PK';
+  return {
+    isPakistan,
+    driverLabel: isPakistan ? 'Driver & Captain' : 'Chauffeur',
+    driverPlural: isPakistan ? 'Drivers & Captains' : 'Chauffeurs',
+    driverSingle: isPakistan ? 'Driver' : 'Chauffeur',
+    captainLabel: isPakistan ? 'Captain' : 'Chauffeur',
+    verifiedLabel: isPakistan ? 'Verified' : 'Vetted',
+    verifiedBadge: isPakistan ? 'Verified Licences & ID' : 'Verified Licences & Background',
+    movingBadge: isPakistan ? 'Trucks with Mazdoors' : 'Moving Trucks with Helpers',
+    movingTitle: isPakistan ? 'Home & Office Cargo Shifting' : 'Home & Office Moving Logistics',
+    helpersLabel: isPakistan ? 'Mazdoors & Helpers' : 'Professional Helpers',
+    driverServiceTab: isPakistan ? 'Hire a driver' : 'Hire a chauffeur',
+    carRentalBadge: isPakistan ? 'Self-Drive & With Driver' : 'Self-Drive & Chauffeur',
+  };
+}
+
 interface CountryContextValue {
   country: CountryInfo;
   setCountry: (c: CountryInfo, syncCurrency?: boolean) => void;
@@ -18,6 +51,7 @@ interface CountryContextValue {
   loading: boolean;
   formatPrice: (amount: number | string) => string;
   isCustomCurrency: boolean;
+  terms: TerminologyInfo;
 }
 
 const defaultCountry = COUNTRIES[0]; // Pakistan
@@ -31,6 +65,7 @@ const CountryContext = createContext<CountryContextValue>({
   loading: false,
   formatPrice: (amt) => formatPriceWithRate(amt, 'PKR'),
   isCustomCurrency: false,
+  terms: getTerminology('PK'),
 });
 
 export const CountryProvider = ({ children }: { children: ReactNode }) => {
@@ -173,6 +208,8 @@ export const CountryProvider = ({ children }: { children: ReactNode }) => {
     return formatPriceWithRate(amountInPkr, currency.code);
   };
 
+  const terms = getTerminology(country?.code);
+
   return (
     <CountryContext.Provider
       value={{
@@ -183,6 +220,7 @@ export const CountryProvider = ({ children }: { children: ReactNode }) => {
         loading,
         formatPrice,
         isCustomCurrency,
+        terms,
       }}
     >
       {children}

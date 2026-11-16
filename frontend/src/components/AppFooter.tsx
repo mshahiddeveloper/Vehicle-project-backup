@@ -3,8 +3,12 @@
 import React from 'react';
 import Link from 'next/link';
 import { ShieldCheck, PhoneCall, MessageSquare, ExternalLink } from 'lucide-react';
+import { useCountry } from '@/app/context/CountryContext';
 
 export function AppFooter() {
+  const { country } = useCountry();
+  const isPakistan = !country || country.code === 'PK';
+
   return (
     <footer className="bg-white border-t border-[#EEF0F2] text-[#475467] font-sans pt-12 pb-24 md:pb-12">
       <div className="max-w-[1240px] mx-auto px-4 sm:px-8">
@@ -20,7 +24,7 @@ export function AppFooter() {
               </span>
             </Link>
             <p className="text-sm leading-relaxed text-[#475467]">
-              SafarPK is a direct marketplace connecting registered vehicle owners, independent chauffeurs, commuter van operators, and home movers with customers across Pakistan and worldwide.
+              SafarPK is a direct marketplace connecting registered vehicle owners, {isPakistan ? 'independent drivers & captains' : 'independent chauffeurs'}, commuter van operators, and home movers with customers across {country?.name || 'Pakistan'} and worldwide.
             </p>
             <div className="p-3 bg-[#F7F8FA] rounded-xl border border-[#EEF0F2] text-xs text-[#344054] leading-relaxed">
               <strong className="text-[#101828] block mb-0.5">Direct Connector Model:</strong>
@@ -36,12 +40,12 @@ export function AppFooter() {
             <ul className="space-y-2.5 text-sm">
               <li>
                 <Link href="/" className="hover:text-[#0B6B4F] transition">
-                  Rent a car (Self-drive & Chauffeur)
+                  Rent a car {isPakistan ? '(Self-drive & Driver)' : '(Self-drive & Chauffeur)'}
                 </Link>
               </li>
               <li>
                 <Link href="/drivers" className="hover:text-[#0B6B4F] transition">
-                  Hire a verified driver
+                  {isPakistan ? 'Hire a verified driver' : 'Hire a chauffeur'}
                 </Link>
               </li>
               <li>
@@ -56,7 +60,7 @@ export function AppFooter() {
               </li>
               <li>
                 <Link href="/movers" className="hover:text-[#0B6B4F] transition">
-                  Home shifting & cargo trucks
+                  {isPakistan ? 'Home shifting & cargo trucks' : 'Moving & cargo trucks'}
                 </Link>
               </li>
               <li>
@@ -80,7 +84,7 @@ export function AppFooter() {
               </li>
               <li>
                 <Link href="/driver" className="hover:text-[#0B6B4F] transition">
-                  Driver / Chauffeur Dashboard
+                  {isPakistan ? 'Driver & Captain Dashboard' : 'Driver / Chauffeur Dashboard'}
                 </Link>
               </li>
               <li>

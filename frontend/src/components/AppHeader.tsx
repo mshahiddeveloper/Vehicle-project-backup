@@ -83,12 +83,15 @@ export function AppHeader({
     };
   }, []);
 
+  const selectedCountry = currentCountry || ctxCountry || COUNTRIES[0];
+  const isPakistan = selectedCountry?.code === 'PK';
+
   const navLinks = [
     { label: 'Rent a car', href: '/' },
-    { label: 'Hire a driver', href: '/drivers' },
+    { label: isPakistan ? 'Hire a driver' : 'Hire a chauffeur', href: '/drivers' },
     { label: 'City to city', href: '/city-to-city' },
     { label: 'Pick & drop', href: '/shuttles' },
-    { label: 'Home shifting', href: '/movers' },
+    { label: isPakistan ? 'Home shifting' : 'Moving & cargo', href: '/movers' },
   ];
 
   const getDashboardHref = (role?: string) => {
@@ -105,7 +108,6 @@ export function AppHeader({
     }
   };
 
-  const selectedCountry = currentCountry || ctxCountry || COUNTRIES[0];
   const isCustomer = Boolean(
     activeUser &&
       (activeUser.role === 'CUSTOMER' ||
@@ -278,6 +280,9 @@ export function AppHeader({
                       key={c.code}
                       type="button"
                       onClick={() => {
+                        if (typeof window !== 'undefined') {
+                          localStorage.removeItem('safarpk_return_to_country');
+                        }
                         if (onCountryChange) onCountryChange(c);
                         else ctxSetCountry(c);
                         setShowCountryMenu(false);

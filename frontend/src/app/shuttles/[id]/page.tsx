@@ -29,7 +29,8 @@ export default function ShuttleDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = (params?.id as string) || '';
-  const { formatPrice } = useCountry();
+  const { country, formatPrice } = useCountry();
+  const isPakistan = !country || country.code === 'PK';
 
   const shuttle: ShuttleItem | undefined = useMemo(() => {
     return (
@@ -286,7 +287,7 @@ export default function ShuttleDetailPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                  <span>Experienced, vetted commercial route driver</span>
+                  <span>{isPakistan ? 'Experienced, verified commercial route driver' : 'Experienced, vetted commercial route driver'}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />

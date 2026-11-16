@@ -37,7 +37,8 @@ export default function PublicDriverProfilePage() {
   const params = useParams();
   const router = useRouter();
   const slug = (params?.slug as string) || '';
-  const { formatPrice } = useCountry();
+  const { country, formatPrice } = useCountry();
+  const isPakistan = !country || country.code === 'PK';
 
   const driver: DriverProfileData | null = useMemo(() => {
     return getDriverProfileBySlug(slug);
@@ -91,7 +92,7 @@ export default function PublicDriverProfilePage() {
 
   const handleShareWhatsApp = () => {
     const text = encodeURIComponent(
-      `Check out ${driver.name}'s professional chauffeur profile on SafarPK! View rates, licence categories, and hire directly: ${currentProfileUrl}`
+      `Check out ${driver.name}'s ${isPakistan ? 'verified driver profile' : 'professional chauffeur profile'} on SafarPK! View rates, licence categories, and hire directly: ${currentProfileUrl}`
     );
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
@@ -149,9 +150,11 @@ export default function PublicDriverProfilePage() {
         ? 'Daily City Duty (12 Hours)'
         : selectedDuty === 'outstation'
         ? 'Outstation Tour'
+        : isPakistan
+        ? 'Monthly Dedicated Driver / Captain'
         : 'Monthly Dedicated Chauffeur';
 
-    const text = `Assalam-o-Alaikum ${driver.name},\n\nI want to hire you as a professional chauffeur via SafarPK:\n• Duty Type: ${dutyLabel}\n• Starting Date: ${startDate}\n• Estimated Rate: ${currentRateDisplay}\n\nPlease let me know if you are available and confirm your rate.`;
+    const text = `Assalam-o-Alaikum ${driver.name},\n\nI want to hire you as a ${isPakistan ? 'verified driver' : 'professional chauffeur'} via SafarPK:\n• Duty Type: ${dutyLabel}\n• Starting Date: ${startDate}\n• Estimated Rate: ${currentRateDisplay}\n\nPlease let me know if you are available and confirm your rate.`;
     const waUrl = getWhatsAppTargetUrl(driver.whatsapp || driver.phone, text);
     window.open(waUrl, '_blank');
   };
@@ -246,7 +249,7 @@ export default function PublicDriverProfilePage() {
                 </h1>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Experienced Chauffeur</span>
+                  <span>{isPakistan ? 'Verified Driver / Captain' : 'Experienced Chauffeur'}</span>
                 </span>
               </div>
 
@@ -489,7 +492,7 @@ export default function PublicDriverProfilePage() {
                 <Phone className="w-3.5 h-3.5 text-purple-600" />
                 <span>
                   {phoneRevealed ? (
-                    <>Call Chauffeur: <span className="font-mono font-bold">{driver.phone}</span></>
+                    <>Call {isPakistan ? 'Driver' : 'Chauffeur'}: <span className="font-mono font-bold">{driver.phone}</span></>
                   ) : (
                     'Show Phone Number'
                   )}

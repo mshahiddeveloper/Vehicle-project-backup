@@ -143,7 +143,7 @@ export const COUNTRIES: CountryInfo[] = [
     comingSoonTitle: '',
     comingSoonMessage: '',
     heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across Pakistan',
-    heroSubtitle: 'Direct connection with vehicle owners, corporate shuttles, licensed chauffeurs, and home cargo movers in Lahore, Karachi, Islamabad, and nationwide.',
+    heroSubtitle: 'Direct connection with vehicle owners, corporate shuttles, verified drivers & captains, and home cargo movers in Lahore, Karachi, Islamabad, and nationwide.',
     idDocumentName: 'National Identity Card (CNIC / Passport)',
     idPlaceholder: '35202-8172910-3',
     licenseDocumentName: 'Driving License (LTV / PSV)',

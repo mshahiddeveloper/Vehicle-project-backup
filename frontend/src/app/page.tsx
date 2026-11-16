@@ -37,6 +37,7 @@ import { MobileNavBar } from '@/components/MobileNavBar';
 import { MobilePWAExperience } from '@/components/MobilePWAExperience';
 import { recordClickEvent, recordLead } from '@/data/activityTracker';
 import { useCountry } from '@/app/context/CountryContext';
+import { COUNTRIES, resolveAnyCountry } from '@/data/countries';
 import { InternationalComingSoon } from '@/components/InternationalComingSoon';
 import {
   CARS_DATA,
@@ -58,14 +59,35 @@ import { slugify, getStoreSlugForOwner } from '@/data/storefrontEngine';
 
 export default function HomePage() {
   const router = useRouter();
-  const { country, setCountry, currency, setCurrency, formatPrice } = useCountry();
-  const [browseInboundPakistan, setBrowseInboundPakistan] = useState(false);
+  const { country, setCountry, currency, setCurrency, formatPrice, terms } = useCountry();
+  const isPakistan = !country || country.code === 'PK';
+
+  // Inbound Return Country (when an international user chooses to explore Pakistan fleet in their currency)
+  const [returnToCountryCode, setReturnToCountryCode] = useState<string | null>(null);
 
   useEffect(() => {
-    if (country?.code === 'PK') {
-      setBrowseInboundPakistan(false);
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('safarpk_return_to_country');
+      if (stored && country?.code === 'PK') {
+        setReturnToCountryCode(stored);
+      } else {
+        setReturnToCountryCode(null);
+      }
     }
   }, [country?.code]);
+
+  const returnCountryInfo = useMemo(() => {
+    return returnToCountryCode ? resolveAnyCountry(returnToCountryCode) : null;
+  }, [returnToCountryCode]);
+
+  const handleReturnToLaunchHub = () => {
+    if (!returnCountryInfo) return;
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('safarpk_return_to_country');
+    }
+    setReturnToCountryCode(null);
+    setCountry(returnCountryInfo, false);
+  };
 
   // Active Service Tab (0: Rent a Car, 1: Hire Driver, 2: City to City, 3: Pick & Drop, 4: Movers)
   const [activeService, setActiveService] = useState<number>(0);
@@ -224,14 +246,25 @@ export default function HomePage() {
   // Saved Wishlist Items
   const [savedIds, setSavedIds] = useState<string[]>([]);
 
-  // Animated Rotating Hero Highlight
-  const HERO_ROTATING_SERVICES = [
-    { text: 'Rent a Car without Hidden Fees', icon: '🚗', badge: 'Self-Drive & Chauffeur' },
-    { text: 'Hire Vetted Chauffeurs by the Day', icon: '👨‍✈️', badge: 'Verified Licences & CNIC' },
-    { text: 'Book Private City-to-City Rides', icon: '🛣️', badge: 'Motorway M-2 · Fixed Fares' },
-    { text: 'Safe Daily Commuter Shuttles', icon: '🚌', badge: 'School & Office Vanpools' },
-    { text: 'Home & Office Cargo Shifting', icon: '📦', badge: 'Trucks with Mazdoors' },
-  ];
+  // Animated Rotating Hero Highlight (Dynamically adapted for Pakistan vs International)
+  const HERO_ROTATING_SERVICES = useMemo(() => {
+    if (isPakistan) {
+      return [
+        { text: 'Rent a Car without Hidden Fees', icon: '🚗', badge: 'Self-Drive & With Driver' },
+        { text: 'Hire Verified Drivers by the Day', icon: '👨‍✈️', badge: 'Verified Licences & CNIC' },
+        { text: 'Book Private City-to-City Rides', icon: '🛣️', badge: 'Motorway M-2 · Fixed Fares' },
+        { text: 'Safe Daily Commuter Shuttles', icon: '🚌', badge: 'School & Office Vanpools' },
+        { text: 'Home & Office Cargo Shifting', icon: '📦', badge: 'Trucks with Mazdoors' },
+      ];
+    }
+    return [
+      { text: `Rent a Car in ${country?.name || 'your region'}`, icon: '🚗', badge: 'Self-Drive & Chauffeur' },
+      { text: 'Hire Vetted Chauffeurs by the Day', icon: '👨‍✈️', badge: 'Verified Licences & Background' },
+      { text: 'Book Private Intercity Transfers', icon: '🛣️', badge: 'Direct Transfers · Fixed Fares' },
+      { text: 'Corporate & Commuter Shuttles', icon: '🚌', badge: 'Office & Group Vanpools' },
+      { text: 'Home & Office Moving Logistics', icon: '📦', badge: 'Moving Trucks with Helpers' },
+    ];
+  }, [isPakistan, country?.name]);
   const [heroIdx, setHeroIdx] = useState(0);
 
   useEffect(() => {
@@ -285,22 +318,26 @@ export default function HomePage() {
     } catch (e) {}
   };
 
-  const serviceDefs = [
+  const serviceDefs = useMemo(() => [
     {
       label: 'Rent a car',
       shortLabel: 'Rent Car',
       icon: Car,
       href: '/listing/l-1',
       go: 'Search cars',
-      hint: 'Self-drive or with driver · pay the owner at pick-up, nothing online',
+      hint: isPakistan
+        ? 'Self-drive or with driver · pay the owner at pick-up, nothing online'
+        : 'Self-drive or with chauffeur · pay at pick-up, zero booking fees',
     },
     {
-      label: 'Hire a driver',
-      shortLabel: 'Drivers',
+      label: isPakistan ? 'Hire a driver' : 'Hire a chauffeur',
+      shortLabel: isPakistan ? 'Drivers' : 'Chauffeurs',
       icon: UserCheck,
       href: '/drivers',
-      go: 'Find drivers',
-      hint: 'Experienced private & commercial chauffeurs for city or outstation',
+      go: isPakistan ? 'Find drivers' : 'Find chauffeurs',
+      hint: isPakistan
+        ? 'Experienced verified drivers and captains for city or outstation'
+        : 'Experienced private & executive chauffeurs for city or outstation',
     },
     {
       label: 'City to city',
@@ -308,7 +345,9 @@ export default function HomePage() {
       icon: Navigation,
       href: '/city-to-city',
       go: 'Find rides',
-      hint: 'Car with driver between cities · one way or return',
+      hint: isPakistan
+        ? 'Car with driver between cities · one way or return'
+        : 'Car with chauffeur between cities · one way or return',
     },
     {
       label: 'Pick & drop',
@@ -319,14 +358,16 @@ export default function HomePage() {
       hint: 'Monthly seats for school, college and corporate office routes',
     },
     {
-      label: 'Home shifting',
-      shortLabel: 'Movers',
+      label: isPakistan ? 'Home shifting' : 'Moving & cargo',
+      shortLabel: isPakistan ? 'Movers' : 'Moving',
       icon: Truck,
       href: '/movers',
-      go: 'Find movers',
-      hint: 'Trucks with helpers · compare and send your move quote to 3 movers',
+      go: isPakistan ? 'Find trucks' : 'Find movers',
+      hint: isPakistan
+        ? 'Shehzore, Suzuki Ravi, Mazda & covered containers with mazdoors'
+        : 'Moving vans, flatbed trucks and cargo haulers with helpers',
     },
-  ];
+  ], [isPakistan]);
 
   const currentService = serviceDefs[activeService];
 
@@ -457,7 +498,7 @@ export default function HomePage() {
     }
   }, [activeService, filteredCars.length, filteredDrivers.length, filteredRides.length, filteredShuttles.length, filteredMovers.length]);
 
-  const serviceMeta = [
+  const serviceMeta = useMemo(() => [
     {
       title: 'Cars available this weekend',
       sub: searchWhere
@@ -470,15 +511,15 @@ export default function HomePage() {
       resetLabel: 'Show All Available Cars',
     },
     {
-      title: 'Professional chauffeurs & drivers',
+      title: isPakistan ? 'Verified drivers & captains' : 'Professional chauffeurs & drivers',
       sub: searchWhere
-        ? `Showing professional chauffeurs in "${searchWhere}" (${selectedCategory})`
-        : `CNIC and driving licence on file across ${country?.name || 'Pakistan'}`,
-      viewAllText: 'View all drivers',
+        ? (isPakistan ? `Showing verified drivers in "${searchWhere}" (${selectedCategory})` : `Showing professional chauffeurs in "${searchWhere}" (${selectedCategory})`)
+        : (isPakistan ? `CNIC and driving licence on file across Pakistan` : `Commercial driving licences & background on file across ${country?.name || 'region'}`),
+      viewAllText: isPakistan ? 'View all drivers' : 'View all chauffeurs',
       viewAllHref: '/drivers',
       emptyIcon: UserCheck,
-      emptyLabel: 'drivers',
-      resetLabel: 'Show All Available Drivers',
+      emptyLabel: isPakistan ? 'drivers' : 'chauffeurs',
+      resetLabel: isPakistan ? 'Show All Available Drivers' : 'Show All Available Chauffeurs',
     },
     {
       title: 'City to city intercity rides',
@@ -503,17 +544,17 @@ export default function HomePage() {
       resetLabel: 'Show All Available Shuttles',
     },
     {
-      title: 'Home & office cargo movers',
+      title: isPakistan ? 'Home & office cargo movers' : 'Moving & cargo logistics',
       sub: searchWhere
         ? `Showing movers and trucks in "${searchWhere}" (${selectedCategory})`
-        : `Covered containers, Shehzore & Mazda trucks with helpers across ${country?.name || 'Pakistan'}`,
-      viewAllText: 'View all movers',
+        : (isPakistan ? `Covered containers, Shehzore & Mazda trucks with mazdoors across Pakistan` : `Moving trucks, cargo haulers and logistics teams with helpers across ${country?.name || 'region'}`),
+      viewAllText: isPakistan ? 'View all movers' : 'View all cargo movers',
       viewAllHref: '/movers',
       emptyIcon: Truck,
       emptyLabel: 'movers',
       resetLabel: 'Show All Available Movers',
     },
-  ];
+  ], [country?.name, isPakistan, searchWhere, selectedCategory]);
 
   const currentMeta = serviceMeta[activeService] || serviceMeta[0];
   const currentCategories = SERVICE_CATEGORIES[activeService] || SERVICE_CATEGORIES[0];
@@ -539,13 +580,15 @@ export default function HomePage() {
             {/* Punchy, Minimal Headline with Animated Rotating Tag */}
             <div className="space-y-0.5">
               <h1 className="font-heading font-black text-2xl sm:text-3xl md:text-4xl tracking-tight text-[#101828] leading-tight">
-                Move freely across Pakistan —{' '}
+                Move freely across {country?.name || 'Pakistan'} —{' '}
                 <span className="text-[#0B6B4F] inline-block transition-all duration-300 ease-in-out">
-                  {HERO_ROTATING_SERVICES[heroIdx].text}
+                  {HERO_ROTATING_SERVICES[heroIdx]?.text}
                 </span>
               </h1>
               <p className="text-xs sm:text-sm text-[#475467] leading-relaxed max-w-[620px] font-medium hidden sm:block">
-                Direct connections with verified vehicle owners, private chauffeurs, daily shuttles, and cargo movers. Zero middleman fees.
+                {isPakistan
+                  ? 'Direct connections with verified vehicle owners, private drivers, daily shuttles, and cargo movers across Pakistan. Zero middleman fees.'
+                  : `Direct connections with verified vehicle owners, private chauffeurs, daily shuttles, and logistics movers across ${country?.name || 'the country'}. Zero middleman fees.`}
               </p>
             </div>
           </div>
@@ -922,37 +965,45 @@ export default function HomePage() {
       {/* 3. Dynamic Service Listings OR International Coming Soon & Pre-Registration */}
       <section id="listings-results" className="py-12 md:py-16">
         <div id="cars-results" className="max-w-[1240px] mx-auto px-5 sm:px-8 flex flex-col gap-7">
-          {country && country.code !== 'PK' && !browseInboundPakistan ? (
+          {country && country.code !== 'PK' ? (
             <InternationalComingSoon
               country={country}
               currency={currency}
-              onBrowsePakistanInbound={() => setBrowseInboundPakistan(true)}
+              onBrowsePakistanInbound={() => {
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('safarpk_return_to_country', country.code);
+                }
+                setReturnToCountryCode(country.code);
+                // Switch country to Pakistan while PRESERVING current international currency!
+                setCountry(COUNTRIES[0], false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
             />
           ) : (
             <>
-              {/* If viewing Pakistan from an international country */}
-              {country && country.code !== 'PK' && browseInboundPakistan && (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl shadow-2xs">
+              {/* Inbound Visitor Banner: If user switched to Pakistan fleet with international currency */}
+              {returnCountryInfo && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl shadow-2xs animate-in fade-in duration-200">
                   <div className="flex items-center gap-3">
                     <span className="text-2xl">🇵🇰</span>
                     <div>
                       <h4 className="text-sm font-bold text-emerald-950 flex items-center gap-2">
-                        <span>Viewing Pakistan Fleet from {country.name} {country.flag}</span>
+                        <span>Viewing Pakistan Fleet with prices in {currency.code} ({currency.symbol})</span>
                         <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900 font-bold">
-                          Converted to {currency.code} ({currency.symbol})
+                          Live Converted from PKR
                         </span>
                       </h4>
                       <p className="text-xs text-emerald-700">
-                        All vehicle rental rates and fuel calculations are live-converted from PKR to your local {currency.name}.
+                        Showing verified vehicles & drivers across Pakistan. All rates live-converted from PKR to your selected currency ({currency.name}).
                       </p>
                     </div>
                   </div>
                   <button
                     type="button"
-                    onClick={() => setBrowseInboundPakistan(false)}
-                    className="px-4 py-2 text-xs font-bold text-emerald-900 bg-white border border-emerald-300 rounded-xl hover:bg-emerald-100 transition shadow-2xs shrink-0 cursor-pointer"
+                    onClick={handleReturnToLaunchHub}
+                    className="px-4 py-2 text-xs font-bold text-emerald-900 bg-white border border-emerald-300 rounded-xl hover:bg-emerald-100 transition shadow-2xs shrink-0 cursor-pointer flex items-center gap-1.5"
                   >
-                    ← Back to {country.name} Launch Hub
+                    <span>← Return to {returnCountryInfo.name} {returnCountryInfo.flag} Launch Hub</span>
                   </button>
                 </div>
               )}
@@ -1153,7 +1204,7 @@ export default function HomePage() {
                         <div className="flex items-center justify-between pb-2 mb-2 border-b border-amber-200">
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white uppercase tracking-wider shadow-2xs">
                             <Sparkles className="w-3 h-3 fill-current text-yellow-200 animate-pulse" />
-                            <span>Featured Chauffeur</span>
+                            <span>{isPakistan ? 'Featured Driver' : 'Featured Chauffeur'}</span>
                           </span>
                           <span className="text-[10px] font-extrabold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full">
                             ★ Slot #{slotIdx + 1}
@@ -1197,7 +1248,7 @@ export default function HomePage() {
                         <span className="font-medium truncate">{driver.langs}</span>
                         <span className="flex items-center gap-1 text-[11px] font-bold text-[#0B6B4F] shrink-0">
                           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                          Direct Chauffeur
+                          {isPakistan ? 'Verified Driver' : 'Direct Chauffeur'}
                         </span>
                       </div>
 
@@ -1761,8 +1812,8 @@ export default function HomePage() {
                 href: '/listing/l-1',
               },
               {
-                title: 'Hire a driver',
-                text: 'Licensed chauffeurs for a day, an event or outstation trip.',
+                title: isPakistan ? 'Hire a driver' : 'Hire a chauffeur',
+                text: isPakistan ? 'Verified drivers and captains for a day, an event or outstation trip.' : 'Licensed chauffeurs for a day, an event or outstation trip.',
                 icon: UserCheck,
                 href: '/drivers',
               },
@@ -1779,8 +1830,8 @@ export default function HomePage() {
                 href: '/shuttles',
               },
               {
-                title: 'Home shifting',
-                text: 'Cargo trucks and loaders for houses, flats and offices.',
+                title: isPakistan ? 'Home shifting' : 'Moving & cargo',
+                text: isPakistan ? 'Cargo trucks, Shehzore & mazdoors for houses and offices.' : 'Moving trucks, cargo haulers and professional helpers.',
                 icon: Truck,
                 href: '/movers',
               },

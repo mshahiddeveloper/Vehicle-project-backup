@@ -32,7 +32,8 @@ export default function CityRideDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = (params?.id as string) || '';
-  const { formatPrice } = useCountry();
+  const { country, formatPrice } = useCountry();
+  const isPakistan = !country || country.code === 'PK';
 
   const ride: CityRideItem | undefined = useMemo(() => {
     return (
@@ -214,7 +215,7 @@ export default function CityRideDetailPage() {
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 truncate">
-                  Direct intercity transport host · Dedicated chauffeur with vehicle
+                  Direct intercity transport host · {isPakistan ? 'Dedicated driver with vehicle' : 'Dedicated chauffeur with vehicle'}
                 </p>
               </div>
               <span className="hidden sm:inline-block px-3 py-1 rounded-full bg-white text-slate-700 text-xs font-bold border border-slate-200 shadow-2xs">

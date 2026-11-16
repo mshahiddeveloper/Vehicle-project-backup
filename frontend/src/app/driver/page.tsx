@@ -63,8 +63,11 @@ import {
   getWhatsAppTargetUrl,
   generateOwnerFollowUpWhatsAppText,
 } from '@/data/chatEngine';
+import { useCountry } from '@/app/context/CountryContext';
 
 export default function DriverDashboardPage() {
+  const { country } = useCountry();
+  const isPakistan = !country || country.code === 'PK';
   const [activeTab, setActiveTab] = useState<
     'overview' | 'analytics' | 'availability' | 'rates' | 'requests' | 'chats' | 'documents' | 'reviews' | 'subscription'
   >('overview');
@@ -505,7 +508,7 @@ export default function DriverDashboardPage() {
           <h2 className="text-xl font-extrabold text-[#101828]">Access Restricted</h2>
           <p className="text-sm text-[#475467] leading-relaxed">
             You are signed in as a <strong>Customer</strong> ({currentUser?.name}).
-            The Driver Cockpit is only accessible to registered Independent Chauffeurs & Drivers.
+            The Driver Cockpit is only accessible to registered {isPakistan ? 'Independent Drivers & Captains' : 'Independent Chauffeurs & Drivers'}.
           </p>
           <div className="pt-2 flex flex-col gap-2.5">
             <Link
@@ -690,7 +693,7 @@ export default function DriverDashboardPage() {
               </div>
               <div>
                 <h3 className="font-bold text-sm text-slate-900">{driverName}</h3>
-                <span className="text-[11px] text-slate-500 block">{licenseCategory} Verified Chauffeur</span>
+                <span className="text-[11px] text-slate-500 block">{licenseCategory} {isPakistan ? 'Verified Driver / Captain' : 'Verified Chauffeur'}</span>
                 <div className="flex flex-wrap items-center gap-1 mt-1">
                   <span className="text-[10px] font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200 inline-block">
                     ★ 4.95 (142 Trips)
@@ -706,7 +709,7 @@ export default function DriverDashboardPage() {
                   >
                     {currentUser?.subscription?.planName ||
                       (currentUser?.subscription?.status === 'ACTIVE'
-                        ? 'Chauffeur Pass'
+                        ? (isPakistan ? 'Driver & Captain Pass' : 'Chauffeur Pass')
                         : currentUser?.subscription?.status === 'PENDING_APPROVAL'
                         ? 'Pending Approval'
                         : 'Unsubscribed')}
@@ -780,14 +783,16 @@ export default function DriverDashboardPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h4 className="font-extrabold text-sm text-slate-900">
-                      Welcome, {driverName}! Activate Your Chauffeur Listing Pass
+                      Welcome, {driverName}! {isPakistan ? 'Activate Your Driver / Captain Pass' : 'Activate Your Chauffeur Listing Pass'}
                     </h4>
                     <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">
-                      Chauffeur Pass Required
+                      {isPakistan ? 'Driver Pass Required' : 'Chauffeur Pass Required'}
                     </span>
                   </div>
                   <p className="text-xs text-slate-600 mt-0.5">
-                    Activate your Independent Chauffeur Pass to receive direct customer ride bookings, outstation assignments, and corporate requests across your chosen cities.
+                    {isPakistan
+                      ? 'Activate your Independent Driver & Captain Pass to receive direct customer ride bookings, outstation assignments, and corporate requests across your chosen cities.'
+                      : 'Activate your Independent Chauffeur Pass to receive direct customer ride bookings, outstation assignments, and corporate requests across your chosen cities.'}
                   </p>
                 </div>
               </div>

@@ -494,7 +494,7 @@ export const CITY_RIDES_DATA: CityRideItem[] = [
     one: 15000,
     ret: 27000,
     ver: true,
-    tags: ['Motorway M-2', 'Chauffeur in uniform', 'Speaks English'],
+    tags: ['Motorway M-2', 'Driver in uniform', 'Speaks English'],
     category: 'Sedans (4 seats)',
     phone: '+92 300 8472910',
     whatsapp: '923008472910',

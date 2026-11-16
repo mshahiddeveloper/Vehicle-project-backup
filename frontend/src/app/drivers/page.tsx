@@ -12,6 +12,7 @@ import { maskPakistaniCnic, maskPakistaniLicense, createDriverBooking } from '@/
 import { getActiveUser } from '@/data/userAuth';
 import { startOrOpenConversation, getWhatsAppTargetUrl } from '@/data/chatEngine';
 import { slugify } from '@/data/storefrontEngine';
+import { useCountry } from '@/app/context/CountryContext';
 
 interface DriverItem {
   id: string;
@@ -161,6 +162,8 @@ const INITIAL_DRIVERS: DriverItem[] = [
 
 export default function DriversPage() {
   const router = useRouter();
+  const { country, formatPrice } = useCountry();
+  const isPakistan = !country || country.code === 'PK';
   const [tripType, setTripType] = useState<number>(0); // 0: City, 1: Outstation, 2: Monthly
   const [availOnly, setAvailOnly] = useState<boolean>(false);
   const [selectedCity, setSelectedCity] = useState<string>('Lahore');
@@ -342,10 +345,12 @@ export default function DriversPage() {
         {/* Title & Tagline */}
         <div className="flex flex-col gap-1.5">
           <h1 className="font-heading font-extrabold text-3xl sm:text-4xl tracking-tight text-[#101828]">
-            Hire a professional driver
+            {isPakistan ? 'Hire a verified driver & captain' : 'Hire a professional chauffeur'}
           </h1>
           <p className="text-[#475467] text-base">
-            Experienced chauffeurs for a day in the city, an outstation trip, or monthly driving.
+            {isPakistan
+              ? 'Experienced verified drivers and captains for a day in the city, an outstation trip, or monthly driving.'
+              : 'Experienced chauffeurs for a day in the city, an outstation trip, or monthly driving.'}
           </p>
         </div>
 
@@ -440,7 +445,7 @@ export default function DriversPage() {
                 key={d.id}
                 onClick={() => router.push(`/driver/${slugify(d.name)}`)}
                 className="border border-[#EEF0F2] rounded-[22px] p-5 flex flex-col gap-3.5 hover:shadow-md hover:border-emerald-300 transition bg-white cursor-pointer group"
-                title={`Click to view chauffeur profile for ${d.name}`}
+                title={isPakistan ? `Click to view driver profile for ${d.name}` : `Click to view chauffeur profile for ${d.name}`}
               >
                 {/* Header: Avatar, Name, Experience - Links to Driver Profile */}
                 <Link
@@ -484,7 +489,7 @@ export default function DriversPage() {
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#E9F3EE] text-[#0B6B4F] flex items-center gap-1">
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    Experienced Chauffeur
+                    {isPakistan ? 'Verified Driver / Captain' : 'Experienced Chauffeur'}
                   </span>
                   {d.police && (
                     <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#EEF4FF] text-[#1D3A8A]">
@@ -613,9 +618,9 @@ export default function DriversPage() {
                         e.stopPropagation();
                         setRequestModalDriver(d);
                       }}
-                      className="h-8.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center transition cursor-pointer shadow-2xs active:scale-95"
+                      className="h-8.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center transition cursor-pointer shadow-2xs active:scale-95 px-2"
                     >
-                      Hire Driver
+                      {isPakistan ? 'Hire Driver' : 'Hire Chauffeur'}
                     </button>
                   </div>
                 </div>
