@@ -39,6 +39,7 @@ import { recordClickEvent, recordLead } from '@/data/activityTracker';
 import { useCountry } from '@/app/context/CountryContext';
 import { COUNTRIES, resolveAnyCountry } from '@/data/countries';
 import { InternationalComingSoon } from '@/components/InternationalComingSoon';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import {
   CARS_DATA,
   DRIVERS_DATA,
@@ -163,6 +164,158 @@ export default function HomePage() {
     return () => window.removeEventListener('safarpk_featured_updated', handleFeaturedUpdate);
   }, []);
 
+  // 1. Car WhatsApp Inquiry with full pricing & direct URL
+  const handleCarWhatsApp = (car: VehicleCardItem) => {
+    recordClickEvent({
+      clickType: 'WHATSAPP_CLICK',
+      targetId: car.id,
+      targetTitle: car.name,
+      targetCategory: 'Car Rental',
+      targetOwnerName: car.owner,
+      city: car.city || searchWhere || 'All Cities',
+    });
+    recordLead({
+      userId: car.id,
+      customerName: 'WhatsApp Car Inquirer',
+      customerPhone: 'WhatsApp Chat',
+      customerCity: car.city || searchWhere || 'All Cities',
+      serviceType: 'Car Rental',
+      notes: `Direct inquiry for ${car.name} (${car.owner})`,
+    });
+
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://safar.pk';
+    const listingUrl = `${origin}/listing/${car.id}`;
+    const dayRate = formatPrice(car.priceNum || 5000);
+    const weekRate = formatPrice(Math.round((car.priceNum || 5000) * 6.5));
+    const monthRate = formatPrice(Math.round((car.priceNum || 5000) * 24));
+
+    const msg = `Hi, I would like to rent this car listed by ${car.owner} on SafarPK: Car: ${car.name} (${car.specs || car.category}) Price: ${dayRate}/day or ${weekRate}/week or ${monthRate}/month Listing: ${listingUrl}`;
+    const cleanNum = (car.whatsapp || car.phone || '').replace(/\D/g, '');
+    const targetUrl = getWhatsAppTargetUrl(cleanNum, msg);
+    window.open(targetUrl, '_blank');
+  };
+
+  // 2. Driver WhatsApp Inquiry with rates & direct profile URL
+  const handleDriverWhatsApp = (driver: DriverCardItem) => {
+    recordClickEvent({
+      clickType: 'WHATSAPP_CLICK',
+      targetId: driver.id,
+      targetTitle: driver.name,
+      targetCategory: 'Driver',
+      targetOwnerName: driver.name,
+      city: driver.city || searchWhere || 'All Cities',
+    });
+    recordLead({
+      userId: driver.id,
+      customerName: 'WhatsApp Driver Inquirer',
+      customerPhone: 'WhatsApp Chat',
+      customerCity: driver.city || searchWhere || 'All Cities',
+      serviceType: 'Hire a Driver',
+      notes: `Direct inquiry for driver ${driver.name}`,
+    });
+
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://safar.pk';
+    const listingUrl = `${origin}/driver/${slugify(driver.name)}`;
+    const dayRate = formatPrice(driver.city12Num || driver.city12);
+    const outRate = driver.out;
+    const monthRate = driver.monthly;
+
+    const msg = `Hi, I would like to hire ${driver.name} listed on SafarPK: Service: ${isPakistan ? 'Verified Driver & Captain' : 'Professional Chauffeur'} Location: ${driver.city} Rates: ${dayRate} (City 12h) | ${outRate} (Outstation/day) | ${monthRate} (Monthly) Profile: ${listingUrl}`;
+    const cleanNum = (driver.whatsapp || driver.phone || '').replace(/\D/g, '');
+    const targetUrl = getWhatsAppTargetUrl(cleanNum, msg);
+    window.open(targetUrl, '_blank');
+  };
+
+  // 3. City to City Ride WhatsApp Inquiry with route & rates
+  const handleRideWhatsApp = (ride: CityRideItem) => {
+    recordClickEvent({
+      clickType: 'WHATSAPP_CLICK',
+      targetId: ride.id,
+      targetTitle: `${ride.fromCity} to ${ride.toCity}`,
+      targetCategory: 'CityToCity',
+      targetOwnerName: ride.op,
+      city: ride.fromCity,
+    });
+    recordLead({
+      userId: ride.id,
+      customerName: 'WhatsApp Ride Inquirer',
+      customerPhone: 'WhatsApp Chat',
+      customerCity: ride.fromCity,
+      serviceType: 'City to City',
+      notes: `Direct inquiry for ride ${ride.fromCity} ➔ ${ride.toCity} (${ride.op})`,
+    });
+
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://safar.pk';
+    const listingUrl = `${origin}/city-to-city/${ride.id}`;
+    const fare = formatPrice(ride.one);
+    const retFare = formatPrice(ride.ret);
+
+    const msg = `Hi, I would like to book this intercity ride operated by ${ride.op} on SafarPK: Route: ${ride.fromCity} to ${ride.toCity} Vehicle: ${ride.car} Rate: ${fare} (One-way) or ${retFare} (Return) Listing: ${listingUrl}`;
+    const cleanNum = (ride.whatsapp || ride.phone || '').replace(/\D/g, '');
+    const targetUrl = getWhatsAppTargetUrl(cleanNum, msg);
+    window.open(targetUrl, '_blank');
+  };
+
+  // 4. Shuttle WhatsApp Inquiry with schedule & fare
+  const handleShuttleWhatsApp = (shuttle: ShuttleItem) => {
+    recordClickEvent({
+      clickType: 'WHATSAPP_CLICK',
+      targetId: shuttle.id,
+      targetTitle: `${shuttle.from} to ${shuttle.to}`,
+      targetCategory: 'Shuttle',
+      targetOwnerName: shuttle.op,
+      city: shuttle.city,
+    });
+    recordLead({
+      userId: shuttle.id,
+      customerName: 'WhatsApp Shuttle Inquirer',
+      customerPhone: 'WhatsApp Chat',
+      customerCity: shuttle.city,
+      serviceType: 'Pick & Drop',
+      notes: `Seat request for route ${shuttle.from} ➔ ${shuttle.to} (${shuttle.op})`,
+    });
+
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://safar.pk';
+    const listingUrl = `${origin}/shuttles/${shuttle.id}`;
+    const fare = formatPrice(shuttle.fareNum || shuttle.fare);
+
+    const msg = `Hi, I would like to reserve a commuter shuttle seat operated by ${shuttle.op} on SafarPK: Route: ${shuttle.from} to ${shuttle.to} (${shuttle.city}) Schedule: ${shuttle.pick} - ${shuttle.back} (${shuttle.days}) Reserved Monthly Fare: ${fare}/month Listing: ${listingUrl}`;
+    const cleanNum = (shuttle.whatsapp || shuttle.phone || '').replace(/\D/g, '');
+    const targetUrl = getWhatsAppTargetUrl(cleanNum, msg);
+    window.open(targetUrl, '_blank');
+  };
+
+  // 5. Mover WhatsApp Inquiry with trucks & rates
+  const handleMoverWhatsApp = (mover: MoverItem) => {
+    recordClickEvent({
+      clickType: 'WHATSAPP_CLICK',
+      targetId: mover.id,
+      targetTitle: mover.name,
+      targetCategory: 'Mover',
+      targetOwnerName: mover.name,
+      city: mover.city,
+    });
+    recordLead({
+      userId: mover.id,
+      customerName: 'WhatsApp Mover Inquirer',
+      customerPhone: 'WhatsApp Chat',
+      customerCity: mover.city,
+      serviceType: 'Cargo & Movers',
+      notes: `Move quote request for ${mover.name} (${mover.city})`,
+    });
+
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://safar.pk';
+    const listingUrl = `${origin}/movers/${mover.id}`;
+    const baseFare = formatPrice((mover as any).baseFareNum || mover.base);
+    const kmFare = formatPrice((mover as any).perKmNum || mover.km);
+    const helperFare = formatPrice((mover as any).helperNum || mover.helper);
+
+    const msg = `Hi, I would like to get a moving quote from ${mover.name} on SafarPK: Moving Fleet: ${mover.trucks} City: ${mover.city} Rates: Base ${baseFare} | Per KM ${kmFare} | Helper ${helperFare} Listing: ${listingUrl}`;
+    const cleanNum = (mover.whatsapp || mover.phone || '').replace(/\D/g, '');
+    const targetUrl = getWhatsAppTargetUrl(cleanNum, msg);
+    window.open(targetUrl, '_blank');
+  };
+
   const handleDirectWhatsApp = (title: string, phone: string, whatsapp: string, type: string, ownerName?: string) => {
     recordClickEvent({
       clickType: 'WHATSAPP_CLICK',
@@ -181,7 +334,7 @@ export default function HomePage() {
       notes: `Direct inquiry from Homepage for ${title} (${ownerName || 'Host'})`,
     });
     const cleanNum = whatsapp.replace(/\D/g, '');
-    const msg = `Assalam-o-Alaikum! I saw your listing "${title}" on SafarPK. I want to inquire about availability and rates.`;
+    const msg = `Hi, I am interested in "${title}" listed on SafarPK. Please let me know rates and availability.`;
     const targetUrl = getWhatsAppTargetUrl(cleanNum, msg);
     window.open(targetUrl, '_blank');
   };
@@ -1132,47 +1285,52 @@ export default function HomePage() {
                         <span className="text-xs text-[#475467] font-medium">{car.specs}</span>
                       </Link>
 
-                      {/* Direct Host Contact Action Row (Instant Call & WhatsApp without login) */}
-                      <div className="flex flex-col gap-2 pt-2.5 px-2 border-t border-slate-100 mt-1" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-2">
-                          {/* Call / Phone Button: Masked until click to track every lead - Full number legible */}
-                          <button
-                            type="button"
-                            onClick={(e) => handleRevealPhone(e, car.id, car.name, car.phone, 'Car Rental', car.owner)}
-                            className="flex-1 h-9.5 px-3 rounded-xl border border-purple-200 bg-purple-50/80 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs whitespace-nowrap active:scale-95"
-                            title={revealedPhones[car.id] ? `Call ${car.owner} (${car.phone})` : 'Click to show phone number'}
-                          >
-                            <Phone className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                            <span className="font-mono text-xs font-bold whitespace-nowrap">
-                              {revealedPhones[car.id] ? car.phone : 'Show Number'}
-                            </span>
-                          </button>
+                      {/* Unified Single-Row Responsive CTA Action Bar */}
+                      <div className="flex items-center gap-1.5 sm:gap-2 pt-2.5 px-1 border-t border-slate-100 mt-1" onClick={(e) => e.stopPropagation()}>
+                        {/* 1. Phone Call CTA */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleRevealPhone(e, car.id, car.name, car.phone, 'Car Rental', car.owner)}
+                          className="h-9 px-2.5 sm:px-3 rounded-xl border border-purple-200/90 bg-purple-50/70 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                          title={revealedPhones[car.id] ? `Call ${car.owner} (${car.phone})` : 'Call / Show Number'}
+                        >
+                          <Phone className="w-3.5 h-3.5 text-purple-600 fill-purple-600/20 shrink-0" />
+                          <span className="font-mono text-xs font-bold">
+                            {revealedPhones[car.id] ? car.phone : 'Call'}
+                          </span>
+                        </button>
 
-                          {/* WhatsApp Direct Chat Button */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDirectWhatsApp(car.name, car.phone, car.whatsapp, 'Car Rental', car.owner);
-                            }}
-                            className="h-9.5 px-3.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs shrink-0 active:scale-95 text-xs font-bold whitespace-nowrap"
-                            title={`Chat with ${car.owner} on WhatsApp`}
-                            aria-label="Direct WhatsApp"
-                          >
-                            <MessageCircle className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600/20 shrink-0" />
-                            <span className="text-xs font-bold text-emerald-800">WhatsApp</span>
-                          </button>
-                        </div>
+                        {/* 2. WhatsApp Direct Inquiry CTA */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCarWhatsApp(car);
+                          }}
+                          className="h-9 px-2.5 sm:px-3 rounded-xl border border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                          title={`Inquire with ${car.owner} on WhatsApp with full listing details`}
+                          aria-label="Direct WhatsApp"
+                        >
+                          <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
+                          <span className="hidden sm:inline text-xs font-bold text-emerald-800">WhatsApp</span>
+                        </button>
 
-                        {/* Host Badge / Logo - Links to Public Store */}
+                        {/* 3. Company Store Badge / Logo CTA */}
                         <Link
                           href={`/store/${getStoreSlugForOwner(car.owner)}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="w-full h-8.5 rounded-xl bg-slate-900 hover:bg-emerald-800 text-white flex items-center justify-center text-xs font-heading font-bold shadow-2xs transition gap-1"
-                          title={`Hosted by ${car.owner} · View Store`}
+                          className="flex-1 min-w-0 h-9 px-2 sm:px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-800 flex items-center justify-between gap-1 transition shadow-2xs group/store cursor-pointer"
+                          title={`Visit ${car.owner}'s Official Store`}
                         >
-                          <span className="truncate">View {car.owner} Fleet & Store</span>
-                          <span className="text-slate-400">→</span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" title="Online Host" />
+                            <span className="font-heading font-extrabold text-[11px] sm:text-xs text-slate-800 group-hover/store:text-emerald-700 truncate">
+                              {car.owner}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 group-hover/store:text-emerald-600 group-hover/store:translate-x-0.5 transition shrink-0">
+                            ➔
+                          </span>
                         </Link>
                       </div>
                     </div>
@@ -1300,49 +1458,52 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    {/* Direct Contact Action Row (Instant Call & WhatsApp without login) */}
-                    <div
-                      className="flex flex-col gap-2 pt-2.5 mt-2 border-t border-slate-100"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="flex items-center gap-2">
-                        {/* Call / Phone Button: Masked until click - Full number legible */}
-                        <button
-                          type="button"
-                          onClick={(e) => handleRevealPhone(e, driver.id, driver.name, driver.phone, 'Driver', driver.name)}
-                          className="flex-1 h-9.5 px-3 rounded-xl border border-purple-200 bg-purple-50/80 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs whitespace-nowrap active:scale-95"
-                          title={revealedPhones[driver.id] ? `Call ${driver.name} (${driver.phone})` : 'Click to show phone number'}
-                        >
-                          <Phone className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                          <span className="font-mono text-xs font-bold whitespace-nowrap">
-                            {revealedPhones[driver.id] ? driver.phone : 'Show Number'}
-                          </span>
-                        </button>
+                    {/* Unified Single-Row Responsive CTA Action Bar */}
+                    <div className="flex items-center gap-1.5 sm:gap-2 pt-2.5 px-1 border-t border-slate-100 mt-1" onClick={(e) => e.stopPropagation()}>
+                      {/* 1. Phone Call CTA */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleRevealPhone(e, driver.id, driver.name, driver.phone, 'Driver', driver.name)}
+                        className="h-9 px-2.5 sm:px-3 rounded-xl border border-purple-200/90 bg-purple-50/70 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                        title={revealedPhones[driver.id] ? `Call ${driver.name} (${driver.phone})` : 'Call / Show Number'}
+                      >
+                        <Phone className="w-3.5 h-3.5 text-purple-600 fill-purple-600/20 shrink-0" />
+                        <span className="font-mono text-xs font-bold">
+                          {revealedPhones[driver.id] ? driver.phone : 'Call'}
+                        </span>
+                      </button>
 
-                        {/* WhatsApp Direct Chat Button */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDirectWhatsApp(driver.name, driver.phone, driver.whatsapp, 'Driver', driver.name);
-                          }}
-                          className="h-9.5 px-3.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs shrink-0 active:scale-95 text-xs font-bold whitespace-nowrap"
-                          title={`Chat with ${driver.name} on WhatsApp`}
-                          aria-label="Direct WhatsApp"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600/20 shrink-0" />
-                          <span className="text-xs font-bold text-emerald-800">WhatsApp</span>
-                        </button>
-                      </div>
+                      {/* 2. WhatsApp Direct Inquiry CTA */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDriverWhatsApp(driver);
+                        }}
+                        className="h-9 px-2.5 sm:px-3 rounded-xl border border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                        title={`Inquire with ${driver.name} on WhatsApp`}
+                        aria-label="Direct WhatsApp"
+                      >
+                        <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
+                        <span className="hidden sm:inline text-xs font-bold text-emerald-800">WhatsApp</span>
+                      </button>
 
+                      {/* 3. Driver Profile Badge */}
                       <Link
                         href={`/driver/${slugify(driver.name)}`}
                         onClick={(e) => e.stopPropagation()}
-                        className="w-full h-8.5 rounded-xl bg-slate-900 hover:bg-emerald-800 text-white flex items-center justify-center text-xs font-heading font-bold shadow-2xs transition gap-1"
+                        className="flex-1 min-w-0 h-9 px-2 sm:px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-800 flex items-center justify-between gap-1 transition shadow-2xs group/store cursor-pointer"
                         title={`View ${driver.name}'s Profile`}
                       >
-                        <span className="truncate">View {driver.name}'s Driver Profile</span>
-                        <span className="text-slate-400">→</span>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" title="Available Driver" />
+                          <span className="font-heading font-extrabold text-[11px] sm:text-xs text-slate-800 group-hover/store:text-emerald-700 truncate">
+                            {driver.name}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 group-hover/store:text-emerald-600 group-hover/store:translate-x-0.5 transition shrink-0">
+                          ➔
+                        </span>
                       </Link>
                     </div>
                   </div>
@@ -1433,49 +1594,52 @@ export default function HomePage() {
                         </div>
                       </div>
 
-                      {/* Direct Contact Action Row (Instant Call & WhatsApp without login) */}
-                      <div
-                        className="flex flex-col gap-2 pt-2.5 mt-2 border-t border-slate-100"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="flex items-center gap-2">
-                          {/* Call / Phone Button: Masked until click - Full number legible */}
-                          <button
-                            type="button"
-                            onClick={(e) => handleRevealPhone(e, ride.id, `${ride.fromCity} ➔ ${ride.toCity}`, ride.phone, 'CityToCity', ride.op)}
-                            className="flex-1 h-9.5 px-3 rounded-xl border border-purple-200 bg-purple-50/80 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs whitespace-nowrap active:scale-95"
-                            title={revealedPhones[ride.id] ? `Call ${ride.op} (${ride.phone})` : 'Click to show phone number'}
-                          >
-                            <Phone className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                            <span className="font-mono text-xs font-bold whitespace-nowrap">
-                              {revealedPhones[ride.id] ? ride.phone : 'Show Number'}
-                            </span>
-                          </button>
+                      {/* Unified Single-Row Responsive CTA Action Bar */}
+                      <div className="flex items-center gap-1.5 sm:gap-2 pt-2.5 px-1 border-t border-slate-100 mt-1" onClick={(e) => e.stopPropagation()}>
+                        {/* 1. Phone Call CTA */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleRevealPhone(e, ride.id, `${ride.fromCity} ➔ ${ride.toCity}`, ride.phone, 'CityToCity', ride.op)}
+                          className="h-9 px-2.5 sm:px-3 rounded-xl border border-purple-200/90 bg-purple-50/70 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                          title={revealedPhones[ride.id] ? `Call ${ride.op} (${ride.phone})` : 'Call / Show Number'}
+                        >
+                          <Phone className="w-3.5 h-3.5 text-purple-600 fill-purple-600/20 shrink-0" />
+                          <span className="font-mono text-xs font-bold">
+                            {revealedPhones[ride.id] ? ride.phone : 'Call'}
+                          </span>
+                        </button>
 
-                          {/* WhatsApp Direct Chat Button */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDirectWhatsApp(`${ride.fromCity} to ${ride.toCity} (${ride.car})`, ride.phone, ride.whatsapp, 'CityToCity', ride.op);
-                            }}
-                            className="h-9.5 px-3.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs shrink-0 active:scale-95 text-xs font-bold whitespace-nowrap"
-                            title={`WhatsApp operator (${ride.op})`}
-                            aria-label="Direct WhatsApp"
-                          >
-                            <MessageCircle className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600/20 shrink-0" />
-                            <span className="text-xs font-bold text-emerald-800">WhatsApp</span>
-                          </button>
-                        </div>
+                        {/* 2. WhatsApp Direct Inquiry CTA */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRideWhatsApp(ride);
+                          }}
+                          className="h-9 px-2.5 sm:px-3 rounded-xl border border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                          title={`WhatsApp operator (${ride.op}) with route details`}
+                          aria-label="Direct WhatsApp"
+                        >
+                          <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
+                          <span className="hidden sm:inline text-xs font-bold text-emerald-800">WhatsApp</span>
+                        </button>
 
+                        {/* 3. Operator Store Badge */}
                         <Link
                           href={`/store/${getStoreSlugForOwner(ride.op)}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="w-full h-8.5 rounded-xl bg-slate-900 hover:bg-blue-800 text-white flex items-center justify-center text-xs font-heading font-bold shadow-2xs transition gap-1"
+                          className="flex-1 min-w-0 h-9 px-2 sm:px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-800 flex items-center justify-between gap-1 transition shadow-2xs group/store cursor-pointer"
                           title={`Operated by ${ride.op} · View Store`}
                         >
-                          <span className="truncate">View {ride.op} Store & Schedule</span>
-                          <span className="text-slate-400">→</span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" title="Active Operator" />
+                            <span className="font-heading font-extrabold text-[11px] sm:text-xs text-slate-800 group-hover/store:text-emerald-700 truncate">
+                              {ride.op}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 group-hover/store:text-emerald-600 group-hover/store:translate-x-0.5 transition shrink-0">
+                            ➔
+                          </span>
                         </Link>
                       </div>
                     </div>
@@ -1570,49 +1734,52 @@ export default function HomePage() {
                         </div>
                       </div>
 
-                      {/* Direct Contact Action Row (Instant Call & WhatsApp without login) */}
-                      <div
-                        className="flex flex-col gap-2 pt-2.5 mt-2 border-t border-slate-100"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="flex items-center gap-2">
-                          {/* Call / Phone Button: Masked until click - Full phone number legible */}
-                          <button
-                            type="button"
-                            onClick={(e) => handleRevealPhone(e, shuttle.id, `${shuttle.from} ➔ ${shuttle.to}`, shuttle.phone, 'Shuttle', shuttle.op)}
-                            className="flex-1 h-9.5 px-3 rounded-xl border border-purple-200 bg-purple-50/80 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs whitespace-nowrap active:scale-95"
-                            title={revealedPhones[shuttle.id] ? `Call ${shuttle.op} (${shuttle.phone})` : 'Click to show phone number'}
-                          >
-                            <Phone className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                            <span className="font-mono text-xs font-bold whitespace-nowrap">
-                              {revealedPhones[shuttle.id] ? shuttle.phone : 'Show Number'}
-                            </span>
-                          </button>
+                      {/* Unified Single-Row Responsive CTA Action Bar */}
+                      <div className="flex items-center gap-1.5 sm:gap-2 pt-2.5 px-1 border-t border-slate-100 mt-1" onClick={(e) => e.stopPropagation()}>
+                        {/* 1. Phone Call CTA */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleRevealPhone(e, shuttle.id, `${shuttle.from} ➔ ${shuttle.to}`, shuttle.phone, 'Shuttle', shuttle.op)}
+                          className="h-9 px-2.5 sm:px-3 rounded-xl border border-purple-200/90 bg-purple-50/70 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                          title={revealedPhones[shuttle.id] ? `Call ${shuttle.op} (${shuttle.phone})` : 'Call / Show Number'}
+                        >
+                          <Phone className="w-3.5 h-3.5 text-purple-600 fill-purple-600/20 shrink-0" />
+                          <span className="font-mono text-xs font-bold">
+                            {revealedPhones[shuttle.id] ? shuttle.phone : 'Call'}
+                          </span>
+                        </button>
 
-                          {/* WhatsApp Direct Chat Button */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDirectWhatsApp(`Seat Request for ${shuttle.from} to ${shuttle.to}`, shuttle.phone, shuttle.whatsapp, 'Shuttle', shuttle.op);
-                            }}
-                            className="h-9.5 px-3.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs shrink-0 active:scale-95 text-xs font-bold whitespace-nowrap"
-                            title={`WhatsApp operator (${shuttle.op})`}
-                            aria-label="Direct WhatsApp"
-                          >
-                            <MessageCircle className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600/20 shrink-0" />
-                            <span className="text-xs font-bold text-emerald-800">WhatsApp</span>
-                          </button>
-                        </div>
+                        {/* 2. WhatsApp Direct Inquiry CTA */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShuttleWhatsApp(shuttle);
+                          }}
+                          className="h-9 px-2.5 sm:px-3 rounded-xl border border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                          title={`WhatsApp operator (${shuttle.op}) with route details`}
+                          aria-label="Direct WhatsApp"
+                        >
+                          <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
+                          <span className="hidden sm:inline text-xs font-bold text-emerald-800">WhatsApp</span>
+                        </button>
 
+                        {/* 3. Operator Store Badge */}
                         <Link
                           href={`/store/${getStoreSlugForOwner(shuttle.op)}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="w-full h-8.5 rounded-xl bg-slate-900 hover:bg-teal-800 text-white flex items-center justify-center text-xs font-heading font-bold shadow-2xs transition gap-1"
+                          className="flex-1 min-w-0 h-9 px-2 sm:px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-800 flex items-center justify-between gap-1 transition shadow-2xs group/store cursor-pointer"
                           title={`Operated by ${shuttle.op} · View Store`}
                         >
-                          <span className="truncate">View {shuttle.op} Store & Schedule</span>
-                          <span className="text-slate-400">→</span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" title="Active Shuttle Operator" />
+                            <span className="font-heading font-extrabold text-[11px] sm:text-xs text-slate-800 group-hover/store:text-emerald-700 truncate">
+                              {shuttle.op}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 group-hover/store:text-emerald-600 group-hover/store:translate-x-0.5 transition shrink-0">
+                            ➔
+                          </span>
                         </Link>
                       </div>
                     </div>
@@ -1695,49 +1862,52 @@ export default function HomePage() {
                         </div>
                       </div>
 
-                      {/* Direct Contact Action Row (Instant Call & WhatsApp without login) */}
-                      <div
-                        className="flex flex-col gap-2 pt-2.5 mt-2 border-t border-slate-100"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="flex items-center gap-2">
-                          {/* Call / Phone Button: Masked until click - Full phone number legible */}
-                          <button
-                            type="button"
-                            onClick={(e) => handleRevealPhone(e, mover.id, mover.name, mover.phone, 'Mover', mover.name)}
-                            className="flex-1 h-9.5 px-3 rounded-xl border border-purple-200 bg-purple-50/80 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs whitespace-nowrap active:scale-95"
-                            title={revealedPhones[mover.id] ? `Call ${mover.name} (${mover.phone})` : 'Click to show phone number'}
-                          >
-                            <Phone className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                            <span className="font-mono text-xs font-bold whitespace-nowrap">
-                              {revealedPhones[mover.id] ? mover.phone : 'Show Number'}
-                            </span>
-                          </button>
+                      {/* Unified Single-Row Responsive CTA Action Bar */}
+                      <div className="flex items-center gap-1.5 sm:gap-2 pt-2.5 px-1 border-t border-slate-100 mt-1" onClick={(e) => e.stopPropagation()}>
+                        {/* 1. Phone Call CTA */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleRevealPhone(e, mover.id, mover.name, mover.phone, 'Mover', mover.name)}
+                          className="h-9 px-2.5 sm:px-3 rounded-xl border border-purple-200/90 bg-purple-50/70 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                          title={revealedPhones[mover.id] ? `Call ${mover.name} (${mover.phone})` : 'Call / Show Number'}
+                        >
+                          <Phone className="w-3.5 h-3.5 text-purple-600 fill-purple-600/20 shrink-0" />
+                          <span className="font-mono text-xs font-bold">
+                            {revealedPhones[mover.id] ? mover.phone : 'Call'}
+                          </span>
+                        </button>
 
-                          {/* WhatsApp Direct Chat Button */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDirectWhatsApp(`Move Quote Request for ${mover.name}`, mover.phone, mover.whatsapp, 'Mover', mover.name);
-                            }}
-                            className="h-9.5 px-3.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs shrink-0 active:scale-95 text-xs font-bold whitespace-nowrap"
-                            title={`WhatsApp mover (${mover.name})`}
-                            aria-label="Direct WhatsApp"
-                          >
-                            <MessageCircle className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600/20 shrink-0" />
-                            <span className="text-xs font-bold text-emerald-800">WhatsApp</span>
-                          </button>
-                        </div>
+                        {/* 2. WhatsApp Direct Inquiry CTA */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMoverWhatsApp(mover);
+                          }}
+                          className="h-9 px-2.5 sm:px-3 rounded-xl border border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                          title={`WhatsApp mover (${mover.name}) with quote details`}
+                          aria-label="Direct WhatsApp"
+                        >
+                          <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
+                          <span className="hidden sm:inline text-xs font-bold text-emerald-800">WhatsApp</span>
+                        </button>
 
+                        {/* 3. Mover Store Badge */}
                         <Link
                           href={`/store/${getStoreSlugForOwner(mover.name)}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="w-full h-8.5 rounded-xl bg-slate-900 hover:bg-purple-800 text-white flex items-center justify-center text-xs font-heading font-bold shadow-2xs transition gap-1"
-                          title={`Operated by ${mover.name} · View Store`}
+                          className="flex-1 min-w-0 h-9 px-2 sm:px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-800 flex items-center justify-between gap-1 transition shadow-2xs group/store cursor-pointer"
+                          title={`Operated by ${mover.name} · View Moving Store`}
                         >
-                          <span className="truncate">View {mover.name} Moving Profile</span>
-                          <span className="text-slate-400">→</span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" title="Active Mover" />
+                            <span className="font-heading font-extrabold text-[11px] sm:text-xs text-slate-800 group-hover/store:text-emerald-700 truncate">
+                              {mover.name}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 group-hover/store:text-emerald-600 group-hover/store:translate-x-0.5 transition shrink-0">
+                            ➔
+                          </span>
                         </Link>
                       </div>
                     </div>

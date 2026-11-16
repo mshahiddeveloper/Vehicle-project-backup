@@ -9,6 +9,7 @@ import { MobileNavBar } from '@/components/MobileNavBar';
 import { recordLead, recordClickEvent } from '@/data/activityTracker';
 import { getWhatsAppTargetUrl } from '@/data/chatEngine';
 import { ArrowRight, Phone, MessageSquare, Calendar, Users, MapPin, Search } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 
 interface CityRide {
   id: string;
@@ -126,10 +127,12 @@ export default function CityToCityPage() {
     });
     recordClickEvent(ride.id, 'WHATSAPP');
 
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://safar.pk';
+    const routeUrl = `${origin}/city-to-city/${ride.id}`;
     const fare = isReturnTrip ? ride.ret : ride.one;
-    const rawMsg = `Hello ${ride.op}, I found your ride on SafarPK for ${fromCity} to ${toCity} (${ride.car}). Trip type: ${
-      isReturnTrip ? 'Return' : 'One way'
-    }. Date: ${leaveDate}. Fare estimate: ${formatPKR(fare)}. Is this ride available?`;
+    const rawMsg = `Hi, I would like to book a ride with ${ride.op} on SafarPK: Route: ${fromCity} to ${toCity} Vehicle: ${ride.car} Trip: ${
+      isReturnTrip ? 'Return' : 'One-Way'
+    } Date: ${leaveDate} Fare: ${formatPKR(fare)} Route Details: ${routeUrl}`;
     window.open(getWhatsAppTargetUrl(ride.whatsapp || ride.phone, rawMsg), '_blank');
   };
 
@@ -396,54 +399,61 @@ export default function CityToCityPage() {
                   </span>
                 )}
 
-                {/* Action Buttons: Standardized across all services */}
+                {/* Unified Single-Row Responsive CTA Action Bar */}
                 <div
-                  className="flex flex-col gap-2 pt-2 border-t border-slate-100"
+                  className="flex items-center gap-1.5 sm:gap-2 pt-2.5 px-1 border-t border-slate-100"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="flex items-center gap-2">
-                    {/* Purple Click-to-Reveal Phone Button */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCall(r);
-                      }}
-                      className="flex-1 h-10 px-3 rounded-xl border border-purple-200 bg-purple-50/80 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-2xs whitespace-nowrap cursor-pointer active:scale-95"
-                      title={revealedPhones[r.id] ? `Call ${r.op} (${r.phone})` : 'Click to show phone number'}
-                    >
-                      <Phone className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                      <span className="font-mono text-xs font-bold whitespace-nowrap">
-                        {revealedPhones[r.id] ? r.phone : 'Show Number'}
-                      </span>
-                    </button>
+                  {/* 1. Phone Call CTA */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCall(r);
+                    }}
+                    className="h-9 px-2.5 sm:px-3 rounded-xl border border-purple-200/90 bg-purple-50/70 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                    title={revealedPhones[r.id] ? `Call ${r.op} (${r.phone})` : 'Click to show phone number'}
+                  >
+                    <Phone className="w-3.5 h-3.5 text-purple-600 fill-purple-600/20 shrink-0" />
+                    <span className="font-mono text-xs font-bold whitespace-nowrap">
+                      {revealedPhones[r.id] ? r.phone : 'Call'}
+                    </span>
+                  </button>
 
-                    {/* Emerald WhatsApp Button */}
-                    <button
-                      type="button"
-                      aria-label={`WhatsApp ${r.op}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleWhatsApp(r);
-                      }}
-                      className="h-10 px-3.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 flex items-center justify-center gap-1.5 transition shadow-2xs shrink-0 cursor-pointer active:scale-95 text-xs font-bold whitespace-nowrap"
-                      title={`Chat with ${r.op} on WhatsApp`}
-                    >
-                      <MessageSquare className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600/20 shrink-0" />
-                      <span className="text-xs font-bold text-emerald-800">WhatsApp</span>
-                    </button>
-                  </div>
+                  {/* 2. WhatsApp Direct Inquiry CTA */}
+                  <button
+                    type="button"
+                    aria-label={`WhatsApp ${r.op}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleWhatsApp(r);
+                    }}
+                    className="h-9 px-2.5 sm:px-3 rounded-xl border border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                    title={`Inquire with ${r.op} on WhatsApp`}
+                  >
+                    <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
+                    <span className="hidden sm:inline text-xs font-bold text-emerald-800">WhatsApp</span>
+                  </button>
 
-                  {/* Primary Ride Request / Details Button */}
+                  {/* 3. View Route Details Pill */}
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       router.push(`/city-to-city/${r.id}`);
                     }}
-                    className="w-full h-9.5 rounded-xl bg-[#101828] text-white font-semibold text-xs flex items-center justify-center hover:bg-slate-800 transition cursor-pointer text-center active:scale-95 whitespace-nowrap"
+                    className="flex-1 min-w-0 h-9 px-2 sm:px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-800 flex items-center justify-between gap-1 transition shadow-2xs group/store cursor-pointer"
+                    title={`View Route & Timings for ${r.op}`}
                   >
-                    Request this ride
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shrink-0" />
+                      <span className="font-heading font-extrabold text-[11px] sm:text-xs text-slate-800 group-hover/store:text-blue-700 truncate">
+                        View Route
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 group-hover/store:text-blue-600 group-hover/store:translate-x-0.5 transition shrink-0">
+                      ➔
+                    </span>
                   </button>
                 </div>
               </div>

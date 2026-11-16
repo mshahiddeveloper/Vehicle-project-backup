@@ -8,6 +8,7 @@ import { AppFooter } from '@/components/AppFooter';
 import { MobileNavBar } from '@/components/MobileNavBar';
 import { recordLead, recordClickEvent } from '@/data/activityTracker';
 import { ShieldCheck, Phone, MessageSquare, Check, ArrowRight, UserCheck, Lock, Search } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import { maskPakistaniCnic, maskPakistaniLicense, createDriverBooking } from '@/data/driverBookings';
 import { getActiveUser } from '@/data/userAuth';
 import { startOrOpenConversation, getWhatsAppTargetUrl } from '@/data/chatEngine';
@@ -194,16 +195,20 @@ export default function DriversPage() {
   const handleWhatsAppClick = (driver: DriverItem) => {
     recordLead({
       listingId: driver.id,
-      listingTitle: `Chauffeur Hire: ${driver.name}`,
+      listingTitle: `Driver: ${driver.name}`,
       listerPhone: driver.phone,
       type: 'WHATSAPP_CLICK',
     });
     recordClickEvent(driver.id, 'WHATSAPP');
 
-    const msg = encodeURIComponent(
-      `Hello ${driver.name}, I saw your driver profile on SafarPK. I would like to hire you for ${tripLabels[tripType]} in ${driver.city}. Please let me know your availability.`
-    );
-    window.open(`https://wa.me/${driver.whatsapp}?text=${msg}`, '_blank');
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://safar.pk';
+    const profileUrl = `${origin}/driver/${slugify(driver.name)}`;
+    const dutyStr = tripLabels[tripType];
+    const serviceTitle = isPakistan ? 'Verified Driver & Captain' : 'Professional Chauffeur';
+    const msg = `Hi, I would like to hire ${driver.name} listed on SafarPK: Service: ${serviceTitle} Duty: ${dutyStr} City: ${driver.city} Rates: City: ${driver.city12}/day | Outstation: ${driver.out}/day | Monthly: ${driver.monthly} Profile: ${profileUrl}`;
+    const cleanNum = (driver.whatsapp || driver.phone).replace(/\D/g, '');
+    const targetUrl = getWhatsAppTargetUrl(cleanNum, msg);
+    window.open(targetUrl, '_blank');
   };
 
   const handleCallClick = (driver: DriverItem) => {
@@ -563,66 +568,62 @@ export default function DriversPage() {
                   </span>
                 )}
 
-                {/* Action Buttons: Masked Call with Reveal, WhatsApp, Profile & Hire */}
+                {/* Unified Single-Row Responsive CTA Action Bar */}
                 <div
-                  className="flex flex-col gap-2 pt-2.5 border-t border-slate-100 mt-2"
+                  className="flex items-center gap-1.5 sm:gap-2 pt-2.5 px-1 border-t border-slate-100 mt-2"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCallClick(d);
-                      }}
-                      className="flex-1 h-9.5 px-3 rounded-xl border border-purple-200 bg-purple-50/80 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-2xs whitespace-nowrap cursor-pointer active:scale-95"
-                      title={revealedPhones[d.id] ? `Call ${d.name} (${d.phone})` : 'Click to show phone number'}
-                    >
-                      <Phone className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                      <span className="font-mono text-xs font-bold whitespace-nowrap">
-                        {revealedPhones[d.id] ? d.phone : 'Show Number'}
+                  {/* 1. Phone Call CTA */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCallClick(d);
+                    }}
+                    className="h-9 px-2.5 sm:px-3 rounded-xl border border-purple-200/90 bg-purple-50/70 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                    title={revealedPhones[d.id] ? `Call ${d.name} (${d.phone})` : 'Click to show phone number'}
+                  >
+                    <Phone className="w-3.5 h-3.5 text-purple-600 fill-purple-600/20 shrink-0" />
+                    <span className="font-mono text-xs font-bold whitespace-nowrap">
+                      {revealedPhones[d.id] ? d.phone : 'Call'}
+                    </span>
+                  </button>
+
+                  {/* 2. WhatsApp Direct Inquiry CTA */}
+                  <button
+                    type="button"
+                    aria-label={`WhatsApp ${d.name}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleWhatsAppClick(d);
+                    }}
+                    className="h-9 px-2.5 sm:px-3 rounded-xl border border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                    title={`Inquire with ${d.name} on WhatsApp`}
+                  >
+                    <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
+                    <span className="hidden sm:inline text-xs font-bold text-emerald-800">WhatsApp</span>
+                  </button>
+
+                  {/* 3. Driver Profile & Hire Badge */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setRequestModalDriver(d);
+                    }}
+                    className="flex-1 min-w-0 h-9 px-2 sm:px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-800 flex items-center justify-between gap-1 transition shadow-2xs group/store cursor-pointer"
+                    title={`Hire ${d.name} or View Profile`}
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" title="Available Driver" />
+                      <span className="font-heading font-extrabold text-[11px] sm:text-xs text-slate-800 group-hover/store:text-emerald-700 truncate">
+                        {isPakistan ? 'Hire Captain' : 'Hire Chauffeur'}
                       </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      aria-label={`WhatsApp ${d.name}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleWhatsAppClick(d);
-                      }}
-                      className="h-9.5 px-3.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 flex items-center justify-center gap-1.5 transition shadow-2xs shrink-0 cursor-pointer active:scale-95 text-xs font-bold whitespace-nowrap"
-                      title={`Chat with ${d.name} on WhatsApp`}
-                    >
-                      <MessageSquare className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600/20 shrink-0" />
-                      <span className="text-xs font-bold text-emerald-800">WhatsApp</span>
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/driver/${slugify(d.name)}`);
-                      }}
-                      className="h-8.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold flex items-center justify-center transition shadow-2xs cursor-pointer"
-                      title={`View ${d.name}'s Profile`}
-                    >
-                      Profile
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setRequestModalDriver(d);
-                      }}
-                      className="h-8.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center transition cursor-pointer shadow-2xs active:scale-95 px-2"
-                    >
-                      {isPakistan ? 'Hire Driver' : 'Hire Chauffeur'}
-                    </button>
-                  </div>
+                    </div>
+                    <span className="text-[10px] text-slate-400 group-hover/store:text-emerald-600 group-hover/store:translate-x-0.5 transition shrink-0">
+                      ➔
+                    </span>
+                  </button>
                 </div>
               </div>
             );

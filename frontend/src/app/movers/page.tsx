@@ -9,6 +9,7 @@ import { MOVERS_DATA, MoverItem } from '@/data/marketplaceData';
 import { recordLead, recordClickEvent } from '@/data/activityTracker';
 import { getWhatsAppTargetUrl } from '@/data/chatEngine';
 import { Phone, MessageSquare, Truck, ArrowRight, ShieldCheck, Check, Search, ChevronDown, Eye, CheckCircle2 } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 
 export default function MoversPage() {
   const [sizeFilter, setSizeFilter] = useState<string>('ALL');
@@ -51,7 +52,9 @@ export default function MoversPage() {
     });
     recordClickEvent(mover.id, 'WHATSAPP');
 
-    const rawMsg = `Hello ${mover.name}, I found your moving service on SafarPK. I am looking for shifting (${mover.category}, ~${estimatedKm} km, ${helpersCount} helpers, calculated estimate: Rs. ${estimatedCost.toLocaleString('en-US')}). Could you provide quotation and confirm your schedule availability?`;
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://safar.pk';
+    const moverUrl = `${origin}/movers/${mover.id}`;
+    const rawMsg = `Hi, I would like to hire cargo shifting logistics with ${mover.name} on SafarPK: Category: ${mover.category} Truck: ${mover.trucks} Distance: ~${estimatedKm} km Helpers: ${helpersCount} Estimated Cost: Rs. ${estimatedCost.toLocaleString('en-US')} Details: ${moverUrl}`;
     window.open(getWhatsAppTargetUrl(mover.whatsapp || mover.phone, rawMsg), '_blank');
   };
 
@@ -232,7 +235,7 @@ export default function MoversPage() {
               onClick={() => handleWhatsApp(selectedMover)}
               className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
             >
-              <MessageSquare className="w-4 h-4 fill-white/20" />
+              <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
               <span>Chat on WhatsApp</span>
             </button>
 
@@ -399,12 +402,12 @@ export default function MoversPage() {
                       <button
                         type="button"
                         onClick={() => handleCall(m)}
-                        className="h-10 px-2.5 rounded-xl border border-orange-200 bg-orange-50/80 hover:bg-orange-100 text-[#9A3412] text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-2xs cursor-pointer active:scale-95 whitespace-nowrap"
+                        className="h-9 px-2.5 rounded-xl border border-orange-200 bg-orange-50/80 hover:bg-orange-100 text-[#9A3412] text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-2xs cursor-pointer active:scale-95 whitespace-nowrap"
                         title={revealedPhones[m.id] ? `Call ${m.name} (${m.phone})` : 'Click to show phone number'}
                       >
                         <Phone className="w-3.5 h-3.5 text-[#C2410C] shrink-0" />
-                        <span className="font-mono text-[11px] font-bold">
-                          {revealedPhones[m.id] ? m.phone : 'Show Number'}
+                        <span className="font-mono text-xs font-bold whitespace-nowrap">
+                          {revealedPhones[m.id] ? m.phone : 'Call'}
                         </span>
                       </button>
 
@@ -412,11 +415,11 @@ export default function MoversPage() {
                         type="button"
                         aria-label={`WhatsApp ${m.name}`}
                         onClick={() => handleWhatsApp(m)}
-                        className="h-10 px-2.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 flex items-center justify-center gap-1.5 transition shadow-2xs cursor-pointer active:scale-95 text-xs font-bold whitespace-nowrap"
+                        className="h-9 px-2.5 rounded-xl border border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 flex items-center justify-center gap-1.5 transition shadow-2xs cursor-pointer active:scale-95 text-xs font-bold whitespace-nowrap"
                         title={`Chat with ${m.name} on WhatsApp`}
                       >
-                        <MessageSquare className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600/20 shrink-0" />
-                        <span>WhatsApp</span>
+                        <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
+                        <span className="text-xs font-bold text-emerald-800">WhatsApp</span>
                       </button>
                     </div>
 
@@ -424,18 +427,19 @@ export default function MoversPage() {
                     <div className="grid grid-cols-2 gap-2">
                       <Link
                         href={`/movers/${m.id}`}
-                        className="h-10 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-2xs cursor-pointer hover:border-slate-300 active:scale-95 whitespace-nowrap"
+                        className="h-9 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-2xs cursor-pointer hover:border-slate-300 active:scale-95 whitespace-nowrap"
                       >
                         <Eye className="w-3.5 h-3.5 text-slate-500" />
-                        <span>View Details</span>
+                        <span>Details</span>
                       </Link>
 
                       <button
                         type="button"
                         onClick={() => handleSendMove(m)}
-                        className="h-10 rounded-xl bg-[#C2410C] text-white font-bold text-xs flex items-center justify-center hover:bg-[#9A3412] transition cursor-pointer shadow-2xs active:scale-95 whitespace-nowrap"
+                        className="h-9 rounded-xl bg-[#C2410C] hover:bg-[#9A3412] text-white font-bold text-xs flex items-center justify-center gap-1 transition cursor-pointer shadow-2xs active:scale-95 whitespace-nowrap"
                       >
-                        Send my move
+                        <span>Send Move</span>
+                        <ArrowRight className="w-3 h-3" />
                       </button>
                     </div>
                   </div>

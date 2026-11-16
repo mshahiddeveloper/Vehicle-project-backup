@@ -14,6 +14,7 @@ import {
 import { recordClickEvent, recordLead } from '@/data/activityTracker';
 import { getWhatsAppTargetUrl } from '@/data/chatEngine';
 import { useCountry } from '@/app/context/CountryContext';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import {
   MapPin,
   Phone,
@@ -161,6 +162,113 @@ export default function StorefrontPage() {
     });
     const cleanNum = store.whatsapp.replace(/\D/g, '');
     const msg = `Assalam-o-Alaikum ${store.name}! I visited your official Store on SafarPK. I want to inquire about your active listings and availability.`;
+    const targetUrl = getWhatsAppTargetUrl(cleanNum, msg);
+    window.open(targetUrl, '_blank');
+  };
+
+  const handleCarItemWhatsApp = (car: any) => {
+    if (!store) return;
+    recordClickEvent({
+      clickType: 'WHATSAPP_CLICK',
+      targetId: car.id,
+      targetTitle: car.name,
+      targetCategory: 'CAR_RENTAL',
+      targetOwnerName: store.name,
+      city: store.city,
+    });
+    recordLead({
+      listingId: car.id,
+      listingTitle: car.name,
+      listerPhone: store.phone,
+      customerCity: store.city,
+      type: 'WHATSAPP',
+      notes: `Car rental WhatsApp inquiry for ${car.name}`,
+    });
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://safar.pk';
+    const listingUrl = `${origin}/listing/${car.id}`;
+    const dayRate = formatPrice(car.priceNum);
+    const weekRate = formatPrice(Math.round(car.priceNum * 6.5));
+    const monthRate = formatPrice(Math.round(car.priceNum * 24));
+    const msg = `Hi, I would like to rent this car listed by ${store.name} on SafarPK: Car: ${car.name} (${car.specs}) Price: ${dayRate}/day or ${weekRate}/week or ${monthRate}/month Listing: ${listingUrl}`;
+    const cleanNum = (store.whatsapp || store.phone).replace(/\D/g, '');
+    const targetUrl = getWhatsAppTargetUrl(cleanNum, msg);
+    window.open(targetUrl, '_blank');
+  };
+
+  const handleRideItemWhatsApp = (ride: any) => {
+    if (!store) return;
+    recordClickEvent({
+      clickType: 'WHATSAPP_CLICK',
+      targetId: ride.id,
+      targetTitle: `${ride.fromCity} to ${ride.toCity}`,
+      targetCategory: 'CITY_TO_CITY',
+      targetOwnerName: store.name,
+      city: ride.fromCity,
+    });
+    recordLead({
+      listingId: ride.id,
+      listingTitle: `${ride.fromCity} to ${ride.toCity}`,
+      listerPhone: ride.phone || store.phone,
+      customerCity: ride.fromCity,
+      type: 'WHATSAPP',
+      notes: `City to city route inquiry`,
+    });
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://safar.pk';
+    const routeUrl = `${origin}/city-to-city/${ride.id}`;
+    const msg = `Hi, I would like to book a ride with ${store.name} on SafarPK: Route: ${ride.fromCity} to ${ride.toCity} Vehicle: ${ride.car} Rates: One-Way: ${formatPrice(ride.one)} | Return: ${formatPrice(ride.ret)} Route Details: ${routeUrl}`;
+    const cleanNum = (ride.whatsapp || ride.phone || store.phone).replace(/\D/g, '');
+    const targetUrl = getWhatsAppTargetUrl(cleanNum, msg);
+    window.open(targetUrl, '_blank');
+  };
+
+  const handleShuttleItemWhatsApp = (shuttle: any) => {
+    if (!store) return;
+    recordClickEvent({
+      clickType: 'WHATSAPP_CLICK',
+      targetId: shuttle.id,
+      targetTitle: `${shuttle.from} to ${shuttle.to}`,
+      targetCategory: 'PICK_AND_DROP',
+      targetOwnerName: store.name,
+      city: store.city,
+    });
+    recordLead({
+      listingId: shuttle.id,
+      listingTitle: `${shuttle.from} to ${shuttle.to}`,
+      listerPhone: shuttle.phone || store.phone,
+      customerCity: store.city,
+      type: 'WHATSAPP',
+      notes: `Shuttle commuter route inquiry`,
+    });
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://safar.pk';
+    const shuttleUrl = `${origin}/shuttles/${shuttle.id}`;
+    const msg = `Hi, I would like to reserve a monthly seat with ${store.name} on SafarPK: Route: ${shuttle.from} to ${shuttle.to} Vehicle: ${shuttle.van} Monthly Fare: ${shuttle.fare} Timing: ${shuttle.timing} Route Details: ${shuttleUrl}`;
+    const cleanNum = (shuttle.whatsapp || shuttle.phone || store.phone).replace(/\D/g, '');
+    const targetUrl = getWhatsAppTargetUrl(cleanNum, msg);
+    window.open(targetUrl, '_blank');
+  };
+
+  const handleMoverItemWhatsApp = (mover: any) => {
+    if (!store) return;
+    recordClickEvent({
+      clickType: 'WHATSAPP_CLICK',
+      targetId: mover.id,
+      targetTitle: mover.name,
+      targetCategory: 'HOME_SHIFTING',
+      targetOwnerName: store.name,
+      city: store.city,
+    });
+    recordLead({
+      listingId: mover.id,
+      listingTitle: mover.name,
+      listerPhone: mover.phone || store.phone,
+      customerCity: store.city,
+      type: 'WHATSAPP',
+      notes: `Mover and cargo logistics inquiry`,
+    });
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://safar.pk';
+    const moverUrl = `${origin}/movers/${mover.id}`;
+    const msg = `Hi, I would like to hire cargo shifting logistics with ${store.name} on SafarPK: Category: ${mover.category} Truck: ${mover.trucks} Rates: Base: ${mover.base} | Per KM: ${mover.km} | Helper: ${mover.helper} Details: ${moverUrl}`;
+    const cleanNum = (mover.whatsapp || mover.phone || store.phone).replace(/\D/g, '');
     const targetUrl = getWhatsAppTargetUrl(cleanNum, msg);
     window.open(targetUrl, '_blank');
   };
@@ -357,46 +465,55 @@ export default function StorefrontPage() {
                         </div>
                       </div>
 
-                      {/* Direct Contact Buttons on Card */}
-                      <div className="flex flex-col gap-2 pt-2.5 px-1 border-t border-slate-100 mt-1" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-2">
-                          {/* Call / Phone Button: Masked until click so every phone inquiry is counted in analytics */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRevealAndCall(car.id, store.phone, car.name, 'Car Rental');
-                            }}
-                            className="flex-1 h-9.5 px-3 rounded-xl border border-purple-200 bg-purple-50/80 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-2xs whitespace-nowrap cursor-pointer active:scale-95"
-                            title={revealedPhones[car.id] ? `Call ${store.phone}` : 'Click to show phone number'}
-                          >
-                            <Phone className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                            <span className="font-mono text-xs font-bold whitespace-nowrap">
-                              {revealedPhones[car.id] ? store.phone : 'Show Number'}
-                            </span>
-                          </button>
+                      {/* Unified Single-Row Responsive CTA Action Bar */}
+                      <div className="flex items-center gap-1.5 sm:gap-2 pt-2.5 px-1 border-t border-slate-100 mt-1" onClick={(e) => e.stopPropagation()}>
+                        {/* 1. Phone Call CTA */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRevealAndCall(car.id, store.phone, car.name, 'Car Rental');
+                          }}
+                          className="h-9 px-2.5 sm:px-3 rounded-xl border border-purple-200/90 bg-purple-50/70 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                          title={revealedPhones[car.id] ? `Call ${store.phone}` : 'Click to show phone number'}
+                        >
+                          <Phone className="w-3.5 h-3.5 text-purple-600 fill-purple-600/20 shrink-0" />
+                          <span className="font-mono text-xs font-bold whitespace-nowrap">
+                            {revealedPhones[car.id] ? store.phone : 'Call'}
+                          </span>
+                        </button>
 
-                          {/* WhatsApp Button with clear icon and text label */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDirectWhatsApp();
-                            }}
-                            className="h-9.5 px-3.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-2xs shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
-                            title="WhatsApp Host"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600/20 shrink-0" />
-                            <span className="text-xs font-bold text-emerald-800">WhatsApp</span>
-                          </button>
-                        </div>
+                        {/* 2. WhatsApp Direct Inquiry CTA */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCarItemWhatsApp(car);
+                          }}
+                          className="h-9 px-2.5 sm:px-3 rounded-xl border border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                          title="WhatsApp Host with Vehicle Details"
+                          aria-label="Direct WhatsApp"
+                        >
+                          <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
+                          <span className="hidden sm:inline text-xs font-bold text-emerald-800">WhatsApp</span>
+                        </button>
 
+                        {/* 3. View Specs Pill */}
                         <Link
                           href={`/listing/${car.id}`}
-                          className="w-full h-8.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center transition shadow-2xs gap-1"
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex-1 min-w-0 h-9 px-2 sm:px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-800 flex items-center justify-between gap-1 transition shadow-2xs group/store cursor-pointer"
+                          title={`View ${car.name} Specs & Reserve`}
                         >
-                          <span>View Vehicle Specs & Reserve</span>
-                          <span className="text-slate-400">→</span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                            <span className="font-heading font-extrabold text-[11px] sm:text-xs text-slate-800 group-hover/store:text-emerald-700 truncate">
+                              View Specs
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 group-hover/store:text-emerald-600 group-hover/store:translate-x-0.5 transition shrink-0">
+                            ➔
+                          </span>
                         </Link>
                       </div>
                     </div>
@@ -443,45 +560,55 @@ export default function StorefrontPage() {
                         </div>
                       </div>
 
-                      <div className="flex flex-col gap-2 pt-3 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-2">
-                          {/* Call / Phone Button */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRevealAndCall(ride.id, ride.phone, `${ride.fromCity} ➔ ${ride.toCity}`, 'CityToCity');
-                            }}
-                            className="flex-1 h-9.5 px-3 rounded-xl border border-purple-200 bg-purple-50/80 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-2xs whitespace-nowrap cursor-pointer active:scale-95"
-                            title={revealedPhones[ride.id] ? `Call ${ride.phone}` : 'Click to show phone number'}
-                          >
-                            <Phone className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                            <span className="font-mono text-xs font-bold whitespace-nowrap">
-                              {revealedPhones[ride.id] ? ride.phone : 'Show Number'}
-                            </span>
-                          </button>
+                      {/* Unified Single-Row Responsive CTA Action Bar */}
+                      <div className="flex items-center gap-1.5 sm:gap-2 pt-2.5 px-1 border-t border-slate-100 mt-1" onClick={(e) => e.stopPropagation()}>
+                        {/* 1. Phone Call CTA */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRevealAndCall(ride.id, ride.phone, `${ride.fromCity} ➔ ${ride.toCity}`, 'CityToCity');
+                          }}
+                          className="h-9 px-2.5 sm:px-3 rounded-xl border border-purple-200/90 bg-purple-50/70 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                          title={revealedPhones[ride.id] ? `Call ${ride.phone}` : 'Click to show phone number'}
+                        >
+                          <Phone className="w-3.5 h-3.5 text-purple-600 fill-purple-600/20 shrink-0" />
+                          <span className="font-mono text-xs font-bold whitespace-nowrap">
+                            {revealedPhones[ride.id] ? ride.phone : 'Call'}
+                          </span>
+                        </button>
 
-                          {/* WhatsApp Button */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDirectWhatsApp();
-                            }}
-                            className="h-9.5 px-3.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-2xs shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
-                            title="WhatsApp Operator"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600/20 shrink-0" />
-                            <span className="text-xs font-bold text-emerald-800">WhatsApp</span>
-                          </button>
-                        </div>
+                        {/* 2. WhatsApp Direct Inquiry CTA */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRideItemWhatsApp(ride);
+                          }}
+                          className="h-9 px-2.5 sm:px-3 rounded-xl border border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                          title="WhatsApp Driver with Route Details"
+                          aria-label="Direct WhatsApp"
+                        >
+                          <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
+                          <span className="hidden sm:inline text-xs font-bold text-emerald-800">WhatsApp</span>
+                        </button>
 
+                        {/* 3. View Route Details Pill */}
                         <Link
                           href={`/city-to-city/${ride.id}`}
-                          className="w-full h-8.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1 transition shadow-2xs"
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex-1 min-w-0 h-9 px-2 sm:px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-800 flex items-center justify-between gap-1 transition shadow-2xs group/store cursor-pointer"
+                          title="View Route & Timings"
                         >
-                          <span>View Route & Timings</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shrink-0" />
+                            <span className="font-heading font-extrabold text-[11px] sm:text-xs text-slate-800 group-hover/store:text-blue-700 truncate">
+                              View Route
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 group-hover/store:text-blue-600 group-hover/store:translate-x-0.5 transition shrink-0">
+                            ➔
+                          </span>
                         </Link>
                       </div>
                     </div>
@@ -527,45 +654,55 @@ export default function StorefrontPage() {
                         </div>
                       </div>
 
-                      <div className="flex flex-col gap-2 pt-3 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-2">
-                          {/* Call / Phone Button */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRevealAndCall(shuttle.id, shuttle.phone, `${shuttle.from} ➔ ${shuttle.to}`, 'Shuttle');
-                            }}
-                            className="flex-1 h-9.5 px-3 rounded-xl border border-purple-200 bg-purple-50/80 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-2xs whitespace-nowrap cursor-pointer active:scale-95"
-                            title={revealedPhones[shuttle.id] ? `Call ${shuttle.phone}` : 'Click to show phone number'}
-                          >
-                            <Phone className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                            <span className="font-mono text-xs font-bold whitespace-nowrap">
-                              {revealedPhones[shuttle.id] ? shuttle.phone : 'Show Number'}
-                            </span>
-                          </button>
+                      {/* Unified Single-Row Responsive CTA Action Bar */}
+                      <div className="flex items-center gap-1.5 sm:gap-2 pt-2.5 px-1 border-t border-slate-100 mt-1" onClick={(e) => e.stopPropagation()}>
+                        {/* 1. Phone Call CTA */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRevealAndCall(shuttle.id, shuttle.phone, `${shuttle.from} ➔ ${shuttle.to}`, 'Shuttle');
+                          }}
+                          className="h-9 px-2.5 sm:px-3 rounded-xl border border-purple-200/90 bg-purple-50/70 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                          title={revealedPhones[shuttle.id] ? `Call ${shuttle.phone}` : 'Click to show phone number'}
+                        >
+                          <Phone className="w-3.5 h-3.5 text-purple-600 fill-purple-600/20 shrink-0" />
+                          <span className="font-mono text-xs font-bold whitespace-nowrap">
+                            {revealedPhones[shuttle.id] ? shuttle.phone : 'Call'}
+                          </span>
+                        </button>
 
-                          {/* WhatsApp Button */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDirectWhatsApp();
-                            }}
-                            className="h-9.5 px-3.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-2xs shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
-                            title="WhatsApp Shuttle"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600/20 shrink-0" />
-                            <span className="text-xs font-bold text-emerald-800">WhatsApp</span>
-                          </button>
-                        </div>
+                        {/* 2. WhatsApp Direct Inquiry CTA */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShuttleItemWhatsApp(shuttle);
+                          }}
+                          className="h-9 px-2.5 sm:px-3 rounded-xl border border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                          title="WhatsApp Operator with Route Details"
+                          aria-label="Direct WhatsApp"
+                        >
+                          <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
+                          <span className="hidden sm:inline text-xs font-bold text-emerald-800">WhatsApp</span>
+                        </button>
 
+                        {/* 3. View Shuttle Route Details Pill */}
                         <Link
                           href={`/shuttles/${shuttle.id}`}
-                          className="w-full h-8.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center justify-center gap-1 transition shadow-2xs"
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex-1 min-w-0 h-9 px-2 sm:px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-800 flex items-center justify-between gap-1 transition shadow-2xs group/store cursor-pointer"
+                          title="View Route & Schedule"
                         >
-                          <span>View Route & Schedule</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse shrink-0" />
+                            <span className="font-heading font-extrabold text-[11px] sm:text-xs text-slate-800 group-hover/store:text-teal-700 truncate">
+                              View Route
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 group-hover/store:text-teal-600 group-hover/store:translate-x-0.5 transition shrink-0">
+                            ➔
+                          </span>
                         </Link>
                       </div>
                     </div>
@@ -616,45 +753,55 @@ export default function StorefrontPage() {
                         </div>
                       </div>
 
-                      <div className="flex flex-col gap-2 pt-3 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-2">
-                          {/* Call / Phone Button */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRevealAndCall(mover.id, mover.phone, mover.name, 'Mover');
-                            }}
-                            className="flex-1 h-9.5 px-3 rounded-xl border border-purple-200 bg-purple-50/80 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-2xs whitespace-nowrap cursor-pointer active:scale-95"
-                            title={revealedPhones[mover.id] ? `Call ${mover.phone}` : 'Click to show phone number'}
-                          >
-                            <Phone className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                            <span className="font-mono text-xs font-bold whitespace-nowrap">
-                              {revealedPhones[mover.id] ? mover.phone : 'Show Number'}
-                            </span>
-                          </button>
+                      {/* Unified Single-Row Responsive CTA Action Bar */}
+                      <div className="flex items-center gap-1.5 sm:gap-2 pt-2.5 px-1 border-t border-slate-100 mt-1" onClick={(e) => e.stopPropagation()}>
+                        {/* 1. Phone Call CTA */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRevealAndCall(mover.id, mover.phone, mover.name, 'Mover');
+                          }}
+                          className="h-9 px-2.5 sm:px-3 rounded-xl border border-purple-200/90 bg-purple-50/70 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                          title={revealedPhones[mover.id] ? `Call ${mover.phone}` : 'Click to show phone number'}
+                        >
+                          <Phone className="w-3.5 h-3.5 text-purple-600 fill-purple-600/20 shrink-0" />
+                          <span className="font-mono text-xs font-bold whitespace-nowrap">
+                            {revealedPhones[mover.id] ? mover.phone : 'Call'}
+                          </span>
+                        </button>
 
-                          {/* WhatsApp Button */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDirectWhatsApp();
-                            }}
-                            className="h-9.5 px-3.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-2xs shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
-                            title="WhatsApp Mover"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600/20 shrink-0" />
-                            <span className="text-xs font-bold text-emerald-800">WhatsApp</span>
-                          </button>
-                        </div>
+                        {/* 2. WhatsApp Direct Inquiry CTA */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMoverItemWhatsApp(mover);
+                          }}
+                          className="h-9 px-2.5 sm:px-3 rounded-xl border border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                          title="WhatsApp Logistics Operator"
+                          aria-label="Direct WhatsApp"
+                        >
+                          <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
+                          <span className="hidden sm:inline text-xs font-bold text-emerald-800">WhatsApp</span>
+                        </button>
 
+                        {/* 3. View Moving Quote Pill */}
                         <Link
                           href={`/movers/${mover.id}`}
-                          className="w-full h-8.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center justify-center gap-1 transition shadow-2xs"
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex-1 min-w-0 h-9 px-2 sm:px-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-800 flex items-center justify-between gap-1 transition shadow-2xs group/store cursor-pointer"
+                          title="Get Moving Quote"
                         >
-                          <span>Get Moving Quote</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse shrink-0" />
+                            <span className="font-heading font-extrabold text-[11px] sm:text-xs text-slate-800 group-hover/store:text-purple-700 truncate">
+                              Get Quote
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 group-hover/store:text-purple-600 group-hover/store:translate-x-0.5 transition shrink-0">
+                            ➔
+                          </span>
                         </Link>
                       </div>
                     </div>

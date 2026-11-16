@@ -12,6 +12,7 @@ import { getApiBaseUrl } from '@/lib/api';
 import { startOrOpenConversation, getWhatsAppTargetUrl } from '@/data/chatEngine';
 import { getStoreSlugForOwner } from '@/data/storefrontEngine';
 import { useCountry } from '@/app/context/CountryContext';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import {
   getRenterDocRequirement,
   isMasterDocAskEnabled,
@@ -215,7 +216,8 @@ export default function ListingDetailPage() {
   }, []);
 
   // Dynamic Country & Document Requirements from Super Admin Matrix
-  const { country } = useCountry();
+  const { country, formatPrice } = useCountry();
+  const isPakistan = country?.code === 'PK';
   const countryCode = country?.code || 'PK';
   const [docReqs, setDocReqs] = useState({
     licence: getRenterDocRequirement(countryCode, 'licence'),
@@ -334,9 +336,13 @@ export default function ListingDetailPage() {
       type: 'WHATSAPP',
       notes: `Instant direct WhatsApp inquiry without login for ${car.title}`,
     });
-    const pickStr = formatDisplayDate(pickupDate);
-    const retStr = formatDisplayDate(returnDate);
-    const msg = `Assalam-o-Alaikum ${car.hostName}! I saw your "${car.title}" on SafarPK. I want to inquire about availability and rates for ${pickStr} to ${retStr} (${daysCount} days, ${withDriver ? 'with chauffeur' : 'self-drive'}).`;
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://safar.pk';
+    const listingUrl = `${origin}/listing/${car.id}`;
+    const dayRate = formatPrice(car.dailyRate);
+    const weekRate = formatPrice(Math.round(car.dailyRate * 6.5));
+    const monthRate = formatPrice(Math.round(car.dailyRate * 24));
+    const serviceMode = withDriver ? (isPakistan ? 'with driver' : 'with chauffeur') : 'self-drive';
+    const msg = `Hi, I would like to rent this car listed by ${car.hostName} on SafarPK: Car: ${car.title} (${serviceMode}) Price: ${dayRate}/day or ${weekRate}/week or ${monthRate}/month Listing: ${listingUrl}`;
     const cleanNum = car.hostPhone.replace(/\D/g, '');
     const url = getWhatsAppTargetUrl(cleanNum, msg);
     window.open(url, '_blank');
@@ -422,14 +428,19 @@ export default function ListingDetailPage() {
 
     const pickFormatted = formatDisplayDate(pickupDate);
     const returnFormatted = formatDisplayDate(returnDate);
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://safar.pk';
+    const listingUrl = `${origin}/listing/${car.id}`;
+    const dayRate = formatPrice(car.dailyRate);
+    const weekRate = formatPrice(Math.round(car.dailyRate * 6.5));
+    const monthRate = formatPrice(Math.round(car.dailyRate * 24));
 
-    const rawMessageText = `Assalam-o-Alaikum ${car.hostName},\n\nI want to book *${car.title}* via SafarPK (Ref: *${bookingRef}*).\n\n• Option: ${
+    const rawMessageText = `Hi, I would like to rent this car listed by ${car.hostName} on SafarPK (Ref: *${bookingRef}*):\n• Car: ${car.title} (${
       withDriver ? 'With Chauffeur' : 'Self-Drive'
-    }\n• Dates: ${pickFormatted} to ${returnFormatted} (${daysCount} days)\n• Estimated Total: ${formatPKR(
+    })\n• Price: ${dayRate}/day or ${weekRate}/week or ${monthRate}/month\n• Dates: ${pickFormatted} to ${returnFormatted} (${daysCount} days)\n• Estimated Total: ${formatPKR(
       calculateTotal()
     )}\n• Customer: ${customerName} (${customerPhone})\n${
       docLines.length > 0 ? docLines.join('\n') + '\n' : ''
-    }${customerNote ? `• Note: ${customerNote}\n` : ''}\nPlease confirm availability.`;
+    }${customerNote ? `• Note: ${customerNote}\n` : ''}• Listing: ${listingUrl}`;
 
     const totalCostStr = formatPKR(calculateTotal());
     const durationStr = `${daysCount} ${daysCount === 1 ? 'day' : 'days'}`;
@@ -853,7 +864,7 @@ export default function ListingDetailPage() {
                 onClick={handleInstantWhatsAppChat}
                 className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm hover:shadow active:scale-[0.99]"
               >
-                <MessageSquare className="w-4 h-4 fill-white/20" />
+                <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
                 <span>Chat on WhatsApp (Direct)</span>
               </button>
 
@@ -1117,7 +1128,7 @@ export default function ListingDetailPage() {
             onClick={handleInstantWhatsAppChat}
             className="h-9 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-extrabold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition"
           >
-            <MessageSquare className="w-3.5 h-3.5 fill-white/20" />
+            <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
             <span>WhatsApp</span>
           </button>
         </div>

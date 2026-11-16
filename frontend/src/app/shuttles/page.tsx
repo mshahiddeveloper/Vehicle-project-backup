@@ -9,6 +9,7 @@ import { MobileNavBar } from '@/components/MobileNavBar';
 import { recordLead, recordClickEvent } from '@/data/activityTracker';
 import { getWhatsAppTargetUrl } from '@/data/chatEngine';
 import { Phone, MessageSquare, ArrowRight, ShieldCheck, MapPin, Search } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 
 interface ShuttleRoute {
   id: string;
@@ -139,7 +140,9 @@ export default function ShuttlesPage() {
     });
     recordClickEvent(shuttle.id, 'WHATSAPP');
 
-    const rawMsg = `Hello ${shuttle.op}, I am inquiring on SafarPK about your Pick & Drop route from ${shuttle.from} to ${shuttle.to} (${shuttle.van}, ${shuttle.fare}/month). Do you have seats available?`;
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://safar.pk';
+    const routeUrl = `${origin}/shuttles/${shuttle.id}`;
+    const rawMsg = `Hi, I would like to reserve a monthly seat with ${shuttle.op} on SafarPK: Route: ${shuttle.from} to ${shuttle.to} Vehicle: ${shuttle.van} Fare: ${shuttle.fare}/month Seats Available: ${shuttle.seats} Route Details: ${routeUrl}`;
     window.open(getWhatsAppTargetUrl(shuttle.whatsapp || shuttle.phone, rawMsg), '_blank');
   };
 
@@ -362,12 +365,12 @@ export default function ShuttlesPage() {
                   )}
                 </div>
 
-                {/* Col 3: Standardized 3 Action Buttons */}
+                {/* Col 3: Responsive Action Bar */}
                 <div
                   className="flex flex-col gap-2"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
                     {/* Purple Click-to-Reveal Phone Button */}
                     <button
                       type="button"
@@ -375,16 +378,16 @@ export default function ShuttlesPage() {
                         e.stopPropagation();
                         handleCall(r);
                       }}
-                      className="flex-1 h-10 px-2.5 rounded-xl border border-purple-200 bg-purple-50/80 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-2xs whitespace-nowrap cursor-pointer active:scale-95"
+                      className="flex-1 h-9 px-2.5 rounded-xl border border-purple-200/90 bg-purple-50/70 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-2xs whitespace-nowrap cursor-pointer active:scale-95"
                       title={revealedPhones[r.id] ? `Call ${r.op} (${r.phone})` : 'Click to show phone number'}
                     >
-                      <Phone className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                      <span className="font-mono text-[11px] font-bold">
-                        {revealedPhones[r.id] ? r.phone : 'Show Number'}
+                      <Phone className="w-3.5 h-3.5 text-purple-600 fill-purple-600/20 shrink-0" />
+                      <span className="font-mono text-xs font-bold whitespace-nowrap">
+                        {revealedPhones[r.id] ? r.phone : 'Call'}
                       </span>
                     </button>
 
-                    {/* Emerald WhatsApp Button */}
+                    {/* Emerald WhatsApp Button with official SVG icon */}
                     <button
                       type="button"
                       aria-label={`WhatsApp ${r.op}`}
@@ -392,10 +395,10 @@ export default function ShuttlesPage() {
                         e.stopPropagation();
                         handleWhatsApp(r);
                       }}
-                      className="h-10 px-3 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 flex items-center justify-center gap-1.5 transition shadow-2xs shrink-0 cursor-pointer active:scale-95 text-xs font-bold whitespace-nowrap"
+                      className="h-9 px-3 rounded-xl border border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 flex items-center justify-center gap-1.5 transition shadow-2xs shrink-0 cursor-pointer active:scale-95 text-xs font-bold whitespace-nowrap"
                       title={`Chat with ${r.op} on WhatsApp`}
                     >
-                      <MessageSquare className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600/20 shrink-0" />
+                      <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
                       <span className="text-xs font-bold text-emerald-800">WhatsApp</span>
                     </button>
                   </div>
@@ -407,9 +410,10 @@ export default function ShuttlesPage() {
                       e.stopPropagation();
                       router.push(`/shuttles/${r.id}`);
                     }}
-                    className="w-full h-10 rounded-xl bg-[#101828] text-white font-semibold text-xs flex items-center justify-center hover:bg-slate-800 transition cursor-pointer text-center active:scale-95"
+                    className="w-full h-9 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95"
                   >
-                    Request a seat
+                    <span>Request a Seat</span>
+                    <span className="text-[10px] text-slate-400">➔</span>
                   </button>
                 </div>
               </div>
