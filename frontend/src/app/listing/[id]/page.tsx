@@ -33,6 +33,9 @@ import {
   Fuel,
   Gauge,
   Briefcase,
+  Calendar,
+  CalendarCheck,
+  Zap,
   X,
 } from 'lucide-react';
 
@@ -348,9 +351,13 @@ export default function ListingDetailPage() {
     window.open(url, '_blank');
   };
 
-  const handleSendWhatsAppRequest = () => {
+  const handleConfirmBookingAndChat = (openWhatsAppAlso: boolean = false) => {
     if (!customerName.trim()) {
       setValidationError('Please enter your full name');
+      return;
+    }
+    if (!customerPhone.trim()) {
+      setValidationError('Please enter your phone number');
       return;
     }
 
@@ -405,53 +412,79 @@ export default function ListingDetailPage() {
       }
     } catch (e) {}
 
-    // Record lead event (24h unique deduplication)
+    const bookingRef = `BKG-${Math.floor(1000 + Math.random() * 9000)}`;
+    const totalAmt = calculateTotal();
+    const totalCostStr = formatPKR(totalAmt);
+    const durationStr = `${daysCount} ${daysCount === 1 ? 'day' : 'days'}`;
+    const serviceModeStr = withDriver ? 'With Professional Chauffeur' : 'Self-Drive';
+    const pickFormatted = formatDisplayDate(pickupDate);
+    const returnFormatted = formatDisplayDate(returnDate);
+
+    // 1. Build Booking Record for Dashboards
+    const newBookingRecord = {
+      id: `bkg-${Date.now()}`,
+      bookingRef,
+      vehicleName: car.title,
+      assignedVehicleReg: car.ref || 'Direct Reservation',
+      city: car.city,
+      startDate: pickupDate,
+      endDate: returnDate,
+      dailyRate: withDriver ? car.dailyRateWithDriver : car.dailyRate,
+      totalAmount: totalAmt,
+      withDriver,
+      pickupArea: `${car.city} Fleet Station`,
+      listerPhone: car.hostPhone,
+      listerBusinessName: car.hostName,
+      customerName: customerName.trim() || 'Valued Customer',
+      customerPhone: customerPhone.trim() || '+92 300 0000000',
+      customerCnic: cnicNumber || 'Pending At Pickup',
+      customerLicense: ocrLicenceNumber || (withDriver ? 'Chauffeur Included' : 'Pending At Pickup'),
+      status: 'CONFIRMED',
+      paymentStatus: 'PAY_ON_PICKUP',
+      serviceType: 'CAR_RENTAL',
+      assignedDriver: withDriver ? 'Designated VIP Chauffeur' : 'Self-Drive (Customer Driving)',
+      createdAt: new Date().toISOString(),
+    };
+
+    // 2. Save into Customer Dashboard (safarpk_customer_bookings)
+    try {
+      const existingCust = JSON.parse(localStorage.getItem('safarpk_customer_bookings') || '[]');
+      const updatedCust = [newBookingRecord, ...existingCust.filter((b: any) => b.bookingRef !== bookingRef)];
+      localStorage.setItem('safarpk_customer_bookings', JSON.stringify(updatedCust));
+    } catch (e) {}
+
+    // 3. Save into Lister Dashboard (safarpk_lister_bookings)
+    try {
+      const existingList = JSON.parse(localStorage.getItem('safarpk_lister_bookings') || '[]');
+      const updatedList = [newBookingRecord, ...existingList.filter((b: any) => b.bookingRef !== bookingRef)];
+      localStorage.setItem('safarpk_lister_bookings', JSON.stringify(updatedList));
+    } catch (e) {}
+
+    // 4. Record Lead & Analytics
     recordLead({
       listingId: car.id,
       listingTitle: car.title,
       listerPhone: car.hostPhone,
+      customerCity: car.city,
       type: 'BOOKING_REQUEST',
+      notes: `Confirmed direct booking & chat for ${car.title} (Ref: ${bookingRef})`,
     });
-    recordClickEvent(car.id, 'WHATSAPP');
+    recordClickEvent({
+      clickType: 'BOOKING_CONFIRMED',
+      targetId: car.id,
+      targetTitle: car.title,
+      targetCategory: 'CAR_RENTAL',
+      targetOwnerName: car.hostName,
+      city: car.city,
+    });
 
-    const bookingRef = `SF-${Math.floor(10000 + Math.random() * 90000)}`;
-
-    const docLines: string[] = [];
-    if (!withDriver) {
-      if (cnicNumber.trim() && effectiveIdReq !== 'Off') {
-        docLines.push(`• ${idDocTitle}: ${cnicNumber}`);
-      }
-      if (ocrLicenceNumber.trim() && effectiveLicenceReq !== 'Off') {
-        docLines.push(`• ${licenceDocTitle}: ${ocrLicenceNumber}${licenceUploaded ? ' (Verified)' : ''}`);
-      }
-    }
-
-    const pickFormatted = formatDisplayDate(pickupDate);
-    const returnFormatted = formatDisplayDate(returnDate);
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://safar.pk';
-    const listingUrl = `${origin}/listing/${car.id}`;
-    const dayRate = formatPrice(car.dailyRate);
-    const weekRate = formatPrice(Math.round(car.dailyRate * 6.5));
-    const monthRate = formatPrice(Math.round(car.dailyRate * 24));
-
-    const rawMessageText = `Hi, I would like to rent this car listed by ${car.hostName} on SafarPK (Ref: *${bookingRef}*):\n• Car: ${car.title} (${
-      withDriver ? 'With Chauffeur' : 'Self-Drive'
-    })\n• Price: ${dayRate}/day or ${weekRate}/week or ${monthRate}/month\n• Dates: ${pickFormatted} to ${returnFormatted} (${daysCount} days)\n• Estimated Total: ${formatPKR(
-      calculateTotal()
-    )}\n• Customer: ${customerName} (${customerPhone})\n${
-      docLines.length > 0 ? docLines.join('\n') + '\n' : ''
-    }${customerNote ? `• Note: ${customerNote}\n` : ''}• Listing: ${listingUrl}`;
-
-    const totalCostStr = formatPKR(calculateTotal());
-    const durationStr = `${daysCount} ${daysCount === 1 ? 'day' : 'days'}`;
-    const serviceModeStr = withDriver ? 'With Professional Chauffeur' : 'Self-Drive';
-
-    // Sync with In-App Chat Inbox
+    // 5. Start / Open Direct In-App Chat
+    let convId = '';
     try {
       const activeU = getActiveUser() || {
         id: 'usr-customer-active',
-        name: customerName.trim(),
-        phone: customerPhone.trim(),
+        name: customerName.trim() || 'Valued Customer',
+        phone: customerPhone.trim() || '+92 300 0000000',
         city: car.city,
         countryCode: 'PK',
         role: 'CUSTOMER' as const,
@@ -461,7 +494,7 @@ export default function ListingDetailPage() {
         activities: [],
       };
 
-      startOrOpenConversation({
+      convId = startOrOpenConversation({
         currentUser: activeU,
         partnerId: 'usr-demo-lister',
         partnerName: car.hostName,
@@ -488,7 +521,7 @@ export default function ListingDetailPage() {
       });
     } catch (e) {}
 
-    // Persist booking to backend database via REST API
+    // 6. Sync with backend API
     if (typeof window !== 'undefined') {
       fetch(`${getApiBaseUrl()}/bookings`, {
         method: 'POST',
@@ -505,34 +538,31 @@ export default function ListingDetailPage() {
           endDate: returnDate,
           pickupCity: car.city,
           withDriver,
-          totalAmount: calculateTotal(),
-        }),
-      }).catch(() => {});
-
-      fetch(`${getApiBaseUrl()}/analytics/track`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          eventType: 'whatsapp_click',
-          listingId: car.id,
-          serviceType: 'CAR_RENTAL',
-          customerId: getActiveUser()?.id,
-          metadata: { bookingRef, durationDays: daysCount, withDriver },
+          totalAmount: totalAmt,
         }),
       }).catch(() => {});
     }
 
-    // Platform-aware WhatsApp URL (Web on desktop PC, App on mobile)
-    const targetWhatsAppUrl = getWhatsAppTargetUrl(car.hostWhatsapp || car.hostPhone, rawMessageText);
-    window.open(targetWhatsAppUrl, '_blank');
+    // 7. Optional WhatsApp Launch if requested
+    if (openWhatsAppAlso) {
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://safar.pk';
+      const listingUrl = `${origin}/listing/${car.id}`;
+      const dayRate = formatPrice(car.dailyRate);
+      const weekRate = formatPrice(Math.round(car.dailyRate * 6.5));
+      const monthRate = formatPrice(Math.round(car.dailyRate * 24));
+      const rawMessageText = `Hi, I booked this car with ${car.hostName} on SafarPK (Booking Ref: *${bookingRef}*):\n• Car: ${car.title} (${
+        withDriver ? 'With Chauffeur' : 'Self-Drive'
+      })\n• Price: ${dayRate}/day or ${weekRate}/week or ${monthRate}/month\n• Dates: ${pickFormatted} to ${returnFormatted} (${daysCount} days)\n• Estimated Total: ${totalCostStr}\n• Customer: ${customerName} (${customerPhone})\n• Listing: ${listingUrl}`;
+      const targetWhatsAppUrl = getWhatsAppTargetUrl(car.hostWhatsapp || car.hostPhone, rawMessageText);
+      window.open(targetWhatsAppUrl, '_blank');
+    }
 
-    router.push(
-      `/request-sent?ref=${bookingRef}&name=${encodeURIComponent(
-        car.hostName
-      )}&car=${encodeURIComponent(car.title)}&rate=${encodeURIComponent(
-        formatPKR(calculateTotal())
-      )}&option=${withDriver ? 'With driver' : 'Self-drive'}`
-    );
+    // 8. Redirect directly to direct in-app chat
+    if (convId) {
+      router.push(`/inbox?conv=${convId}`);
+    } else {
+      router.push('/customer');
+    }
   };
 
   return (
@@ -720,7 +750,7 @@ export default function ListingDetailPage() {
           </div>
 
           {/* Right Column: Sleek, Minimalist Booking Card */}
-          <aside className="sticky top-24 border border-slate-200/90 rounded-3xl p-5 sm:p-6 bg-white shadow-lg flex flex-col gap-3.5 transition-all">
+          <aside className="sticky top-24 border border-slate-200/90 rounded-3xl p-4 sm:p-6 bg-white shadow-lg flex flex-col gap-3.5 transition-all w-full max-w-full overflow-hidden">
             {/* Price & Status Row */}
             <div className="flex items-center justify-between pb-1 border-b border-slate-100">
               <div>
@@ -738,7 +768,7 @@ export default function ListingDetailPage() {
             </div>
 
             {/* Compact Dates Picker with Real Calendar Trigger & Past Dates Disabled */}
-            <div className="p-2 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center gap-2">
+            <div className="p-1.5 sm:p-2 rounded-2xl bg-slate-50 border border-slate-200/80 grid grid-cols-[1fr_auto_1fr] items-center gap-1.5 w-full">
               <div
                 onClick={() => {
                   try {
@@ -747,11 +777,12 @@ export default function ListingDetailPage() {
                     pickupInputRef.current?.focus();
                   }
                 }}
-                className="flex-1 flex flex-col px-3 py-2 bg-white rounded-xl border border-slate-200/80 hover:border-emerald-500 cursor-pointer shadow-2xs transition group"
+                className="min-w-0 flex flex-col px-2.5 py-1.5 bg-white rounded-xl border border-slate-200/80 hover:border-emerald-500 cursor-pointer shadow-2xs transition group"
                 title="Click to select Pick-up Date from calendar"
               >
                 <div className="flex items-center justify-between text-slate-400">
                   <span className="text-[9px] font-black tracking-wider uppercase group-hover:text-emerald-700 transition">Pick-up</span>
+                  <Calendar className="w-3 h-3 text-slate-400 group-hover:text-emerald-600 transition shrink-0" />
                 </div>
                 <input
                   ref={pickupInputRef}
@@ -774,13 +805,13 @@ export default function ListingDetailPage() {
                       }
                     }
                   }}
-                  className="w-full bg-transparent font-bold text-xs sm:text-sm text-slate-900 cursor-pointer outline-none mt-0.5"
+                  className="w-full min-w-0 bg-transparent font-bold text-[11px] sm:text-xs text-slate-900 cursor-pointer outline-none mt-0.5 p-0 max-w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
                   aria-label="Pick-up Date"
                 />
               </div>
 
-              <div className="flex flex-col items-center justify-center shrink-0 px-1">
-                <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md bg-emerald-100/70 text-emerald-800 font-mono">
+              <div className="flex flex-col items-center justify-center shrink-0 px-0.5">
+                <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-mono whitespace-nowrap">
                   {daysCount}d
                 </span>
               </div>
@@ -793,11 +824,12 @@ export default function ListingDetailPage() {
                     returnInputRef.current?.focus();
                   }
                 }}
-                className="flex-1 flex flex-col px-3 py-2 bg-white rounded-xl border border-slate-200/80 hover:border-emerald-500 cursor-pointer shadow-2xs transition group"
+                className="min-w-0 flex flex-col px-2.5 py-1.5 bg-white rounded-xl border border-slate-200/80 hover:border-emerald-500 cursor-pointer shadow-2xs transition group"
                 title="Click to select Return Date from calendar"
               >
                 <div className="flex items-center justify-between text-slate-400">
                   <span className="text-[9px] font-black tracking-wider uppercase group-hover:text-emerald-700 transition">Return</span>
+                  <Calendar className="w-3 h-3 text-slate-400 group-hover:text-emerald-600 transition shrink-0" />
                 </div>
                 <input
                   ref={returnInputRef}
@@ -813,7 +845,7 @@ export default function ListingDetailPage() {
                     const val = e.target.value;
                     if (val) setReturnDate(val);
                   }}
-                  className="w-full bg-transparent font-bold text-xs sm:text-sm text-slate-900 cursor-pointer outline-none mt-0.5"
+                  className="w-full min-w-0 bg-transparent font-bold text-[11px] sm:text-xs text-slate-900 cursor-pointer outline-none mt-0.5 p-0 max-w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
                   aria-label="Return Date"
                 />
               </div>
@@ -856,9 +888,9 @@ export default function ListingDetailPage() {
               <span className="font-heading font-extrabold text-sm text-slate-900">{formatPKR(calculateTotal())}</span>
             </div>
 
-            {/* Primary Action Buttons (Instant Call & WhatsApp without login) */}
+            {/* Streamlined, Direct Actions (WhatsApp, Book Now & Direct Chat, Show Number) */}
             <div className="flex flex-col gap-2 pt-1">
-              {/* WhatsApp Instant 1-Click Chat */}
+              {/* Option 1: WhatsApp Instant Direct Chat */}
               <button
                 type="button"
                 onClick={handleInstantWhatsAppChat}
@@ -868,7 +900,17 @@ export default function ListingDetailPage() {
                 <span>Chat on WhatsApp (Direct)</span>
               </button>
 
-              {/* Call Host Button with Purple Styling from Reference Image */}
+              {/* Option 2: Instant Booking & Direct Chat (Syncs to both Customer and Lister dashboards) */}
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="w-full h-11 rounded-xl bg-[#101828] hover:bg-emerald-950 text-white font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm hover:shadow active:scale-[0.99]"
+              >
+                <CalendarCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Book Vehicle & Direct Chat</span>
+              </button>
+
+              {/* Option 3: Call Host / Show Number */}
               <button
                 type="button"
                 onClick={handleDirectHostCall}
@@ -878,96 +920,12 @@ export default function ListingDetailPage() {
                 <Phone className="w-3.5 h-3.5 text-purple-600 shrink-0" />
                 <span>{hostPhoneRevealed ? `Call Host: ${car.hostPhone}` : 'Show Phone Number'}</span>
               </button>
-
-              {/* In-App Chat & Formal Voucher Options */}
-              <div className="grid grid-cols-2 gap-1.5 pt-0.5">
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  className="h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-bold flex items-center justify-center transition cursor-pointer"
-                >
-                  <span>Formal Voucher</span>
-                </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const bRef = `SF-${Math.floor(10000 + Math.random() * 90000)}`;
-                  const totalCostStr = formatPKR(calculateTotal());
-                  const durationStr = `${daysCount} ${daysCount === 1 ? 'day' : 'days'}`;
-                  const serviceModeStr = withDriver ? 'With Professional Chauffeur' : 'Self-Drive';
-
-                  const u = getActiveUser() || {
-                    id: 'usr-customer-active',
-                    name: customerName.trim() || 'Valued Customer',
-                    phone: customerPhone.trim() || '+92 300 0000000',
-                    city: car.city,
-                    countryCode: 'PK',
-                    role: 'CUSTOMER' as const,
-                    registeredAt: new Date().toISOString(),
-                    subscription: { status: 'UNSUBSCRIBED' as const, quota: 0, usedQuota: 0 },
-                    metrics: { viewCount: 0, leadsCount: 0, clickCount: 0, lastActive: new Date().toISOString() },
-                    activities: [],
-                  };
-
-                  try {
-                    localStorage.setItem(
-                      'safarpk_saved_customer_info',
-                      JSON.stringify({
-                        name: customerName.trim() || u.name,
-                        phone: customerPhone.trim() || u.phone,
-                        cnic: cnicNumber,
-                        licence: ocrLicenceNumber,
-                        licenceExpiry: ocrExpiry,
-                      })
-                    );
-                    if (getActiveUser()) {
-                      const curU = getActiveUser()!;
-                      curU.name = customerName.trim() || curU.name;
-                      curU.phone = customerPhone.trim() || curU.phone;
-                      setActiveUser(curU);
-                    }
-                  } catch (e) {}
-
-                  const convId = startOrOpenConversation({
-                    currentUser: u,
-                    partnerId: 'usr-demo-lister',
-                    partnerName: car.hostName,
-                    partnerRole: 'LISTER',
-                    partnerPhone: car.hostPhone,
-                    about: `${car.title} · ${serviceModeStr}`,
-                    bookingRef: bRef,
-                    bookingMetadata: {
-                      category: 'rent_a_car',
-                      customerName: customerName.trim() || u.name,
-                      customerPhone: customerPhone.trim() || u.phone,
-                      customerCity: car.city,
-                      providerName: car.hostName,
-                      providerManager: `${car.hostName} Fleet Reservation`,
-                      providerPhone: car.hostPhone,
-                      itemName: car.title,
-                      pickupDate: formatDisplayDate(pickupDate),
-                      returnDate: formatDisplayDate(returnDate),
-                      duration: durationStr,
-                      totalEstimate: totalCostStr,
-                      serviceMode: serviceModeStr,
-                      bookingRef: bRef,
-                    },
-                  });
-                  router.push(`/inbox?conv=${convId}`);
-                }}
-                className="h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
-              >
-                <MessageSquare className="w-3.5 h-3.5 text-[#0B6B4F]" />
-                <span>In-App Inbox</span>
-              </button>
             </div>
-          </div>
 
             {/* Single Trust Badge Line */}
-            <div className="flex items-center justify-center gap-1 text-[11px] text-slate-500 text-center pt-1">
+            <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500 text-center pt-1">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span>Direct booking with host · Settle payment & inspect vehicle at handover</span>
+              <span>Direct host booking · Settle payment & inspect vehicle at handover</span>
             </div>
           </aside>
 
@@ -977,7 +935,7 @@ export default function ListingDetailPage() {
               <div className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div>
-                    <h3 className="font-heading font-extrabold text-base text-slate-900">Confirm Booking Details</h3>
+                    <h3 className="font-heading font-extrabold text-base text-slate-900">Instant Booking & Direct Chat</h3>
                     <p className="text-xs text-slate-500">
                       {car.title} · {withDriver ? 'With Chauffeur' : 'Self-Drive'} · {formatDisplayDate(pickupDate)} to {formatDisplayDate(returnDate)} ({daysCount}d)
                     </p>
@@ -989,6 +947,14 @@ export default function ListingDetailPage() {
                   >
                     <X className="w-4 h-4" />
                   </button>
+                </div>
+
+                <div className="p-3 bg-emerald-50/80 rounded-2xl border border-emerald-200 text-xs text-emerald-950 flex items-center justify-between">
+                  <div>
+                    <span className="font-bold block">Estimated Total ({daysCount} days):</span>
+                    <span className="text-[11px] text-emerald-800">Pay directly to host at vehicle handover</span>
+                  </div>
+                  <span className="font-heading font-extrabold text-base text-emerald-900">{formatPKR(calculateTotal())}</span>
                 </div>
 
                 <div className="flex flex-col gap-3">
@@ -1004,7 +970,7 @@ export default function ListingDetailPage() {
                   </label>
 
                   <label className="flex flex-col gap-1">
-                    <span className="text-xs font-bold text-slate-700">WhatsApp Phone Number *</span>
+                    <span className="text-xs font-bold text-slate-700">Contact / WhatsApp Phone Number *</span>
                     <input
                       type="tel"
                       value={customerPhone}
@@ -1080,14 +1046,24 @@ export default function ListingDetailPage() {
                 <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
                   <button
                     type="button"
-                    onClick={handleSendWhatsAppRequest}
-                    className="w-full h-11 rounded-xl bg-[#0B6B4F] hover:bg-[#08513C] text-white font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow"
+                    onClick={() => handleConfirmBookingAndChat(false)}
+                    className="w-full h-11 rounded-xl bg-[#0B6B4F] hover:bg-[#08513C] text-white font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow active:scale-[0.99]"
                   >
                     <MessageSquare className="w-4 h-4" />
-                    <span>Confirm & Send on WhatsApp</span>
+                    <span>Confirm Booking & Start Direct Chat</span>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleConfirmBookingAndChat(true)}
+                    className="w-full h-10 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-950 font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer active:scale-[0.99]"
+                  >
+                    <WhatsAppIcon className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <span>Confirm & Also Open on WhatsApp</span>
+                  </button>
+
                   <p className="text-[11px] text-slate-400 text-center">
-                    Pay directly to host at pick-up · Direct host transaction
+                    Saves to both Customer & Lister dashboards · Settle payment at vehicle handover
                   </p>
                 </div>
               </div>
@@ -1096,40 +1072,46 @@ export default function ListingDetailPage() {
         </div>
       </main>
 
-      {/* Floating Sticky Booking Bar for Mobile (Instant Call & WhatsApp without login) */}
+      {/* Floating Sticky Booking Bar for Mobile */}
       <div className="lg:hidden fixed bottom-14 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-2 flex items-center justify-between shadow-lg">
-        <div>
+        <div className="min-w-0 pr-2">
           <div className="flex items-baseline gap-1">
-            <span className="font-heading font-extrabold text-sm text-slate-900">
+            <span className="font-heading font-extrabold text-sm text-slate-900 truncate">
               {formatPKR(withDriver ? car.dailyRateWithDriver : car.dailyRate)}
             </span>
             <span className="text-[10px] text-slate-500">/day</span>
           </div>
-          <span className="text-[10px] font-bold text-[#0B6B4F] block">
+          <span className="text-[10px] font-bold text-[#0B6B4F] block truncate">
             {daysCount}d · {formatPKR(calculateTotal())}
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
             onClick={handleDirectHostCall}
-            className="h-9 px-2.5 rounded-xl border border-purple-200 bg-purple-50 text-purple-950 text-xs font-bold flex items-center gap-1 shadow-2xs active:scale-95 transition"
-            title={hostPhoneRevealed ? `Call host directly: ${car.hostPhone}` : 'Click to show phone number'}
+            className="w-9 h-9 rounded-xl border border-purple-200 bg-purple-50 text-purple-950 flex items-center justify-center shadow-2xs active:scale-95 transition"
+            title={hostPhoneRevealed ? `Call host directly: ${car.hostPhone}` : 'Click to call host'}
           >
-            <Phone className="w-3.5 h-3.5 text-purple-600" />
-            <span className="font-mono text-[11px] font-bold">
-              {hostPhoneRevealed ? car.hostPhone : 'Show Number'}
-            </span>
+            <Phone className="w-4 h-4 text-purple-600" />
           </button>
 
           <button
             type="button"
             onClick={handleInstantWhatsAppChat}
-            className="h-9 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-extrabold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition"
+            className="h-9 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-extrabold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition"
           >
-            <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
+            <WhatsAppIcon className="w-3.5 h-3.5 text-white shrink-0" />
             <span>WhatsApp</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStep(1)}
+            className="h-9 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-heading font-extrabold text-xs flex items-center gap-1 shadow-sm active:scale-95 transition"
+          >
+            <CalendarCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span>Book</span>
           </button>
         </div>
       </div>
