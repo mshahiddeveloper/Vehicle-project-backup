@@ -37,6 +37,17 @@ import {
   CalendarCheck,
   Zap,
   X,
+  Sparkles,
+  Info,
+  Car,
+  Key,
+  Check,
+  Clock,
+  Award,
+  Layers,
+  Shield,
+  Compass,
+  FileText,
 } from 'lucide-react';
 
 interface VehicleDetail {
@@ -44,22 +55,43 @@ interface VehicleDetail {
   ref: string;
   title: string;
   category: string;
+  bodyType?: string;
   year: number;
   city: string;
   area: string;
   dailyRate: number;
   dailyRateWithDriver: number;
+  weeklyRate?: number;
+  monthlyRate?: number;
+  mileageDaily?: string;
+  mileageWeekly?: string;
+  mileageMonthly?: string;
+  extraKmRate?: string;
+  insuranceIncluded?: boolean;
+  insuranceType?: string;
+  deposit: number;
   transmission: string;
   fuelType: string;
+  engineCapacity?: string;
+  horsepower?: string;
   seats: number;
+  doors?: number;
   bags: string;
-  hostName: string;
-  hostPhone: string;
-  hostWhatsapp: string;
-  deposit: number;
+  minAge?: number;
+  exteriorColor?: string;
+  interiorColor?: string;
+  interiorFeatures?: string[];
+  safetyFeatures?: string[];
+  exteriorFeatures?: string[];
+  comfortFeatures?: string[];
+  infotainmentFeatures?: string[];
   features: string[];
   description: string;
   images: string[];
+  hostName: string;
+  hostPhone: string;
+  hostWhatsapp: string;
+  hostResponseTime?: string;
 }
 
 const VEHICLE_CATALOG: Record<string, VehicleDetail> = {
@@ -68,51 +100,150 @@ const VEHICLE_CATALOG: Record<string, VehicleDetail> = {
     ref: 'LST-480853',
     title: 'Honda Civic Oriel Turbo 2024',
     category: 'Sedan',
+    bodyType: 'Executive Sedan',
     year: 2024,
     city: 'Islamabad',
     area: 'Centaurus Mall, F-8',
     dailyRate: 14000,
     dailyRateWithDriver: 16500,
-    transmission: 'Automatic',
-    fuelType: 'Petrol',
-    seats: 5,
-    bags: '2 large bags',
-    hostName: 'Kashif Motors Islamabad',
-    hostPhone: '+92 300 1234567',
-    hostWhatsapp: '923001234567',
+    weeklyRate: 88000,
+    monthlyRate: 310000,
+    mileageDaily: '250 km / day',
+    mileageWeekly: '1,750 km / week',
+    mileageMonthly: '5,500 km / month',
+    extraKmRate: 'PKR 25 / km',
+    insuranceIncluded: true,
+    insuranceType: 'Comprehensive Insurance Included',
     deposit: 30000,
+    transmission: 'Automatic (CVT)',
+    fuelType: 'Petrol',
+    engineCapacity: '1.5L VTEC Turbo',
+    horsepower: '178 HP',
+    seats: 5,
+    doors: 4,
+    bags: '3 large bags',
+    minAge: 21,
+    exteriorColor: 'Crystal Black Pearl',
+    interiorColor: 'Black Leather',
+    interiorFeatures: [
+      'Premium Black Leather Upholstery',
+      'Dual-Zone Automatic Climate Control AC',
+      'Rear Passenger Air Conditioning Vents',
+      '8-Way Power Adjustable Driver Seat',
+      'Ambient LED Footwell Lighting',
+      'Leather-Wrapped Steering Wheel',
+    ],
+    safetyFeatures: [
+      'Multi-Angle Rearview Camera with Dynamic Guidelines',
+      'Front & Rear Ultrasonic Parking Sensors',
+      'Vehicle Stability Assist (VSA) with Traction Control',
+      'Anti-Lock Braking System (ABS) with EBD & Brake Assist',
+      '6 SRS Airbags (Dual Front, Side & Curtain)',
+      'ISOFIX Child Seat Anchors',
+      'Hill Start Assist (HSA)',
+    ],
+    exteriorFeatures: [
+      '17-Inch Dual-Tone Diamond Cut Alloy Wheels',
+      'Full LED Headlights with Daytime Running Lights (DRLs)',
+      'Electric Tilt & Slide Sunroof',
+      'Power-Folding Heated Side Mirrors with LED Indicators',
+      'Aerodynamic Shark Fin Antenna',
+    ],
+    comfortFeatures: [
+      'Push Button Engine Start / Stop',
+      'Smart Keyless Entry & Remote Trunk Release',
+      'Cruise Control with Steering Controls',
+      'Steering-Mounted Paddle Shifters',
+      'Tilt & Telescopic Steering Column',
+    ],
+    infotainmentFeatures: [
+      '9-Inch Advanced Display Audio Touchscreen',
+      'Wireless Apple CarPlay & Android Auto',
+      'Bluetooth Hands-Free Calling & Audio Streaming',
+      'Wireless Smartphone Fast Charging Pad',
+      'High-Fidelity 8-Speaker Audio System',
+      'Front & Rear Dual USB Fast Charging Ports',
+    ],
     features: [
       'Dual Zone Climate Control AC',
       'Sunroof & Cruise Control',
       'Front & Rear Dashcam',
-      'Infotainment with Apple CarPlay',
+      'Apple CarPlay & Android Auto',
       'Comprehensive Insurance Included',
-      'First Aid & Puncture Repair Kit',
     ],
     description:
-      'Well kept 2024 Civic Oriel Turbo, serviced exclusively at authorized dealership every 5,000 km. Comes with full fuel tank, pristine leather interior and child seat on advance request. Strict non-smoking policy inside the vehicle.',
+      'Well kept 2024 Civic Oriel Turbo, serviced exclusively at authorized dealership every 5,000 km. Comes with full fuel tank, pristine leather interior, tinted privacy windows, and child seat on advance request. Strict non-smoking policy inside the vehicle.',
     images: [
       'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?auto=format&fit=crop&w=1200&q=80',
     ],
+    hostName: 'Kashif Motors Islamabad',
+    hostPhone: '+92 300 1234567',
+    hostWhatsapp: '923001234567',
+    hostResponseTime: 'Replies in ~5 minutes',
   },
   'l-2': {
     id: 'l-2',
     ref: 'LST-065123',
     title: 'Toyota Corolla Altis Grande 1.8 2024',
     category: 'Sedan',
+    bodyType: 'Sedan',
     year: 2024,
     city: 'Lahore',
     area: 'Gulberg III, Main Boulevard',
     dailyRate: 11000,
     dailyRateWithDriver: 13500,
-    transmission: 'Automatic',
-    fuelType: 'Petrol',
-    seats: 5,
-    bags: '3 large bags',
-    hostName: 'Lahore Premier Car Rentals',
-    hostPhone: '+92 321 4455667',
-    hostWhatsapp: '923214455667',
+    weeklyRate: 69000,
+    monthlyRate: 245000,
+    mileageDaily: '250 km / day',
+    mileageWeekly: '1,750 km / week',
+    mileageMonthly: '5,000 km / month',
+    extraKmRate: 'PKR 20 / km',
+    insuranceIncluded: true,
+    insuranceType: 'Comprehensive Insurance Included',
     deposit: 25000,
+    transmission: 'Automatic (7-Speed Super CVT-i)',
+    fuelType: 'Petrol',
+    engineCapacity: '1.8L Dual VVT-i',
+    horsepower: '138 HP',
+    seats: 5,
+    doors: 4,
+    bags: '3 large bags',
+    minAge: 21,
+    exteriorColor: 'Super White',
+    interiorColor: 'Beige & Black',
+    interiorFeatures: [
+      'High-Grade Leather / Fabric Combination Seats',
+      'Digital Climate Control Air Conditioning',
+      'Rear Passenger Center Armrest with Cup Holders',
+      'Chilled Storage Glove Box',
+    ],
+    safetyFeatures: [
+      'Reverse Camera with Guidance Assist',
+      'Front & Rear Parking Sonar Sensors',
+      'Vehicle Stability Control (VSC)',
+      'ABS + EBD with Emergency Brake Assist',
+      'Dual Front Airbags',
+      'Immobilizer Anti-Theft Security System',
+    ],
+    exteriorFeatures: [
+      '16-Inch Factory Alloy Rims with Brand New Tyres',
+      'Bi-Beam LED Headlights with DRLs',
+      'Electric Sunroof',
+      'Electrically Retractable Side Mirrors',
+      'Rear Trunk Lip Spoiler',
+    ],
+    comfortFeatures: [
+      'Push Start & Smart Keyless Entry',
+      'Paddle Shifters behind Steering Wheel',
+      'Cruise Control for Highway Driving',
+      'Steering Wheel Audio & Phone Controls',
+    ],
+    infotainmentFeatures: [
+      '9-Inch Touchscreen Android Infotainment System',
+      'Bluetooth Hands-Free & Media Connectivity',
+      'Pre-Installed Google Maps Navigation',
+      'Front & Rear High-Speed USB Chargers',
+    ],
     features: [
       'Automatic Climate Control',
       'Paddle Shifters',
@@ -121,10 +252,96 @@ const VEHICLE_CATALOG: Record<string, VehicleDetail> = {
       'Motorway M-2 Tag Active',
     ],
     description:
-      'Executive family sedan in immaculate condition. Clean exterior and interior, regularly sanitized. Ideal for city corporate use or Lahore-Islamabad motorway travels.',
+      'Executive family sedan in immaculate condition. Clean exterior and interior, regularly sanitized. Ideal for city corporate meetings or Lahore-Islamabad motorway travel. Fully insured with 24/7 roadside assistance.',
     images: [
       'https://images.unsplash.com/photo-1623869675781-80aa31012a5a?auto=format&fit=crop&w=1200&q=80',
     ],
+    hostName: 'Lahore Premier Car Rentals',
+    hostPhone: '+92 321 4455667',
+    hostWhatsapp: '923214455667',
+    hostResponseTime: 'Replies in ~8 minutes',
+  },
+  'l-3': {
+    id: 'l-3',
+    ref: 'LST-890214',
+    title: 'Toyota Fortuner Legender 2.8 4x4 2024',
+    category: 'SUV',
+    bodyType: 'Luxury 4x4 SUV',
+    year: 2024,
+    city: 'Islamabad',
+    area: 'F-7 Markaz, Jinnah Super',
+    dailyRate: 26000,
+    dailyRateWithDriver: 29500,
+    weeklyRate: 165000,
+    monthlyRate: 590000,
+    mileageDaily: '200 km / day',
+    mileageWeekly: '1,400 km / week',
+    mileageMonthly: '4,500 km / month',
+    extraKmRate: 'PKR 35 / km',
+    insuranceIncluded: true,
+    insuranceType: 'Full Comprehensive Insurance Included',
+    deposit: 50000,
+    transmission: 'Automatic (6-Speed with Sequential)',
+    fuelType: 'Diesel (Turbo)',
+    engineCapacity: '2.8L 1GD-FTV Turbo Diesel',
+    horsepower: '201 HP',
+    seats: 7,
+    doors: 5,
+    bags: '4 large bags',
+    minAge: 25,
+    exteriorColor: 'Dual-Tone Pearl White & Black Roof',
+    interiorColor: 'Maroon & Black Premium Leather',
+    interiorFeatures: [
+      'Perforated Maroon & Black Dual-Tone Leather Seats',
+      'Dual-Zone Automatic Climate Control (Front & Rear)',
+      'Illuminated Scuff Plates & Ambient Cabin Lighting',
+      'Power Adjustable Front Passenger & Driver Seats',
+      'Third-Row 50:50 Split Folding Seats',
+    ],
+    safetyFeatures: [
+      '360-Degree Panoramic View Camera System',
+      'Front & Rear Parking Clearance Sonar',
+      'Active Traction Control (A-TRC) & Downhill Assist (DAC)',
+      '7 SRS Airbags (Front, Side, Curtain & Driver Knee)',
+      'Vehicle Stability Control (VSC)',
+      'Vehicle Immobilizer & Security Alarm',
+    ],
+    exteriorFeatures: [
+      '18-Inch Legender Exclusive Alloy Wheels',
+      'Quad-LED Headlights with Sequential Turn Signals',
+      'Power Back Door with Kick Sensor (Hands-Free Tailgate)',
+      'Gloss Black Honeycomb Front Grille',
+      'Aerodynamic Roof Rails',
+    ],
+    comfortFeatures: [
+      'Push Button Start & Smart Entry',
+      'Drive Mode Selector (Eco / Normal / Sport)',
+      'Paddle Shifters for Manual Override',
+      'Wireless Smartphone Charger',
+      'Cooled Upper Glove Box',
+    ],
+    infotainmentFeatures: [
+      '8.9-Inch High-Resolution Touchscreen System',
+      'Apple CarPlay & Android Auto Integration',
+      'JBL Premium 11-Speaker Audio System with Subwoofer',
+      'USB Fast Charging in All 3 Seating Rows',
+    ],
+    features: [
+      '4x4 Off-Road Capabilities',
+      '360 Degree Camera',
+      '7 Seater Capacity',
+      'Handsfree Power Tailgate',
+      'JBL Sound System',
+    ],
+    description:
+      'Brand new 2024 Fortuner Legender 2.8 4x4. The ultimate vehicle for VIP northern areas travel (Naran, Hunza, Skardu) or executive delegations in Islamabad. Chauffeur option includes certified mountain drivers.',
+    images: [
+      'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=1200&q=80',
+    ],
+    hostName: 'Capital VIP Fleets Islamabad',
+    hostPhone: '+92 333 5566778',
+    hostWhatsapp: '923335566778',
+    hostResponseTime: 'Replies in ~3 minutes',
   },
 };
 
@@ -136,6 +353,82 @@ export default function ListingDetailPage() {
   const [car, setCar] = useState<VehicleDetail>(
     VEHICLE_CATALOG[listingId] || VEHICLE_CATALOG['l-1']
   );
+
+  // Scan localStorage for custom lister vehicles if not in static catalog
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (VEHICLE_CATALOG[listingId]) {
+      setCar(VEHICLE_CATALOG[listingId]);
+      return;
+    }
+    try {
+      const keys = Object.keys(localStorage).filter((k) => k.startsWith('safarpk_fleet_'));
+      for (const k of keys) {
+        const raw = localStorage.getItem(k);
+        if (raw) {
+          const list = JSON.parse(raw);
+          const found = list.find((v: any) => v.id === listingId);
+          if (found) {
+            setCar({
+              id: found.id,
+              ref: found.reg || 'Direct Reservation',
+              title: found.title,
+              category: found.category || 'Sedan',
+              bodyType: found.bodyType || found.category || 'Standard Sedan',
+              year: found.year || 2024,
+              city: found.city || 'Islamabad',
+              area: found.location || 'Fleet Office',
+              dailyRate: found.dailyRate || 5000,
+              dailyRateWithDriver:
+                found.withDriverRate || (found.dailyRate ? found.dailyRate + 2500 : 7500),
+              weeklyRate: found.weeklyRate ? Number(found.weeklyRate) : undefined,
+              monthlyRate: found.monthlyRate ? Number(found.monthlyRate) : undefined,
+              mileageDaily: found.mileageDaily || '250 km / day',
+              mileageWeekly: found.mileageWeekly,
+              mileageMonthly: found.mileageMonthly,
+              extraKmRate: found.extraKmRate || 'PKR 25 / km',
+              insuranceIncluded: found.insuranceIncluded ?? true,
+              insuranceType: found.insuranceType || 'Comprehensive Insurance Included',
+              deposit: found.deposit !== undefined ? Number(found.deposit) : 20000,
+              transmission: found.transmission || 'Automatic',
+              fuelType: found.fuelType || 'Petrol',
+              engineCapacity: found.engineCapacity,
+              horsepower: found.horsepower,
+              seats: found.seats || 5,
+              doors: found.doors || 4,
+              bags: found.bags || '2 large bags',
+              minAge: found.minAge ? Number(found.minAge) : 21,
+              exteriorColor: found.exteriorColor,
+              interiorColor: found.interiorColor,
+              interiorFeatures: found.interiorFeatures,
+              safetyFeatures: found.safetyFeatures,
+              exteriorFeatures: found.exteriorFeatures,
+              comfortFeatures: found.comfortFeatures,
+              infotainmentFeatures: found.infotainmentFeatures,
+              features: found.features || [
+                found.transmission || 'Automatic',
+                'Air Conditioning & Heating',
+                'Comprehensive Insurance Included',
+              ],
+              description:
+                found.description ||
+                `Clean and well maintained ${found.title}. Available for daily, weekly, or monthly rental with direct host support.`,
+              images: found.img
+                ? [found.img]
+                : [
+                    'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=600&auto=format&fit=crop&q=80',
+                  ],
+              hostName: found.shopName || 'SafarPK Verified Host',
+              hostPhone: found.phone || '+92 300 1234567',
+              hostWhatsapp: (found.phone || '923001234567').replace(/\D/g, ''),
+              hostResponseTime: 'Replies in ~8 minutes',
+            });
+            break;
+          }
+        }
+      }
+    } catch (e) {}
+  }, [listingId]);
 
   const [withDriver, setWithDriver] = useState(false);
   const [hostPhoneRevealed, setHostPhoneRevealed] = useState(false);
@@ -625,57 +918,394 @@ export default function ListingDetailPage() {
                 <span className="px-3 py-1 rounded-full bg-[#F2F4F7] text-[#344054] text-xs font-semibold">
                   Self-drive or with driver
                 </span>
+                {car.bodyType && (
+                  <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">
+                    {car.bodyType}
+                  </span>
+                )}
               </div>
-              <h1 className="font-heading font-extrabold text-3xl sm:text-4xl text-[#101828] tracking-tight">
+              <h1 className="font-heading font-extrabold text-2xl sm:text-3xl md:text-4xl text-[#101828] tracking-tight">
                 {car.title}
               </h1>
-              <p className="text-[#475467] text-sm sm:text-base flex items-center gap-1.5">
-                <MapPin className="w-4 h-4 text-[#0B6B4F]" />
+              <p className="text-[#475467] text-xs sm:text-sm flex items-center gap-1.5 flex-wrap">
+                <MapPin className="w-4 h-4 text-[#0B6B4F] shrink-0" />
                 <span>
                   {car.city} · {car.area} (pick-up at fleet office or delivery)
                 </span>
               </p>
             </div>
 
-            {/* Technical Specifications */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-4 border border-[#EEF0F2] rounded-2xl flex flex-col gap-1.5">
-                <Users className="w-5 h-5 text-[#0B6B4F]" />
-                <span className="text-xs text-[#667085]">Seats</span>
-                <span className="font-heading font-bold text-sm text-[#101828]">
-                  {car.seats} Passengers
+            {/* 1. Rental Pricing Plans (Daily, Weekly, Monthly) - OneClickDrive inspired */}
+            <div className="flex flex-col gap-3 p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-50 to-white border border-slate-200/90 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <h3 className="font-heading font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-emerald-600" />
+                  <span>Rental Pricing & Mileage Plans</span>
+                </h3>
+                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  Direct Rates · No Hidden Fees
                 </span>
               </div>
-              <div className="p-4 border border-[#EEF0F2] rounded-2xl flex flex-col gap-1.5">
-                <Gauge className="w-5 h-5 text-[#0B6B4F]" />
-                <span className="text-xs text-[#667085]">Transmission</span>
-                <span className="font-heading font-bold text-sm text-[#101828]">
-                  {car.transmission}
-                </span>
+
+              {/* Tier Cards Grid - Responsive & Strictly Conditional */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                {/* Daily Plan (Always present) */}
+                <div className="p-3.5 rounded-xl border-2 border-emerald-600/30 bg-emerald-50/40 flex flex-col justify-between gap-1 shadow-2xs">
+                  <div>
+                    <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800">Daily Plan</span>
+                    <div className="flex items-baseline gap-1 mt-0.5">
+                      <span className="font-heading font-extrabold text-xl sm:text-2xl text-slate-900">
+                        {formatPrice(withDriver ? car.dailyRateWithDriver : car.dailyRate)}
+                      </span>
+                      <span className="text-xs text-slate-500 font-medium">/ day</span>
+                    </div>
+                  </div>
+                  {car.mileageDaily && (
+                    <div className="text-[11px] font-semibold text-slate-600 flex items-center gap-1 pt-1.5 border-t border-emerald-200/60">
+                      <Gauge className="w-3 h-3 text-emerald-600 shrink-0" />
+                      <span>{car.mileageDaily}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Weekly Plan (Only if provided by lister) */}
+                {car.weeklyRate ? (
+                  <div className="p-3.5 rounded-xl border border-slate-200 bg-white flex flex-col justify-between gap-1 shadow-2xs">
+                    <div>
+                      <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Weekly Plan</span>
+                      <div className="flex items-baseline gap-1 mt-0.5">
+                        <span className="font-heading font-extrabold text-xl sm:text-2xl text-slate-900">
+                          {formatPrice(car.weeklyRate)}
+                        </span>
+                        <span className="text-xs text-slate-500 font-medium">/ week</span>
+                      </div>
+                    </div>
+                    {car.mileageWeekly && (
+                      <div className="text-[11px] font-semibold text-slate-600 flex items-center gap-1 pt-1.5 border-t border-slate-100">
+                        <Gauge className="w-3 h-3 text-slate-500 shrink-0" />
+                        <span>{car.mileageWeekly}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+
+                {/* Monthly Plan (Only if provided by lister) */}
+                {car.monthlyRate ? (
+                  <div className="p-3.5 rounded-xl border border-slate-200 bg-white flex flex-col justify-between gap-1 shadow-2xs">
+                    <div>
+                      <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Monthly Plan</span>
+                      <div className="flex items-baseline gap-1 mt-0.5">
+                        <span className="font-heading font-extrabold text-xl sm:text-2xl text-slate-900">
+                          {formatPrice(car.monthlyRate)}
+                        </span>
+                        <span className="text-xs text-slate-500 font-medium">/ mo.</span>
+                      </div>
+                    </div>
+                    {car.mileageMonthly && (
+                      <div className="text-[11px] font-semibold text-slate-600 flex items-center gap-1 pt-1.5 border-t border-slate-100">
+                        <Gauge className="w-3 h-3 text-slate-500 shrink-0" />
+                        <span>{car.mileageMonthly}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
               </div>
-              <div className="p-4 border border-[#EEF0F2] rounded-2xl flex flex-col gap-1.5">
-                <Fuel className="w-5 h-5 text-[#0B6B4F]" />
-                <span className="text-xs text-[#667085]">Fuel</span>
-                <span className="font-heading font-bold text-sm text-[#101828]">
-                  {car.fuelType}
-                </span>
-              </div>
-              <div className="p-4 border border-[#EEF0F2] rounded-2xl flex flex-col gap-1.5">
-                <Briefcase className="w-5 h-5 text-[#0B6B4F]" />
-                <span className="text-xs text-[#667085]">Luggage</span>
-                <span className="font-heading font-bold text-sm text-[#101828]">
-                  {car.bags}
-                </span>
+
+              {/* Pricing Sub-bar: Extra Km, Insurance, Deposit */}
+              <div className="flex flex-wrap items-center gap-y-2 gap-x-4 pt-2 border-t border-slate-200/80 text-xs text-slate-600">
+                {car.extraKmRate && (
+                  <span className="flex items-center gap-1">
+                    <span className="text-slate-400">Additional mileage:</span>
+                    <strong className="text-slate-800">{car.extraKmRate}</strong>
+                  </span>
+                )}
+                {car.insuranceIncluded && (
+                  <span className="flex items-center gap-1 text-emerald-700 font-semibold">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>{car.insuranceType || 'Comprehensive Insurance Included'}</span>
+                  </span>
+                )}
+                {car.deposit !== undefined && car.deposit > 0 && (
+                  <span className="flex items-center gap-1 text-slate-700">
+                    <Shield className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span>
+                      Refundable Deposit: <strong>{formatPrice(car.deposit)}</strong>
+                    </span>
+                  </span>
+                )}
               </div>
             </div>
 
-            {/* Host Identity Section - Links to Public Storefront */}
+            {/* 2. Car Overview / Technical Specifications Table (Strictly Conditional) */}
+            <div className="flex flex-col gap-3">
+              <h2 className="font-heading font-extrabold text-lg sm:text-xl text-slate-900 flex items-center gap-2">
+                <Car className="w-5 h-5 text-emerald-600" />
+                <span>Car Overview & Specifications</span>
+              </h2>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {car.bodyType && (
+                  <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
+                    <Car className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="text-[11px] text-slate-500 block truncate">Body Type</span>
+                      <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                        {car.bodyType}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {car.transmission && (
+                  <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
+                    <Gauge className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="text-[11px] text-slate-500 block truncate">Transmission</span>
+                      <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                        {car.transmission}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {car.engineCapacity && (
+                  <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
+                    <Zap className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="text-[11px] text-slate-500 block truncate">Engine Capacity</span>
+                      <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                        {car.engineCapacity}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {car.horsepower && (
+                  <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
+                    <Sparkles className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="text-[11px] text-slate-500 block truncate">Horsepower</span>
+                      <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                        {car.horsepower}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {car.seats !== undefined && car.seats > 0 && (
+                  <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
+                    <Users className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="text-[11px] text-slate-500 block truncate">Seating Capacity</span>
+                      <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                        {car.seats} Passengers
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {car.doors !== undefined && car.doors > 0 && (
+                  <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
+                    <Layers className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="text-[11px] text-slate-500 block truncate">Doors</span>
+                      <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                        {car.doors} Doors
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {car.bags && (
+                  <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
+                    <Briefcase className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="text-[11px] text-slate-500 block truncate">Luggage Capacity</span>
+                      <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                        {car.bags}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {car.minAge !== undefined && car.minAge > 0 && (
+                  <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
+                    <Award className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="text-[11px] text-slate-500 block truncate">Minimum Age</span>
+                      <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                        {car.minAge} Years
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {car.fuelType && (
+                  <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
+                    <Fuel className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="text-[11px] text-slate-500 block truncate">Fuel Type</span>
+                      <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                        {car.fuelType}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {car.exteriorColor && (
+                  <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
+                    <Compass className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="text-[11px] text-slate-500 block truncate">Exterior Color</span>
+                      <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                        {car.exteriorColor}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {car.interiorColor && (
+                  <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
+                    <Layers className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="text-[11px] text-slate-500 block truncate">Interior Color</span>
+                      <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                        {car.interiorColor}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 3. Categorized Features & Inclusions (Strictly Conditional) */}
+            {(car.interiorFeatures?.length ||
+              car.safetyFeatures?.length ||
+              car.exteriorFeatures?.length ||
+              car.comfortFeatures?.length ||
+              car.infotainmentFeatures?.length ||
+              car.features?.length) && (
+              <div className="flex flex-col gap-4 pt-2">
+                <h2 className="font-heading font-extrabold text-lg sm:text-xl text-slate-900 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-emerald-600" />
+                  <span>Features & Equipment</span>
+                </h2>
+
+                <div className="flex flex-col gap-3.5">
+                  {/* Interior Features */}
+                  {car.interiorFeatures && car.interiorFeatures.length > 0 && (
+                    <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs">
+                      <h4 className="font-heading font-bold text-xs sm:text-sm text-emerald-800 mb-2.5">
+                        Interior Features
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-slate-700">
+                        {car.interiorFeatures.map((f, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 font-bold" />
+                            <span>{f}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Safety & Driver Assistance */}
+                  {car.safetyFeatures && car.safetyFeatures.length > 0 && (
+                    <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs">
+                      <h4 className="font-heading font-bold text-xs sm:text-sm text-emerald-800 mb-2.5">
+                        Safety & Driver Assistance
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-slate-700">
+                        {car.safetyFeatures.map((f, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 font-bold" />
+                            <span>{f}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Exterior Features */}
+                  {car.exteriorFeatures && car.exteriorFeatures.length > 0 && (
+                    <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs">
+                      <h4 className="font-heading font-bold text-xs sm:text-sm text-emerald-800 mb-2.5">
+                        Exterior Features
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-slate-700">
+                        {car.exteriorFeatures.map((f, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 font-bold" />
+                            <span>{f}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Comfort & Convenience */}
+                  {car.comfortFeatures && car.comfortFeatures.length > 0 && (
+                    <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs">
+                      <h4 className="font-heading font-bold text-xs sm:text-sm text-emerald-800 mb-2.5">
+                        Comfort & Convenience
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-slate-700">
+                        {car.comfortFeatures.map((f, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 font-bold" />
+                            <span>{f}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Infotainment & Audio */}
+                  {car.infotainmentFeatures && car.infotainmentFeatures.length > 0 && (
+                    <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs">
+                      <h4 className="font-heading font-bold text-xs sm:text-sm text-emerald-800 mb-2.5">
+                        Infotainment & Audio
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-slate-700">
+                        {car.infotainmentFeatures.map((f, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 font-bold" />
+                            <span>{f}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Legacy Features Inclusions (if categorized arrays are absent) */}
+                  {(!car.interiorFeatures || car.interiorFeatures.length === 0) &&
+                    car.features &&
+                    car.features.length > 0 && (
+                      <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs">
+                        <h4 className="font-heading font-bold text-xs sm:text-sm text-emerald-800 mb-2.5">
+                          Inclusions & Features
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-slate-700">
+                          {car.features.map((f, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 font-bold" />
+                              <span>{f}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                </div>
+              </div>
+            )}
+
+            {/* 4. Host Profile Card */}
             <Link
               href={`/store/${getStoreSlugForOwner(car.hostName)}`}
-              className="p-5 rounded-2xl bg-[#F7F8FA] hover:bg-slate-100/90 flex items-center gap-4 border border-[#EEF0F2] hover:border-slate-300 transition group cursor-pointer"
+              className="p-5 rounded-2xl bg-gradient-to-r from-slate-50 to-slate-100 hover:from-slate-100 hover:to-slate-200 flex items-center gap-4 border border-slate-200 transition group cursor-pointer"
               title={`View ${car.hostName}'s Public Storefront`}
             >
-              <div className="w-14 h-14 rounded-full bg-slate-900 text-white flex items-center justify-center font-heading font-extrabold text-xl shrink-0 group-hover:scale-105 transition">
+              <div className="w-14 h-14 rounded-full bg-slate-900 text-white flex items-center justify-center font-heading font-extrabold text-xl shrink-0 group-hover:scale-105 transition shadow-sm">
                 {car.hostName.slice(0, 2).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
@@ -683,12 +1313,12 @@ export default function ListingDetailPage() {
                   <h3 className="font-heading font-extrabold text-base text-[#101828] group-hover:text-emerald-700 transition truncate">
                     Hosted by {car.hostName}
                   </h3>
-                  <span className="px-2 py-0.5 rounded-md bg-emerald-100/70 text-emerald-800 text-[10px] font-bold">
-                    View Store ➔
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                    View Fleet Store ➔
                   </span>
                 </div>
-                <p className="text-xs text-[#475467] truncate">
-                  Direct independent fleet host · Review vehicle & documentation in person at handover
+                <p className="text-xs text-[#475467] truncate mt-0.5">
+                  Direct verified fleet partner · {car.hostResponseTime || 'Replies quickly'}
                 </p>
               </div>
               <span className="hidden sm:inline-block px-3 py-1 rounded-full bg-white text-slate-700 text-xs font-bold border border-slate-200 shadow-2xs group-hover:border-slate-300">
@@ -696,54 +1326,51 @@ export default function ListingDetailPage() {
               </span>
             </Link>
 
-            {/* About this car */}
-            <div className="pt-4 border-t border-[#EEF0F2] flex flex-col gap-3">
-              <h2 className="font-heading font-bold text-xl text-[#101828]">
-                About this car
-              </h2>
-              <p className="text-[#344054] text-sm sm:text-base leading-relaxed">
-                {car.description}
-              </p>
-            </div>
-
-            {/* Features */}
-            <div className="pt-4 border-t border-[#EEF0F2] flex flex-col gap-3">
-              <h2 className="font-heading font-bold text-xl text-[#101828]">
-                Vehicle features & inclusions
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-[#344054]">
-                {car.features.map((f) => (
-                  <div key={f} className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#0B6B4F] shrink-0" />
-                    <span>{f}</span>
-                  </div>
-                ))}
+            {/* 5. About This Vehicle */}
+            {car.description && (
+              <div className="pt-4 border-t border-[#EEF0F2] flex flex-col gap-2.5">
+                <h2 className="font-heading font-bold text-xl text-[#101828]">
+                  About this car
+                </h2>
+                <p className="text-[#344054] text-sm sm:text-base leading-relaxed">
+                  {car.description}
+                </p>
               </div>
-            </div>
+            )}
 
-            {/* Things to know */}
+            {/* 6. Rental Guidelines & Document Requirements (matching reference) */}
             <div className="pt-4 border-t border-[#EEF0F2] flex flex-col gap-4">
-              <h2 className="font-heading font-bold text-xl text-[#101828]">
-                Rental guidelines & policies
+              <h2 className="font-heading font-extrabold text-lg sm:text-xl text-[#101828]">
+                Rental Requirements & Policies
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs sm:text-sm text-[#475467] leading-relaxed">
-                <div>
-                  <strong className="block text-[#101828] font-bold mb-1">
-                    Identification
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm text-[#475467] leading-relaxed">
+                <div className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/60">
+                  <strong className="block text-[#101828] font-bold mb-1 flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-emerald-700" />
+                    For Local Residents
                   </strong>
-                  Valid original CNIC/Passport and Driving Licence mandatory at pick-up.
+                  <span>Original Driving License and National ID (CNIC) must be presented upon vehicle handover.</span>
                 </div>
-                <div>
-                  <strong className="block text-[#101828] font-bold mb-1">
-                    Fuel & Mileage
+                <div className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/60">
+                  <strong className="block text-[#101828] font-bold mb-1 flex items-center gap-1.5">
+                    <Compass className="w-4 h-4 text-emerald-700" />
+                    For Tourists & Visitors
                   </strong>
-                  Return at same fuel level. 200 km per day included, then Rs. 25/km.
+                  <span>Valid Passport, Entry Visa, and Home Country / International Driving Permit (IDP) required.</span>
                 </div>
-                <div>
-                  <strong className="block text-[#101828] font-bold mb-1">
-                    Direct Payment
+                <div className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/60">
+                  <strong className="block text-[#101828] font-bold mb-1 flex items-center gap-1.5">
+                    <Fuel className="w-4 h-4 text-emerald-700" />
+                    Fuel & Mileage Terms
                   </strong>
-                  Pay 100% of rental fee to the owner directly upon vehicle delivery.
+                  <span>Return vehicle with same fuel level. Mileage allowances apply as per chosen plan; additional km charged at standard host rate.</span>
+                </div>
+                <div className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/60">
+                  <strong className="block text-[#101828] font-bold mb-1 flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                    Direct Payment & Deposit
+                  </strong>
+                  <span>Pay 100% rental directly to host. Security deposit settled at handover and refunded immediately upon safe return.</span>
                 </div>
               </div>
             </div>

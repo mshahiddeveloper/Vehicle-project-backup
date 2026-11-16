@@ -221,6 +221,39 @@ export default function ListerDashboardPage() {
   const [carAcHeater, setCarAcHeater] = useState<'AC_HEATER' | 'NONE'>('AC_HEATER');
   const [carSeats, setCarSeats] = useState<number>(4);
 
+  // Detailed Specifications & Pricing (OneClickDrive grade, optional)
+  const [carWeeklyRent, setCarWeeklyRent] = useState('');
+  const [carMonthlyRent, setCarMonthlyRent] = useState('');
+  const [carBodyType, setCarBodyType] = useState('Hatchback');
+  const [carEngineCapacity, setCarEngineCapacity] = useState('660cc');
+  const [carHorsepower, setCarHorsepower] = useState('');
+  const [carDoors, setCarDoors] = useState<number>(4);
+  const [carBags, setCarBags] = useState('2 large bags');
+  const [carMinAge, setCarMinAge] = useState('21');
+  const [carDeposit, setCarDeposit] = useState('15000');
+  const [carMileageDaily, setCarMileageDaily] = useState('250 km / day');
+  const [carExtraKmRate, setCarExtraKmRate] = useState('PKR 20 / km');
+  const [carExteriorColor, setCarExteriorColor] = useState('White');
+  const [carInteriorColor, setCarInteriorColor] = useState('Grey Fabric');
+
+  // Categorized Features
+  const [selectedInteriorFeatures, setSelectedInteriorFeatures] = useState<string[]>([
+    'Air Conditioning & Heating',
+  ]);
+  const [selectedSafetyFeatures, setSelectedSafetyFeatures] = useState<string[]>([
+    'ABS with EBD',
+    'Dual Front Airbags',
+  ]);
+  const [selectedExteriorFeatures, setSelectedExteriorFeatures] = useState<string[]>([
+    'Factory Alloy Wheels',
+  ]);
+  const [selectedComfortFeatures, setSelectedComfortFeatures] = useState<string[]>([
+    'Keyless Entry',
+  ]);
+  const [selectedInfotainmentFeatures, setSelectedInfotainmentFeatures] = useState<string[]>([
+    'Bluetooth Audio & Calling',
+  ]);
+
   // Step 2: Upload Photos (6 Photo Slots)
   const [carPhotoSlots, setCarPhotoSlots] = useState<
     Array<{ id: number; label: string; file: File | null; url: string | null }>
@@ -751,12 +784,39 @@ export default function ListerDashboardPage() {
         city: personalCity || operatingCity,
         dailyRate: Number(carRentPerDay) || 4500,
         withDriverRate: (Number(carRentPerDay) || 4500) + 2500,
+        weeklyRate: carWeeklyRent ? Number(carWeeklyRent) : undefined,
+        monthlyRate: carMonthlyRent ? Number(carMonthlyRent) : undefined,
+        bodyType: carBodyType || 'Sedan',
+        mileageDaily: carMileageDaily || '250 km / day',
+        mileageWeekly: carWeeklyRent
+          ? `${(parseInt(carMileageDaily) || 250) * 7} km / week`
+          : undefined,
+        mileageMonthly: carMonthlyRent
+          ? `${(parseInt(carMileageDaily) || 250) * 22} km / month`
+          : undefined,
+        extraKmRate: carExtraKmRate || 'PKR 25 / km',
+        deposit: carDeposit ? Number(carDeposit) : 20000,
+        insuranceIncluded: true,
+        insuranceType: 'Comprehensive Insurance Included',
+        engineCapacity: carEngineCapacity || undefined,
+        horsepower: carHorsepower ? `${carHorsepower} HP` : undefined,
+        doors: carDoors || 4,
+        bags: carBags || '2 large bags',
+        minAge: carMinAge ? Number(carMinAge) : 21,
+        exteriorColor: carExteriorColor || undefined,
+        interiorColor: carInteriorColor || undefined,
+        interiorFeatures: selectedInteriorFeatures.length > 0 ? selectedInteriorFeatures : undefined,
+        safetyFeatures: selectedSafetyFeatures.length > 0 ? selectedSafetyFeatures : undefined,
+        exteriorFeatures: selectedExteriorFeatures.length > 0 ? selectedExteriorFeatures : undefined,
+        comfortFeatures: selectedComfortFeatures.length > 0 ? selectedComfortFeatures : undefined,
+        infotainmentFeatures:
+          selectedInfotainmentFeatures.length > 0 ? selectedInfotainmentFeatures : undefined,
         status: isDraft ? 'DRAFT' : isPending ? 'PENDING_APPROVAL' : 'LIVE',
         views: 0,
         leads: 0,
         img: vehicleImg,
         driverMode: carDriver,
-        transmission: carTransmission,
+        transmission: carTransmission === 'AUTOMATIC' ? 'Automatic' : 'Manual',
         acMode: carAcHeater,
         seats: carSeats,
         assignedDriver: carDriver === 'WITHOUT_DRIVER' ? 'Self-Drive Only' : 'Muhammad Akram',
@@ -1632,6 +1692,251 @@ export default function ListerDashboardPage() {
                           {s} Persons
                         </button>
                       ))}
+                    </div>
+                  </div>
+
+                  {/* Detailed Specifications & Categorized Options (OneClickDrive grade - optional) */}
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-heading font-extrabold text-sm text-slate-900 flex items-center gap-1.5">
+                        <Sparkles className="w-4 h-4 text-emerald-600" />
+                        Detailed Specifications & Optional Rates
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase bg-white px-2 py-0.5 rounded border border-slate-200">
+                        Optional
+                      </span>
+                    </div>
+
+                    {/* Tiered Weekly & Monthly Rates */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">Weekly Rent (PKR)</label>
+                        <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-2">
+                          <span className="font-bold text-slate-400">PKR</span>
+                          <input
+                            type="number"
+                            value={carWeeklyRent}
+                            onChange={(e) => setCarWeeklyRent(e.target.value)}
+                            placeholder="e.g. 28000"
+                            className="w-full font-mono font-bold outline-none text-slate-900 bg-transparent text-xs"
+                          />
+                          <span className="text-[10px] text-slate-400">/week</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">Monthly Rent (PKR)</label>
+                        <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-2">
+                          <span className="font-bold text-slate-400">PKR</span>
+                          <input
+                            type="number"
+                            value={carMonthlyRent}
+                            onChange={(e) => setCarMonthlyRent(e.target.value)}
+                            placeholder="e.g. 95000"
+                            className="w-full font-mono font-bold outline-none text-slate-900 bg-transparent text-xs"
+                          />
+                          <span className="text-[10px] text-slate-400">/mo</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Body Type & Engine */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">Body Type</label>
+                        <select
+                          value={carBodyType}
+                          onChange={(e) => setCarBodyType(e.target.value)}
+                          className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium cursor-pointer"
+                        >
+                          <option value="Hatchback">Hatchback</option>
+                          <option value="Sedan">Sedan</option>
+                          <option value="SUV / 4x4">SUV / 4x4</option>
+                          <option value="Crossover">Crossover</option>
+                          <option value="Van / Hiace">Van / Hiace</option>
+                          <option value="Luxury Sedan">Luxury Sedan</option>
+                          <option value="Sports Car">Sports Car</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">Engine Capacity</label>
+                        <input
+                          type="text"
+                          value={carEngineCapacity}
+                          onChange={(e) => setCarEngineCapacity(e.target.value)}
+                          placeholder="e.g. 660cc, 1.5L Turbo"
+                          className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">Horsepower (HP)</label>
+                        <input
+                          type="text"
+                          value={carHorsepower}
+                          onChange={(e) => setCarHorsepower(e.target.value)}
+                          placeholder="e.g. 68, 178"
+                          className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Doors, Luggage Boot, Min Age, Security Deposit */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">Doors</label>
+                        <select
+                          value={carDoors}
+                          onChange={(e) => setCarDoors(Number(e.target.value))}
+                          className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium cursor-pointer"
+                        >
+                          <option value={2}>2 Doors</option>
+                          <option value={4}>4 Doors</option>
+                          <option value={5}>5 Doors</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">Luggage Boot</label>
+                        <input
+                          type="text"
+                          value={carBags}
+                          onChange={(e) => setCarBags(e.target.value)}
+                          placeholder="e.g. 2 large bags"
+                          className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">Min Driver Age</label>
+                        <input
+                          type="number"
+                          value={carMinAge}
+                          onChange={(e) => setCarMinAge(e.target.value)}
+                          placeholder="21"
+                          className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">Deposit (PKR)</label>
+                        <input
+                          type="number"
+                          value={carDeposit}
+                          onChange={(e) => setCarDeposit(e.target.value)}
+                          placeholder="15000"
+                          className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Daily Mileage & Extra Km Rate */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">Daily Included Mileage</label>
+                        <input
+                          type="text"
+                          value={carMileageDaily}
+                          onChange={(e) => setCarMileageDaily(e.target.value)}
+                          placeholder="250 km / day"
+                          className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">Extra Mileage Rate</label>
+                        <input
+                          type="text"
+                          value={carExtraKmRate}
+                          onChange={(e) => setCarExtraKmRate(e.target.value)}
+                          placeholder="PKR 25 / km"
+                          className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Colors */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">Exterior Color</label>
+                        <input
+                          type="text"
+                          value={carExteriorColor}
+                          onChange={(e) => setCarExteriorColor(e.target.value)}
+                          placeholder="e.g. White / Black / Silver"
+                          className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">Interior Color</label>
+                        <input
+                          type="text"
+                          value={carInteriorColor}
+                          onChange={(e) => setCarInteriorColor(e.target.value)}
+                          placeholder="e.g. Black Leather / Beige"
+                          className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Categorized Feature Toggles */}
+                    <div className="space-y-2 pt-2 border-t border-slate-200">
+                      <label className="font-bold text-slate-800 block">Select Key Features & Inclusions</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          'Air Conditioning & Heating',
+                          'Leather Seats',
+                          'Sunroof / Moonroof',
+                          'Factory Alloy Wheels',
+                          'Push Button Start',
+                          'Keyless Entry',
+                          'Cruise Control',
+                          'Apple CarPlay & Android Auto',
+                          'Reverse Camera',
+                          '360-Degree Camera',
+                          'Parking Sensors',
+                          'ABS with EBD',
+                          'Dual Airbags',
+                          'Bluetooth Audio',
+                        ].map((feature) => {
+                          const isSelected =
+                            selectedInteriorFeatures.includes(feature) ||
+                            selectedSafetyFeatures.includes(feature) ||
+                            selectedExteriorFeatures.includes(feature) ||
+                            selectedComfortFeatures.includes(feature) ||
+                            selectedInfotainmentFeatures.includes(feature);
+
+                          const toggle = () => {
+                            if (isSelected) {
+                              setSelectedInteriorFeatures((prev) => prev.filter((x) => x !== feature));
+                              setSelectedSafetyFeatures((prev) => prev.filter((x) => x !== feature));
+                              setSelectedExteriorFeatures((prev) => prev.filter((x) => x !== feature));
+                              setSelectedComfortFeatures((prev) => prev.filter((x) => x !== feature));
+                              setSelectedInfotainmentFeatures((prev) => prev.filter((x) => x !== feature));
+                            } else {
+                              setSelectedComfortFeatures((prev) => [...prev, feature]);
+                            }
+                          };
+
+                          return (
+                            <button
+                              key={feature}
+                              type="button"
+                              onClick={toggle}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition cursor-pointer flex items-center gap-1 ${
+                                isSelected
+                                  ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                              }`}
+                            >
+                              {isSelected && <Check className="w-3 h-3 text-emerald-700" />}
+                              <span>{feature}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
 
