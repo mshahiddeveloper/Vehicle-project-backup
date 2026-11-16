@@ -1013,7 +1013,7 @@ export default function AgentDashboardPage() {
           return (
             <>
               {/* Mobile Horizontal App-style Tab Scrollbar (< lg screens) */}
-              <div className="lg:hidden col-span-1 -mx-3 px-3 overflow-x-auto no-scrollbar pb-1">
+              <div className="lg:hidden col-span-1 w-full overflow-x-auto no-scrollbar py-1">
                 <div className="flex items-center gap-1.5 min-w-max bg-white p-1.5 rounded-2xl border border-slate-200/90 shadow-2xs">
                   {navMenuItems.map((item) => {
                     const Icon = item.icon;

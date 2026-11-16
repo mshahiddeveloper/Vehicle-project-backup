@@ -268,9 +268,71 @@ export default function CustomerDashboardPage() {
       </header>
 
       {/* Main Body with Sidebar Layout */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Sidebar Nav */}
-        <aside className="space-y-1">
+      <div className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
+        {/* Mobile App Navigation Bar (Horizontal Scrollable Chips with zero clutter) */}
+        <div className="lg:hidden col-span-1 space-y-2.5">
+          <div className="p-3 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-2xs flex items-center justify-between">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-base font-black shrink-0">
+                👤
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-heading font-extrabold text-xs text-slate-900 truncate">{customerName}</h3>
+                <span className="text-[10px] text-emerald-700 font-bold block truncate">Verified Member Portal</span>
+              </div>
+            </div>
+            <span className="text-[9px] font-black px-2 py-0.5 rounded-full border border-emerald-200 text-emerald-700 bg-emerald-50 shrink-0">
+              Active
+            </span>
+          </div>
+
+          {/* Swipeable Native App Tabs */}
+          <div className="overflow-x-auto no-scrollbar py-1">
+            <div className="flex items-center gap-1.5 min-w-max px-0.5">
+              {[
+                { id: 'overview', label: 'Overview', icon: Car },
+                { id: 'bookings', label: 'Car Rentals', icon: Calendar, badge: bookings.length },
+                { id: 'rides', label: 'Intercity & Shuttles', icon: Bus },
+                { id: 'drivers', label: 'Hired Drivers', icon: User },
+                { id: 'shifting', label: 'Home Shifting', icon: Truck },
+                { id: 'wishlist', label: 'Wishlist', icon: Heart, badge: wishlist.length },
+                { id: 'leads', label: 'WhatsApp Logs', icon: MessageCircle },
+                { id: 'complaints', label: 'Disputes', icon: AlertCircle },
+                { id: 'profile', label: 'Verification', icon: ShieldCheck },
+                { id: 'security', label: 'Security', icon: Lock },
+              ].map((item) => {
+                const Icon = item.icon;
+                const active = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id as any)}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition shrink-0 cursor-pointer active:scale-95 ${
+                      active
+                        ? 'bg-emerald-600 text-white shadow-xs font-heading'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5 shrink-0" />
+                    <span>{item.label}</span>
+                    {item.badge !== undefined && (
+                      <span
+                        className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                          active ? 'bg-white/30 text-white' : 'bg-emerald-100 text-emerald-900 font-bold'
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop Sidebar Nav */}
+        <aside className="hidden lg:block space-y-1">
           <div className="p-4 bg-white rounded-2xl border border-slate-200 mb-4 shadow-xs">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl font-bold">

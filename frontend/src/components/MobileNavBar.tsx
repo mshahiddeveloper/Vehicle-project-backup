@@ -89,7 +89,7 @@ export function MobileNavBar() {
   return (
     <nav
       aria-label="Mobile Navigation"
-      className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-[#EEF0F2] px-2 py-1.5 pb-6 shadow-lg grid grid-cols-5"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-t border-slate-200/80 px-2 pt-2 pb-safe shadow-[0_-8px_32px_rgba(15,23,42,0.08)] grid grid-cols-5 transition-all"
     >
       {tabs.map((tab) => {
         const Icon = tab.icon;
@@ -97,12 +97,21 @@ export function MobileNavBar() {
           <Link
             key={tab.label}
             href={tab.href}
-            className={`flex flex-col items-center justify-center gap-1 min-h-[44px] transition-colors ${
-              tab.isActive ? 'text-[#0B6B4F] font-bold' : 'text-[#667085] hover:text-[#101828]'
+            className={`flex flex-col items-center justify-center gap-1 min-h-[46px] rounded-xl transition-all duration-150 active:scale-95 ${
+              tab.isActive
+                ? 'text-emerald-700 font-extrabold'
+                : 'text-slate-500 hover:text-slate-900 font-medium'
             }`}
           >
-            <Icon className="w-5 h-5 stroke-[2]" />
-            <span className="text-[11px] leading-none font-medium">{tab.label}</span>
+            <div className={`relative p-1 rounded-xl transition ${tab.isActive ? 'bg-emerald-50 text-emerald-700' : ''}`}>
+              <Icon className="w-5 h-5 stroke-[2.2]" />
+              {tab.isActive && (
+                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+              )}
+            </div>
+            <span className="text-[10px] leading-tight tracking-tight font-heading">
+              {tab.label}
+            </span>
           </Link>
         );
       })}

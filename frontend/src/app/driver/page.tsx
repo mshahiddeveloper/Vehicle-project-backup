@@ -650,7 +650,8 @@ export default function DriverDashboardPage() {
       {/* Main Grid */}
       <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 pb-24 grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Mobile Horizontal Pill Bar */}
-        <div className="lg:hidden col-span-1 flex items-center gap-1.5 overflow-x-auto pb-2 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="lg:hidden col-span-1 w-full overflow-x-auto no-scrollbar py-1">
+          <div className="flex items-center gap-1.5 min-w-max px-0.5">
           {driverNavItems.map((item) => {
             const Icon = item.icon;
             const active = activeTab === item.id;
@@ -682,6 +683,7 @@ export default function DriverDashboardPage() {
               </button>
             );
           })}
+          </div>
         </div>
 
         {/* Sidebar Nav */}

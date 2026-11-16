@@ -265,7 +265,7 @@ export function AppHeader({
             </button>
 
             {showCountryMenu && (
-              <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+              <div className="absolute right-0 mt-2 w-[calc(100vw-32px)] sm:w-64 max-w-[280px] bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
                 <div className="px-4 py-2 border-b border-slate-100 flex items-center justify-between">
                   <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                     Select Country
@@ -332,7 +332,7 @@ export function AppHeader({
             </button>
 
             {showCurrencyMenu && (
-              <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+              <div className="absolute right-0 mt-2 w-[calc(100vw-32px)] sm:w-72 max-w-[300px] bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
                 <div className="px-4 py-2 border-b border-slate-100 flex items-center justify-between">
                   <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                     Select Currency
@@ -423,7 +423,7 @@ export function AppHeader({
               </button>
 
               {showUserMenu && (
-                <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50">
+                <div className="absolute right-0 mt-2 w-[calc(100vw-32px)] sm:w-56 max-w-[240px] bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
                   <div className="px-4 py-2 border-b border-slate-100">
                     <p className="text-sm font-bold text-[#101828] truncate">
                       {activeUser.name}
