@@ -37,6 +37,7 @@ import { MobileNavBar } from '@/components/MobileNavBar';
 import { MobilePWAExperience } from '@/components/MobilePWAExperience';
 import { recordClickEvent, recordLead } from '@/data/activityTracker';
 import { useCountry } from '@/app/context/CountryContext';
+import { InternationalComingSoon } from '@/components/InternationalComingSoon';
 import {
   CARS_DATA,
   DRIVERS_DATA,
@@ -57,7 +58,14 @@ import { slugify, getStoreSlugForOwner } from '@/data/storefrontEngine';
 
 export default function HomePage() {
   const router = useRouter();
-  const { country, setCountry, formatPrice } = useCountry();
+  const { country, setCountry, currency, setCurrency, formatPrice } = useCountry();
+  const [browseInboundPakistan, setBrowseInboundPakistan] = useState(false);
+
+  useEffect(() => {
+    if (country?.code === 'PK') {
+      setBrowseInboundPakistan(false);
+    }
+  }, [country?.code]);
 
   // Active Service Tab (0: Rent a Car, 1: Hire Driver, 2: City to City, 3: Pick & Drop, 4: Movers)
   const [activeService, setActiveService] = useState<number>(0);
@@ -911,10 +919,45 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 3. Dynamic Service Listings (Rent a car, Drivers, City-to-City, Shuttles, Movers) */}
+      {/* 3. Dynamic Service Listings OR International Coming Soon & Pre-Registration */}
       <section id="listings-results" className="py-12 md:py-16">
         <div id="cars-results" className="max-w-[1240px] mx-auto px-5 sm:px-8 flex flex-col gap-7">
-          <div className="flex items-end justify-between gap-4 flex-wrap">
+          {country && country.code !== 'PK' && !browseInboundPakistan ? (
+            <InternationalComingSoon
+              country={country}
+              currency={currency}
+              onBrowsePakistanInbound={() => setBrowseInboundPakistan(true)}
+            />
+          ) : (
+            <>
+              {/* If viewing Pakistan from an international country */}
+              {country && country.code !== 'PK' && browseInboundPakistan && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl shadow-2xs">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🇵🇰</span>
+                    <div>
+                      <h4 className="text-sm font-bold text-emerald-950 flex items-center gap-2">
+                        <span>Viewing Pakistan Fleet from {country.name} {country.flag}</span>
+                        <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900 font-bold">
+                          Converted to {currency.code} ({currency.symbol})
+                        </span>
+                      </h4>
+                      <p className="text-xs text-emerald-700">
+                        All vehicle rental rates and fuel calculations are live-converted from PKR to your local {currency.name}.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setBrowseInboundPakistan(false)}
+                    className="px-4 py-2 text-xs font-bold text-emerald-900 bg-white border border-emerald-300 rounded-xl hover:bg-emerald-100 transition shadow-2xs shrink-0 cursor-pointer"
+                  >
+                    ← Back to {country.name} Launch Hub
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-end justify-between gap-4 flex-wrap">
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
                 <h2 className="font-heading font-extrabold text-2xl sm:text-3xl tracking-tight">
@@ -1184,15 +1227,15 @@ export default function HomePage() {
                       <div className="grid grid-cols-3 gap-2 bg-[#F7F8FA] p-2.5 rounded-2xl text-center">
                         <div>
                           <span className="text-[10px] text-slate-400 block font-bold uppercase">City 12h</span>
-                          <span className="text-xs font-black text-[#101828]">{driver.city12}</span>
+                          <span className="text-xs font-black text-[#101828]">{formatPrice(driver.city12Num || driver.city12)}</span>
                         </div>
                         <div className="border-x border-slate-200/80">
                           <span className="text-[10px] text-slate-400 block font-bold uppercase">Outstation</span>
-                          <span className="text-xs font-black text-[#101828]">{driver.out}</span>
+                          <span className="text-xs font-black text-[#101828]">{formatPrice((driver as any).outNum || driver.out)}</span>
                         </div>
                         <div>
                           <span className="text-[10px] text-slate-400 block font-bold uppercase">Monthly</span>
-                          <span className="text-xs font-black text-[#0B6B4F]">{driver.monthly}</span>
+                          <span className="text-xs font-black text-[#0B6B4F]">{formatPrice((driver as any).monthlyNum || driver.monthly)}</span>
                         </div>
                       </div>
 
@@ -1463,7 +1506,7 @@ export default function HomePage() {
                         {/* Monthly Fare */}
                         <div className="flex justify-between items-baseline px-1">
                           <span className="text-xs font-semibold text-[#475467]">Monthly Reserved Fare:</span>
-                          <span className="text-lg font-extrabold text-[#101828]">{shuttle.fare}<span className="text-xs font-medium text-slate-500"> /month</span></span>
+                          <span className="text-lg font-extrabold text-[#101828]">{formatPrice(shuttle.fareNum || shuttle.fare)}<span className="text-xs font-medium text-slate-500"> /month</span></span>
                         </div>
 
                         {/* Tags */}
@@ -1579,15 +1622,15 @@ export default function HomePage() {
                         <div className="grid grid-cols-3 gap-2 bg-[#F7F8FA] p-2.5 rounded-2xl text-center">
                           <div>
                             <span className="text-[10px] text-slate-400 block font-bold uppercase">Base Moving</span>
-                            <span className="text-xs font-black text-[#101828]">{mover.base}</span>
+                            <span className="text-xs font-black text-[#101828]">{formatPrice((mover as any).baseFareNum || mover.base)}</span>
                           </div>
                           <div className="border-x border-slate-200/80">
                             <span className="text-[10px] text-slate-400 block font-bold uppercase">Per KM</span>
-                            <span className="text-xs font-black text-[#101828]">{mover.km}</span>
+                            <span className="text-xs font-black text-[#101828]">{formatPrice((mover as any).perKmNum || mover.km)}</span>
                           </div>
                           <div>
                             <span className="text-[10px] text-slate-400 block font-bold uppercase">Helpers</span>
-                            <span className="text-xs font-black text-[#0B6B4F]">{mover.helper}</span>
+                            <span className="text-xs font-black text-[#0B6B4F]">{formatPrice((mover as any).helperNum || mover.helper)}</span>
                           </div>
                         </div>
 
@@ -1679,18 +1722,20 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* Read More Pagination (Shown when total items > visibleCount) */}
-          {currentTotal > visibleCount && (
-            <div className="flex justify-center pt-8">
-              <button
-                type="button"
-                onClick={() => setVisibleCount((prev) => prev + 60)}
-                className="px-8 py-3.5 rounded-2xl bg-[#101828] text-white text-xs sm:text-sm font-extrabold hover:bg-[#0B6B4F] transition shadow-md flex items-center gap-2 cursor-pointer active:scale-95"
-              >
-                <span>Read more ({currentTotal - visibleCount} more available)</span>
-                <ChevronDown className="w-4 h-4" />
-              </button>
-            </div>
+              {/* Read More Pagination (Shown when total items > visibleCount) */}
+              {currentTotal > visibleCount && (
+                <div className="flex justify-center pt-8">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleCount((prev) => prev + 60)}
+                    className="px-8 py-3.5 rounded-2xl bg-[#101828] text-white text-xs sm:text-sm font-extrabold hover:bg-[#0B6B4F] transition shadow-md flex items-center gap-2 cursor-pointer active:scale-95"
+                  >
+                    <span>Read more ({currentTotal - visibleCount} more available)</span>
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </section>

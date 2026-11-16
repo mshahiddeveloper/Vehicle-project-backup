@@ -54,6 +54,8 @@ import {
   Share2,
   ArrowUpRight,
   CheckCircle,
+  Mail,
+  Save,
 } from 'lucide-react';
 import { AgentPermissionEditor } from '@/components/AgentPermissionEditor';
 import { SubscriptionFollowUpDesk } from '@/components/SubscriptionFollowUpDesk';
@@ -105,6 +107,13 @@ import {
   MarketplaceLead,
   MarketplaceClickEvent,
 } from '@/data/activityTracker';
+import {
+  getInternationalInquiries,
+  getAdminContactEmail,
+  setAdminContactEmail,
+  updateInternationalInquiryStatus,
+  InternationalInquiry,
+} from '@/data/countries';
 
 export default function SuperAdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<
@@ -121,6 +130,36 @@ export default function SuperAdminDashboardPage() {
       }
     }
   }, []);
+
+  // International Expansion & Partner Pre-Registrations
+  const [intlInquiries, setIntlInquiries] = useState<InternationalInquiry[]>([]);
+  const [adminContactEmailInput, setAdminContactEmailInput] = useState('');
+  const [emailSaveNotice, setEmailSaveNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIntlInquiries(getInternationalInquiries());
+    setAdminContactEmailInput(getAdminContactEmail());
+
+    const handleInquiryChange = () => setIntlInquiries(getInternationalInquiries());
+    window.addEventListener('safarpk_intl_inquiry_added', handleInquiryChange);
+    window.addEventListener('safarpk_intl_inquiry_updated', handleInquiryChange);
+    return () => {
+      window.removeEventListener('safarpk_intl_inquiry_added', handleInquiryChange);
+      window.removeEventListener('safarpk_intl_inquiry_updated', handleInquiryChange);
+    };
+  }, []);
+
+  const handleSaveAdminContactEmail = () => {
+    if (!adminContactEmailInput.trim()) return;
+    setAdminContactEmail(adminContactEmailInput.trim());
+    setEmailSaveNotice('Global partner receiving email saved successfully!');
+    setTimeout(() => setEmailSaveNotice(null), 4000);
+  };
+
+  const handleUpdateInquiryStatus = (id: string, status: InternationalInquiry['status']) => {
+    updateInternationalInquiryStatus(id, status);
+    setIntlInquiries(getInternationalInquiries());
+  };
 
   // Master Service Switches
   const [modules, setModules] = useState({
@@ -1272,7 +1311,12 @@ export default function SuperAdminDashboardPage() {
               { id: 'agents', label: 'Staff / Agent Management', icon: Users, badge: agents.length },
               { id: 'stealthAudit', label: '🛡️ Stealth Anti-Fraud Log', icon: ShieldCheck, alert: stealthAuditLogs.filter(l => l.isSuspicious).length },
               { id: 'legal', label: 'Terms & Safety Disclaimers', icon: FileText },
-              { id: 'countries', label: 'Operating Scope (PK / Global)', icon: Globe },
+              {
+                id: 'countries',
+                label: 'Global Network & Inquiries',
+                icon: Globe,
+                badge: intlInquiries.filter((i) => i.status === 'NEW').length || undefined,
+              },
             ].map((item: any) => {
               const Icon = item.icon;
               const active = activeTab === item.id;
@@ -5581,7 +5625,159 @@ export default function SuperAdminDashboardPage() {
           {/* ========================================================================= */}
           {activeTab === 'countries' && (
             <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-6 shadow-xl text-xs">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+              {/* International Destination Email Configuration */}
+              <div className="p-5 bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-950/40 rounded-2xl border border-emerald-900/40 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="font-extrabold text-sm text-white flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-emerald-400" />
+                      <span>International Fleet Pre-Registration Destination Email</span>
+                    </span>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      When vehicle owners or fleet operators pre-register in Germany, UAE, UK, Saudi Arabia, etc., the system routes inquiries to this email and opens pre-filled email drafts addressed here.
+                    </p>
+                  </div>
+                  {emailSaveNotice && (
+                    <span className="text-[11px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-700 px-3 py-1 rounded-full animate-in fade-in">
+                      ✓ {emailSaveNotice}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
+                  <div className="relative flex-1 w-full">
+                    <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                    <input
+                      type="email"
+                      value={adminContactEmailInput}
+                      onChange={(e) => setAdminContactEmailInput(e.target.value)}
+                      placeholder="support@safarpk.com"
+                      className="w-full h-10 pl-9 pr-3 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSaveAdminContactEmail}
+                    className="w-full sm:w-auto h-10 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>Save Operations Email</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* International Inquiries Table */}
+              <div className="p-5 bg-slate-950 rounded-2xl border border-slate-800 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+                  <div className="flex items-center gap-2.5">
+                    <Globe className="w-5 h-5 text-emerald-400" />
+                    <div>
+                      <h4 className="font-extrabold text-sm text-white">
+                        Global Partner Pre-Registrations & Inquiries ({intlInquiries.length})
+                      </h4>
+                      <p className="text-[11px] text-slate-400">
+                        Live capture of international vehicle owners & fleet companies awaiting onboarding.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-950 text-amber-400 border border-amber-800">
+                      {intlInquiries.filter((i) => i.status === 'NEW').length} New Pending
+                    </span>
+                  </div>
+                </div>
+
+                {intlInquiries.length === 0 ? (
+                  <div className="py-8 text-center text-slate-500">
+                    No international inquiries yet. Pre-registrations from Germany, UAE, UK, etc. will appear here in real time.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          <th className="py-2.5 px-3">Partner / Host</th>
+                          <th className="py-2.5 px-3">Country & City</th>
+                          <th className="py-2.5 px-3">Service & Fleet Details</th>
+                          <th className="py-2.5 px-3">Contact</th>
+                          <th className="py-2.5 px-3">Status</th>
+                          <th className="py-2.5 px-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60 font-medium">
+                        {intlInquiries.map((inq) => {
+                          const cleanPhone = inq.phone.replace(/[^0-9]/g, '');
+                          return (
+                            <tr key={inq.id} className="hover:bg-slate-900/50 transition">
+                              <td className="py-3 px-3">
+                                <p className="font-bold text-white text-xs">{inq.name}</p>
+                                <p className="text-[10px] text-slate-400 font-mono">{new Date(inq.createdAt).toLocaleDateString()}</p>
+                              </td>
+                              <td className="py-3 px-3">
+                                <p className="text-white font-semibold">{inq.countryName}</p>
+                                <p className="text-[10px] text-emerald-400">{inq.city}</p>
+                              </td>
+                              <td className="py-3 px-3 max-w-xs">
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300 block w-fit mb-1">
+                                  {inq.serviceType}
+                                </span>
+                                <p className="text-slate-300 text-[11px] truncate">{inq.fleetDetails}</p>
+                                {inq.notes && <p className="text-slate-500 text-[10px] italic truncate mt-0.5">"{inq.notes}"</p>}
+                              </td>
+                              <td className="py-3 px-3 font-mono text-[11px]">
+                                <p className="text-emerald-400 font-bold">{inq.phone}</p>
+                                <p className="text-slate-400 text-[10px]">{inq.email}</p>
+                              </td>
+                              <td className="py-3 px-3">
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                  inq.status === 'NEW'
+                                    ? 'bg-amber-950 text-amber-400 border border-amber-800'
+                                    : inq.status === 'CONTACTED'
+                                    ? 'bg-blue-950 text-blue-400 border border-blue-800'
+                                    : 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                                }`}>
+                                  {inq.status}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <a
+                                    href={`https://wa.me/${cleanPhone}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-2.5 py-1 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 font-bold text-[10px] border border-emerald-800 transition"
+                                    title="Direct WhatsApp"
+                                  >
+                                    WhatsApp
+                                  </a>
+                                  <a
+                                    href={`mailto:${inq.email}?subject=${encodeURIComponent(`Safar Partnership - ${inq.countryName} Launch`)}`}
+                                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[10px] border border-slate-700 transition"
+                                    title="Email Partner"
+                                  >
+                                    Email
+                                  </a>
+                                  {inq.status !== 'ONBOARDED' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateInquiryStatus(inq.id, inq.status === 'NEW' ? 'CONTACTED' : 'ONBOARDED')}
+                                      className="px-2 py-1 rounded-lg bg-rose-950/60 hover:bg-rose-900 text-rose-300 font-bold text-[10px] border border-rose-800 transition cursor-pointer"
+                                    >
+                                      {inq.status === 'NEW' ? 'Mark Contacted' : 'Mark Onboarded'}
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800 pt-4">
                 <div>
                   <h3 className="font-extrabold text-base text-white">Country Verification Rules & Service Scopes</h3>
                   <p className="text-xs text-slate-400 mt-0.5">

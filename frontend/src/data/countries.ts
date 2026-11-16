@@ -18,6 +18,50 @@ export interface CountryInfo {
   dialCode?: string;
 }
 
+export interface CurrencyInfo {
+  code: string; // 'PKR', 'EUR', 'USD', 'AED', 'GBP', 'SAR', 'CAD', 'TRY', 'AUD', 'INR'
+  name: string;
+  symbol: string;
+  rateToPkr: number; // 1 unit of this currency = X PKR (e.g. 1 EUR = 300 PKR)
+  flag: string;
+}
+
+export const SUPPORTED_CURRENCIES: CurrencyInfo[] = [
+  { code: 'PKR', name: 'Pakistani Rupee', symbol: 'Rs', rateToPkr: 1.0, flag: '🇵🇰' },
+  { code: 'EUR', name: 'Euro', symbol: '€', rateToPkr: 300.0, flag: '🇪🇺' },
+  { code: 'USD', name: 'US Dollar', symbol: '$', rateToPkr: 278.5, flag: '🇺🇸' },
+  { code: 'AED', name: 'UAE Dirham', symbol: 'AED', rateToPkr: 75.8, flag: '🇦🇪' },
+  { code: 'GBP', name: 'British Pound', symbol: '£', rateToPkr: 352.0, flag: '🇬🇧' },
+  { code: 'SAR', name: 'Saudi Riyal', symbol: 'SAR', rateToPkr: 74.2, flag: '🇸🇦' },
+  { code: 'CAD', name: 'Canadian Dollar', symbol: 'CA$', rateToPkr: 202.0, flag: '🇨🇦' },
+  { code: 'TRY', name: 'Turkish Lira', symbol: '₺', rateToPkr: 8.1, flag: '🇹🇷' },
+  { code: 'AUD', name: 'Australian Dollar', symbol: 'A$', rateToPkr: 181.0, flag: '🇦🇺' },
+  { code: 'INR', name: 'Indian Rupee', symbol: '₹', rateToPkr: 3.3, flag: '🇮🇳' },
+];
+
+export function convertPkrToCurrency(pkrAmount: number | string, currencyCode: string): number {
+  const pkr = Number(pkrAmount) || 0;
+  const curr = SUPPORTED_CURRENCIES.find((c) => c.code === currencyCode) || SUPPORTED_CURRENCIES[0];
+  if (!curr || curr.rateToPkr <= 0) return pkr;
+  return pkr / curr.rateToPkr;
+}
+
+export function formatPriceWithRate(pkrAmount: number | string, currencyCode: string): string {
+  const pkr = Number(pkrAmount) || 0;
+  const curr = SUPPORTED_CURRENCIES.find((c) => c.code === currencyCode) || SUPPORTED_CURRENCIES[0];
+  const converted = convertPkrToCurrency(pkr, curr.code);
+
+  if (curr.code === 'PKR') {
+    return `Rs ${Math.round(converted).toLocaleString()}`;
+  }
+
+  if (converted < 100) {
+    const formatted = converted.toFixed(1).replace(/\.0$/, '');
+    return `${curr.symbol} ${formatted}`;
+  }
+  return `${curr.symbol} ${Math.round(converted).toLocaleString()}`;
+}
+
 export const CURRENCY_MAP: Record<string, { currency: string; symbol: string }> = {
   // Eurozone
   DE: { currency: 'EUR', symbol: '€' },
@@ -114,10 +158,10 @@ export const COUNTRIES: CountryInfo[] = [
     dialCode: '+49',
     defaultCity: 'All Germany',
     cities: ['All Germany', 'Berlin', 'Munich', 'Frankfurt', 'Hamburg', 'Cologne', 'Stuttgart', 'Düsseldorf'],
-    isLive: true,
-    comingSoonTitle: '',
-    comingSoonMessage: '',
-    heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across Germany',
+    isLive: false,
+    comingSoonTitle: 'Safar is Coming Soon to Germany 🇩🇪',
+    comingSoonMessage: 'Direct peer-to-peer car rental, executive chauffeur hire, and corporate transport are launching soon in Berlin, Munich, Frankfurt, and across Germany. Pre-register your fleet below with 0% commission for 3 months!',
+    heroHeadline: 'Rent Vehicles & Book Transport in Germany',
     heroSubtitle: 'Direct connection with licensed fleet operators, executive shuttles, and certified chauffeurs in Berlin, Munich, Frankfurt, and nationwide.',
     idDocumentName: 'Personalausweis / Reisepass',
     idPlaceholder: 'T220001293',
@@ -133,10 +177,10 @@ export const COUNTRIES: CountryInfo[] = [
     dialCode: '+971',
     defaultCity: 'All UAE',
     cities: ['All UAE', 'Dubai', 'Abu Dhabi', 'Sharjah', 'Ajman', 'Ras Al Khaimah'],
-    isLive: true,
-    comingSoonTitle: '',
-    comingSoonMessage: '',
-    heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across UAE',
+    isLive: false,
+    comingSoonTitle: 'Safar is Coming Soon to UAE 🇦🇪',
+    comingSoonMessage: 'Luxury car rentals, verified private chauffeurs, and executive vanpools are launching soon across Dubai, Abu Dhabi, and Sharjah. Pre-register your vehicles to be a founding partner!',
+    heroHeadline: 'Rent Vehicles & Book Transport Across UAE',
     heroSubtitle: 'Direct connection with luxury car rentals, private chauffeurs, and executive vanpools in Dubai, Abu Dhabi, Sharjah, and nationwide.',
     idDocumentName: 'Emirates ID / Resident Visa',
     idPlaceholder: '784-1990-1234567-1',
@@ -152,10 +196,10 @@ export const COUNTRIES: CountryInfo[] = [
     dialCode: '+44',
     defaultCity: 'All UK',
     cities: ['All UK', 'London', 'Manchester', 'Birmingham', 'Leeds', 'Glasgow', 'Edinburgh'],
-    isLive: true,
-    comingSoonTitle: '',
-    comingSoonMessage: '',
-    heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across United Kingdom',
+    isLive: false,
+    comingSoonTitle: 'Safar is Coming Soon to United Kingdom 🇬🇧',
+    comingSoonMessage: 'Direct vehicle hire, vetted PCO chauffeurs, and removal van services launching in London, Manchester, and Birmingham. Pre-register your fleet today!',
+    heroHeadline: 'Rent Vehicles & Book Transport Across UK',
     heroSubtitle: 'Direct connection with licensed private hire operators, executive fleets, and van removal cargo movers in London, Manchester, Birmingham, and nationwide.',
     idDocumentName: 'UK Passport / National Identity',
     idPlaceholder: '502198421',
@@ -171,10 +215,10 @@ export const COUNTRIES: CountryInfo[] = [
     dialCode: '+966',
     defaultCity: 'All Saudi Arabia',
     cities: ['All Saudi Arabia', 'Riyadh', 'Jeddah', 'Makkah', 'Madinah', 'Dammam', 'Khobar'],
-    isLive: true,
-    comingSoonTitle: '',
-    comingSoonMessage: '',
-    heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across Saudi Arabia',
+    isLive: false,
+    comingSoonTitle: 'Safar is Coming Soon to Saudi Arabia 🇸🇦',
+    comingSoonMessage: 'Direct vehicle rentals, Umrah executive shuttles, and licensed chauffeurs launching soon in Riyadh, Jeddah, Makkah, and Madinah. Join as a registered host!',
+    heroHeadline: 'Rent Vehicles & Book Transport in Saudi Arabia',
     heroSubtitle: 'Direct connection with verified vehicle rentals, Umrah executive shuttles, and professional chauffeurs in Riyadh, Jeddah, Makkah, and Madinah.',
     idDocumentName: 'Iqama / Saudi National ID / Passport',
     idPlaceholder: '2489102841',
@@ -187,12 +231,13 @@ export const COUNTRIES: CountryInfo[] = [
     flag: '🇺🇸',
     currency: 'USD',
     symbol: '$',
+    dialCode: '+1',
     defaultCity: 'All USA',
     cities: ['All USA', 'New York', 'Los Angeles', 'Chicago', 'Houston', 'Dallas', 'Miami'],
-    isLive: true,
-    comingSoonTitle: '',
-    comingSoonMessage: '',
-    heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across United States',
+    isLive: false,
+    comingSoonTitle: 'Safar is Coming Soon to United States 🇺🇸',
+    comingSoonMessage: 'Peer-to-peer car sharing, professional black car chauffeurs, and moving vans launching across major US metro hubs. Pre-register your fleet now!',
+    heroHeadline: 'Rent Vehicles & Book Transport Across USA',
     heroSubtitle: 'Direct connection with verified vehicle owners, executive livery chauffeurs, and interstate movers in New York, Los Angeles, Chicago, and nationwide.',
     idDocumentName: 'State Photo ID / Passport / SSN',
     idPlaceholder: '123-45-6789 or Passport #',
@@ -205,12 +250,13 @@ export const COUNTRIES: CountryInfo[] = [
     flag: '🇨🇦',
     currency: 'CAD',
     symbol: 'CA$',
+    dialCode: '+1',
     defaultCity: 'All Canada',
     cities: ['All Canada', 'Toronto', 'Vancouver', 'Montreal', 'Calgary', 'Ottawa'],
-    isLive: true,
-    comingSoonTitle: '',
-    comingSoonMessage: '',
-    heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across Canada',
+    isLive: false,
+    comingSoonTitle: 'Safar is Coming Soon to Canada 🇨🇦',
+    comingSoonMessage: 'Direct vehicle rentals and professional drivers launching across Toronto, Vancouver, Montreal, and Calgary. Pre-register your car or fleet!',
+    heroHeadline: 'Rent Vehicles & Book Transport Across Canada',
     heroSubtitle: 'Direct connection with verified car owners and licensed chauffeurs in Toronto, Vancouver, Montreal, and nationwide.',
     idDocumentName: 'Provincial Photo Card / Passport',
     idPlaceholder: 'AB123456',
@@ -223,12 +269,13 @@ export const COUNTRIES: CountryInfo[] = [
     flag: '🇹🇷',
     currency: 'TRY',
     symbol: '₺',
+    dialCode: '+90',
     defaultCity: 'All Turkey',
     cities: ['All Turkey', 'Istanbul', 'Ankara', 'Izmir', 'Antalya', 'Bursa'],
-    isLive: true,
-    comingSoonTitle: '',
-    comingSoonMessage: '',
-    heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across Turkey',
+    isLive: false,
+    comingSoonTitle: 'Safar is Coming Soon to Turkey 🇹🇷',
+    comingSoonMessage: 'Direct vehicle rentals and private transfer chauffeurs launching in Istanbul, Antalya, Ankara, and Izmir. Pre-register your vehicles today!',
+    heroHeadline: 'Rent Vehicles & Book Transport in Turkey',
     heroSubtitle: 'Direct connection with verified vehicle owners and licensed drivers in Istanbul, Ankara, Antalya, and nationwide.',
     idDocumentName: 'T.C. Kimlik Kartı / Pasaport',
     idPlaceholder: '12345678901',
@@ -241,12 +288,13 @@ export const COUNTRIES: CountryInfo[] = [
     flag: '🇫🇷',
     currency: 'EUR',
     symbol: '€',
+    dialCode: '+33',
     defaultCity: 'All France',
     cities: ['All France', 'Paris', 'Lyon', 'Marseille', 'Toulouse', 'Nice', 'Bordeaux'],
-    isLive: true,
-    comingSoonTitle: '',
-    comingSoonMessage: '',
-    heroHeadline: 'Rent Vehicles, Hire Drivers & Book Transport Across France',
+    isLive: false,
+    comingSoonTitle: 'Safar is Coming Soon to France 🇫🇷',
+    comingSoonMessage: 'Direct vehicle rentals and VTC private chauffeurs launching in Paris, Lyon, Marseille, and Nice. Pre-register your fleet now!',
+    heroHeadline: 'Rent Vehicles & Book Transport Across France',
     heroSubtitle: 'Direct connection with verified vehicle rentals and licensed chauffeurs in Paris, Lyon, Marseille, and nationwide.',
     idDocumentName: 'Carte Nationale d\'Identité / Passeport',
     idPlaceholder: '080123456789',
@@ -275,15 +323,6 @@ export function getCountryName(countryCode: string): string {
   }
 }
 
-/**
- * Resolves ANY country code in the world into a complete, localized CountryInfo specification.
- * If the country is not explicitly defined in COUNTRIES, it dynamically calculates:
- * - Real official country name via Intl
- * - Official Flag emoji
- * - Official Currency code & Symbol
- * - Localized ID and Driving License document names
- * - Capital/regional city presets
- */
 export function resolveAnyCountry(rawCode: string): CountryInfo {
   const code = (rawCode || 'PK').toUpperCase();
   const known = COUNTRIES.find((c) => c.code === code);
@@ -305,14 +344,124 @@ export function resolveAnyCountry(rawCode: string): CountryInfo {
     dialCode: DIAL_CODE_MAP[code] || '+1',
     defaultCity: `All ${name}`,
     cities: [`All ${name}`, 'Capital Metro', 'Downtown Hub', 'Central Station', 'Airport Terminal'],
-    isLive: true,
-    comingSoonTitle: '',
-    comingSoonMessage: '',
-    heroHeadline: `Rent Vehicles, Hire Drivers & Book Transport Across ${name}`,
+    isLive: code === 'PK',
+    comingSoonTitle: `Safar is Coming Soon to ${name} ${flag}`,
+    comingSoonMessage: `Direct vehicle rentals and chauffeur services are launching soon across ${name}. Pre-register your vehicles or fleet to be a founding partner!`,
+    heroHeadline: `Rent Vehicles & Book Transport Across ${name}`,
     heroSubtitle: `Direct connection with vehicle owners, commuter shuttles, licensed chauffeurs, and cargo movers across ${name}.`,
     idDocumentName: `${name} National ID / Passport / State ID`,
     idPlaceholder: `Official ${name} ID or Passport #`,
     licenseDocumentName: `${name} Driving License`,
     licensePlaceholder: `Official ${name} Driving License #`,
   };
+}
+
+// ==========================================
+// INTERNATIONAL PARTNER PRE-REGISTRATIONS
+// ==========================================
+
+export interface InternationalInquiry {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  countryCode: string;
+  countryName: string;
+  city: string;
+  serviceType: string;
+  fleetDetails: string;
+  notes?: string;
+  createdAt: string;
+  status: 'NEW' | 'CONTACTED' | 'ONBOARDED';
+}
+
+const STORAGE_INQUIRIES_KEY = 'safarpk_international_inquiries_v2';
+const STORAGE_ADMIN_EMAIL_KEY = 'safarpk_admin_contact_email';
+export const DEFAULT_ADMIN_EMAIL = 'support@safarpk.com';
+
+export function getAdminContactEmail(): string {
+  if (typeof window === 'undefined') return DEFAULT_ADMIN_EMAIL;
+  return localStorage.getItem(STORAGE_ADMIN_EMAIL_KEY) || DEFAULT_ADMIN_EMAIL;
+}
+
+export function setAdminContactEmail(email: string): void {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(STORAGE_ADMIN_EMAIL_KEY, email.trim());
+    window.dispatchEvent(new CustomEvent('safarpk_admin_email_changed', { detail: email.trim() }));
+  }
+}
+
+export function getInternationalInquiries(): InternationalInquiry[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_INQUIRIES_KEY);
+    if (!raw) {
+      // Seed realistic initial international partner registrations for demonstration
+      const demo: InternationalInquiry[] = [
+        {
+          id: 'intl-demo-1',
+          name: 'Klaus Schmidt',
+          phone: '+49 151 23456789',
+          email: 'schmidt.fleets@berlin-rent.de',
+          countryCode: 'DE',
+          countryName: 'Germany',
+          city: 'Berlin',
+          serviceType: 'Car Rental & Chauffeur',
+          fleetDetails: '5 Mercedes E-Class (2023), 2 V-Class Executive Vans',
+          notes: 'Interested in listing our executive fleet in Berlin & Frankfurt airports.',
+          createdAt: new Date(Date.now() - 172800000).toISOString(),
+          status: 'NEW',
+        },
+        {
+          id: 'intl-demo-2',
+          name: 'Tariq Al-Mansoor',
+          phone: '+971 50 9876543',
+          email: 'tariq@dubaimovers.ae',
+          countryCode: 'AE',
+          countryName: 'United Arab Emirates',
+          city: 'Dubai',
+          serviceType: 'Cargo Shifting & Vanpools',
+          fleetDetails: '8 Toyota HiAce Vans, 4 Isuzu 3-Ton Shifting Trucks',
+          notes: 'Looking to partner for Dubai-Abu Dhabi corporate shuttles and residential shifting.',
+          createdAt: new Date(Date.now() - 86400000).toISOString(),
+          status: 'NEW',
+        },
+      ];
+      localStorage.setItem(STORAGE_INQUIRIES_KEY, JSON.stringify(demo));
+      return demo;
+    }
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+export function saveInternationalInquiry(
+  inquiry: Omit<InternationalInquiry, 'id' | 'createdAt' | 'status'>
+): InternationalInquiry {
+  const current = getInternationalInquiries();
+  const newRecord: InternationalInquiry = {
+    ...inquiry,
+    id: `intl-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    createdAt: new Date().toISOString(),
+    status: 'NEW',
+  };
+  current.unshift(newRecord);
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(STORAGE_INQUIRIES_KEY, JSON.stringify(current));
+    window.dispatchEvent(new CustomEvent('safarpk_intl_inquiry_added', { detail: newRecord }));
+  }
+  return newRecord;
+}
+
+export function updateInternationalInquiryStatus(id: string, status: InternationalInquiry['status']): void {
+  const current = getInternationalInquiries();
+  const idx = current.findIndex((item) => item.id === id);
+  if (idx !== -1) {
+    current[idx].status = status;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_INQUIRIES_KEY, JSON.stringify(current));
+      window.dispatchEvent(new CustomEvent('safarpk_intl_inquiry_updated', { detail: current[idx] }));
+    }
+  }
 }

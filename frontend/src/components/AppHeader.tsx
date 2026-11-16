@@ -18,7 +18,7 @@ import {
   Bus,
   Truck,
 } from 'lucide-react';
-import { COUNTRIES, CountryInfo } from '@/data/countries';
+import { COUNTRIES, CountryInfo, SUPPORTED_CURRENCIES, CurrencyInfo } from '@/data/countries';
 import { getActiveUser, RegisteredUser, logoutActiveUser } from '@/data/userAuth';
 import { useCountry } from '@/app/context/CountryContext';
 
@@ -34,12 +34,19 @@ export function AppHeader({
   accentColor = '#0B6B4F',
 }: AppHeaderProps) {
   const pathname = usePathname();
-  const { country: ctxCountry, setCountry: ctxSetCountry } = useCountry();
+  const {
+    country: ctxCountry,
+    setCountry: ctxSetCountry,
+    currency: ctxCurrency,
+    setCurrency: ctxSetCurrency,
+  } = useCountry();
   const [activeUser, setActiveUserState] = useState<RegisteredUser | null>(null);
   const [showCountryMenu, setShowCountryMenu] = useState(false);
+  const [showCurrencyMenu, setShowCurrencyMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const countryMenuRef = useRef<HTMLDivElement>(null);
+  const currencyMenuRef = useRef<HTMLDivElement>(null);
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -50,6 +57,9 @@ export function AppHeader({
       }
       if (countryMenuRef.current && !countryMenuRef.current.contains(target)) {
         setShowCountryMenu(false);
+      }
+      if (currencyMenuRef.current && !currencyMenuRef.current.contains(target)) {
+        setShowCurrencyMenu(false);
       }
     };
 
@@ -231,31 +241,38 @@ export function AppHeader({
 
         {/* Right Section */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-          {/* Country / Currency Selector Dropdown */}
+          {/* 1. Country Selector Dropdown */}
           <div className="relative" ref={countryMenuRef}>
             <button
               type="button"
-              onClick={() => setShowCountryMenu(!showCountryMenu)}
-              className="flex items-center gap-1.5 sm:gap-2 h-9 sm:h-10 px-3 sm:px-3.5 rounded-full border border-slate-200 bg-white text-xs sm:text-[13px] font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-2xs transition cursor-pointer whitespace-nowrap"
+              onClick={() => {
+                setShowCountryMenu(!showCountryMenu);
+                setShowCurrencyMenu(false);
+              }}
+              className="flex items-center gap-1.5 h-9 sm:h-10 px-2.5 sm:px-3 rounded-full border border-slate-200 bg-white text-xs sm:text-[13px] font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-2xs transition cursor-pointer whitespace-nowrap"
+              title="Select Operating Country"
             >
-              <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 shrink-0" />
+              <span className="text-base leading-none">{selectedCountry.flag}</span>
               <span className="hidden lg:inline font-semibold">
                 {selectedCountry.name}
               </span>
-              <span className="font-mono font-bold text-[11px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-800">
-                {selectedCountry.currency}
+              <span className="lg:hidden font-bold text-[11px] text-slate-800">
+                {selectedCountry.code}
               </span>
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
 
             {showCountryMenu && (
-              <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50">
-                <div className="px-4 py-2 border-b border-slate-100">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    Select Country & Currency
+              <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                <div className="px-4 py-2 border-b border-slate-100 flex items-center justify-between">
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Select Country
                   </p>
+                  <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-1.5 py-0.5 rounded">
+                    Global Network
+                  </span>
                 </div>
-                <div className="max-h-60 overflow-y-auto">
+                <div className="max-h-64 overflow-y-auto divide-y divide-slate-50">
                   {COUNTRIES.map((c) => (
                     <button
                       key={c.code}
@@ -265,21 +282,90 @@ export function AppHeader({
                         else ctxSetCountry(c);
                         setShowCountryMenu(false);
                       }}
-                      className={`w-full text-left px-4 py-2.5 text-xs sm:text-sm flex items-center justify-between hover:bg-[#F7F8FA] transition ${
+                      className={`w-full text-left px-4 py-2.5 text-xs sm:text-sm flex items-center justify-between hover:bg-slate-50 transition ${
                         c.code === selectedCountry.code
                           ? 'bg-[#E9F3EE] text-[#08513C] font-bold'
                           : 'text-[#344054]'
                       }`}
                     >
                       <span className="flex items-center gap-2">
-                        <span>{c.flag}</span>
+                        <span className="text-base">{c.flag}</span>
                         <span>{c.name}</span>
                       </span>
-                      <span className="font-mono text-xs text-slate-500 font-semibold">
-                        {c.currency} ({c.symbol})
-                      </span>
+                      {c.isLive ? (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full">
+                          Live Fleet
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                          Coming Soon
+                        </span>
+                      )}
                     </button>
                   ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 2. Independent Currency Selector Dropdown */}
+          <div className="relative" ref={currencyMenuRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setShowCurrencyMenu(!showCurrencyMenu);
+                setShowCountryMenu(false);
+              }}
+              className="flex items-center gap-1.5 h-9 sm:h-10 px-2.5 sm:px-3 rounded-full border border-slate-200 bg-white text-xs sm:text-[13px] font-bold text-slate-800 hover:bg-slate-50 hover:border-slate-300 shadow-2xs transition cursor-pointer whitespace-nowrap"
+              title="Display Currency (Live Auto-Conversion)"
+            >
+              <span className="text-xs text-emerald-700 font-extrabold">{ctxCurrency.symbol}</span>
+              <span className="font-mono text-[11px] font-extrabold text-slate-800">
+                {ctxCurrency.code}
+              </span>
+              <ChevronDown className="w-3 h-3 text-slate-400" />
+            </button>
+
+            {showCurrencyMenu && (
+              <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                <div className="px-4 py-2 border-b border-slate-100 flex items-center justify-between">
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Select Currency
+                  </p>
+                  <span className="text-[10px] text-slate-400">Live Converted</span>
+                </div>
+                <div className="max-h-64 overflow-y-auto divide-y divide-slate-50">
+                  {SUPPORTED_CURRENCIES.map((curr) => {
+                    const active = curr.code === ctxCurrency.code;
+                    return (
+                      <button
+                        key={curr.code}
+                        type="button"
+                        onClick={() => {
+                          ctxSetCurrency(curr);
+                          setShowCurrencyMenu(false);
+                        }}
+                        className={`w-full text-left px-4 py-2.5 text-xs sm:text-sm flex items-center justify-between hover:bg-slate-50 transition ${
+                          active ? 'bg-[#E9F3EE] text-[#08513C] font-bold' : 'text-[#344054]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-base">{curr.flag}</span>
+                          <div>
+                            <p className="font-semibold text-slate-800 leading-tight">
+                              {curr.name}
+                            </p>
+                            <p className="text-[10px] text-slate-400">
+                              {curr.code === 'PKR' ? 'Base marketplace rate' : `1 ${curr.code} ≈ Rs ${curr.rateToPkr}`}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="font-mono text-xs font-bold text-slate-700">
+                          {curr.symbol} {curr.code}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
