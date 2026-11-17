@@ -921,8 +921,12 @@ export interface SubscriptionPaymentRecord {
   paymentMode: string; // 'Cash (Office)' | 'Bank Transfer / Raast' | 'JazzCash / Easypaisa' | 'Card' | 'Cheque'
   paymentRef: string;
   date: string; // ISO date
-  status: 'CONFIRMED' | 'PENDING' | 'REFUNDED';
-  recordedBy: string; // 'Super Admin' | 'Online Gateway' | 'Staff Agent'
+  status: 'CONFIRMED' | 'PENDING' | 'FAILED' | 'REFUNDED';
+  recordedBy: string; // 'Super Admin' | 'Online Gateway' | 'Staff Agent' | 'Vendor Self-Renewal'
+  slipUrl?: string; // Uploaded payment slip / receipt image data URL or path
+  rejectionReason?: string;
+  approvedAt?: string;
+  approvedBy?: string;
   notes?: string;
 }
 
@@ -1036,6 +1040,162 @@ export function recordSubscriptionPayment(record: Omit<SubscriptionPaymentRecord
     window.dispatchEvent(new Event('safarpk_ledger_updated'));
   }
   return newRecord;
+}
+
+export function updateSubscriptionPaymentRecord(
+  paymentId: string,
+  updates: Partial<SubscriptionPaymentRecord>
+): boolean {
+  const current = getAllSubscriptionPayments();
+  const idx = current.findIndex((p) => p.id === paymentId);
+  if (idx === -1) return false;
+
+  current[idx] = {
+    ...current[idx],
+    ...updates,
+  };
+
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(STORAGE_SUBSCRIPTION_LEDGER_KEY, JSON.stringify(current));
+    window.dispatchEvent(new Event('safarpk_ledger_updated'));
+  }
+  return true;
+}
+
+/**
+ * Approve a pending subscription payment.
+ * Updates ledger status to CONFIRMED, activates the user's subscription,
+ * sets KYC to VERIFIED, and logs an activity.
+ */
+export function approveSubscriptionPayment(
+  paymentId: string,
+  approvedBy = 'Super Admin'
+): { success: boolean; payment?: SubscriptionPaymentRecord } {
+  const current = getAllSubscriptionPayments();
+  const payment = current.find((p) => p.id === paymentId);
+  if (!payment) return { success: false };
+
+  const nowIso = new Date().toISOString();
+  payment.status = 'CONFIRMED';
+  payment.approvedAt = nowIso;
+  payment.approvedBy = approvedBy;
+  payment.notes = (payment.notes ? payment.notes + ' | ' : '') + `Verified & Approved by ${approvedBy} on ${new Date().toLocaleDateString('en-GB')}`;
+
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(STORAGE_SUBSCRIPTION_LEDGER_KEY, JSON.stringify(current));
+    window.dispatchEvent(new Event('safarpk_ledger_updated'));
+  }
+
+  // Also update corresponding user's subscription to ACTIVE
+  const allUsers = getAllRegisteredUsers();
+  const user = allUsers.find(
+    (u) =>
+      u.id === payment.userId ||
+      (payment.phone && u.phone === payment.phone) ||
+      (payment.businessName && u.businessName === payment.businessName)
+  );
+
+  if (user) {
+    const expiry = new Date();
+    expiry.setDate(expiry.getDate() + 30);
+    const renewsOnStr = expiry.toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+
+    if (!user.subscription) {
+      user.subscription = {
+        status: 'ACTIVE',
+        planId: payment.planId,
+        planName: payment.planName,
+        targetRole: user.role,
+        amountPaid: payment.amountPaid,
+        currency: payment.currency,
+        symbol: payment.symbol,
+        paymentRef: payment.paymentRef,
+        requestedAt: payment.date,
+        approvedAt: nowIso,
+        quota: user.role === 'DRIVER' ? 1 : 15,
+        usedQuota: 0,
+        renewsOn: renewsOnStr,
+      };
+    } else {
+      user.subscription.status = 'ACTIVE';
+      user.subscription.approvedAt = nowIso;
+      user.subscription.amountPaid = payment.amountPaid;
+      user.subscription.paymentRef = payment.paymentRef;
+      user.subscription.renewsOn = renewsOnStr;
+    }
+
+    user.kycStatus = 'VERIFIED';
+    logUserActivity(user.id, {
+      type: 'SUBSCRIPTION_REQUESTED',
+      title: 'Payment Confirmed & Plan Activated',
+      description: `Payment of ${payment.symbol} ${payment.amountPaid.toLocaleString()} verified by ${approvedBy}. Subscription "${payment.planName}" is now fully LIVE!`,
+    });
+
+    saveAllRegisteredUsers(allUsers);
+
+    // Sync active session if it's the currently logged in user
+    const active = getActiveUser();
+    if (active && (active.id === user.id || active.phone === user.phone)) {
+      setActiveUser(user);
+    }
+  }
+
+  return { success: true, payment };
+}
+
+/**
+ * Reject a pending subscription payment.
+ * Sets status to FAILED with reason, updates user's subscription status to FAILED,
+ * and leaves the failed transaction in history so the user can pay again.
+ */
+export function rejectSubscriptionPayment(
+  paymentId: string,
+  rejectedBy = 'Super Admin',
+  reason = 'Payment slip or reference could not be verified'
+): { success: boolean } {
+  const current = getAllSubscriptionPayments();
+  const payment = current.find((p) => p.id === paymentId);
+  if (!payment) return { success: false };
+
+  payment.status = 'FAILED';
+  payment.rejectionReason = reason;
+  payment.notes = (payment.notes ? payment.notes + ' | ' : '') + `Rejected by ${rejectedBy}: ${reason}`;
+
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(STORAGE_SUBSCRIPTION_LEDGER_KEY, JSON.stringify(current));
+    window.dispatchEvent(new Event('safarpk_ledger_updated'));
+  }
+
+  // Update user subscription to FAILED
+  const allUsers = getAllRegisteredUsers();
+  const user = allUsers.find(
+    (u) =>
+      u.id === payment.userId ||
+      (payment.phone && u.phone === payment.phone) ||
+      (payment.businessName && u.businessName === payment.businessName)
+  );
+
+  if (user && user.subscription) {
+    user.subscription.status = 'FAILED' as any;
+    logUserActivity(user.id, {
+      type: 'SUBSCRIPTION_REQUESTED',
+      title: 'Payment Verification Failed',
+      description: `Payment attempt of ${payment.symbol} ${payment.amountPaid.toLocaleString()} was marked failed by ${rejectedBy}. Reason: ${reason}`,
+    });
+
+    saveAllRegisteredUsers(allUsers);
+
+    const active = getActiveUser();
+    if (active && (active.id === user.id || active.phone === user.phone)) {
+      setActiveUser(user);
+    }
+  }
+
+  return { success: true };
 }
 
 /**

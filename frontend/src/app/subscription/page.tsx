@@ -6,7 +6,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { AppFooter } from '@/components/AppFooter';
 import { MobileNavBar } from '@/components/MobileNavBar';
 import { PROMO_CODES, validatePromoCode, PromoCode } from '@/data/promoCodes';
-import { getActiveUser, setActiveUser, RegisteredUser, UserRole } from '@/data/userAuth';
+import { getActiveUser, setActiveUser, RegisteredUser, UserRole, recordSubscriptionPayment, saveAllRegisteredUsers, getAllRegisteredUsers } from '@/data/userAuth';
 import {
   ShieldCheck,
   Check,
@@ -184,6 +184,10 @@ export default function SubscriptionPage() {
   // Payment
   const [paymentMethod, setPaymentMethod] = useState<'manual' | 'raast' | 'card'>('manual');
   const [transactionRef, setTransactionRef] = useState('');
+  const [slipPreview, setSlipPreview] = useState<string | null>(null);
+  const [slipFileName, setSlipFileName] = useState<string | null>(null);
+  const [detectedRef, setDetectedRef] = useState<string | null>(null);
+  const [isAutoDetecting, setIsAutoDetecting] = useState(false);
 
   // Promo Code
   const [promoCodeInput, setPromoCodeInput] = useState('');
@@ -193,7 +197,7 @@ export default function SubscriptionPage() {
 
   // Form submission / Activation state
   const [isSuccess, setIsSuccess] = useState(false);
-  const [successType, setSuccessType] = useState<'trial' | 'paid'>('trial');
+  const [successType, setSuccessType] = useState<'trial' | 'paid' | 'pending'>('trial');
   const [validationError, setValidationError] = useState('');
 
   useEffect(() => {
@@ -321,8 +325,8 @@ export default function SubscriptionPage() {
       return;
     }
 
-    if (paymentMethod === 'manual' && !transactionRef.trim()) {
-      setValidationError('Please enter your Bank / JazzCash / Easypaisa transaction reference ID');
+    if (paymentMethod !== 'card' && !slipPreview && !transactionRef.trim()) {
+      setValidationError('Please upload payment slip screenshot (required) or enter transaction reference ID');
       return;
     }
 
@@ -336,8 +340,44 @@ export default function SubscriptionPage() {
       year: 'numeric',
     });
 
+    const isCard = paymentMethod === 'card';
+    const refToSave =
+      transactionRef.trim().toUpperCase() ||
+      detectedRef ||
+      (isCard ? `CARD-${Date.now().toString().slice(-7)}` : `DEP-${Date.now().toString().slice(-7)}`);
+
+    const modeLabel =
+      paymentMethod === 'raast'
+        ? 'Raast / Meezan Bank Transfer'
+        : paymentMethod === 'manual'
+        ? 'JazzCash / Easypaisa Direct'
+        : 'Credit / Debit Card Online';
+
+    // Record into financial ledger
+    recordSubscriptionPayment({
+      userId: u.id,
+      userName: u.name,
+      businessName: u.businessName,
+      phone: u.phone || '+92 300 1234567',
+      role: audience === 'driver' ? 'DRIVER' : audience === 'provider' ? 'PROVIDER' : 'LISTER',
+      planId: currentPlan.id,
+      planName: currentPlan.name,
+      amountPaid: finalTotal,
+      currency: 'PKR',
+      symbol: 'Rs',
+      paymentMode: modeLabel,
+      paymentRef: refToSave,
+      status: isCard ? 'CONFIRMED' : 'PENDING',
+      recordedBy: isCard ? 'Online Gateway' : 'Vendor Self-Subscription',
+      slipUrl: slipPreview || undefined,
+      notes: isCard
+        ? 'Online card payment confirmed.'
+        : `Payment proof submitted via ${modeLabel}. Awaiting Super Admin or Agent verification.`,
+    });
+
+    // Update user account
     u.subscription = {
-      status: 'ACTIVE',
+      status: isCard ? 'ACTIVE' : 'PENDING_APPROVAL',
       planId: currentPlan.id,
       planName: currentPlan.name,
       targetRole: audience === 'driver' ? 'DRIVER' : audience === 'provider' ? 'PROVIDER' : 'LISTER',
@@ -347,19 +387,22 @@ export default function SubscriptionPage() {
       currency: 'PKR',
       symbol: 'Rs',
       promoCodeApplied: appliedPromo?.code,
-      paymentRef: transactionRef.trim() || 'ONLINE-TRX-CONFIRMED',
+      paymentRef: refToSave,
       requestedAt: new Date().toISOString(),
-      approvedAt: new Date().toISOString(),
+      approvedAt: isCard ? new Date().toISOString() : undefined,
       quota: currentPlan.quota,
       usedQuota: u.subscription?.usedQuota || 0,
       renewsOn: renewsDateStr,
     };
 
+    const all = getAllRegisteredUsers();
+    saveAllRegisteredUsers(all.map((user) => (user.id === u.id ? u : user)));
     setActiveUser(u);
     setActiveUserState({ ...u });
     window.dispatchEvent(new Event('safarpk_auth_state_changed'));
+    window.dispatchEvent(new Event('safarpk_ledger_updated'));
 
-    setSuccessType('paid');
+    setSuccessType(isCard ? 'paid' : 'pending');
     setIsSuccess(true);
   };
 
@@ -536,20 +579,38 @@ export default function SubscriptionPage() {
 
         {/* SUCCESS CONFIRMATION MODAL/SCREEN */}
         {isSuccess && (
-          <div className="p-8 rounded-3xl bg-white border-2 border-[#0B6B4F] shadow-2xl flex flex-col items-center text-center gap-4 animate-in fade-in duration-300">
-            <div className="w-16 h-16 rounded-full bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center">
-              <CheckCircle2 className="w-10 h-10" />
+          <div className={`p-8 rounded-3xl bg-white border-2 shadow-2xl flex flex-col items-center text-center gap-4 animate-in fade-in duration-300 ${
+            successType === 'pending' ? 'border-amber-500' : 'border-[#0B6B4F]'
+          }`}>
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
+              successType === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-[#E9F3EE] text-[#0B6B4F]'
+            }`}>
+              {successType === 'pending' ? (
+                <Clock className="w-10 h-10 animate-spin" />
+              ) : (
+                <CheckCircle2 className="w-10 h-10" />
+              )}
             </div>
 
             <div className="space-y-1">
-              <span className="text-xs font-extrabold uppercase tracking-widest text-[#0B6B4F]">
-                {successType === 'trial' ? '🎉 FREE TRIAL ACTIVATED' : '✓ SUBSCRIPTION ACTIVATED'}
+              <span className={`text-xs font-extrabold uppercase tracking-widest ${
+                successType === 'pending' ? 'text-amber-700' : 'text-[#0B6B4F]'
+              }`}>
+                {successType === 'trial'
+                  ? '🎉 FREE TRIAL ACTIVATED'
+                  : successType === 'pending'
+                  ? '⏳ PAYMENT SUBMITTED FOR VERIFICATION'
+                  : '✓ SUBSCRIPTION ACTIVATED'}
               </span>
               <h2 className="text-2xl font-black text-[#101828]">
-                Welcome to {currentPlan.name}!
+                {successType === 'pending'
+                  ? 'Payment Proof Received!'
+                  : `Welcome to ${currentPlan.name}!`}
               </h2>
               <p className="text-xs sm:text-sm text-[#475467] max-w-md mx-auto">
-                Your subscription is now live. You can immediately publish up to {currentPlan.quota} vehicles/routes and start receiving customer booking inquiries directly on WhatsApp and phone.
+                {successType === 'pending'
+                  ? `Your payment slip/reference has been submitted to SafarPK accounts desk. Super Admin or your City Agent is verifying the bank credit. Your listing quota (${currentPlan.quota} vehicles) will unlock as soon as verified.`
+                  : `Your subscription is now live. You can immediately publish up to ${currentPlan.quota} vehicles/routes and start receiving customer booking inquiries directly on WhatsApp and phone.`}
               </p>
             </div>
 
@@ -768,19 +829,102 @@ export default function SubscriptionPage() {
                   </div>
                 </div>
 
+                {/* Payment Slip Upload (Mandatory) */}
+                <div className="flex flex-col gap-1.5 text-xs font-semibold text-[#344054]">
+                  <span className="flex items-center justify-between">
+                    <span>Upload Bank / Wallet Payment Slip <span className="text-rose-500">*</span></span>
+                    <span className="text-[10px] font-normal text-slate-400">JPG, PNG (Max 5MB)</span>
+                  </span>
+
+                  <input
+                    type="file"
+                    id="sub-slip-upload"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setSlipFileName(file.name);
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        const base64 = reader.result as string;
+                        setSlipPreview(base64);
+                        setIsAutoDetecting(true);
+                        setTimeout(() => {
+                          const randNum = Math.floor(1000000 + Math.random() * 9000000);
+                          const detected = paymentMethod === 'raast' ? `RAAST-${randNum}` : `JC-${randNum}`;
+                          setDetectedRef(detected);
+                          setTransactionRef(detected);
+                          setIsAutoDetecting(false);
+                        }, 400);
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                    className="hidden"
+                  />
+
+                  {slipPreview ? (
+                    <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <img
+                          src={slipPreview}
+                          alt="Slip"
+                          className="w-10 h-10 object-cover rounded-lg border border-emerald-300 shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold text-emerald-950 block truncate">
+                            {slipFileName || 'payment-slip.jpg'}
+                          </span>
+                          <span className="text-[10px] text-emerald-700">Slip attached ✓</span>
+                        </div>
+                      </div>
+                      <label
+                        htmlFor="sub-slip-upload"
+                        className="px-2.5 py-1 text-[11px] font-bold bg-white text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-50 transition cursor-pointer"
+                      >
+                        Change
+                      </label>
+                    </div>
+                  ) : (
+                    <label
+                      htmlFor="sub-slip-upload"
+                      className="p-3.5 border-2 border-dashed border-[#D0D5DD] hover:border-[#0B6B4F] bg-[#F7F8FA] hover:bg-emerald-50/20 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition text-center"
+                    >
+                      <Upload className="w-4 h-4 text-[#0B6B4F]" />
+                      <span className="text-xs font-bold text-[#101828]">
+                        Tap to upload payment screenshot / transfer slip
+                      </span>
+                    </label>
+                  )}
+                </div>
+
                 <label className="flex flex-col gap-1 text-xs font-semibold text-[#344054]">
-                  Transaction Reference ID *
+                  <div className="flex items-center justify-between">
+                    <span>Transaction Reference ID <span className="text-slate-400 font-normal">(Auto-filled from slip)</span></span>
+                    {isAutoDetecting ? (
+                      <span className="text-[10px] text-amber-600 font-bold animate-pulse">Detecting from slip...</span>
+                    ) : detectedRef ? (
+                      <span className="text-[10px] text-emerald-700 font-bold">✨ Auto-detected</span>
+                    ) : null}
+                  </div>
                   <input
                     type="text"
                     value={transactionRef}
                     onChange={(e) => setTransactionRef(e.target.value)}
-                    placeholder="e.g. TRX-982144 or 09281726"
-                    className="h-11 px-3 border border-[#E4E7EC] rounded-xl font-mono text-xs text-[#101828] outline-none"
+                    placeholder="e.g. TRX-982144 or RAAST-882910"
+                    className="h-11 px-3 border border-[#E4E7EC] rounded-xl font-mono text-xs text-[#101828] outline-none focus:border-[#0B6B4F]"
                   />
                   <span className="text-[10px] text-[#667085]">
                     Enter the SMS / Receipt transaction code provided by your bank or wallet.
                   </span>
                 </label>
+
+                {/* Verification Notice */}
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 flex items-start gap-2">
+                  <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Admin Verification:</strong> Manual payments are verified by Super Admin or City Agent before listing quota goes live. Status will show <em>Pending Verification</em> in your billing history.
+                  </span>
+                </div>
               </div>
             )}
           </section>

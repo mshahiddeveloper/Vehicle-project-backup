@@ -48,6 +48,10 @@ import {
   getActiveUser,
   setActiveUser,
   logoutActiveUser,
+  getAllSubscriptionPayments,
+  approveSubscriptionPayment,
+  rejectSubscriptionPayment,
+  SubscriptionPaymentRecord,
 } from '@/data/userAuth';
 import { hasAgentPermission, ENTERPRISE_PERMISSION_TREE } from '@/data/agentPermissions';
 import {
@@ -642,20 +646,23 @@ export default function AgentDashboardPage() {
     },
   ]);
 
+  // Live Dynamic Subscription Ledger from Storage
+  const [subscriptionLedger, setSubscriptionLedger] = useState<SubscriptionPaymentRecord[]>([]);
+  const [agentSlipModal, setAgentSlipModal] = useState<string | null>(null);
+
+  useEffect(() => {
+    const syncLedger = () => {
+      setSubscriptionLedger(getAllSubscriptionPayments());
+    };
+    syncLedger();
+    window.addEventListener('safarpk_ledger_updated', syncLedger);
+    return () => {
+      window.removeEventListener('safarpk_ledger_updated', syncLedger);
+    };
+  }, []);
+
   // Pending Payments Queue
-  const [pendingPayments, setPendingPayments] = useState<any[]>([
-    {
-      id: 'pay-1',
-      referenceNumber: 'TX-MEEZAN-99210',
-      listerName: 'Salman Rent a Car & Tours',
-      phone: '+923001234567',
-      planName: 'Professional Fleet (15 Vehicles)',
-      amount: 12000,
-      method: 'MEEZAN_BANK_TRANSFER',
-      proofSlip: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&auto=format&fit=crop&q=80',
-      submittedAt: '2026-11-10T07:45:00Z',
-    },
-  ]);
+  const pendingPayments = subscriptionLedger.filter((p) => p.status === 'PENDING');
 
   // Rejection Notice Modal State
   const [rejectingItem, setRejectingItem] = useState<any | null>(null);
@@ -773,9 +780,20 @@ export default function AgentDashboardPage() {
   };
 
   const handleApprovePayment = (id: string, ref: string) => {
-    setPendingPayments(pendingPayments.filter((p) => p.id !== id));
-    setActionNotice(`✅ Subscription Payment ${ref} verified! Lister account quota updated.`);
+    approveSubscriptionPayment(id, currentAgent.name || 'Field Agent');
+    setSubscriptionLedger(getAllSubscriptionPayments());
+    setActionNotice(`✅ Subscription Payment ${ref} verified & approved! Lister account quota updated.`);
     setTimeout(() => setActionNotice(null), 4000);
+  };
+
+  const handleRejectPayment = (id: string, ref: string) => {
+    const reason = prompt('Enter rejection reason for this payment:', 'Bank credit not received / blurry invalid slip');
+    if (reason) {
+      rejectSubscriptionPayment(id, currentAgent.name || 'Field Agent', reason);
+      setSubscriptionLedger(getAllSubscriptionPayments());
+      setActionNotice(`❌ Subscription Payment ${ref} marked failed. Reason: ${reason}`);
+      setTimeout(() => setActionNotice(null), 4000);
+    }
   };
 
   const handleUpdateLeadStatus = (leadId: string, newStatus: MarketplaceLead['status']) => {
@@ -1625,47 +1643,203 @@ export default function AgentDashboardPage() {
             </div>
           )}
 
-          {/* TAB 2: PAYMENT VERIFICATIONS */}
+          {/* TAB 2: PAYMENT VERIFICATIONS & FINANCIAL LEDGER */}
           {activeTab === 'payments' && (
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
-              <h3 className="font-extrabold text-base text-slate-900">Subscription Payment Proofs ({pendingPayments.length})</h3>
-              <p className="text-xs text-slate-500">Inspect Meezan Bank & Easypaisa transaction slips uploaded by listers.</p>
+            <div className="space-y-6">
+              {/* 1. Pending Approvals Queue */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
+                      <CreditCard className="w-5 h-5 text-emerald-600" />
+                      <span>Pending Subscription Payment Proofs ({pendingPayments.length})</span>
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Audit bank receipts, Raast references, and JazzCash/EasyPaisa transaction slips uploaded by listers.
+                    </p>
+                  </div>
+                  {pendingPayments.length > 0 && (
+                    <span className="px-3 py-1 bg-amber-100 text-amber-800 border border-amber-300 rounded-full text-xs font-bold animate-pulse">
+                      Action Required ({pendingPayments.length})
+                    </span>
+                  )}
+                </div>
 
-              <div className="space-y-3">
-                {pendingPayments.map((p) => (
-                  <div key={p.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200">
-                          {p.referenceNumber}
-                        </span>
-                        <h4 className="font-bold text-xs text-slate-900">{p.planName}</h4>
+                {pendingPayments.length === 0 ? (
+                  <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto mb-2" />
+                    <p className="text-xs font-bold text-slate-700">All Payment Proofs Verified!</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">There are no pending subscription deposits waiting in your queue.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {pendingPayments.map((p) => (
+                      <div key={p.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-300 transition">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-xs font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
+                              {p.paymentRef}
+                            </span>
+                            <h4 className="font-bold text-xs text-slate-900">{p.planName}</h4>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                              {p.paymentMode}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-1">
+                            Lister: <strong className="text-slate-800">{p.userName}</strong> {p.businessName ? `(${p.businessName})` : ''} · 📞 {p.phone} · Amount: <strong className="text-emerald-700 font-mono">PKR {formatPKR(p.amountPaid)}</strong>
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {p.slipUrl ? (
+                            <button
+                              type="button"
+                              onClick={() => setAgentSlipModal(p.slipUrl!)}
+                              className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-100 transition flex items-center gap-1 cursor-pointer"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>View Slip</span>
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 font-mono">Ref Only</span>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleApprovePayment(p.id, p.paymentRef)}
+                            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+                          >
+                            Verify & Activate
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRejectPayment(p.id, p.paymentRef)}
+                            className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition cursor-pointer"
+                          >
+                            Reject
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Lister: {p.listerName} ({p.phone}) · Amount: <strong>PKR {formatPKR(p.amount)}</strong>
-                      </p>
-                    </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-                    <div className="flex items-center gap-2">
-                      <a
-                        href={p.proofSlip}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-100 transition flex items-center gap-1"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                        <span>View Slip</span>
-                      </a>
+              {/* 2. Platform Full Financial History Ledger (Agent View) */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div>
+                    <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
+                      <Receipt className="w-4 h-4 text-slate-600" />
+                      <span>All Platform Transactions Ledger ({subscriptionLedger.length})</span>
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Complete history of confirmed, pending, and failed subscription transactions.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs min-w-[700px]">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-bold uppercase text-[10px]">
+                        <th className="py-2.5 px-3">Subscriber</th>
+                        <th className="py-2.5 px-3">Plan</th>
+                        <th className="py-2.5 px-3">Amount</th>
+                        <th className="py-2.5 px-3">Channel & Ref</th>
+                        <th className="py-2.5 px-3">Date</th>
+                        <th className="py-2.5 px-3">Status</th>
+                        <th className="py-2.5 px-3 text-right">Slip</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      {subscriptionLedger.map((p) => (
+                        <tr key={p.id} className="hover:bg-slate-50 transition">
+                          <td className="py-2.5 px-3">
+                            <span className="font-bold text-slate-900 block">{p.userName}</span>
+                            <span className="text-[10px] text-slate-400">{p.phone}</span>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-700">{p.planName}</td>
+                          <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
+                            PKR {formatPKR(p.amountPaid)}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className="block text-slate-800">{p.paymentMode}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">Ref: {p.paymentRef}</span>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-500 text-[11px] whitespace-nowrap">
+                            {new Date(p.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                          </td>
+                          <td className="py-2.5 px-3 whitespace-nowrap">
+                            {p.status === 'CONFIRMED' ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                ✓ Paid & Active
+                              </span>
+                            ) : p.status === 'PENDING' ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 animate-pulse">
+                                ⏳ Pending Review
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                                ✕ Failed
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 text-right">
+                            {p.slipUrl ? (
+                              <button
+                                type="button"
+                                onClick={() => setAgentSlipModal(p.slipUrl!)}
+                                className="p-1 text-emerald-700 hover:text-emerald-900 transition"
+                                title="View Slip"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <span className="text-slate-300 text-[10px]">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Agent Slip Preview Modal */}
+              {agentSlipModal && (
+                <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+                  <div className="relative max-w-lg w-full bg-slate-900 rounded-3xl overflow-hidden border border-slate-700 shadow-2xl p-4 space-y-3">
+                    <div className="flex items-center justify-between text-white pb-2 border-b border-slate-800">
+                      <span className="text-xs font-bold font-mono">Lister Deposit Proof Slip</span>
                       <button
-                        onClick={() => handleApprovePayment(p.id, p.referenceNumber)}
-                        className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+                        type="button"
+                        onClick={() => setAgentSlipModal(null)}
+                        className="p-1 text-slate-400 hover:text-white rounded-lg"
                       >
-                        Verify & Activate
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <div className="max-h-[70vh] overflow-auto flex items-center justify-center bg-black/50 rounded-2xl p-2">
+                      <img
+                        src={agentSlipModal}
+                        alt="Deposit slip"
+                        className="max-h-[65vh] w-auto object-contain rounded-lg"
+                      />
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setAgentSlipModal(null)}
+                        className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition"
+                      >
+                        Close Preview
                       </button>
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
             </div>
           )}
 

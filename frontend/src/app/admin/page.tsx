@@ -98,6 +98,8 @@ import {
   ALL_SAFAR_SERVICES,
   getAllSubscriptionPayments,
   recordSubscriptionPayment,
+  approveSubscriptionPayment,
+  rejectSubscriptionPayment,
   createManualVendorWithSubscription,
   SubscriptionPaymentRecord,
 } from '@/data/userAuth';
@@ -334,6 +336,8 @@ export default function SuperAdminDashboardPage() {
   // =========================================================================
   const [timeFilter, setTimeFilter] = useState<'TODAY' | 'WEEK' | 'MONTH' | 'ALL'>('MONTH');
   const [subscriptionPayments, setSubscriptionPayments] = useState<SubscriptionPaymentRecord[]>([]);
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<'ALL' | 'PENDING' | 'CONFIRMED' | 'FAILED'>('ALL');
+  const [adminSlipModal, setAdminSlipModal] = useState<string | null>(null);
 
   // Manual Vendor Portal & Subscription Creation Modal
   const [showManualVendorModal, setShowManualVendorModal] = useState(false);
@@ -1701,115 +1705,276 @@ export default function SuperAdminDashboardPage() {
 
                 {/* SUBSCRIPTION FINANCIAL REVENUE LEDGER TABLE */}
                 <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-4 shadow-xl">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-800">
                     <div>
                       <h3 className="font-extrabold text-base text-white flex items-center gap-2">
                         <Wallet className="w-5 h-5 text-emerald-400" />
                         <span>Live Subscription Revenue & Transaction Ledger</span>
                       </h3>
                       <p className="text-xs text-slate-400 mt-0.5">
-                        Every confirmed membership deposit and manual admin entry is audited and reflected in real-time.
+                        Audit bank receipts, verify manual deposits, approve pending member quotas, or reject invalid slips in real-time.
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
-                        {filteredPayments.length} Transactions Recorded
-                      </span>
+                    {/* Filter Pills for Status */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setPaymentStatusFilter('ALL')}
+                        className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
+                          paymentStatusFilter === 'ALL'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                        }`}
+                      >
+                        All ({subscriptionPayments.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentStatusFilter('PENDING')}
+                        className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                          paymentStatusFilter === 'PENDING'
+                            ? 'bg-amber-600 text-white shadow-xs'
+                            : 'bg-slate-800 text-amber-300 hover:bg-slate-700'
+                        }`}
+                      >
+                        <span>Pending</span>
+                        <span className="w-4 h-4 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] flex items-center justify-center">
+                          {subscriptionPayments.filter((p) => p.status === 'PENDING').length}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentStatusFilter('CONFIRMED')}
+                        className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
+                          paymentStatusFilter === 'CONFIRMED'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-slate-800 text-emerald-300 hover:bg-slate-700'
+                        }`}
+                      >
+                        Paid ({subscriptionPayments.filter((p) => p.status === 'CONFIRMED').length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentStatusFilter('FAILED')}
+                        className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
+                          paymentStatusFilter === 'FAILED'
+                            ? 'bg-rose-600 text-white shadow-xs'
+                            : 'bg-slate-800 text-rose-300 hover:bg-slate-700'
+                        }`}
+                      >
+                        Failed ({subscriptionPayments.filter((p) => p.status === 'FAILED').length})
+                      </button>
                     </div>
                   </div>
 
-                  {filteredPayments.length === 0 ? (
-                    <div className="p-8 text-center bg-slate-950/60 rounded-2xl border border-slate-800">
-                      <p className="text-xs text-slate-400">
-                        No transactions recorded for the selected time filter ({timeFilter}). Click "All Time" to view full ledger.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
-                      <table className="w-full text-left text-xs">
-                        <thead>
-                          <tr className="border-b border-slate-800 text-slate-400 font-bold bg-slate-900/60">
-                            <th className="p-3.5">Subscriber / Business</th>
-                            <th className="p-3.5">Category</th>
-                            <th className="p-3.5">Plan Activated</th>
-                            <th className="p-3.5">Amount Paid</th>
-                            <th className="p-3.5">Payment Mode & Ref</th>
-                            <th className="p-3.5">Date & Time</th>
-                            <th className="p-3.5">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-800/60">
-                          {filteredPayments.map((pay) => (
-                            <tr key={pay.id} className="hover:bg-slate-900/40 transition">
-                              <td className="p-3.5">
-                                <div className="font-bold text-white text-sm">{pay.userName}</div>
-                                {pay.businessName && (
-                                  <div className="text-[11px] text-slate-400">{pay.businessName}</div>
-                                )}
-                                <div className="text-[10px] text-slate-500 font-mono mt-0.5">📞 {pay.phone}</div>
-                              </td>
+                  {(() => {
+                    const displayed = filteredPayments.filter((p) => {
+                      if (paymentStatusFilter === 'ALL') return true;
+                      return p.status === paymentStatusFilter;
+                    });
 
-                              <td className="p-3.5">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                  pay.role === 'LISTER'
-                                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                                    : pay.role === 'DRIVER'
-                                    ? 'bg-blue-950 text-blue-300 border border-blue-800'
-                                    : 'bg-orange-950 text-orange-300 border border-orange-800'
-                                }`}>
-                                  {pay.role === 'LISTER'
-                                    ? 'Car Rental'
-                                    : pay.role === 'DRIVER'
-                                    ? 'Chauffeur'
-                                    : pay.providerSubtype === 'COMMERCIAL_CARGO'
-                                    ? 'Cargo Mover'
-                                    : 'Commuter Shuttle'}
-                                </span>
-                              </td>
+                    if (displayed.length === 0) {
+                      return (
+                        <div className="p-8 text-center bg-slate-950/60 rounded-2xl border border-slate-800">
+                          <p className="text-xs text-slate-400">
+                            No transactions recorded matching status filter ({paymentStatusFilter}) for {timeFilter}.
+                          </p>
+                        </div>
+                      );
+                    }
 
-                              <td className="p-3.5">
-                                <div className="font-bold text-slate-200">{pay.planName}</div>
-                                <div className="text-[10px] text-slate-400">{pay.notes || 'Monthly Subscription'}</div>
-                              </td>
-
-                              <td className="p-3.5">
-                                <span className="font-black text-sm text-emerald-400 font-mono">
-                                  PKR {formatPKR(pay.amountPaid)}
-                                </span>
-                              </td>
-
-                              <td className="p-3.5">
-                                <div className="font-bold text-slate-300">{pay.paymentMode}</div>
-                                <div className="text-[10px] text-slate-400 font-mono">Ref: {pay.paymentRef}</div>
-                              </td>
-
-                              <td className="p-3.5 text-slate-400 text-[11px] whitespace-nowrap">
-                                {new Date(pay.date).toLocaleDateString('en-GB', {
-                                  day: 'numeric',
-                                  month: 'short',
-                                  year: 'numeric',
-                                })}{' '}
-                                ·{' '}
-                                {new Date(pay.date).toLocaleTimeString([], {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </td>
-
-                              <td className="p-3.5">
-                                <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-950 text-emerald-300 border border-emerald-800 inline-flex items-center gap-1">
-                                  <span>✓</span>
-                                  <span>CONFIRMED</span>
-                                </span>
-                              </td>
+                    return (
+                      <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+                        <table className="w-full text-left text-xs min-w-[850px]">
+                          <thead>
+                            <tr className="border-b border-slate-800 text-slate-400 font-bold bg-slate-900/60">
+                              <th className="p-3.5">Subscriber / Business</th>
+                              <th className="p-3.5">Category</th>
+                              <th className="p-3.5">Plan & Quota</th>
+                              <th className="p-3.5">Amount Paid</th>
+                              <th className="p-3.5">Payment Mode & Ref</th>
+                              <th className="p-3.5">Date & Time</th>
+                              <th className="p-3.5">Status</th>
+                              <th className="p-3.5 text-right">Verification Actions</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60">
+                            {displayed.map((pay) => (
+                              <tr key={pay.id} className="hover:bg-slate-900/40 transition">
+                                <td className="p-3.5">
+                                  <div className="font-bold text-white text-sm">{pay.userName}</div>
+                                  {pay.businessName && (
+                                    <div className="text-[11px] text-slate-400">{pay.businessName}</div>
+                                  )}
+                                  <div className="text-[10px] text-slate-500 font-mono mt-0.5">📞 {pay.phone}</div>
+                                </td>
+
+                                <td className="p-3.5">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                    pay.role === 'LISTER'
+                                      ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                      : pay.role === 'DRIVER'
+                                      ? 'bg-blue-950 text-blue-300 border border-blue-800'
+                                      : 'bg-orange-950 text-orange-300 border border-orange-800'
+                                  }`}>
+                                    {pay.role === 'LISTER'
+                                      ? 'Car Rental'
+                                      : pay.role === 'DRIVER'
+                                      ? 'Chauffeur'
+                                      : pay.providerSubtype === 'COMMERCIAL_CARGO'
+                                      ? 'Cargo Mover'
+                                      : 'Commuter Shuttle'}
+                                  </span>
+                                </td>
+
+                                <td className="p-3.5">
+                                  <div className="font-bold text-slate-200">{pay.planName}</div>
+                                  <div className="text-[10px] text-slate-400">{pay.notes || 'Monthly Subscription'}</div>
+                                </td>
+
+                                <td className="p-3.5">
+                                  <span className="font-black text-sm text-emerald-400 font-mono">
+                                    PKR {formatPKR(pay.amountPaid)}
+                                  </span>
+                                </td>
+
+                                <td className="p-3.5">
+                                  <div className="font-bold text-slate-300">{pay.paymentMode}</div>
+                                  <div className="text-[10px] text-slate-400 font-mono">Ref: {pay.paymentRef}</div>
+                                  {pay.slipUrl && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setAdminSlipModal(pay.slipUrl!)}
+                                      className="text-[10px] text-emerald-400 hover:text-emerald-300 hover:underline font-bold flex items-center gap-1 mt-0.5 cursor-pointer"
+                                    >
+                                      <span>📷 View Slip Attached</span>
+                                    </button>
+                                  )}
+                                </td>
+
+                                <td className="p-3.5 text-slate-400 text-[11px] whitespace-nowrap">
+                                  {new Date(pay.date).toLocaleDateString('en-GB', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                    year: 'numeric',
+                                  })}{' '}
+                                  ·{' '}
+                                  {new Date(pay.date).toLocaleTimeString([], {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </td>
+
+                                <td className="p-3.5">
+                                  {pay.status === 'CONFIRMED' ? (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-950 text-emerald-300 border border-emerald-800 inline-flex items-center gap-1">
+                                      <span>✓</span>
+                                      <span>PAID & LIVE</span>
+                                    </span>
+                                  ) : pay.status === 'PENDING' ? (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-950 text-amber-300 border border-amber-800 inline-flex items-center gap-1 animate-pulse">
+                                      <span>⏳</span>
+                                      <span>PENDING</span>
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-950 text-rose-300 border border-rose-800 inline-flex items-center gap-1">
+                                      <span>✕</span>
+                                      <span>FAILED</span>
+                                    </span>
+                                  )}
+                                </td>
+
+                                <td className="p-3.5 text-right whitespace-nowrap">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    {pay.slipUrl && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setAdminSlipModal(pay.slipUrl!)}
+                                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                                        title="View Deposit Proof Slip"
+                                      >
+                                        <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                                        <span>Slip</span>
+                                      </button>
+                                    )}
+
+                                    {pay.status === 'PENDING' && (
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            if (confirm(`Approve payment of PKR ${formatPKR(pay.amountPaid)} for ${pay.userName} and activate listing quota?`)) {
+                                              approveSubscriptionPayment(pay.id, 'Super Admin');
+                                              const updated = getAllSubscriptionPayments();
+                                              setSubscriptionPayments(updated);
+                                            }
+                                          }}
+                                          className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-xs"
+                                        >
+                                          <span>✓ Approve</span>
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const reason = prompt('Enter rejection reason for this payment:', 'Bank credit not found / invalid receipt');
+                                            if (reason) {
+                                              rejectSubscriptionPayment(pay.id, 'Super Admin', reason);
+                                              const updated = getAllSubscriptionPayments();
+                                              setSubscriptionPayments(updated);
+                                            }
+                                          }}
+                                          className="px-2.5 py-1 bg-rose-600/80 hover:bg-rose-600 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                                        >
+                                          <span>✕ Reject</span>
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })()}
                 </div>
+
+                {/* Admin Slip Preview Modal */}
+                {adminSlipModal && (
+                  <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+                    <div className="relative max-w-lg w-full bg-slate-900 rounded-3xl overflow-hidden border border-slate-700 shadow-2xl p-4 space-y-3">
+                      <div className="flex items-center justify-between text-white pb-2 border-b border-slate-800">
+                        <span className="text-xs font-bold font-mono">Subscriber Payment Deposit Slip</span>
+                        <button
+                          type="button"
+                          onClick={() => setAdminSlipModal(null)}
+                          className="p-1 text-slate-400 hover:text-white rounded-lg"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <div className="max-h-[70vh] overflow-auto flex items-center justify-center bg-black/50 rounded-2xl p-2">
+                        <img
+                          src={adminSlipModal}
+                          alt="Bank deposit slip"
+                          className="max-h-[65vh] w-auto object-contain rounded-lg"
+                        />
+                      </div>
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setAdminSlipModal(null)}
+                          className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition"
+                        >
+                          Close Slip View
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })()}
