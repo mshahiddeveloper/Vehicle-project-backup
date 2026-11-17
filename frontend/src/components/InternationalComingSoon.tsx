@@ -349,7 +349,7 @@ export function InternationalComingSoon({
                 className="w-full h-11 rounded-xl bg-[#0B6B4F] hover:bg-[#08513C] text-white font-bold text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-1"
               >
                 <Send className="w-4 h-4" />
-                <span>Submit Pre-Registration & Open Direct Email</span>
+                <span>Submit Pre-Registration</span>
               </button>
 
               <p className="text-[11px] text-slate-400 text-center">

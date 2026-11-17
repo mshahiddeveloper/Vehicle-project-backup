@@ -37,6 +37,11 @@ import {
   Eye,
   Download,
   Receipt,
+  ChevronDown,
+  ChevronUp,
+  Receipt,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { API_BASE, formatPKR, maskCnic, maskLicense, maskPhone } from '@/lib/api';
 import { SubscriptionPricingSection } from '@/components/SubscriptionPricingSection';
@@ -44,6 +49,34 @@ import { BillingHistoryManager } from '@/components/BillingHistoryManager';
 import { getActiveUser, RegisteredUser } from '@/data/userAuth';
 import { DashboardStoreWidget } from '@/components/DashboardStoreWidget';
 import { AnalyticsReportHub } from '@/components/AnalyticsReportHub';
+import { useCountry } from '@/app/context/CountryContext';
+
+const STANDARD_CAR_BRANDS = [
+  'Suzuki',
+  'Toyota',
+  'Honda',
+  'Hyundai',
+  'KIA',
+  'Changan',
+  'MG',
+  'Haval',
+  'Nissan',
+  'Daihatsu',
+  'Audi',
+  'BMW',
+  'Mercedes-Benz',
+  'Chery',
+  'Proton',
+  'Peugeot',
+  'DFSK',
+  'FAW',
+  'Isuzu',
+  'Mitsubishi',
+  'Lexus',
+  'Land Rover',
+  'Porsche',
+  'Tesla',
+];
 
 const POPULAR_CAR_SUGGESTIONS = [
   'Toyota Corolla',
@@ -74,6 +107,9 @@ export default function ListerDashboardPage() {
   const [activeTab, setActiveTab] = useState<
     'overview' | 'fleet' | 'analytics' | 'add_vehicle' | 'requests' | 'availability' | 'reviews' | 'subscription' | 'profile' | 'team' | 'settings'
   >('overview');
+
+  const { country } = useCountry();
+  const isPakistan = !country || country.code === 'PK';
 
   // Handle URL query parameters (?tab=add_vehicle&step=1)
   useEffect(() => {
@@ -211,6 +247,11 @@ export default function ListerDashboardPage() {
   // 3-Step Lister Ad Posting State (Matching Reference Screenshots & Prompt)
   // Step 1: Car Details
   const [carBrand, setCarBrand] = useState('Suzuki');
+  const [isCustomBrand, setIsCustomBrand] = useState(false);
+  const [showDetailedSpecs, setShowDetailedSpecs] = useState(false);
+  const [customFeatureInput, setCustomFeatureInput] = useState('');
+  const [showCustomFeatureInput, setShowCustomFeatureInput] = useState(false);
+  const [customFeaturesList, setCustomFeaturesList] = useState<string[]>([]);
   const [carModel, setCarModel] = useState('Alto VXR');
   const [carYear, setCarYear] = useState('2024');
   const [carRentPerDay, setCarRentPerDay] = useState('4500');
@@ -545,7 +586,7 @@ export default function ListerDashboardPage() {
       customerName: 'Ayesha Malik',
       customerPhone: '+92 321 9988771',
       customerCnic: '35201-8849201-4',
-      customerLicense: 'N/A (Chauffeur Service Requested)',
+      customerLicense: 'N/A (Driver Service Requested)',
       licenseExpiry: '',
       startDate: '2026-11-20',
       endDate: '2026-11-22',
@@ -1277,66 +1318,86 @@ export default function ListerDashboardPage() {
 
               <div className="space-y-3">
                 {fleetList.map((f) => (
-                  <div key={f.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <img src={f.img} alt={f.title} className="w-16 h-12 object-cover rounded-xl border border-slate-200" />
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-bold text-sm text-slate-900">{f.title}</h4>
-                          <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-800">
-                            {f.reg}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                  <div key={f.id} className="p-3.5 sm:p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                    {/* Top: Thumbnail + Info */}
+                    <div className="flex items-start gap-3">
+                      <div className="relative w-16 h-16 sm:w-20 sm:h-16 shrink-0 rounded-xl overflow-hidden bg-slate-200 border border-slate-200">
+                        <img
+                          src={f.img}
+                          alt={f.title}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80';
+                          }}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-1.5">
+                          <h4 className="font-bold text-xs sm:text-sm text-slate-900 truncate">{f.title}</h4>
+                          <span
+                            className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              f.status === 'LIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
+                            }`}
+                          >
                             {f.status}
                           </span>
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
+
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-500 mt-1">
+                          <span className="font-mono font-bold px-1.5 py-0.2 rounded bg-slate-200 text-slate-800 text-[10px]">
+                            {f.reg}
+                          </span>
                           <span>📍 {f.city}</span>
-                          <span>•</span>
                           <span className="font-bold text-emerald-700">PKR {formatPKR(f.dailyRate)}/day</span>
-                          <span>•</span>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-1">
                           <span>{f.views} Views</span>
                           <span>•</span>
-                          <span className="text-emerald-600 font-semibold">{f.leads} Leads</span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
-                          <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                            <Users className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Chauffeur:</span>
-                            <span className="font-extrabold text-xs text-emerald-900 bg-white px-2 py-0.5 rounded-md border border-emerald-300">
-                              {f.assignedDriver || 'Self-Drive Only'}
-                            </span>
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const next = f.bookingRequirement === 'DIRECT_CONTACT' ? 'REQUIRED_DETAILS' : 'DIRECT_CONTACT';
-                              setFleetList(fleetList.map((item) => (item.id === f.id ? { ...item, bookingRequirement: next } : item)));
-                            }}
-                            className={`px-2.5 py-0.5 rounded-md text-[10px] font-extrabold border transition cursor-pointer flex items-center gap-1 ${
-                              f.bookingRequirement === 'DIRECT_CONTACT'
-                                ? 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100'
-                                : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
-                            }`}
-                            title="Click to toggle customer booking requirement"
-                          >
-                            <span>{f.bookingRequirement === 'DIRECT_CONTACT' ? '⚡ Instant Contact (No Form)' : '🔒 Required Details (Default)'}</span>
-                          </button>
+                          <span className="text-emerald-700 font-bold">{f.leads} Leads</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    {/* Driver & Booking Mode */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200/80 text-xs">
+                      <span className="text-[11px] font-semibold text-slate-700 flex items-center gap-1 min-w-0">
+                        <Users className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span className="shrink-0">{isPakistan ? 'Driver / Captain:' : 'Chauffeur:'}</span>
+                        <span className="font-bold text-[11px] text-emerald-950 bg-white px-2 py-0.5 rounded-md border border-emerald-300 truncate max-w-[130px] sm:max-w-none">
+                          {f.assignedDriver || 'Self-Drive'}
+                        </span>
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = f.bookingRequirement === 'DIRECT_CONTACT' ? 'REQUIRED_DETAILS' : 'DIRECT_CONTACT';
+                          setFleetList(fleetList.map((item) => (item.id === f.id ? { ...item, bookingRequirement: next } : item)));
+                        }}
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition cursor-pointer flex items-center gap-1 ${
+                          f.bookingRequirement === 'DIRECT_CONTACT'
+                            ? 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100'
+                            : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                        }`}
+                        title="Click to toggle customer booking requirement"
+                      >
+                        <span>{f.bookingRequirement === 'DIRECT_CONTACT' ? '⚡ Instant Contact' : '🔒 Required Details'}</span>
+                      </button>
+                    </div>
+
+                    {/* Actions Toolbar */}
+                    <div className="grid grid-cols-3 gap-2 pt-1">
                       <button
                         type="button"
                         onClick={() => handleOpenEditVehicle(f)}
-                        className="px-3 py-1.5 text-xs font-bold rounded-xl border border-emerald-600 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        className="py-1.5 px-2 text-xs font-bold rounded-xl border border-emerald-600 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
                       >
-                        <Edit3 className="w-3.5 h-3.5 text-emerald-700" />
-                        <span>Edit Listing</span>
+                        <Edit3 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                        <span>Edit</span>
                       </button>
                       <button
+                        type="button"
                         onClick={() =>
                           setFleetList(
                             fleetList.map((item) =>
@@ -1344,20 +1405,22 @@ export default function ListerDashboardPage() {
                             )
                           )
                         }
-                        className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-300 bg-white hover:bg-slate-100 transition cursor-pointer"
+                        className="py-1.5 px-2 text-xs font-bold rounded-xl border border-slate-300 bg-white hover:bg-slate-100 transition cursor-pointer text-center truncate"
                       >
-                        {f.status === 'LIVE' ? 'Pause Listing' : 'Make LIVE'}
+                        {f.status === 'LIVE' ? 'Pause' : 'Activate'}
                       </button>
                       <button
+                        type="button"
                         onClick={() => {
                           if (confirm(`Delete listing "${f.title}" (${f.reg}) from your fleet roster?`)) {
                             setFleetList(fleetList.filter((item) => item.id !== f.id));
                           }
                         }}
-                        className="p-2 bg-white text-rose-600 border border-slate-200 rounded-xl hover:bg-rose-50 transition cursor-pointer"
+                        className="py-1.5 px-2 bg-white text-rose-600 border border-slate-200 rounded-xl hover:bg-rose-50 transition cursor-pointer flex items-center justify-center gap-1"
                         title="Delete vehicle"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                        <span>Delete</span>
                       </button>
                     </div>
                   </div>
@@ -1501,13 +1564,29 @@ export default function ListerDashboardPage() {
 
                   {/* Make / Brand */}
                   <div>
-                    <label className="font-bold text-slate-700 block mb-1.5">Make / Brand *</label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="font-bold text-slate-700">Make / Brand *</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomBrand(!isCustomBrand);
+                          if (!isCustomBrand) setCarBrand('');
+                        }}
+                        className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
+                      >
+                        <PlusCircle className="w-3.5 h-3.5" />
+                        <span>{isCustomBrand ? 'Choose from brand list' : '+ Add Custom Brand'}</span>
+                      </button>
+                    </div>
+
+                    {/* Quick top brand pills */}
                     <div className="flex flex-wrap gap-1.5 mb-2">
-                      {['Suzuki', 'Toyota', 'Honda', 'Hyundai', 'KIA', 'Changan', 'MG', 'Haval', 'Nissan', 'Daihatsu'].map((b) => (
+                      {['Suzuki', 'Toyota', 'Honda', 'KIA', 'Hyundai'].map((b) => (
                         <button
                           key={b}
                           type="button"
                           onClick={() => {
+                            setIsCustomBrand(false);
                             setCarBrand(b);
                             if (b === 'Suzuki') {
                               setCarModel('Alto VXR');
@@ -1521,7 +1600,7 @@ export default function ListerDashboardPage() {
                             }
                           }}
                           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer ${
-                            carBrand === b
+                            !isCustomBrand && carBrand === b
                               ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
                               : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                           }`}
@@ -1529,15 +1608,58 @@ export default function ListerDashboardPage() {
                           {b}
                         </button>
                       ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomBrand(true);
+                          setCarBrand('');
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer ${
+                          isCustomBrand
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                            : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                        }`}
+                      >
+                        + Other / Custom
+                      </button>
                     </div>
-                    <input
-                      type="text"
-                      value={carBrand}
-                      onChange={(e) => setCarBrand(e.target.value)}
-                      placeholder="Suzuki"
-                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900"
-                      required
-                    />
+
+                    {/* Dropdown or Custom Input */}
+                    {isCustomBrand ? (
+                      <div className="space-y-1">
+                        <input
+                          type="text"
+                          value={carBrand}
+                          onChange={(e) => setCarBrand(e.target.value)}
+                          placeholder="Type custom brand name (e.g. BYD, Deepal, Baic, GWM...)"
+                          className="w-full p-2.5 bg-slate-50 border border-emerald-400 rounded-xl font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/20"
+                          required
+                          autoFocus
+                        />
+                        <p className="text-[10px] text-slate-500">Enter any local, imported, or custom vehicle manufacturer.</p>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <select
+                          value={STANDARD_CAR_BRANDS.includes(carBrand) ? carBrand : 'CUSTOM'}
+                          onChange={(e) => {
+                            if (e.target.value === 'CUSTOM') {
+                              setIsCustomBrand(true);
+                              setCarBrand('');
+                            } else {
+                              setCarBrand(e.target.value);
+                            }
+                          }}
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 cursor-pointer text-xs"
+                        >
+                          <option value="" disabled>Choose brand or manufacturer...</option>
+                          {STANDARD_CAR_BRANDS.map((b) => (
+                            <option key={b} value={b}>{b}</option>
+                          ))}
+                          <option value="CUSTOM">+ Add Custom / Other Brand...</option>
+                        </select>
+                      </div>
+                    )}
                   </div>
 
                   {/* Model */}
@@ -1557,13 +1679,13 @@ export default function ListerDashboardPage() {
                   </div>
 
                   {/* Year & Rent Per Day */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2.5">
                     <div>
                       <label className="font-bold text-slate-700 block mb-1">Year *</label>
                       <select
                         value={carYear}
                         onChange={(e) => setCarYear(e.target.value)}
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium cursor-pointer"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium cursor-pointer text-xs"
                       >
                         {['2026', '2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016', '2015', '2014', '2012'].map((y) => (
                           <option key={y} value={y}>{y}</option>
@@ -1572,18 +1694,18 @@ export default function ListerDashboardPage() {
                     </div>
 
                     <div>
-                      <label className="font-bold text-slate-700 block mb-1">Rent Per Day (PKR) *</label>
-                      <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
-                        <span className="font-bold text-slate-500">PKR</span>
+                      <label className="font-bold text-slate-700 block mb-1">Rent / Day (PKR) *</label>
+                      <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2">
+                        <span className="font-bold text-slate-500 text-xs">PKR</span>
                         <input
                           type="number"
                           value={carRentPerDay}
                           onChange={(e) => setCarRentPerDay(e.target.value)}
                           placeholder="4500"
-                          className="w-full font-mono font-bold outline-none text-slate-900 bg-transparent"
+                          className="w-full font-mono font-bold outline-none text-slate-900 bg-transparent text-xs"
                           required
                         />
-                        <span className="text-[10px] text-slate-400">/day</span>
+                        <span className="text-[10px] text-slate-400">/d</span>
                       </div>
                     </div>
                   </div>
@@ -1694,248 +1816,323 @@ export default function ListerDashboardPage() {
                     </div>
                   </div>
 
-                  {/* Detailed Specifications & Categorized Options (OneClickDrive grade - optional) */}
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="font-heading font-extrabold text-sm text-slate-900 flex items-center gap-1.5">
-                        <Sparkles className="w-4 h-4 text-emerald-600" />
-                        Detailed Specifications & Optional Rates
-                      </span>
-                      <span className="text-[10px] font-bold text-slate-500 uppercase bg-white px-2 py-0.5 rounded border border-slate-200">
-                        Optional
-                      </span>
-                    </div>
-
-                    {/* Tiered Weekly & Monthly Rates */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="font-bold text-slate-700 block mb-1">Weekly Rent (PKR)</label>
-                        <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-2">
-                          <span className="font-bold text-slate-400">PKR</span>
-                          <input
-                            type="number"
-                            value={carWeeklyRent}
-                            onChange={(e) => setCarWeeklyRent(e.target.value)}
-                            placeholder="e.g. 28000"
-                            className="w-full font-mono font-bold outline-none text-slate-900 bg-transparent text-xs"
-                          />
-                          <span className="text-[10px] text-slate-400">/week</span>
+                  {/* Detailed Specifications & Categorized Options (Collapsible to save mobile height) */}
+                  <div className="rounded-2xl bg-slate-50 border border-slate-200/90 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setShowDetailedSpecs(!showDetailedSpecs)}
+                      className="w-full p-3.5 flex items-center justify-between text-left hover:bg-slate-100/70 transition cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <div>
+                          <span className="font-heading font-extrabold text-xs sm:text-sm text-slate-900 block">
+                            Detailed Specifications & Optional Rates
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-medium hidden sm:inline">
+                            Weekly/Monthly rates, engine size, baggage, security deposit & colors
+                          </span>
                         </div>
                       </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[9px] font-bold text-slate-500 uppercase bg-white px-2 py-0.5 rounded border border-slate-200">
+                          Optional
+                        </span>
+                        <span className="text-xs font-bold text-emerald-700 flex items-center gap-0.5 ml-1">
+                          {showDetailedSpecs ? (
+                            <><span>Hide</span> <ChevronUp className="w-4 h-4" /></>
+                          ) : (
+                            <><span>More Specs</span> <ChevronDown className="w-4 h-4" /></>
+                          )}
+                        </span>
+                      </div>
+                    </button>
 
-                      <div>
-                        <label className="font-bold text-slate-700 block mb-1">Monthly Rent (PKR)</label>
-                        <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-2">
-                          <span className="font-bold text-slate-400">PKR</span>
-                          <input
-                            type="number"
-                            value={carMonthlyRent}
-                            onChange={(e) => setCarMonthlyRent(e.target.value)}
-                            placeholder="e.g. 95000"
-                            className="w-full font-mono font-bold outline-none text-slate-900 bg-transparent text-xs"
-                          />
-                          <span className="text-[10px] text-slate-400">/mo</span>
+                    {showDetailedSpecs && (
+                      <div className="p-4 pt-2 space-y-4 border-t border-slate-200/60 mt-1">
+                        {/* Tiered Weekly & Monthly Rates */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">Weekly Rent (PKR)</label>
+                            <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-2">
+                              <span className="font-bold text-slate-400">PKR</span>
+                              <input
+                                type="number"
+                                value={carWeeklyRent}
+                                onChange={(e) => setCarWeeklyRent(e.target.value)}
+                                placeholder="e.g. 28000"
+                                className="w-full font-mono font-bold outline-none text-slate-900 bg-transparent text-xs"
+                              />
+                              <span className="text-[10px] text-slate-400">/week</span>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">Monthly Rent (PKR)</label>
+                            <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-2">
+                              <span className="font-bold text-slate-400">PKR</span>
+                              <input
+                                type="number"
+                                value={carMonthlyRent}
+                                onChange={(e) => setCarMonthlyRent(e.target.value)}
+                                placeholder="e.g. 95000"
+                                className="w-full font-mono font-bold outline-none text-slate-900 bg-transparent text-xs"
+                              />
+                              <span className="text-[10px] text-slate-400">/mo</span>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
 
-                    {/* Body Type & Engine */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div>
-                        <label className="font-bold text-slate-700 block mb-1">Body Type</label>
-                        <select
-                          value={carBodyType}
-                          onChange={(e) => setCarBodyType(e.target.value)}
-                          className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium cursor-pointer"
-                        >
-                          <option value="Hatchback">Hatchback</option>
-                          <option value="Sedan">Sedan</option>
-                          <option value="SUV / 4x4">SUV / 4x4</option>
-                          <option value="Crossover">Crossover</option>
-                          <option value="Van / Hiace">Van / Hiace</option>
-                          <option value="Luxury Sedan">Luxury Sedan</option>
-                          <option value="Sports Car">Sports Car</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="font-bold text-slate-700 block mb-1">Engine Capacity</label>
-                        <input
-                          type="text"
-                          value={carEngineCapacity}
-                          onChange={(e) => setCarEngineCapacity(e.target.value)}
-                          placeholder="e.g. 660cc, 1.5L Turbo"
-                          className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="font-bold text-slate-700 block mb-1">Horsepower (HP)</label>
-                        <input
-                          type="text"
-                          value={carHorsepower}
-                          onChange={(e) => setCarHorsepower(e.target.value)}
-                          placeholder="e.g. 68, 178"
-                          className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Doors, Luggage Boot, Min Age, Security Deposit */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div>
-                        <label className="font-bold text-slate-700 block mb-1">Doors</label>
-                        <select
-                          value={carDoors}
-                          onChange={(e) => setCarDoors(Number(e.target.value))}
-                          className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium cursor-pointer"
-                        >
-                          <option value={2}>2 Doors</option>
-                          <option value={4}>4 Doors</option>
-                          <option value={5}>5 Doors</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="font-bold text-slate-700 block mb-1">Luggage Boot</label>
-                        <input
-                          type="text"
-                          value={carBags}
-                          onChange={(e) => setCarBags(e.target.value)}
-                          placeholder="e.g. 2 large bags"
-                          className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="font-bold text-slate-700 block mb-1">Min Driver Age</label>
-                        <input
-                          type="number"
-                          value={carMinAge}
-                          onChange={(e) => setCarMinAge(e.target.value)}
-                          placeholder="21"
-                          className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="font-bold text-slate-700 block mb-1">Deposit (PKR)</label>
-                        <input
-                          type="number"
-                          value={carDeposit}
-                          onChange={(e) => setCarDeposit(e.target.value)}
-                          placeholder="15000"
-                          className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Daily Mileage & Extra Km Rate */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="font-bold text-slate-700 block mb-1">Daily Included Mileage</label>
-                        <input
-                          type="text"
-                          value={carMileageDaily}
-                          onChange={(e) => setCarMileageDaily(e.target.value)}
-                          placeholder="250 km / day"
-                          className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="font-bold text-slate-700 block mb-1">Extra Mileage Rate</label>
-                        <input
-                          type="text"
-                          value={carExtraKmRate}
-                          onChange={(e) => setCarExtraKmRate(e.target.value)}
-                          placeholder="PKR 25 / km"
-                          className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Colors */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="font-bold text-slate-700 block mb-1">Exterior Color</label>
-                        <input
-                          type="text"
-                          value={carExteriorColor}
-                          onChange={(e) => setCarExteriorColor(e.target.value)}
-                          placeholder="e.g. White / Black / Silver"
-                          className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="font-bold text-slate-700 block mb-1">Interior Color</label>
-                        <input
-                          type="text"
-                          value={carInteriorColor}
-                          onChange={(e) => setCarInteriorColor(e.target.value)}
-                          placeholder="e.g. Black Leather / Beige"
-                          className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Categorized Feature Toggles */}
-                    <div className="space-y-2 pt-2 border-t border-slate-200">
-                      <label className="font-bold text-slate-800 block">Select Key Features & Inclusions</label>
-                      <div className="flex flex-wrap gap-1.5">
-                        {[
-                          'Air Conditioning & Heating',
-                          'Leather Seats',
-                          'Sunroof / Moonroof',
-                          'Factory Alloy Wheels',
-                          'Push Button Start',
-                          'Keyless Entry',
-                          'Cruise Control',
-                          'Apple CarPlay & Android Auto',
-                          'Reverse Camera',
-                          '360-Degree Camera',
-                          'Parking Sensors',
-                          'ABS with EBD',
-                          'Dual Airbags',
-                          'Bluetooth Audio',
-                        ].map((feature) => {
-                          const isSelected =
-                            selectedInteriorFeatures.includes(feature) ||
-                            selectedSafetyFeatures.includes(feature) ||
-                            selectedExteriorFeatures.includes(feature) ||
-                            selectedComfortFeatures.includes(feature) ||
-                            selectedInfotainmentFeatures.includes(feature);
-
-                          const toggle = () => {
-                            if (isSelected) {
-                              setSelectedInteriorFeatures((prev) => prev.filter((x) => x !== feature));
-                              setSelectedSafetyFeatures((prev) => prev.filter((x) => x !== feature));
-                              setSelectedExteriorFeatures((prev) => prev.filter((x) => x !== feature));
-                              setSelectedComfortFeatures((prev) => prev.filter((x) => x !== feature));
-                              setSelectedInfotainmentFeatures((prev) => prev.filter((x) => x !== feature));
-                            } else {
-                              setSelectedComfortFeatures((prev) => [...prev, feature]);
-                            }
-                          };
-
-                          return (
-                            <button
-                              key={feature}
-                              type="button"
-                              onClick={toggle}
-                              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition cursor-pointer flex items-center gap-1 ${
-                                isSelected
-                                  ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
-                                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                              }`}
+                        {/* Body Type & Engine */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">Body Type</label>
+                            <select
+                              value={carBodyType}
+                              onChange={(e) => setCarBodyType(e.target.value)}
+                              className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium cursor-pointer"
                             >
-                              {isSelected && <Check className="w-3 h-3 text-emerald-700" />}
-                              <span>{feature}</span>
-                            </button>
-                          );
-                        })}
+                              <option value="Hatchback">Hatchback</option>
+                              <option value="Sedan">Sedan</option>
+                              <option value="SUV / 4x4">SUV / 4x4</option>
+                              <option value="Crossover">Crossover</option>
+                              <option value="Van / Hiace">Van / Hiace</option>
+                              <option value="Luxury Sedan">Luxury Sedan</option>
+                              <option value="Sports Car">Sports Car</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">Engine Capacity</label>
+                            <input
+                              type="text"
+                              value={carEngineCapacity}
+                              onChange={(e) => setCarEngineCapacity(e.target.value)}
+                              placeholder="e.g. 660cc, 1.5L Turbo"
+                              className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">Horsepower (HP)</label>
+                            <input
+                              type="text"
+                              value={carHorsepower}
+                              onChange={(e) => setCarHorsepower(e.target.value)}
+                              placeholder="e.g. 68, 178"
+                              className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Doors, Luggage Boot, Min Age, Security Deposit */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">Doors</label>
+                            <select
+                              value={carDoors}
+                              onChange={(e) => setCarDoors(Number(e.target.value))}
+                              className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium cursor-pointer"
+                            >
+                              <option value={2}>2 Doors</option>
+                              <option value={4}>4 Doors</option>
+                              <option value={5}>5 Doors</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">Luggage Boot</label>
+                            <input
+                              type="text"
+                              value={carBags}
+                              onChange={(e) => setCarBags(e.target.value)}
+                              placeholder="e.g. 2 large bags"
+                              className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">Min Driver Age</label>
+                            <input
+                              type="number"
+                              value={carMinAge}
+                              onChange={(e) => setCarMinAge(e.target.value)}
+                              placeholder="21"
+                              className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">Deposit (PKR)</label>
+                            <input
+                              type="number"
+                              value={carDeposit}
+                              onChange={(e) => setCarDeposit(e.target.value)}
+                              placeholder="15000"
+                              className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Daily Mileage & Extra Km Rate */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">Daily Included Mileage</label>
+                            <input
+                              type="text"
+                              value={carMileageDaily}
+                              onChange={(e) => setCarMileageDaily(e.target.value)}
+                              placeholder="250 km / day"
+                              className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">Extra Mileage Rate</label>
+                            <input
+                              type="text"
+                              value={carExtraKmRate}
+                              onChange={(e) => setCarExtraKmRate(e.target.value)}
+                              placeholder="PKR 25 / km"
+                              className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Colors */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">Exterior Color</label>
+                            <input
+                              type="text"
+                              value={carExteriorColor}
+                              onChange={(e) => setCarExteriorColor(e.target.value)}
+                              placeholder="e.g. White / Black / Silver"
+                              className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">Interior Color</label>
+                            <input
+                              type="text"
+                              value={carInteriorColor}
+                              onChange={(e) => setCarInteriorColor(e.target.value)}
+                              placeholder="e.g. Black Leather / Beige"
+                              className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                            />
+                          </div>
+                        </div>
                       </div>
+                    )}
+                  </div>
+
+                  {/* Features & Inclusions with Custom Feature Adding */}
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="font-bold text-slate-800 block text-xs">Features & Inclusions</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowCustomFeatureInput(!showCustomFeatureInput)}
+                        className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
+                      >
+                        <PlusCircle className="w-3.5 h-3.5" />
+                        <span>{showCustomFeatureInput ? 'Done' : '+ Add Custom Feature'}</span>
+                      </button>
+                    </div>
+
+                    {showCustomFeatureInput && (
+                      <div className="flex items-center gap-1.5 p-2 bg-emerald-50/70 border border-emerald-200 rounded-xl">
+                        <input
+                          type="text"
+                          value={customFeatureInput}
+                          onChange={(e) => setCustomFeatureInput(e.target.value)}
+                          placeholder="e.g. Roof Carrier, Dashcam, Child Safety Seat..."
+                          className="flex-1 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && customFeatureInput.trim()) {
+                              e.preventDefault();
+                              const feat = customFeatureInput.trim();
+                              if (!customFeaturesList.includes(feat)) {
+                                setCustomFeaturesList([...customFeaturesList, feat]);
+                                setSelectedComfortFeatures((prev) => [...prev, feat]);
+                              }
+                              setCustomFeatureInput('');
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (customFeatureInput.trim()) {
+                              const feat = customFeatureInput.trim();
+                              if (!customFeaturesList.includes(feat)) {
+                                setCustomFeaturesList([...customFeaturesList, feat]);
+                                setSelectedComfortFeatures((prev) => [...prev, feat]);
+                              }
+                              setCustomFeatureInput('');
+                            }
+                          }}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        'Air Conditioning & Heating',
+                        'Leather Seats',
+                        'Sunroof / Moonroof',
+                        'Factory Alloy Wheels',
+                        'Push Button Start',
+                        'Keyless Entry',
+                        'Cruise Control',
+                        'Apple CarPlay & Android Auto',
+                        'Reverse Camera',
+                        '360-Degree Camera',
+                        'Parking Sensors',
+                        'ABS with EBD',
+                        'Dual Airbags',
+                        'Bluetooth Audio',
+                        ...customFeaturesList,
+                      ].map((feature) => {
+                        const isSelected =
+                          selectedInteriorFeatures.includes(feature) ||
+                          selectedSafetyFeatures.includes(feature) ||
+                          selectedExteriorFeatures.includes(feature) ||
+                          selectedComfortFeatures.includes(feature) ||
+                          selectedInfotainmentFeatures.includes(feature);
+
+                        const toggle = () => {
+                          if (isSelected) {
+                            setSelectedInteriorFeatures((prev) => prev.filter((x) => x !== feature));
+                            setSelectedSafetyFeatures((prev) => prev.filter((x) => x !== feature));
+                            setSelectedExteriorFeatures((prev) => prev.filter((x) => x !== feature));
+                            setSelectedComfortFeatures((prev) => prev.filter((x) => x !== feature));
+                            setSelectedInfotainmentFeatures((prev) => prev.filter((x) => x !== feature));
+                          } else {
+                            setSelectedComfortFeatures((prev) => [...prev, feature]);
+                          }
+                        };
+
+                        return (
+                          <button
+                            key={feature}
+                            type="button"
+                            onClick={toggle}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition cursor-pointer flex items-center gap-1 ${
+                              isSelected
+                                ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                            }`}
+                          >
+                            {isSelected && <Check className="w-3 h-3 text-emerald-700" />}
+                            <span>{feature}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -2387,9 +2584,11 @@ export default function ListerDashboardPage() {
                     </div>
 
                     {/* Driver Allotment & WhatsApp Dispatch */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-white rounded-xl border border-slate-200 text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-700">Chauffeur Allotted:</span>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white rounded-xl border border-slate-200 text-xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 w-full min-w-0">
+                        <span className="font-bold text-slate-700 shrink-0">
+                          {isPakistan ? 'Driver / Captain Allotted:' : 'Chauffeur Allotted:'}
+                        </span>
                         <select
                           value={r.assignedDriver || 'Muhammad Akram'}
                           onChange={(e) => {
@@ -2397,7 +2596,7 @@ export default function ListerDashboardPage() {
                               incomingRequests.map((item) => (item.id === r.id ? { ...item, assignedDriver: e.target.value } : item))
                             );
                           }}
-                          className="p-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold text-slate-800 cursor-pointer"
+                          className="p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold text-slate-800 cursor-pointer w-full sm:w-auto max-w-full truncate outline-none"
                         >
                           {listerDriverTeam.map((d) => (
                             <option key={d.id} value={d.name}>
@@ -2408,23 +2607,23 @@ export default function ListerDashboardPage() {
                         </select>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto shrink-0">
                         <button
                           type="button"
                           onClick={() => setSelectedCustomerVaultModal(r)}
-                          className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition cursor-pointer"
+                          className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition cursor-pointer w-full sm:w-auto text-center"
                         >
-                          <FileText className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Inspect Verified License & CNIC Vault</span>
+                          <FileText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span className="truncate">Inspect Vault</span>
                         </button>
                         <a
                           href={`https://wa.me/${r.customerPhone.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(r.customerName)}!%20Your%20booking%20${r.bookingRef}%20for%20${encodeURIComponent(r.vehicleName)}%20is%20confirmed.%20Assigned%20Driver:%20${encodeURIComponent(r.assignedDriver || 'Muhammad Akram')}.`}
                           target="_blank"
                           rel="noreferrer"
-                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold flex items-center justify-center gap-1.5 shadow-2xs transition"
+                          className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition w-full sm:w-auto text-center"
                         >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                          <span>Confirm Booking ({r.customerPhone})</span>
+                          <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>Confirm Booking</span>
                         </a>
                       </div>
                     </div>
@@ -2513,9 +2712,13 @@ export default function ListerDashboardPage() {
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-5 text-xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
                 <div>
-                  <h3 className="font-extrabold text-base text-slate-900">Company Drivers & Chauffeurs Roster</h3>
+                  <h3 className="font-extrabold text-base text-slate-900">
+                    {isPakistan ? 'Company Drivers & Captains Roster' : 'Company Drivers & Chauffeurs Roster'}
+                  </h3>
                   <p className="text-slate-500">
-                    Register company drivers and assign them to your fleet vehicles. When a customer books a car with chauffeur, they receive the driver name and phone.
+                    {isPakistan
+                      ? 'Register company drivers/captains and assign them to your fleet vehicles. When a customer books a car with driver, they receive the driver name and phone.'
+                      : 'Register company drivers and assign them to your fleet vehicles. When a customer books a car with chauffeur, they receive the driver name and phone.'}
                   </p>
                 </div>
                 <button
@@ -2524,7 +2727,7 @@ export default function ListerDashboardPage() {
                   className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center gap-2 shadow-sm cursor-pointer whitespace-nowrap"
                 >
                   <PlusCircle className="w-4 h-4" />
-                  <span>+ Add Driver / Chauffeur</span>
+                  <span>+ Add {isPakistan ? 'Driver / Captain' : 'Driver / Chauffeur'}</span>
                 </button>
               </div>
 
@@ -2668,7 +2871,7 @@ export default function ListerDashboardPage() {
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
-                <h3 className="font-extrabold text-base text-slate-900">+ Add Company Chauffeur</h3>
+                <h3 className="font-extrabold text-base text-slate-900">+ Add {isPakistan ? 'Company Driver / Captain' : 'Company Chauffeur'}</h3>
                 <p className="text-[11px] text-slate-500">Register a driver and assign them to your fleet car.</p>
               </div>
               <button
@@ -3165,14 +3368,16 @@ export default function ListerDashboardPage() {
                 </div>
               </div>
 
-              {/* Assigned Chauffeur */}
+              {/* Assigned Driver / Captain */}
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Assigned Chauffeur / Driver Name</label>
+                <label className="font-bold text-slate-700 block mb-1">
+                  {isPakistan ? 'Assigned Driver / Captain Name' : 'Assigned Chauffeur / Driver Name'}
+                </label>
                 <input
                   type="text"
                   value={editingVehicle.assignedDriver || ''}
                   onChange={(e) => setEditingVehicle({ ...editingVehicle, assignedDriver: e.target.value })}
-                  placeholder="e.g. Tariq Mahmood (or leave empty for Self-Drive Only)"
+                  placeholder={isPakistan ? 'e.g. Tariq Mahmood (or leave empty for Self-Drive Only)' : 'e.g. Tariq Mahmood (or leave empty for Self-Drive Only)'}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium"
                 />
               </div>

@@ -74,6 +74,9 @@ export function maskCnic(cnic?: string | null): string {
 export function maskLicense(lic?: string | null): string {
   if (!lic) return 'LHR-DL-98***0';
   const trimmed = lic.trim();
+  if (trimmed.toLowerCase().startsWith('n/a')) {
+    return 'N/A (Driver Booking)';
+  }
   const parts = trimmed.split('-');
   if (parts.length >= 3) {
     const authority = parts[0];
