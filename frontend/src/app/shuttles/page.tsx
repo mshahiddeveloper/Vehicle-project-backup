@@ -198,34 +198,34 @@ export default function ShuttlesPage() {
           </p>
         </div>
 
-        {/* Route Finder Form */}
-        <div className="p-4 bg-[#F7F8FA] rounded-[18px] border border-[#EEF0F2] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
-          <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#344054]">
-            Pick-up area
+        {/* Route Finder Form: Responsive App-Like Grid */}
+        <div className="p-3 sm:p-4 bg-[#F7F8FA] rounded-2xl sm:rounded-[20px] border border-[#EEF0F2] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3 items-end shadow-2xs">
+          <label className="flex flex-col gap-1 text-xs sm:text-[13px] font-semibold text-[#344054]">
+            <span>Pick-up area</span>
             <input
               type="text"
               value={fromArea}
               onChange={(e) => setFromArea(e.target.value)}
-              className="h-12 px-3 border border-[#E4E7EC] rounded-xl bg-white font-medium text-[15px] text-[#101828] outline-none"
+              className="h-10 sm:h-12 px-3 border border-[#E4E7EC] rounded-xl bg-white font-bold text-xs sm:text-sm text-[#101828] outline-none shadow-2xs"
             />
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#344054]">
-            Drop-off area / institution
+          <label className="flex flex-col gap-1 text-xs sm:text-[13px] font-semibold text-[#344054]">
+            <span>Drop-off area / institution</span>
             <input
               type="text"
               value={toArea}
               onChange={(e) => setToArea(e.target.value)}
-              className="h-12 px-3 border border-[#E4E7EC] rounded-xl bg-white font-medium text-[15px] text-[#101828] outline-none"
+              className="h-10 sm:h-12 px-3 border border-[#E4E7EC] rounded-xl bg-white font-bold text-xs sm:text-sm text-[#101828] outline-none shadow-2xs"
             />
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#344054]">
-            For
+          <label className="flex flex-col gap-1 text-xs sm:text-[13px] font-semibold text-[#344054]">
+            <span>Category</span>
             <select
               value={targetType}
               onChange={(e) => setTargetType(e.target.value)}
-              className="h-12 px-3 border border-[#E4E7EC] rounded-xl bg-white font-medium text-[15px] text-[#101828] outline-none cursor-pointer"
+              className="h-10 sm:h-12 px-3 border border-[#E4E7EC] rounded-xl bg-white font-bold text-xs sm:text-sm text-[#101828] outline-none cursor-pointer shadow-2xs"
             >
               <option value="Both">School, College & Office</option>
               <option value="School">School / College</option>
@@ -233,12 +233,12 @@ export default function ShuttlesPage() {
             </select>
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#344054]">
-            Passengers
+          <label className="flex flex-col gap-1 text-xs sm:text-[13px] font-semibold text-[#344054]">
+            <span>Passengers</span>
             <select
               value={audienceFilter}
               onChange={(e) => setAudienceFilter(e.target.value)}
-              className="h-12 px-3 border border-[#E4E7EC] rounded-xl bg-white font-medium text-[15px] text-[#101828] outline-none cursor-pointer"
+              className="h-10 sm:h-12 px-3 border border-[#E4E7EC] rounded-xl bg-white font-bold text-xs sm:text-sm text-[#101828] outline-none cursor-pointer shadow-2xs"
             >
               <option value="Any">Any gender</option>
               <option value="Girls">Girls only</option>
@@ -248,7 +248,7 @@ export default function ShuttlesPage() {
 
           <button
             type="button"
-            className="h-12 px-6 rounded-xl bg-[#6D28D9] text-white font-bold text-[15px] hover:bg-[#5b21b6] transition cursor-pointer shadow-sm"
+            className="h-10 sm:h-12 px-6 rounded-xl bg-[#6D28D9] text-white font-extrabold text-xs sm:text-sm hover:bg-[#5b21b6] transition cursor-pointer shadow-sm active:scale-98"
           >
             Find routes
           </button>

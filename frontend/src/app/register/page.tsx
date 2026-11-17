@@ -3,7 +3,26 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Globe, ArrowRight, ShieldCheck, AlertCircle, CheckCircle2, Lock, Eye, EyeOff } from 'lucide-react';
+import {
+  Globe,
+  ArrowRight,
+  ShieldCheck,
+  AlertCircle,
+  CheckCircle2,
+  Lock,
+  Eye,
+  EyeOff,
+  ChevronLeft,
+  User,
+  Briefcase,
+  Car,
+  Truck,
+  Bus,
+  Award,
+  Check,
+  CarTaxiFront,
+  Boxes,
+} from 'lucide-react';
 import { RoleArt } from '@/components/RoleArt';
 import { registerNewUser, UserRole, ProviderSubtype } from '@/data/userAuth';
 
@@ -15,15 +34,35 @@ function RegisterForm() {
   const searchParams = useSearchParams();
 
   const [lang, setLang] = useState<SupportedLang>('en');
-  const [selectedRole, setSelectedRole] = useState<OperationalRole | null>(null);
+  const [accountType, setAccountType] = useState<'customer' | 'partner'>('customer');
+  const [partnerRole, setPartnerRole] = useState<OperationalRole>('LISTER');
+  const [selectedRole, setSelectedRole] = useState<OperationalRole>('CUSTOMER');
 
   useEffect(() => {
     const roleParam = searchParams.get('role')?.toUpperCase();
-    if (roleParam === 'CUSTOMER') setSelectedRole('CUSTOMER');
-    else if (roleParam === 'LISTER') setSelectedRole('LISTER');
-    else if (roleParam === 'DRIVER') setSelectedRole('DRIVER');
-    else if (roleParam === 'PICK_DROP' || roleParam === 'SHUTTLE') setSelectedRole('PICK_DROP');
-    else if (roleParam === 'SHIFTING' || roleParam === 'MOVER') setSelectedRole('SHIFTING');
+    if (roleParam === 'CUSTOMER') {
+      setAccountType('customer');
+      setSelectedRole('CUSTOMER');
+    } else if (roleParam === 'LISTER') {
+      setAccountType('partner');
+      setPartnerRole('LISTER');
+      setSelectedRole('LISTER');
+    } else if (roleParam === 'DRIVER') {
+      setAccountType('partner');
+      setPartnerRole('DRIVER');
+      setSelectedRole('DRIVER');
+    } else if (roleParam === 'PICK_DROP' || roleParam === 'SHUTTLE') {
+      setAccountType('partner');
+      setPartnerRole('PICK_DROP');
+      setSelectedRole('PICK_DROP');
+    } else if (roleParam === 'SHIFTING' || roleParam === 'MOVER') {
+      setAccountType('partner');
+      setPartnerRole('SHIFTING');
+      setSelectedRole('SHIFTING');
+    } else {
+      setAccountType('customer');
+      setSelectedRole('CUSTOMER');
+    }
   }, [searchParams]);
 
   // Form Fields
@@ -42,11 +81,11 @@ function RegisterForm() {
   const [loading, setLoading] = useState(false);
 
   const ROLE_BADGES: Record<OperationalRole, Record<SupportedLang, string>> = {
-    CUSTOMER: { en: 'Customer Account', ur: 'کسٹمر اکاؤنٹ', ar: 'حساب عميل', de: 'Kundenkonto' },
-    LISTER: { en: 'Vehicle Owner Account', ur: 'گاڑی کا مالک اکاؤنٹ', ar: 'حساب مالك مركبة', de: 'Fahrzeugbesitzer' },
-    DRIVER: { en: 'Chauffeur Account', ur: 'ڈرائیور اکاؤنٹ', ar: 'حساب سائق', de: 'Chauffeurkonto' },
-    PICK_DROP: { en: 'Shuttle Operator Account', ur: 'پک اینڈ ڈراپ اکاؤنٹ', ar: 'حساب مشغل نقل', de: 'Shuttle-Betreiber' },
-    SHIFTING: { en: 'Cargo Mover Account', ur: 'کارگو موور اکاؤنٹ', ar: 'حساب ناقل شحن', de: 'Transporteurkonto' },
+    CUSTOMER: { en: 'Customer', ur: 'کسٹمر', ar: 'عميل', de: 'Kunde' },
+    LISTER: { en: 'Rent Vehicle', ur: 'گاڑی کرایہ', ar: 'تأجير مركبة', de: 'Fahrzeugvermietung' },
+    DRIVER: { en: 'Captain Driver', ur: 'کپتان / ڈرائیور', ar: 'كابتن / سائق', de: 'Kapitän / Fahrer' },
+    PICK_DROP: { en: 'Pick & Drop', ur: 'پک اینڈ ڈراپ', ar: 'نقل وتوصيل', de: 'Pick & Drop' },
+    SHIFTING: { en: 'Cargo Shifting', ur: 'سامان و شفٹنگ', ar: 'شحن ونقل', de: 'Logistik & Umzug' },
   };
 
   const T: Record<string, Record<SupportedLang, string>> = {
@@ -61,7 +100,7 @@ function RegisterForm() {
     },
     earnHead: { en: 'Earn on SafarPK', ur: 'سفر پی کے پر کمائیں', ar: 'اكسب مع سفر', de: 'Verdienen auf SafarPK' },
     earnSub: {
-      en: 'List vehicles, offer chauffeur rides, commuter vans or cargo transport',
+      en: 'List vehicles, offer driver rides, commuter vans or cargo transport',
       ur: 'گاڑیاں لسٹ کریں، ڈرائیونگ، شٹل یا کارگو سروس دیں',
       ar: 'أدر أسطولك أو قدم خدمات التوصيل والنقل',
       de: 'Fahrzeuge listen oder Transport anbieten',
@@ -73,28 +112,28 @@ function RegisterForm() {
       ar: 'استأجر مركبات وسائقين وتوصيل ونقل بضائع',
       de: 'Fahrzeuge mieten, Fahrer buchen & Fracht',
     },
-    listerTitle: { en: 'Fleet Lister / Host', ur: 'گاڑیوں کا مالک / ہوسٹ', ar: 'مالك أسطول / مضيف', de: 'Flottenbetreiber / Host' },
+    listerTitle: { en: 'Rent Vehicle / Lister', ur: 'گاڑی کرایہ / ہوسٹ', ar: 'تأجير مركبات / مضيف', de: 'Fahrzeugvermietung / Host' },
     listerSub: {
       en: 'Rent out personal or commercial fleet',
       ur: 'ذاتی یا کمرشل گاڑیاں کرائے پر دیں',
       ar: 'تأجير سيارات شخصية أو تجارية',
       de: 'Privat- oder Gewerbefahrzeuge vermieten',
     },
-    driverTitle: { en: 'Independent Driver', ur: 'ذاتی ڈرائیور / شوفیر', ar: 'سائق مستقل', de: 'Chauffeur / Fahrer' },
+    driverTitle: { en: 'Captain / Driver', ur: 'کپتان / ڈرائیور', ar: 'كابتن / سائق', de: 'Kapitän / Fahrer' },
     driverSub: {
-      en: 'Chauffeur by day, trip or monthly',
+      en: 'Drive by day, trip or monthly',
       ur: 'یومیہ، ایک طرفہ یا ماہانہ بنیاد پر ڈرائیونگ کریں',
       ar: 'سائق باليوم أو بالرحلة أو شهرياً',
       de: 'Fahrten pro Tag, Reise oder Monat',
     },
-    shuttleTitle: { en: 'Pick & Drop Operator', ur: 'پک اینڈ ڈراپ آپریٹر', ar: 'مشغل نقل وتوصيل', de: 'Shuttle-Betreiber' },
+    shuttleTitle: { en: 'Pick & Drop', ur: 'پک اینڈ ڈراپ', ar: 'نقل وتوصيل', de: 'Pick & Drop' },
     shuttleSub: {
       en: 'School, office & student routes',
       ur: 'اسکول، کالج اور آفس کے روٹس چلائیں',
       ar: 'مسارات المدارس والمكاتب والطلاب',
       de: 'Schul-, Büro- und Studentenrouten',
     },
-    moverTitle: { en: 'Cargo & Shifting Mover', ur: 'سامان شفٹنگ و کارگو موور', ar: 'نقل أثاث وشحن بضائع', de: 'Umzug & Gütertransport' },
+    moverTitle: { en: 'Logistics & Shifting', ur: 'سامان شفٹنگ و لاجسٹکس', ar: 'خدمات النقل والشحن', de: 'Logistik & Umzug' },
     moverSub: {
       en: 'Home shifting & goods logistics',
       ur: 'گھر، دفتر کی شفٹنگ اور سامان باربرداری',
@@ -106,7 +145,7 @@ function RegisterForm() {
     yourCity: { en: 'Your City *', ur: 'آپ کا شہر *', ar: 'مدينتك *', de: 'Ihre Stadt *' },
     operatingCity: { en: 'Operating City *', ur: 'آپریٹنگ شہر *', ar: 'مدينة العمل *', de: 'Einsatzort / Stadt *' },
     businessLister: { en: 'Business / Showroom / Fleet Title *', ur: 'بزنس یا شوروم کا نام *', ar: 'اسم المعرض أو الأسطول *', de: 'Name des Fuhrparks / Showrooms *' },
-    businessDriver: { en: 'Chauffeur Service Badge / Title', ur: 'ڈرائیور سروس ٹائٹل', ar: 'لقب خدمة السائق', de: 'Chauffeur-Bezeichnung' },
+    businessDriver: { en: 'Captain / Driver Service Title', ur: 'کپتان / ڈرائیور سروس ٹائٹل', ar: 'لقب خدمة السائق', de: 'Fahrer-Bezeichnung' },
     businessProvider: { en: 'Company / Logistics Fleet Title *', ur: 'کمپنی یا ٹرانسپورٹ بیڑے کا نام *', ar: 'اسم الشركة أو أسطول الشحن *', de: 'Name des Transportunternehmens *' },
     phone: { en: 'Phone (+92) *', ur: 'موبائل نمبر (+92) *', ar: 'رقم الهاتف (+92) *', de: 'Telefonnummer (+92) *' },
     email: { en: 'Email Address (Optional)', ur: 'ای میل ایڈریس (اختیاری)', ar: 'البريد الإلكتروني (اختياري)', de: 'E-Mail-Adresse (Optional)' },
@@ -133,10 +172,7 @@ function RegisterForm() {
     setError(null);
     setNotice(null);
 
-    if (!selectedRole) {
-      setError('Please select an operational role first.');
-      return;
-    }
+    const activeRole: OperationalRole = accountType === 'customer' ? 'CUSTOMER' : partnerRole;
 
     if (!fullName.trim()) {
       setError('Please enter your full name.');
@@ -169,17 +205,17 @@ function RegisterForm() {
     let providerSubtype: ProviderSubtype | undefined = undefined;
     let target = '/customer';
 
-    if (selectedRole === 'LISTER') {
+    if (activeRole === 'LISTER') {
       mappedRole = 'LISTER';
       target = '/lister';
-    } else if (selectedRole === 'DRIVER') {
+    } else if (activeRole === 'DRIVER') {
       mappedRole = 'DRIVER';
       target = '/driver';
-    } else if (selectedRole === 'PICK_DROP') {
+    } else if (activeRole === 'PICK_DROP') {
       mappedRole = 'PROVIDER';
       providerSubtype = 'PICK_AND_DROP';
       target = '/provider?mode=pick_and_drop';
-    } else if (selectedRole === 'SHIFTING') {
+    } else if (activeRole === 'SHIFTING') {
       mappedRole = 'PROVIDER';
       providerSubtype = 'COMMERCIAL_CARGO';
       target = '/provider?mode=commercial_cargo';
@@ -189,11 +225,11 @@ function RegisterForm() {
       name: fullName.trim(),
       businessName:
         businessName.trim() ||
-        (selectedRole === 'LISTER'
+        (activeRole === 'LISTER'
           ? `${fullName.trim()} Fleet`
-          : selectedRole === 'PICK_DROP'
+          : activeRole === 'PICK_DROP'
           ? `${fullName.trim()} Commuters`
-          : selectedRole === 'SHIFTING'
+          : activeRole === 'SHIFTING'
           ? `${fullName.trim()} Cargo Logistics`
           : undefined),
       phone: phone.trim(),
@@ -236,24 +272,45 @@ function RegisterForm() {
 
   return (
     <div className="min-h-screen bg-[#F7F8FA] text-[#101828] font-sans flex flex-col">
-      {/* Brand Header */}
-      <header className="bg-white border-b border-[#EEF0F2]">
-        <div className="max-w-[1200px] mx-auto px-5 sm:px-8 py-3.5 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 text-[#101828]">
-            <span className="w-8 h-8 rounded-lg bg-[#0B6B4F] text-white flex items-center justify-center font-heading font-extrabold text-base">
-              S
-            </span>
-            <span className="font-heading font-extrabold text-xl tracking-tight">SafarPK</span>
-          </Link>
+      {/* Brand Header with Mobile Back Button */}
+      <header className="bg-white border-b border-[#EEF0F2] sticky top-0 z-20">
+        <div className="max-w-[620px] mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.history.length > 1) {
+                  router.back();
+                } else {
+                  router.push('/');
+                }
+              }}
+              className="p-1.5 -ml-1 rounded-xl border border-slate-200/90 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 transition flex items-center gap-1 cursor-pointer shadow-2xs"
+              title="Go Back"
+              aria-label="Back"
+            >
+              <ChevronLeft className="w-4 h-4 text-slate-700 shrink-0" />
+              <span className="text-xs font-bold text-slate-700 pr-1">Back</span>
+            </button>
+
+            <Link href="/" className="flex items-center gap-2 text-[#101828]">
+              <span className="w-8 h-8 rounded-xl bg-[#0B6B4F] text-white flex items-center justify-center font-heading font-extrabold text-base shadow-xs">
+                S
+              </span>
+              <span className="font-heading font-extrabold text-lg sm:text-xl tracking-tight">
+                SafarPK
+              </span>
+            </Link>
+          </div>
 
           {/* Language Selector */}
-          <label className="flex items-center gap-2 h-9 px-3 border border-[#E4E7EC] rounded-lg bg-white text-xs font-semibold cursor-pointer">
+          <label className="flex items-center gap-1.5 h-8 px-2.5 border border-[#E4E7EC] rounded-xl bg-white text-xs font-semibold cursor-pointer">
             <Globe className="w-3.5 h-3.5 text-[#344054]" />
             <select
               aria-label="Language"
               value={lang}
               onChange={(e) => setLang(e.target.value as SupportedLang)}
-              className="border-0 outline-none bg-transparent font-semibold text-[#101828] cursor-pointer"
+              className="border-0 outline-none bg-transparent font-semibold text-[#101828] cursor-pointer text-xs"
             >
               <option value="en">English</option>
               <option value="ur">English + اردو</option>
@@ -268,7 +325,7 @@ function RegisterForm() {
       <main className="flex-1 px-4 py-8 sm:py-12 flex justify-center items-start">
         <form
           onSubmit={handleRegister}
-          className="w-full max-w-[820px] bg-white border border-[#EEF0F2] rounded-3xl p-6 sm:p-10 flex flex-col gap-7 shadow-[0_8px_28px_rgba(16,24,40,0.06)]"
+          className="w-full max-w-[820px] bg-white border border-[#EEF0F2] rounded-3xl p-4 sm:p-10 flex flex-col gap-6 sm:gap-7 shadow-[0_8px_28px_rgba(16,24,40,0.06)]"
         >
           <div className="flex justify-between items-baseline gap-3">
             <h1 className="font-heading font-extrabold text-2xl sm:text-3xl tracking-tight">
@@ -298,272 +355,229 @@ function RegisterForm() {
             </div>
           )}
 
-          {/* STEP 1: CHOOSE ROLE */}
-          <section className="flex flex-col gap-4">
-            <h2 className="flex items-center gap-2.5 text-base sm:text-lg font-extrabold text-[#101828]">
-              <span className="w-6 h-6 rounded-full bg-[#101828] text-white text-xs flex items-center justify-center shrink-0">
-                1
+          {/* STEP 1: CHOOSE ACCOUNT TYPE (Uber/Careem 2-Option Switcher) */}
+          <section className="flex flex-col gap-3.5">
+            <div className="flex items-center justify-between">
+              <h2 className="flex items-center gap-2.5 text-base sm:text-lg font-extrabold text-[#101828]">
+                <span className="w-6 h-6 rounded-full bg-[#101828] text-white text-xs flex items-center justify-center shrink-0">
+                  1
+                </span>
+                <span>Select Account Type</span>
+                {lang !== 'en' && (
+                  <span className="text-xs font-normal text-slate-500">· {T.chooseType[lang]}</span>
+                )}
+              </h2>
+              <span className="text-xs text-slate-500 font-medium hidden sm:inline">
+                {accountType === 'customer' ? 'For personal or business travel' : 'For hosts, drivers & transport operators'}
               </span>
-              <span>{T.chooseType.en}</span>
-              {lang !== 'en' && (
-                <span className="text-xs font-normal text-slate-500">· {T.chooseType[lang]}</span>
-              )}
-            </h2>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
-              {/* Left Column: Customer */}
-              <div className="md:col-span-4 bg-[#EEF4FF] border border-[#D1DFFB] rounded-2xl p-4 flex flex-col gap-3">
-                <div>
-                  <h3 className="font-heading font-extrabold text-base text-[#1D3A8A] flex items-center justify-between">
-                    <span>{T.bookHead.en}</span>
-                    {lang !== 'en' && (
-                      <span className="text-xs font-bold text-[#1D3A8A]/80" dir={lang === 'ur' || lang === 'ar' ? 'rtl' : 'ltr'}>
-                        {T.bookHead[lang]}
-                      </span>
-                    )}
-                  </h3>
-                  <p className="text-xs text-[#344054] mt-0.5 leading-snug">
-                    {T.bookSub.en}
-                    {lang !== 'en' && (
-                      <span className="block text-[11px] text-slate-500 font-medium mt-0.5" dir={lang === 'ur' || lang === 'ar' ? 'rtl' : 'ltr'}>
-                        ({T.bookSub[lang]})
-                      </span>
-                    )}
-                  </p>
+            {/* Uber-style 2-Button Switcher */}
+            <div className="grid grid-cols-2 p-1 sm:p-1.5 rounded-2xl bg-slate-100 border border-slate-200 gap-1 sm:gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setAccountType('customer');
+                  setSelectedRole('CUSTOMER');
+                }}
+                className={`py-2.5 sm:py-3 px-2 sm:px-5 rounded-xl font-heading font-extrabold text-xs sm:text-sm md:text-base flex items-center justify-center gap-1.5 sm:gap-2 transition cursor-pointer ${
+                  accountType === 'customer'
+                    ? 'bg-white text-[#101828] shadow-sm ring-1 ring-black/5'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                }`}
+              >
+                <User className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${accountType === 'customer' ? 'text-[#0B6B4F]' : 'text-slate-400'}`} />
+                <span className="whitespace-nowrap font-extrabold">Customer</span>
+                {accountType === 'customer' && (
+                  <span className="w-2 h-2 rounded-full bg-[#0B6B4F] shrink-0 hidden sm:inline-block" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAccountType('partner');
+                  setSelectedRole(partnerRole);
+                }}
+                className={`py-2.5 sm:py-3 px-2 sm:px-5 rounded-xl font-heading font-extrabold text-xs sm:text-sm md:text-base flex items-center justify-center gap-1.5 sm:gap-2 transition cursor-pointer ${
+                  accountType === 'partner'
+                    ? 'bg-[#0B6B4F] text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                }`}
+              >
+                <Briefcase className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                {/* On mobile show 'Partner' so it never truncates to 'Become a Part...', on sm+ show 'Become a Partner' */}
+                <span className="sm:hidden whitespace-nowrap font-extrabold">Partner</span>
+                <span className="hidden sm:inline whitespace-nowrap font-extrabold">Become a Partner</span>
+                {accountType === 'partner' && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-300 shrink-0 hidden sm:inline-block" />
+                )}
+              </button>
+            </div>
+
+            {/* If Partner is active: show compact 2x2 grid for the 4 partner categories */}
+            {accountType === 'partner' && (
+              <div className="flex flex-col gap-2 pt-1 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between text-xs px-0.5 text-slate-600">
+                  <span className="font-bold text-[#101828] text-xs">Partner Category:</span>
+                  <span className="text-[10px] sm:text-[11px] text-slate-500">Select what service you provide</span>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setSelectedRole('CUSTOMER')}
-                  className={`w-full p-3 rounded-xl border text-left transition cursor-pointer flex flex-col gap-2.5 ${
-                    selectedRole === 'CUSTOMER'
-                      ? 'bg-white border-[#1D3A8A] ring-2 ring-[#1D3A8A]/20 shadow-sm'
-                      : 'bg-white/80 border-[#D1DFFB] hover:bg-white'
-                  }`}
-                >
-                  <div className="w-full h-24 rounded-lg bg-[#E0EAFF] flex items-center justify-center relative overflow-hidden">
-                    <RoleArt role="customer" className="w-20 h-20 object-contain" />
-                    {selectedRole === 'CUSTOMER' && (
-                      <span className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#1D3A8A] text-white flex items-center justify-center text-xs font-bold">
+                <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
+                  {/* Category 1: Rent Vehicle */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPartnerRole('LISTER');
+                      setSelectedRole('LISTER');
+                    }}
+                    className={`p-2.5 sm:p-3 rounded-2xl border text-left transition cursor-pointer flex items-center gap-2 sm:gap-2.5 relative ${
+                      partnerRole === 'LISTER'
+                        ? 'bg-emerald-50/80 border-[#0B6B4F] ring-2 ring-[#0B6B4F]/20 shadow-xs'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                      <Car className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-extrabold text-[11px] sm:text-xs text-[#101828] leading-tight">
+                        Rent Vehicle
+                      </div>
+                      <div className="text-[10px] sm:text-[11px] text-slate-500 leading-tight mt-0.5">
+                        Cars & Fleets
+                      </div>
+                    </div>
+                    {partnerRole === 'LISTER' && (
+                      <span className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 w-4 h-4 rounded-full bg-[#0B6B4F] text-white flex items-center justify-center text-[9px] font-black shrink-0 shadow-xs">
                         ✓
                       </span>
                     )}
-                  </div>
-                  <div>
-                    <h4 className="font-extrabold text-sm text-[#101828] flex items-center justify-between gap-1">
-                      <span>{T.customerTitle.en}</span>
-                      {lang !== 'en' && (
-                        <span className="text-[10px] font-bold text-blue-800 bg-blue-100/70 px-1.5 py-0.5 rounded shrink-0">
-                          {T.customerTitle[lang]}
-                        </span>
-                      )}
-                    </h4>
-                    <p className="text-[11px] text-[#475467] leading-tight mt-0.5">
-                      {T.customerSub.en}
-                    </p>
-                    {lang !== 'en' && (
-                      <p className="text-[10px] text-slate-500 leading-tight mt-0.5" dir={lang === 'ur' || lang === 'ar' ? 'rtl' : 'ltr'}>
-                        {T.customerSub[lang]}
-                      </p>
-                    )}
-                  </div>
-                </button>
-              </div>
+                  </button>
 
-              {/* Right Column: Earn on SafarPK */}
-              <div className="md:col-span-8 bg-[#F7F8FA] border border-[#E4E7EC] rounded-2xl p-4 flex flex-col gap-3">
-                <div>
-                  <h3 className="font-heading font-extrabold text-base text-[#101828] flex items-center justify-between">
-                    <span>{T.earnHead.en}</span>
-                    {lang !== 'en' && (
-                      <span className="text-xs font-bold text-emerald-800" dir={lang === 'ur' || lang === 'ar' ? 'rtl' : 'ltr'}>
-                        {T.earnHead[lang]}
+                  {/* Category 2: Captain / Driver (Clean CarTaxiFront Icon, no crop) */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPartnerRole('DRIVER');
+                      setSelectedRole('DRIVER');
+                    }}
+                    className={`p-2.5 sm:p-3 rounded-2xl border text-left transition cursor-pointer flex items-center gap-2 sm:gap-2.5 relative ${
+                      partnerRole === 'DRIVER'
+                        ? 'bg-emerald-50/80 border-[#0B6B4F] ring-2 ring-[#0B6B4F]/20 shadow-xs'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-sky-100 text-sky-800 flex items-center justify-center shrink-0">
+                      <CarTaxiFront className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-extrabold text-[11px] sm:text-xs text-[#101828] leading-tight">
+                        Captain Driver
+                      </div>
+                      <div className="text-[10px] sm:text-[11px] text-slate-500 leading-tight mt-0.5">
+                        Private Chauffeur
+                      </div>
+                    </div>
+                    {partnerRole === 'DRIVER' && (
+                      <span className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 w-4 h-4 rounded-full bg-[#0B6B4F] text-white flex items-center justify-center text-[9px] font-black shrink-0 shadow-xs">
+                        ✓
                       </span>
                     )}
-                  </h3>
-                  <p className="text-xs text-[#344054] mt-0.5 leading-snug">
-                    {T.earnSub.en}
-                    {lang !== 'en' && (
-                      <span className="block text-[11px] text-slate-500 font-medium mt-0.5" dir={lang === 'ur' || lang === 'ar' ? 'rtl' : 'ltr'}>
-                        ({T.earnSub[lang]})
+                  </button>
+
+                  {/* Category 3: Pick & Drop */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPartnerRole('PICK_DROP');
+                      setSelectedRole('PICK_DROP');
+                    }}
+                    className={`p-2.5 sm:p-3 rounded-2xl border text-left transition cursor-pointer flex items-center gap-2 sm:gap-2.5 relative ${
+                      partnerRole === 'PICK_DROP'
+                        ? 'bg-emerald-50/80 border-[#0B6B4F] ring-2 ring-[#0B6B4F]/20 shadow-xs'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                      <Bus className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-extrabold text-[11px] sm:text-xs text-[#101828] leading-tight">
+                        Pick & Drop
+                      </div>
+                      <div className="text-[10px] sm:text-[11px] text-slate-500 leading-tight mt-0.5">
+                        School & Office
+                      </div>
+                    </div>
+                    {partnerRole === 'PICK_DROP' && (
+                      <span className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 w-4 h-4 rounded-full bg-[#0B6B4F] text-white flex items-center justify-center text-[9px] font-black shrink-0 shadow-xs">
+                        ✓
                       </span>
                     )}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {/* Option 1: Lister */}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedRole('LISTER')}
-                    className={`p-3 rounded-xl border text-left transition cursor-pointer flex items-center gap-3 ${
-                      selectedRole === 'LISTER'
-                        ? 'bg-white border-[#0B6B4F] ring-2 ring-[#0B6B4F]/20 shadow-sm'
-                        : 'bg-white border-[#E4E7EC] hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="w-14 h-14 rounded-lg bg-[#E8F5E9] flex items-center justify-center shrink-0 relative">
-                      <RoleArt role="owner" className="w-11 h-11 object-contain" />
-                      {selectedRole === 'LISTER' && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#0B6B4F] text-white flex items-center justify-center text-[10px] font-bold">
-                          ✓
-                        </span>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <h4 className="font-extrabold text-xs text-[#101828] truncate">{T.listerTitle.en}</h4>
-                        {lang !== 'en' && (
-                          <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1 py-0.2 rounded shrink-0">
-                            {T.listerTitle[lang]}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-[#667085] leading-tight mt-0.5 truncate">{T.listerSub.en}</p>
-                      {lang !== 'en' && (
-                        <p className="text-[10px] text-slate-500 leading-tight truncate" dir={lang === 'ur' || lang === 'ar' ? 'rtl' : 'ltr'}>
-                          {T.listerSub[lang]}
-                        </p>
-                      )}
-                    </div>
                   </button>
 
-                  {/* Option 2: Driver */}
+                  {/* Category 4: Cargo & Shifting (Clean Boxes / Goods Freight Icon, no crop) */}
                   <button
                     type="button"
-                    onClick={() => setSelectedRole('DRIVER')}
-                    className={`p-3 rounded-xl border text-left transition cursor-pointer flex items-center gap-3 ${
-                      selectedRole === 'DRIVER'
-                        ? 'bg-white border-[#0B6B4F] ring-2 ring-[#0B6B4F]/20 shadow-sm'
-                        : 'bg-white border-[#E4E7EC] hover:border-slate-300'
+                    onClick={() => {
+                      setPartnerRole('SHIFTING');
+                      setSelectedRole('SHIFTING');
+                    }}
+                    className={`p-2.5 sm:p-3 rounded-2xl border text-left transition cursor-pointer flex items-center gap-2 sm:gap-2.5 relative ${
+                      partnerRole === 'SHIFTING'
+                        ? 'bg-emerald-50/80 border-[#0B6B4F] ring-2 ring-[#0B6B4F]/20 shadow-xs'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
                     }`}
                   >
-                    <div className="w-14 h-14 rounded-lg bg-[#E0F2FE] flex items-center justify-center shrink-0 relative">
-                      <RoleArt role="driver" className="w-11 h-11 object-contain" />
-                      {selectedRole === 'DRIVER' && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#0B6B4F] text-white flex items-center justify-center text-[10px] font-bold">
-                          ✓
-                        </span>
-                      )}
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center shrink-0">
+                      <Boxes className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <h4 className="font-extrabold text-xs text-[#101828] truncate">{T.driverTitle.en}</h4>
-                        {lang !== 'en' && (
-                          <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1 py-0.2 rounded shrink-0">
-                            {T.driverTitle[lang]}
-                          </span>
-                        )}
+                      <div className="font-extrabold text-[11px] sm:text-xs text-[#101828] leading-tight">
+                        Cargo Shifting
                       </div>
-                      <p className="text-[10px] text-[#667085] leading-tight mt-0.5 truncate">{T.driverSub.en}</p>
-                      {lang !== 'en' && (
-                        <p className="text-[10px] text-slate-500 leading-tight truncate" dir={lang === 'ur' || lang === 'ar' ? 'rtl' : 'ltr'}>
-                          {T.driverSub[lang]}
-                        </p>
-                      )}
-                    </div>
-                  </button>
-
-                  {/* Option 3: Pick & Drop */}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedRole('PICK_DROP')}
-                    className={`p-3 rounded-xl border text-left transition cursor-pointer flex items-center gap-3 ${
-                      selectedRole === 'PICK_DROP'
-                        ? 'bg-white border-[#0B6B4F] ring-2 ring-[#0B6B4F]/20 shadow-sm'
-                        : 'bg-white border-[#E4E7EC] hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="w-14 h-14 rounded-lg bg-[#FEF3C7] flex items-center justify-center shrink-0 relative">
-                      <RoleArt role="shuttle" className="w-11 h-11 object-contain" />
-                      {selectedRole === 'PICK_DROP' && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#0B6B4F] text-white flex items-center justify-center text-[10px] font-bold">
-                          ✓
-                        </span>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <h4 className="font-extrabold text-xs text-[#101828] truncate">{T.shuttleTitle.en}</h4>
-                        {lang !== 'en' && (
-                          <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1 py-0.2 rounded shrink-0">
-                            {T.shuttleTitle[lang]}
-                          </span>
-                        )}
+                      <div className="text-[10px] sm:text-[11px] text-slate-500 leading-tight mt-0.5">
+                        Goods & Moving
                       </div>
-                      <p className="text-[10px] text-[#667085] leading-tight mt-0.5 truncate">{T.shuttleSub.en}</p>
-                      {lang !== 'en' && (
-                        <p className="text-[10px] text-slate-500 leading-tight truncate" dir={lang === 'ur' || lang === 'ar' ? 'rtl' : 'ltr'}>
-                          {T.shuttleSub[lang]}
-                        </p>
-                      )}
                     </div>
-                  </button>
-
-                  {/* Option 4: Movers */}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedRole('SHIFTING')}
-                    className={`p-3 rounded-xl border text-left transition cursor-pointer flex items-center gap-3 ${
-                      selectedRole === 'SHIFTING'
-                        ? 'bg-white border-[#0B6B4F] ring-2 ring-[#0B6B4F]/20 shadow-sm'
-                        : 'bg-white border-[#E4E7EC] hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="w-14 h-14 rounded-lg bg-[#EDE9FE] flex items-center justify-center shrink-0 relative">
-                      <RoleArt role="movers" className="w-11 h-11 object-contain" />
-                      {selectedRole === 'SHIFTING' && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#0B6B4F] text-white flex items-center justify-center text-[10px] font-bold">
-                          ✓
-                        </span>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <h4 className="font-extrabold text-xs text-[#101828] truncate">{T.moverTitle.en}</h4>
-                        {lang !== 'en' && (
-                          <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1 py-0.2 rounded shrink-0">
-                            {T.moverTitle[lang]}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-[#667085] leading-tight mt-0.5 truncate">{T.moverSub.en}</p>
-                      {lang !== 'en' && (
-                        <p className="text-[10px] text-slate-500 leading-tight truncate" dir={lang === 'ur' || lang === 'ar' ? 'rtl' : 'ltr'}>
-                          {T.moverSub[lang]}
-                        </p>
-                      )}
-                    </div>
+                    {partnerRole === 'SHIFTING' && (
+                      <span className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 w-4 h-4 rounded-full bg-[#0B6B4F] text-white flex items-center justify-center text-[9px] font-black shrink-0 shadow-xs">
+                        ✓
+                      </span>
+                    )}
                   </button>
                 </div>
               </div>
-            </div>
+            )}
           </section>
 
           {/* STEP 2: DETAILS */}
           {selectedRole ? (
             <section className="flex flex-col gap-4 pt-4 border-t border-slate-100 animate-in fade-in duration-200">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
                 <h2 className="flex items-center gap-2.5 text-base sm:text-lg font-extrabold text-[#101828]">
                   <span className="w-6 h-6 rounded-full bg-[#101828] text-white text-xs flex items-center justify-center shrink-0">
                     2
                   </span>
                   <span>{T.details.en}</span>
                   {lang !== 'en' && (
-                    <span className="text-xs font-normal text-slate-500">· {T.details[lang]}</span>
+                    <span className="text-xs font-normal text-slate-500 hidden sm:inline">
+                      · {T.details[lang]}
+                    </span>
                   )}
                 </h2>
-                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 shadow-2xs">
                   <span>
                     {selectedRole === 'CUSTOMER'
-                      ? 'Customer Account'
+                      ? 'Customer'
                       : selectedRole === 'LISTER'
-                      ? 'Vehicle Owner Account'
+                      ? 'Rent Vehicle'
                       : selectedRole === 'DRIVER'
-                      ? 'Chauffeur Account'
+                      ? 'Captain Driver'
                       : selectedRole === 'PICK_DROP'
-                      ? 'Shuttle Operator Account'
-                      : 'Cargo Mover Account'}
+                      ? 'Pick & Drop'
+                      : 'Cargo Shifting'}
                   </span>
                   {lang !== 'en' && ROLE_BADGES[selectedRole] && (
                     <span className="text-[10px] font-semibold text-emerald-700">
@@ -648,7 +662,7 @@ function RegisterForm() {
                         selectedRole === 'LISTER'
                           ? 'e.g. Shahid Rent a Car & Luxury Tours'
                           : selectedRole === 'DRIVER'
-                          ? 'e.g. VIP Executive Chauffeur'
+                          ? 'e.g. Executive Captain / City Driver'
                           : 'e.g. Shahid Express Logistics'
                       }
                       value={businessName}
@@ -796,12 +810,19 @@ function RegisterForm() {
                 disabled={loading}
                 className="w-full h-12 sm:h-14 px-6 rounded-xl sm:rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] text-white font-heading font-black text-sm sm:text-base flex items-center justify-center gap-2.5 transition-all shadow-md hover:shadow-lg cursor-pointer active:scale-[0.99] mt-3"
               >
-                <span>{T.complete.en}</span>
-                {lang !== 'en' && (
-                  <span className="text-xs sm:text-sm font-semibold opacity-90 border-l border-white/30 pl-2">
-                    {T.complete[lang]}
-                  </span>
-                )}
+                <span>
+                  {loading
+                    ? 'Processing...'
+                    : accountType === 'customer'
+                    ? 'Create Customer Account'
+                    : partnerRole === 'LISTER'
+                    ? 'Register as Rent Vehicle Partner'
+                    : partnerRole === 'DRIVER'
+                    ? 'Register as Captain / Driver'
+                    : partnerRole === 'PICK_DROP'
+                    ? 'Register as Pick & Drop Partner'
+                    : 'Register as Logistics & Shifting Partner'}
+                </span>
                 <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
               </button>
             </section>

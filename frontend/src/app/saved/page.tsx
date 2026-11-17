@@ -99,7 +99,7 @@ export default function SavedItemsPage() {
         </div>
 
         {/* Filter Chips */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
           {chips.map((label, idx) => (
             <button
               key={label}

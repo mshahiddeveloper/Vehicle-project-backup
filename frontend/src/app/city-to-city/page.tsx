@@ -189,64 +189,64 @@ export default function CityToCityPage() {
           </p>
         </div>
 
-        {/* Route Search Box */}
-        <div className="p-4 bg-[#F7F8FA] rounded-[18px] border border-[#EEF0F2] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 items-end">
-          <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#344054]">
-            From
+        {/* Route Search Box: Responsive App-Like Grid */}
+        <div className="p-3 sm:p-4 bg-[#F7F8FA] rounded-2xl sm:rounded-[20px] border border-[#EEF0F2] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2 sm:gap-3 items-end shadow-2xs">
+          <label className="flex flex-col gap-1 text-xs sm:text-[13px] font-semibold text-[#344054]">
+            <span>From</span>
             <input
               type="text"
               value={fromCity}
               onChange={(e) => setFromCity(e.target.value)}
-              className="h-12 px-3 border border-[#E4E7EC] rounded-xl bg-white font-medium text-[15px] text-[#101828] outline-none"
+              className="h-10 sm:h-12 px-3 border border-[#E4E7EC] rounded-xl bg-white font-bold text-xs sm:text-sm text-[#101828] outline-none shadow-2xs"
             />
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#344054]">
-            To
+          <label className="flex flex-col gap-1 text-xs sm:text-[13px] font-semibold text-[#344054]">
+            <span>To</span>
             <input
               type="text"
               value={toCity}
               onChange={(e) => setToCity(e.target.value)}
-              className="h-12 px-3 border border-[#E4E7EC] rounded-xl bg-white font-medium text-[15px] text-[#101828] outline-none"
+              className="h-10 sm:h-12 px-3 border border-[#E4E7EC] rounded-xl bg-white font-bold text-xs sm:text-sm text-[#101828] outline-none shadow-2xs"
             />
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#344054]">
-            Leaving
+          <label className="flex flex-col gap-1 text-xs sm:text-[13px] font-semibold text-[#344054]">
+            <span>Leaving</span>
             <input
               type="date"
               value={leaveDate}
               onChange={(e) => setLeaveDate(e.target.value)}
-              className="h-12 px-3 border border-[#E4E7EC] rounded-xl bg-white font-medium text-[15px] text-[#101828] outline-none"
+              className="h-10 sm:h-12 px-3 border border-[#E4E7EC] rounded-xl bg-white font-bold text-xs sm:text-sm text-[#101828] outline-none shadow-2xs"
             />
           </label>
 
-          <div className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#344054]">
-            <span>Coming back</span>
+          <div className="flex flex-col gap-1 text-xs sm:text-[13px] font-semibold text-[#344054]">
+            <span>Return Trip</span>
             {isReturnTrip ? (
               <input
                 type="date"
                 value={returnDate}
                 onChange={(e) => setReturnDate(e.target.value)}
-                className="h-12 px-3 border border-[#E4E7EC] rounded-xl bg-white font-medium text-[15px] text-[#101828] outline-none"
+                className="h-10 sm:h-12 px-3 border border-[#E4E7EC] rounded-xl bg-white font-bold text-xs sm:text-sm text-[#101828] outline-none shadow-2xs"
               />
             ) : (
               <button
                 type="button"
                 onClick={() => setIsReturnTrip(true)}
-                className="h-12 px-3 border border-[#E4E7EC] rounded-xl bg-white font-medium text-[14px] text-[#667085] text-left hover:text-[#101828] transition cursor-pointer"
+                className="h-10 sm:h-12 px-3 border border-[#E4E7EC] rounded-xl bg-white font-bold text-xs sm:text-sm text-[#667085] text-left hover:text-[#101828] transition cursor-pointer shadow-2xs"
               >
                 + Add return date
               </button>
             )}
           </div>
 
-          <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#344054]">
-            Passengers
+          <label className="flex flex-col gap-1 text-xs sm:text-[13px] font-semibold text-[#344054]">
+            <span>Passengers</span>
             <select
               value={peopleCount}
               onChange={(e) => setPeopleCount(e.target.value)}
-              className="h-12 px-3 border border-[#E4E7EC] rounded-xl bg-white font-medium text-[15px] text-[#101828] outline-none cursor-pointer"
+              className="h-10 sm:h-12 px-3 border border-[#E4E7EC] rounded-xl bg-white font-bold text-xs sm:text-sm text-[#101828] outline-none cursor-pointer shadow-2xs"
             >
               <option value="1–3">1–3 seats</option>
               <option value="4">4 seats</option>
@@ -257,23 +257,23 @@ export default function CityToCityPage() {
 
           <button
             type="button"
-            className="h-12 px-6 rounded-xl bg-[#0B6B4F] text-white font-bold text-[15px] hover:bg-[#08513C] transition cursor-pointer shadow-sm"
+            className="h-10 sm:h-12 px-6 rounded-xl bg-[#0B6B4F] text-white font-extrabold text-xs sm:text-sm hover:bg-[#08513C] transition cursor-pointer shadow-sm active:scale-98"
           >
             Find rides
           </button>
         </div>
 
-        {/* Filters, Search and Counters */}
-        <div className="flex flex-wrap items-center gap-3">
+        {/* Filters, Search and Counters: Seamless App-Like Bar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
           {/* Internal Live Search Bar */}
-          <div className="relative flex-1 min-w-[240px] max-w-md">
+          <div className="relative flex-1">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               placeholder="Search by operator, car model, or tags..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-10 pl-10 pr-3 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 transition"
+              className="w-full h-10 sm:h-11 pl-10 pr-3 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#0B6B4F] transition shadow-2xs"
             />
             {searchQuery && (
               <button
@@ -287,12 +287,12 @@ export default function CityToCityPage() {
           </div>
 
           {/* Trip toggle */}
-          <div className="flex items-center gap-1.5 bg-[#F2F4F7] p-1 rounded-xl">
+          <div className="grid grid-cols-2 p-1 rounded-xl bg-[#F2F4F7] border border-slate-200 gap-1 sm:w-auto">
             <button
               type="button"
               onClick={() => setIsReturnTrip(false)}
-              className={`h-9 px-3.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                !isReturnTrip ? 'bg-[#101828] text-white' : 'text-[#344054]'
+              className={`h-8 sm:h-9 px-3 rounded-lg text-xs font-extrabold transition cursor-pointer text-center ${
+                !isReturnTrip ? 'bg-[#101828] text-white shadow-2xs' : 'text-[#344054]'
               }`}
             >
               One way
@@ -300,26 +300,24 @@ export default function CityToCityPage() {
             <button
               type="button"
               onClick={() => setIsReturnTrip(true)}
-              className={`h-9 px-3.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                isReturnTrip ? 'bg-[#101828] text-white' : 'text-[#344054]'
+              className={`h-8 sm:h-9 px-3 rounded-lg text-xs font-extrabold transition cursor-pointer text-center ${
+                isReturnTrip ? 'bg-[#101828] text-white shadow-2xs' : 'text-[#344054]'
               }`}
             >
               Return trip
             </button>
           </div>
 
-          <span className="w-px h-6 bg-[#E4E7EC] hidden sm:block" />
-
           {/* Size filters */}
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 flex-nowrap">
             {['All cars', 'Sedan (4 seats)', 'SUV & Vans (6+ seats)'].map((lbl, idx) => (
               <button
                 key={lbl}
                 type="button"
                 onClick={() => setSizeFilter(idx)}
-                className={`h-9 px-3 rounded-lg text-xs font-semibold border transition cursor-pointer ${
+                className={`h-8 sm:h-9 px-3 rounded-lg text-xs font-semibold border transition cursor-pointer shrink-0 whitespace-nowrap ${
                   sizeFilter === idx
-                    ? 'bg-[#101828] text-white border-[#101828]'
+                    ? 'bg-[#101828] text-white border-[#101828] shadow-2xs'
                     : 'bg-white text-[#344054] border-[#E4E7EC] hover:bg-slate-50'
                 }`}
               >
@@ -328,7 +326,7 @@ export default function CityToCityPage() {
             ))}
           </div>
 
-          <span className="sm:ml-auto text-sm font-semibold text-[#475467]">
+          <span className="sm:ml-auto text-xs sm:text-sm font-semibold text-[#475467] px-1 sm:px-0">
             {filteredRides.length} available rides from {fromCity} to {toCity}
           </span>
         </div>

@@ -1029,10 +1029,10 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Popular Cities in Active Country */}
-          <div className="flex items-center gap-2 flex-wrap text-xs sm:text-sm">
-            <span className="text-[#475467] font-semibold mr-1">Popular in {country?.name || 'Pakistan'}:</span>
-            {availableCities.slice(0, 5).map((cityName) => (
+          {/* Popular Cities in Active Country (Single-row clean scroll on mobile) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-0.5 text-xs sm:text-sm -mx-1 px-1 flex-nowrap">
+            <span className="text-[#475467] font-semibold shrink-0 text-xs sm:text-sm">Popular:</span>
+            {availableCities.slice(0, 6).map((cityName) => (
               <button
                 key={cityName}
                 type="button"
@@ -1040,7 +1040,7 @@ export default function HomePage() {
                   setSearchWhere(cityName);
                   setVisibleCount(60);
                 }}
-                className={`px-3.5 py-1.5 rounded-full border transition cursor-pointer font-semibold ${
+                className={`px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full border transition cursor-pointer font-semibold shrink-0 text-xs ${
                   searchWhere.toLowerCase() === cityName.toLowerCase()
                     ? 'bg-[#0B6B4F] text-white border-[#0B6B4F] shadow-xs'
                     : 'bg-white border-[#E4E7EC] text-[#344054] hover:border-slate-400'
@@ -1056,16 +1056,41 @@ export default function HomePage() {
                   setSearchWhere('');
                   setVisibleCount(60);
                 }}
-                className="px-2.5 py-1 rounded-full text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-1 transition"
+                className="px-2.5 py-1 rounded-full text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-1 transition shrink-0"
               >
                 <RotateCcw className="w-3 h-3" />
-                <span>Reset city</span>
+                <span>Reset</span>
               </button>
             )}
           </div>
 
-          {/* Simple, Transparent 3-Step Flow */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+          {/* Mobile App Quick Trust & Benefit Bar (Replaces 400px of giant text cards on mobile) */}
+          <div className="md:hidden grid grid-cols-3 gap-1.5 p-2 rounded-2xl bg-white border border-[#EEF0F2] shadow-2xs">
+            <div className="flex flex-col items-center justify-center text-center p-1">
+              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-[#0B6B4F] flex items-center justify-center mb-1">
+                <Car className="w-3.5 h-3.5" />
+              </div>
+              <span className="text-[10px] font-extrabold text-[#101828] leading-tight">3.8k+ Fleets</span>
+              <span className="text-[9px] text-[#667085]">Verified hosts</span>
+            </div>
+            <div className="flex flex-col items-center justify-center text-center p-1 border-x border-slate-100">
+              <div className="w-7 h-7 rounded-lg bg-[#E7F8EE] text-[#25D366] flex items-center justify-center mb-1">
+                <WhatsAppIcon className="w-3.5 h-3.5 text-[#25D366]" />
+              </div>
+              <span className="text-[10px] font-extrabold text-[#101828] leading-tight">Direct WhatsApp</span>
+              <span className="text-[9px] text-[#667085]">No middleman</span>
+            </div>
+            <div className="flex flex-col items-center justify-center text-center p-1">
+              <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center mb-1">
+                <ShieldCheck className="w-3.5 h-3.5" />
+              </div>
+              <span className="text-[10px] font-extrabold text-[#101828] leading-tight">Pay at Handover</span>
+              <span className="text-[9px] text-[#667085]">Zero holding</span>
+            </div>
+          </div>
+
+          {/* Desktop Only: Simple, Transparent 3-Step Flow */}
+          <div className="hidden md:grid grid-cols-3 gap-3 pt-1">
             <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
               <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#0B6B4F] font-heading font-extrabold text-xs flex items-center justify-center shrink-0 border border-emerald-100">
                 1
@@ -1097,8 +1122,8 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Trust Value Pillars */}
-          <div className="flex gap-6 sm:gap-8 flex-wrap text-xs sm:text-sm text-[#344054] font-semibold pt-1">
+          {/* Desktop Only: Trust Value Pillars */}
+          <div className="hidden md:flex gap-6 sm:gap-8 flex-wrap text-xs sm:text-sm text-[#344054] font-semibold pt-1">
             <span className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-[#0B6B4F]" />
               Independent local hosts & fleet partners
@@ -1962,18 +1987,76 @@ export default function HomePage() {
       </section>
 
       {/* 4. One App for Every Way You Move */}
-      <section className="py-12 md:py-16 bg-[#F7F8FA] border-y border-[#EEF0F2]">
-        <div className="max-w-[1240px] mx-auto px-5 sm:px-8 flex flex-col gap-7">
-          <div className="flex flex-col gap-1">
-            <h2 className="font-heading font-extrabold text-2xl sm:text-3xl tracking-tight">
+      <section className="py-8 md:py-16 bg-[#F7F8FA] border-y border-[#EEF0F2]">
+        <div className="max-w-[1240px] mx-auto px-4 sm:px-8 flex flex-col gap-4 sm:gap-7">
+          <div className="flex flex-col gap-0.5 sm:gap-1">
+            <h2 className="font-heading font-extrabold text-xl sm:text-2xl md:text-3xl tracking-tight text-[#101828]">
               One app for every way you move
             </h2>
-            <p className="text-sm sm:text-base text-[#475467]">
+            <p className="text-xs sm:text-sm md:text-base text-[#475467]">
               Five services, one open direct transport marketplace
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* MOBILE APP 5-ICON GRID: Minimal, 1-screen quick launcher instead of 800px stack */}
+          <div className="md:hidden grid grid-cols-5 gap-1.5 sm:gap-2">
+            {[
+              {
+                title: 'Rent Car',
+                icon: Car,
+                idx: 0,
+                bg: 'bg-emerald-50 text-[#0B6B4F] border-emerald-100',
+              },
+              {
+                title: isPakistan ? 'Driver' : 'Chauffeur',
+                icon: UserCheck,
+                idx: 1,
+                bg: 'bg-sky-50 text-sky-700 border-sky-100',
+              },
+              {
+                title: 'Intercity',
+                icon: Navigation,
+                idx: 2,
+                bg: 'bg-purple-50 text-purple-700 border-purple-100',
+              },
+              {
+                title: 'Pick & Drop',
+                icon: Bus,
+                idx: 3,
+                bg: 'bg-amber-50 text-amber-800 border-amber-100',
+              },
+              {
+                title: isPakistan ? 'Movers' : 'Moving',
+                icon: Truck,
+                idx: 4,
+                bg: 'bg-rose-50 text-rose-700 border-rose-100',
+              },
+            ].map((sc) => {
+              const ScIcon = sc.icon;
+              return (
+                <button
+                  key={sc.title}
+                  type="button"
+                  onClick={() => {
+                    handleServiceChange(sc.idx);
+                    const el = document.getElementById('cars-results');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="flex flex-col items-center justify-center p-2 rounded-2xl bg-white border border-[#EEF0F2] shadow-2xs hover:border-[#0B6B4F] transition active:scale-95 cursor-pointer text-center"
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-1 border ${sc.bg}`}>
+                    <ScIcon className="w-5 h-5" />
+                  </div>
+                  <span className="font-heading font-extrabold text-[10px] sm:text-xs text-[#101828] leading-tight truncate w-full">
+                    {sc.title}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* DESKTOP 5-COLUMN CARDS */}
+          <div className="hidden md:grid grid-cols-2 lg:grid-cols-5 gap-4">
             {[
               {
                 title: 'Rent a car',
@@ -2030,13 +2113,44 @@ export default function HomePage() {
       </section>
 
       {/* 5. Book in Three Steps */}
-      <section className="py-12 md:py-16">
-        <div className="max-w-[1240px] mx-auto px-5 sm:px-8 flex flex-col gap-8">
-          <h2 className="font-heading font-extrabold text-2xl sm:text-3xl tracking-tight">
-            Book in three steps
-          </h2>
+      <section className="py-8 md:py-16">
+        <div className="max-w-[1240px] mx-auto px-4 sm:px-8 flex flex-col gap-4 sm:gap-8">
+          <div className="flex items-center justify-between">
+            <h2 className="font-heading font-extrabold text-xl sm:text-2xl md:text-3xl tracking-tight text-[#101828]">
+              Book in three steps
+            </h2>
+            <span className="text-xs text-slate-500 font-semibold hidden sm:inline">Zero booking fees</span>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* MOBILE 3-STEP HORIZONTAL STEPPER: App-like, 1 clean row! */}
+          <div className="md:hidden grid grid-cols-3 gap-2">
+            <div className="p-3 rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] flex flex-col items-center text-center">
+              <span className="w-6 h-6 rounded-full bg-[#0B6B4F] text-white font-extrabold text-[11px] flex items-center justify-center mb-1.5 shadow-2xs">
+                1
+              </span>
+              <h3 className="font-heading font-extrabold text-xs text-[#101828]">Search</h3>
+              <p className="text-[10px] text-[#667085] leading-tight mt-0.5">Filter fleet & city</p>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] flex flex-col items-center text-center">
+              <span className="w-6 h-6 rounded-full bg-[#0B6B4F] text-white font-extrabold text-[11px] flex items-center justify-center mb-1.5 shadow-2xs">
+                2
+              </span>
+              <h3 className="font-heading font-extrabold text-xs text-[#101828]">WhatsApp</h3>
+              <p className="text-[10px] text-[#667085] leading-tight mt-0.5">Chat directly</p>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] flex flex-col items-center text-center">
+              <span className="w-6 h-6 rounded-full bg-[#0B6B4F] text-white font-extrabold text-[11px] flex items-center justify-center mb-1.5 shadow-2xs">
+                3
+              </span>
+              <h3 className="font-heading font-extrabold text-xs text-[#101828]">Pay on Trip</h3>
+              <p className="text-[10px] text-[#667085] leading-tight mt-0.5">Settle at handover</p>
+            </div>
+          </div>
+
+          {/* DESKTOP 3 COLUMNS */}
+          <div className="hidden md:grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="p-6 rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] flex flex-col gap-3">
               <span className="w-8 h-8 rounded-full bg-[#0B6B4F] text-white font-extrabold text-xs flex items-center justify-center">
                 1
@@ -2076,13 +2190,16 @@ export default function HomePage() {
       </section>
 
       {/* 6. Popular Cities */}
-      <section className="py-10 md:py-14 bg-[#F7F8FA] border-t border-[#EEF0F2]">
-        <div className="max-w-[1240px] mx-auto px-5 sm:px-8 flex flex-col gap-6">
-          <h2 className="font-heading font-extrabold text-2xl sm:text-3xl tracking-tight">
-            Popular cities across {country?.name || 'Pakistan'}
-          </h2>
+      <section className="py-8 md:py-14 bg-[#F7F8FA] border-t border-[#EEF0F2]">
+        <div className="max-w-[1240px] mx-auto px-4 sm:px-8 flex flex-col gap-4 sm:gap-6">
+          <div className="flex items-center justify-between">
+            <h2 className="font-heading font-extrabold text-xl sm:text-2xl md:text-3xl tracking-tight text-[#101828]">
+              Popular cities across {country?.name || 'Pakistan'}
+            </h2>
+            <span className="text-xs text-[#0B6B4F] font-bold">Explore Hubs</span>
+          </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
             {availableCities.slice(0, 4).map((cityName, idx) => {
               const cityImgs = [
                 'https://images.unsplash.com/photo-1572455857811-045fb4255b5d?w=400&auto=format&fit=crop&q=80',
@@ -2099,16 +2216,16 @@ export default function HomePage() {
                     const el = document.getElementById('cars-results');
                     if (el) el.scrollIntoView({ behavior: 'smooth' });
                   }}
-                  className="flex items-center gap-3 p-3 rounded-2xl bg-white border border-[#EEF0F2] text-left hover:border-[#0B6B4F] transition cursor-pointer group"
+                  className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-2xl bg-white border border-[#EEF0F2] text-left hover:border-[#0B6B4F] transition cursor-pointer group shadow-2xs active:scale-98 min-w-0"
                 >
                   <img
                     src={cityImgs[idx % cityImgs.length]}
                     alt={cityName}
-                    className="w-14 h-14 rounded-xl object-cover shrink-0 group-hover:scale-105 transition-transform"
+                    className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl object-cover shrink-0 group-hover:scale-105 transition-transform"
                   />
-                  <div className="flex flex-col min-w-0">
-                    <span className="font-extrabold text-sm text-[#101828] truncate">{cityName}</span>
-                    <span className="text-[11px] text-[#667085]">Cars · Drivers · Shuttles</span>
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="font-extrabold text-xs sm:text-sm text-[#101828] truncate">{cityName}</span>
+                    <span className="text-[10px] sm:text-[11px] text-[#667085] truncate">Cars · Drivers</span>
                   </div>
                 </button>
               );
@@ -2118,53 +2235,45 @@ export default function HomePage() {
       </section>
 
       {/* 7. Become a Partner & Get App Dual Banners */}
-      <section className="py-12 md:py-16">
-        <div className="max-w-[1240px] mx-auto px-5 sm:px-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+      <section className="py-8 md:py-16">
+        <div className="max-w-[1240px] mx-auto px-4 sm:px-8 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           {/* For Partners */}
-          <div className="bg-[#101828] text-white rounded-3xl p-8 sm:p-10 flex flex-col gap-4 justify-between shadow-md">
-            <div className="space-y-3">
-              <span className="text-xs font-bold text-[#F5B547] tracking-wider uppercase">
+          <div className="bg-[#101828] text-white rounded-3xl p-5 sm:p-8 md:p-10 flex flex-col gap-3 sm:gap-4 justify-between shadow-md">
+            <div className="space-y-1.5 sm:space-y-3">
+              <span className="text-[10px] sm:text-xs font-bold text-[#F5B547] tracking-wider uppercase">
                 For owners, drivers & movers
               </span>
-              <h3 className="font-heading font-extrabold text-2xl sm:text-3xl leading-snug">
+              <h3 className="font-heading font-extrabold text-lg sm:text-2xl md:text-3xl leading-snug">
                 List your vehicle or service. Connect directly with customers.
               </h3>
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-md">
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-md hidden sm:block">
                 Create your profile, set your own rates and receive inquiries directly on WhatsApp or in-app chat.
               </p>
             </div>
 
             <Link
-              href="/register"
-              className="self-start h-12 px-6 rounded-full bg-white text-[#101828] font-extrabold text-xs sm:text-sm flex items-center justify-center hover:bg-slate-100 transition shadow-sm mt-3"
+              href="/register?role=LISTER"
+              className="self-start h-10 sm:h-12 px-5 sm:px-6 rounded-full bg-white text-[#101828] font-extrabold text-xs sm:text-sm flex items-center justify-center hover:bg-slate-100 transition shadow-sm mt-1 sm:mt-3"
             >
               Become a partner
             </Link>
           </div>
 
-          {/* Get App / PWA */}
-          <div className="bg-[#E9F3EE] rounded-3xl p-8 sm:p-10 flex flex-col gap-4 justify-between border border-[#DCE7E1]">
-            <div className="space-y-3">
-              <span className="text-xs font-bold text-[#0B6B4F] tracking-wider uppercase">
+          {/* Get App */}
+          <div className="bg-[#E9F3EE] rounded-3xl p-5 sm:p-8 md:p-10 flex flex-col gap-3 sm:gap-4 justify-between border border-[#DCE7E1]">
+            <div className="space-y-1.5 sm:space-y-3">
+              <span className="text-[10px] sm:text-xs font-bold text-[#0B6B4F] tracking-wider uppercase">
                 Get the app
               </span>
-              <h3 className="font-heading font-extrabold text-2xl sm:text-3xl leading-snug text-[#101828]">
+              <h3 className="font-heading font-extrabold text-lg sm:text-2xl md:text-3xl leading-snug text-[#101828]">
                 Your trips, chats and bookings in your pocket.
               </h3>
-              <p className="text-xs sm:text-sm text-[#344054] leading-relaxed max-w-md">
-                Instant booking updates, live chat with owners and saved vehicles on iOS and
-                Android.
+              <p className="text-xs sm:text-sm text-[#344054] leading-relaxed max-w-md hidden sm:block">
+                Instant booking updates, live chat with owners and saved vehicles on iOS and Android.
               </p>
             </div>
 
-            <div className="flex gap-2.5 flex-wrap mt-3">
-              <Link
-                href="/register"
-                className="h-11 px-5 rounded-xl bg-[#101828] text-white font-bold text-xs flex items-center gap-2 hover:bg-slate-800 transition"
-              >
-                <Smartphone className="w-4 h-4 text-[#F5B547]" />
-                <span>Install Mobile PWA</span>
-              </Link>
+            <div className="flex gap-2 flex-wrap mt-1 sm:mt-3">
               <button
                 type="button"
                 onClick={() => {
@@ -2172,10 +2281,10 @@ export default function HomePage() {
                     window.dispatchEvent(new Event('safarpk_trigger_pwa_install'));
                   }
                 }}
-                className="h-11 px-5 rounded-xl bg-white border border-[#D0D5DD] text-[#101828] font-bold text-xs flex items-center gap-2 hover:bg-slate-50 transition cursor-pointer"
+                className="h-10 sm:h-11 px-4 sm:px-5 rounded-xl bg-[#101828] text-white font-bold text-xs flex items-center gap-2 hover:bg-slate-800 transition cursor-pointer active:scale-95"
               >
-                <Download className="w-4 h-4 text-[#0B6B4F]" />
-                <span>Download App</span>
+                <Smartphone className="w-4 h-4 text-[#F5B547]" />
+                <span>Install App on Phone</span>
               </button>
             </div>
           </div>

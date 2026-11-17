@@ -123,7 +123,7 @@ export default function LegalPage() {
         <div
           role="tablist"
           aria-label="Documents"
-          className="flex items-center gap-2 overflow-x-auto pb-1"
+          className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1"
         >
           {tabs.map((t) => {
             const active = activeTab === t.id;

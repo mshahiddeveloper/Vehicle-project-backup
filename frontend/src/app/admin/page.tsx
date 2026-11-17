@@ -59,6 +59,7 @@ import {
 } from 'lucide-react';
 import { AgentPermissionEditor } from '@/components/AgentPermissionEditor';
 import { SubscriptionFollowUpDesk } from '@/components/SubscriptionFollowUpDesk';
+import { AdminBrandingTab } from '@/components/AdminBrandingTab';
 import {
   getAllCountryDocRules,
   getDocRulesForCountry,
@@ -117,7 +118,7 @@ import {
 
 export default function SuperAdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'services' | 'listings' | 'plans' | 'promocodes' | 'promotions' | 'featured' | 'doc_rules' | 'directory' | 'analytics' | 'leads' | 'subscription_leads' | 'agents' | 'stealthAudit' | 'legal' | 'countries'
+    'overview' | 'services' | 'listings' | 'plans' | 'promocodes' | 'promotions' | 'featured' | 'doc_rules' | 'directory' | 'analytics' | 'leads' | 'subscription_leads' | 'agents' | 'stealthAudit' | 'legal' | 'countries' | 'branding'
   >('overview');
 
   // Read URL search param (?tab=...) on mount
@@ -1316,6 +1317,11 @@ export default function SuperAdminDashboardPage() {
                 label: 'Global Network & Inquiries',
                 icon: Globe,
                 badge: intlInquiries.filter((i) => i.status === 'NEW').length || undefined,
+              },
+              {
+                id: 'branding',
+                label: '🎨 Portal Branding & Logos',
+                icon: Sparkles,
               },
             ].map((item: any) => {
               const Icon = item.icon;
@@ -5940,6 +5946,11 @@ export default function SuperAdminDashboardPage() {
               })()}
             </div>
           )}
+
+          {/* ========================================================================= */}
+          {/* TAB: PORTAL BRANDING & CUSTOM LOGOS (DESKTOP & MOBILE)                    */}
+          {/* ========================================================================= */}
+          {activeTab === 'branding' && <AdminBrandingTab />}
 
 
           {/* ========================================================================= */}

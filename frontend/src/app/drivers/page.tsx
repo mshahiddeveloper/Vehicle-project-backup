@@ -359,29 +359,47 @@ export default function DriversPage() {
           </p>
         </div>
 
-        {/* Filters Bar */}
-        <div className="p-3 bg-[#F7F8FA] rounded-[18px] border border-[#EEF0F2] flex flex-wrap items-center gap-2.5">
-          {/* City Selector */}
-          <label className="flex items-center gap-2 h-11 px-3 rounded-xl bg-white border border-[#E4E7EC] text-sm font-semibold text-[#101828]">
-            <span>City</span>
-            <select
-              value={selectedCity}
-              onChange={(e) => setSelectedCity(e.target.value)}
-              aria-label="Filter by city"
-              className="border-0 bg-transparent text-sm font-semibold text-[#101828] outline-none cursor-pointer"
-            >
-              <option value="Lahore">Lahore</option>
-              <option value="Karachi">Karachi</option>
-              <option value="Islamabad">Islamabad</option>
-              <option value="Rawalpindi">Rawalpindi</option>
-            </select>
-          </label>
+        {/* Filters Bar: Clean Mobile App UI (No cheap scrollbars!) */}
+        <div className="p-3 sm:p-4 bg-[#F7F8FA] rounded-2xl sm:rounded-[22px] border border-[#EEF0F2] flex flex-col gap-2.5 sm:gap-3 shadow-2xs">
+          {/* Row 1: City Selector & Available Now Toggle in Responsive Grid */}
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
+            {/* City Selector */}
+            <label className="flex items-center gap-2 h-10 sm:h-11 px-3 rounded-xl bg-white border border-[#E4E7EC] text-xs sm:text-sm font-semibold text-[#101828] shadow-2xs">
+              <span className="text-slate-500 font-bold">City:</span>
+              <select
+                value={selectedCity}
+                onChange={(e) => setSelectedCity(e.target.value)}
+                aria-label="Filter by city"
+                className="flex-1 border-0 bg-transparent text-xs sm:text-sm font-extrabold text-[#101828] outline-none cursor-pointer"
+              >
+                <option value="Lahore">Lahore</option>
+                <option value="Karachi">Karachi</option>
+                <option value="Islamabad">Islamabad</option>
+                <option value="Rawalpindi">Rawalpindi</option>
+              </select>
+            </label>
 
-          {/* Trip Type Radiogroup */}
+            {/* Available now toggle */}
+            <button
+              type="button"
+              aria-pressed={availOnly}
+              onClick={() => setAvailOnly(!availOnly)}
+              className={`h-10 sm:h-11 px-3 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer border flex items-center justify-center gap-1.5 shadow-2xs ${
+                availOnly
+                  ? 'bg-emerald-50 text-[#08513C] border-[#0B6B4F]'
+                  : 'bg-white text-slate-700 border-[#E4E7EC] hover:bg-slate-50'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${availOnly ? 'bg-[#0B6B4F] animate-pulse' : 'bg-slate-300'}`} />
+              <span>Available now</span>
+            </button>
+          </div>
+
+          {/* Row 2: Duty Segmented Control: 3 equal-width columns on all devices (Zero horizontal scrollbars!) */}
           <div
             role="radiogroup"
             aria-label="Trip type"
-            className="flex items-center gap-1.5 overflow-x-auto"
+            className="grid grid-cols-3 p-1 rounded-xl bg-slate-200/70 border border-slate-200 gap-1"
           >
             {tripLabels.map((label, idx) => {
               const checked = tripType === idx;
@@ -392,48 +410,35 @@ export default function DriversPage() {
                   role="radio"
                   aria-checked={checked}
                   onClick={() => setTripType(idx)}
-                  className={`h-11 px-4 rounded-xl text-sm font-semibold transition cursor-pointer whitespace-nowrap ${
+                  className={`py-2 px-1 sm:py-2.5 sm:px-3 rounded-lg text-xs sm:text-sm font-extrabold transition cursor-pointer text-center truncate ${
                     checked
-                      ? 'bg-[#101828] text-white border border-[#101828]'
-                      : 'bg-white text-[#344054] border border-[#E4E7EC] hover:bg-slate-50'
+                      ? 'bg-white text-[#101828] shadow-xs ring-1 ring-black/5'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  {label}
+                  {label === 'City - by the day' ? 'City (Day)' : label}
                 </button>
               );
             })}
           </div>
 
-          {/* Available now toggle */}
-          <button
-            type="button"
-            aria-pressed={availOnly}
-            onClick={() => setAvailOnly(!availOnly)}
-            className={`h-11 px-4 rounded-xl text-sm font-semibold transition cursor-pointer border ${
-              availOnly
-                ? 'bg-[#E9F3EE] text-[#08513C] border-[#0B6B4F]'
-                : 'bg-white text-[#344054] border-[#E4E7EC] hover:bg-slate-50'
-            }`}
-          >
-            Available now
-          </button>
+          {/* Row 3: Live Search Input & Results Count */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search driver by name, language..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-10 sm:h-11 pl-9 pr-3 border border-[#E4E7EC] rounded-xl text-xs sm:text-sm bg-white outline-none focus:border-[#0B6B4F] shadow-2xs"
+              />
+            </div>
 
-          {/* Live Search Input */}
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-3.5 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search driver by name, language..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-11 pl-9 pr-3 border border-[#E4E7EC] rounded-xl text-sm bg-white outline-none focus:border-[#0B6B4F]"
-            />
+            <span className="text-[11px] sm:text-xs font-bold text-[#475467] px-1 sm:px-0">
+              {filteredDrivers.length} available drivers in {selectedCity}
+            </span>
           </div>
-
-          {/* Count Indicator */}
-          <span className="sm:ml-auto text-sm font-semibold text-[#475467]">
-            {filteredDrivers.length} available drivers in {selectedCity}
-          </span>
         </div>
 
         {/* Drivers Cards Grid */}

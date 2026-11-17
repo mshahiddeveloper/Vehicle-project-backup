@@ -10,9 +10,55 @@ export function AppFooter() {
   const isPakistan = !country || country.code === 'PK';
 
   return (
-    <footer className="bg-white border-t border-[#EEF0F2] text-[#475467] font-sans pt-12 pb-24 md:pb-12">
+    <footer className="bg-white border-t border-[#EEF0F2] text-[#475467] font-sans pt-8 md:pt-12 pb-24 md:pb-12">
       <div className="max-w-[1240px] mx-auto px-4 sm:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
+        {/* MOBILE FOOTER: Sleek, compact 2-column quick links instead of 800px stack */}
+        <div className="md:hidden flex flex-col gap-6 mb-8">
+          <div className="space-y-2">
+            <Link href="/" className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-lg bg-[#0B6B4F] text-white flex items-center justify-center font-extrabold text-base">
+                S
+              </span>
+              <span className="font-heading font-extrabold text-xl tracking-tight text-[#101828]">
+                SafarPK
+              </span>
+            </Link>
+            <p className="text-xs text-[#667085] leading-relaxed">
+              Direct marketplace connecting vehicle hosts, verified drivers, and transport operators across {country?.name || 'Pakistan'}. Zero middleman fees.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 text-xs">
+            <div className="space-y-2">
+              <h4 className="font-extrabold text-[#101828] uppercase text-[11px] tracking-wider">
+                Services
+              </h4>
+              <ul className="space-y-1.5 text-slate-600">
+                <li><Link href="/" className="hover:text-[#0B6B4F]">Rent a car</Link></li>
+                <li><Link href="/drivers" className="hover:text-[#0B6B4F]">{isPakistan ? 'Hire a driver' : 'Hire chauffeur'}</Link></li>
+                <li><Link href="/city-to-city" className="hover:text-[#0B6B4F]">City to city</Link></li>
+                <li><Link href="/shuttles" className="hover:text-[#0B6B4F]">Pick & drop</Link></li>
+                <li><Link href="/movers" className="hover:text-[#0B6B4F]">{isPakistan ? 'Home shifting' : 'Cargo movers'}</Link></li>
+              </ul>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="font-extrabold text-[#101828] uppercase text-[11px] tracking-wider">
+                Partners & Help
+              </h4>
+              <ul className="space-y-1.5 text-slate-600">
+                <li><Link href="/post-ad" className="text-[#0B6B4F] font-bold">+ List Vehicle</Link></li>
+                <li><Link href="/lister" className="hover:text-[#0B6B4F]">Partner Portal</Link></li>
+                <li><Link href="/help" className="hover:text-[#0B6B4F]">Help & FAQ</Link></li>
+                <li><Link href="/legal" className="hover:text-[#0B6B4F]">Terms & Privacy</Link></li>
+                <li><Link href="/verify" className="hover:text-[#0B6B4F]">Verification</Link></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* DESKTOP FOOTER: Full 4 Columns */}
+        <div className="hidden md:grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
           {/* Col 1: Brand & Model */}
           <div className="space-y-4">
             <Link href="/" className="flex items-center gap-2.5">
