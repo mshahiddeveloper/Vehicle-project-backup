@@ -1,9 +1,7 @@
-// SafarPK Service Worker (PWA Offline Capability & Fast Cache)
-const CACHE_NAME = 'safarpk-cache-v5';
+// SafarPK Service Worker (Offline Capability & Fast Cache)
+const CACHE_NAME = 'safarpk-cache-v6';
 const PRECACHE_ASSETS = [
   '/',
-  '/manifest.json',
-  '/icon.svg',
 ];
 
 self.addEventListener('install', (event) => {

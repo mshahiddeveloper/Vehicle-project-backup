@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -14,22 +14,17 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#0B6B4F",
+};
+
 export const metadata: Metadata = {
   title: "Safar — Worldwide Vehicle Rental & Mobility Marketplace",
   description: "Enterprise multi-vendor vehicle rental, commuter pick & drop, city-to-city rides, and cargo moving worldwide.",
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
-  themeColor: "#10b981",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "Safar",
-  },
-  manifest: "/manifest.json",
 };
 
 export default function RootLayout({

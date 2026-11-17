@@ -34,7 +34,6 @@ import {
 import { AppHeader } from '@/components/AppHeader';
 import { AppFooter } from '@/components/AppFooter';
 import { MobileNavBar } from '@/components/MobileNavBar';
-import { MobilePWAExperience } from '@/components/MobilePWAExperience';
 import { recordClickEvent, recordLead } from '@/data/activityTracker';
 import { useCountry } from '@/app/context/CountryContext';
 import { COUNTRIES, resolveAnyCountry } from '@/data/countries';
@@ -2637,9 +2636,8 @@ export default function HomePage() {
       {/* 8. Global Footer */}
       <AppFooter />
 
-      {/* 9. Mobile Bottom Navigation & PWA Experience */}
+      {/* 9. Mobile Bottom Navigation */}
       <MobileNavBar />
-      <MobilePWAExperience />
     </div>
   );
 }
