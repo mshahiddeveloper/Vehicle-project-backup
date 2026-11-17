@@ -172,7 +172,7 @@ export default function CityRideDetailPage() {
                 <Car className="w-3.5 h-3.5" />
                 <span>Private Intercity Motorway Service</span>
               </div>
-              <h1 className="font-heading font-black text-2xl sm:text-4xl tracking-tight">
+              <h1 className="font-heading font-black text-lg sm:text-2xl md:text-3xl lg:text-4xl tracking-tight leading-tight">
                 {ride.fromCity} <span className="text-blue-400">➔</span> {ride.toCity}
               </h1>
               <p className="text-slate-300 text-sm sm:text-base max-w-xl">

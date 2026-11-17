@@ -924,7 +924,7 @@ export default function ListingDetailPage() {
                   </span>
                 )}
               </div>
-              <h1 className="font-heading font-extrabold text-2xl sm:text-3xl md:text-4xl text-[#101828] tracking-tight">
+              <h1 className="font-heading font-extrabold text-lg sm:text-2xl md:text-3xl lg:text-4xl text-[#101828] tracking-tight leading-tight">
                 {car.title}
               </h1>
               <p className="text-[#475467] text-xs sm:text-sm flex items-center gap-1.5 flex-wrap">

@@ -283,7 +283,7 @@ function InboxContent() {
           {/* Header */}
           <div className="p-4 border-b border-[#EEF0F2] flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <h1 className="font-heading font-extrabold text-2xl text-[#101828]">Messages</h1>
+              <h1 className="font-heading font-extrabold text-lg sm:text-2xl text-[#101828]">Messages</h1>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#E9F3EE] text-[#0B6B4F]">
                 {conversations.length} Active
               </span>

@@ -348,11 +348,11 @@ export default function DriversPage() {
 
       <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-8 md:py-12 flex flex-col gap-6">
         {/* Title & Tagline */}
-        <div className="flex flex-col gap-1.5">
-          <h1 className="font-heading font-extrabold text-3xl sm:text-4xl tracking-tight text-[#101828]">
+        <div className="flex flex-col gap-1 sm:gap-1.5">
+          <h1 className="font-heading font-extrabold text-lg sm:text-2xl md:text-3xl lg:text-4xl tracking-tight text-[#101828] leading-tight">
             {isPakistan ? 'Hire a verified driver & captain' : 'Hire a professional chauffeur'}
           </h1>
-          <p className="text-[#475467] text-base">
+          <p className="text-[#475467] text-xs sm:text-sm md:text-base leading-relaxed">
             {isPakistan
               ? 'Experienced verified drivers and captains for a day in the city, an outstation trip, or monthly driving.'
               : 'Experienced chauffeurs for a day in the city, an outstation trip, or monthly driving.'}

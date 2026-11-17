@@ -144,7 +144,7 @@ export default function LeadsReportPage() {
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Back to dashboard</span>
             </Link>
-            <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-[#101828]">
+            <h1 className="font-heading font-extrabold text-lg sm:text-2xl md:text-3xl text-[#101828] leading-tight">
               Leads & Performance Report
             </h1>
             <p className="text-xs sm:text-sm text-[#475467]">

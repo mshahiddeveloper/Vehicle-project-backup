@@ -409,7 +409,7 @@ export default function CustomerDashboardPage() {
               {/* Welcome Banner */}
               <div className="p-6 bg-gradient-to-r from-emerald-800 to-teal-700 text-white rounded-3xl shadow-md">
                 <span className="text-xs uppercase tracking-wider font-bold text-emerald-200">Welcome Back</span>
-                <h2 className="text-2xl font-black mt-1">Hello, {customerName}!</h2>
+                <h2 className="text-lg sm:text-2xl font-black mt-1">Hello, {customerName}!</h2>
                 <p className="text-xs text-emerald-100 mt-1 max-w-xl">
                   Manage all your car rentals, scheduled shuttle routes, intercity rides, and cargo quotes in one centralized dashboard.
                 </p>

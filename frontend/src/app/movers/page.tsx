@@ -273,11 +273,11 @@ export default function MoversPage() {
           order-2 on mobile (< lg), order-1 on desktop (>= lg).
         */}
         <div className="order-2 lg:order-1 flex flex-col gap-6">
-          <div className="flex flex-col gap-1.5">
-            <h1 className="font-heading font-extrabold text-3xl sm:text-4xl tracking-tight text-[#101828]">
+          <div className="flex flex-col gap-1 sm:gap-1.5">
+            <h1 className="font-heading font-extrabold text-lg sm:text-2xl md:text-3xl lg:text-4xl tracking-tight text-[#101828] leading-tight">
               Home shifting & movers
             </h1>
-            <p className="text-[#475467] text-sm sm:text-base">
+            <p className="text-[#475467] text-xs sm:text-sm md:text-base leading-relaxed">
               Trucks with helpers for house, office or single heavy items. Compare quotes and book directly.
             </p>
           </div>

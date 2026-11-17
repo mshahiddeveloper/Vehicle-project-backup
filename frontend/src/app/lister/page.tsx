@@ -1113,7 +1113,7 @@ export default function ListerDashboardPage() {
               <div className="p-6 bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-3xl shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <span className="text-xs uppercase tracking-wider font-bold text-emerald-400">Lister Control Center</span>
-                  <h2 className="text-2xl font-black mt-1">{businessName}</h2>
+                  <h2 className="text-lg sm:text-2xl font-black mt-1">{businessName}</h2>
                   <p className="text-xs text-slate-300 mt-1">
                     Your fleet is currently LIVE in {operatingCity}. Direct booking leads and online booking requests appear instantly below.
                   </p>

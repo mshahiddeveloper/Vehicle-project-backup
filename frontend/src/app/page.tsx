@@ -732,7 +732,7 @@ export default function HomePage() {
 
             {/* Punchy, Minimal Headline with Animated Rotating Tag */}
             <div className="space-y-0.5">
-              <h1 className="font-heading font-black text-2xl sm:text-3xl md:text-4xl tracking-tight text-[#101828] leading-tight">
+              <h1 className="font-heading font-black text-lg sm:text-2xl md:text-3xl lg:text-4xl tracking-tight text-[#101828] leading-snug sm:leading-tight">
                 Move freely across {country?.name || 'Pakistan'} —{' '}
                 <span className="text-[#0B6B4F] inline-block transition-all duration-300 ease-in-out">
                   {HERO_ROTATING_SERVICES[heroIdx]?.text}
@@ -1187,16 +1187,16 @@ export default function HomePage() {
               )}
 
               <div className="flex items-end justify-between gap-4 flex-wrap">
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-0.5 sm:gap-1">
               <div className="flex items-center gap-2">
-                <h2 className="font-heading font-extrabold text-2xl sm:text-3xl tracking-tight">
+                <h2 className="font-heading font-extrabold text-base sm:text-xl md:text-2xl tracking-tight">
                   {currentMeta.title}
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-full bg-[#E9F3EE] text-[#0B6B4F] text-xs font-bold">
+                <span className="px-2 py-0.5 rounded-full bg-[#E9F3EE] text-[#0B6B4F] text-[11px] sm:text-xs font-bold">
                   {currentTotal} available
                 </span>
               </div>
-              <p className="text-sm sm:text-base text-[#475467]">
+              <p className="text-xs sm:text-sm text-[#475467]">
                 {currentMeta.sub}
               </p>
             </div>
@@ -1990,10 +1990,10 @@ export default function HomePage() {
       <section className="py-8 md:py-16 bg-[#F7F8FA] border-y border-[#EEF0F2]">
         <div className="max-w-[1240px] mx-auto px-4 sm:px-8 flex flex-col gap-4 sm:gap-7">
           <div className="flex flex-col gap-0.5 sm:gap-1">
-            <h2 className="font-heading font-extrabold text-xl sm:text-2xl md:text-3xl tracking-tight text-[#101828]">
+            <h2 className="font-heading font-extrabold text-base sm:text-xl md:text-2xl lg:text-3xl tracking-tight text-[#101828]">
               One app for every way you move
             </h2>
-            <p className="text-xs sm:text-sm md:text-base text-[#475467]">
+            <p className="text-xs sm:text-sm text-[#475467]">
               Five services, one open direct transport marketplace
             </p>
           </div>
@@ -2116,7 +2116,7 @@ export default function HomePage() {
       <section className="py-8 md:py-16">
         <div className="max-w-[1240px] mx-auto px-4 sm:px-8 flex flex-col gap-4 sm:gap-8">
           <div className="flex items-center justify-between">
-            <h2 className="font-heading font-extrabold text-xl sm:text-2xl md:text-3xl tracking-tight text-[#101828]">
+            <h2 className="font-heading font-extrabold text-base sm:text-xl md:text-2xl lg:text-3xl tracking-tight text-[#101828]">
               Book in three steps
             </h2>
             <span className="text-xs text-slate-500 font-semibold hidden sm:inline">Zero booking fees</span>
@@ -2193,7 +2193,7 @@ export default function HomePage() {
       <section className="py-8 md:py-14 bg-[#F7F8FA] border-t border-[#EEF0F2]">
         <div className="max-w-[1240px] mx-auto px-4 sm:px-8 flex flex-col gap-4 sm:gap-6">
           <div className="flex items-center justify-between">
-            <h2 className="font-heading font-extrabold text-xl sm:text-2xl md:text-3xl tracking-tight text-[#101828]">
+            <h2 className="font-heading font-extrabold text-base sm:text-xl md:text-2xl lg:text-3xl tracking-tight text-[#101828]">
               Popular cities across {country?.name || 'Pakistan'}
             </h2>
             <span className="text-xs text-[#0B6B4F] font-bold">Explore Hubs</span>
@@ -2243,7 +2243,7 @@ export default function HomePage() {
               <span className="text-[10px] sm:text-xs font-bold text-[#F5B547] tracking-wider uppercase">
                 For owners, drivers & movers
               </span>
-              <h3 className="font-heading font-extrabold text-lg sm:text-2xl md:text-3xl leading-snug">
+              <h3 className="font-heading font-extrabold text-base sm:text-xl md:text-2xl leading-snug">
                 List your vehicle or service. Connect directly with customers.
               </h3>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-md hidden sm:block">
@@ -2265,7 +2265,7 @@ export default function HomePage() {
               <span className="text-[10px] sm:text-xs font-bold text-[#0B6B4F] tracking-wider uppercase">
                 Get the app
               </span>
-              <h3 className="font-heading font-extrabold text-lg sm:text-2xl md:text-3xl leading-snug text-[#101828]">
+              <h3 className="font-heading font-extrabold text-base sm:text-xl md:text-2xl leading-snug text-[#101828]">
                 Your trips, chats and bookings in your pocket.
               </h3>
               <p className="text-xs sm:text-sm text-[#344054] leading-relaxed max-w-md hidden sm:block">

@@ -328,7 +328,7 @@ function RegisterForm() {
           className="w-full max-w-[820px] bg-white border border-[#EEF0F2] rounded-3xl p-4 sm:p-10 flex flex-col gap-6 sm:gap-7 shadow-[0_8px_28px_rgba(16,24,40,0.06)]"
         >
           <div className="flex justify-between items-baseline gap-3">
-            <h1 className="font-heading font-extrabold text-2xl sm:text-3xl tracking-tight">
+            <h1 className="font-heading font-extrabold text-xl sm:text-2xl md:text-3xl tracking-tight">
               {T.create.en}
             </h1>
             {lang !== 'en' && (

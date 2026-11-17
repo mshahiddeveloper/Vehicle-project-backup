@@ -120,7 +120,7 @@ export default function LoginPage() {
           className="w-full max-w-[440px] bg-white border border-[#EEF0F2] rounded-3xl p-6 sm:p-9 flex flex-col gap-5 shadow-[0_8px_28px_rgba(16,24,40,0.06)]"
         >
           <div className="flex justify-between items-baseline gap-3">
-            <h1 className="font-heading font-extrabold text-2xl sm:text-3xl tracking-tight">
+            <h1 className="font-heading font-extrabold text-xl sm:text-2xl md:text-3xl tracking-tight">
               {T.signIn.en}
             </h1>
             {lang !== 'en' && (

@@ -90,10 +90,10 @@ export default function SavedItemsPage() {
 
       <main className="flex-1 max-w-[880px] w-full mx-auto px-4 sm:px-8 py-8 md:py-12 flex flex-col gap-6">
         <div className="flex flex-col gap-1">
-          <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-[#101828]">
+          <h1 className="font-heading font-extrabold text-lg sm:text-2xl md:text-3xl text-[#101828] leading-tight">
             Saved items
           </h1>
-          <p className="text-sm text-[#475467]">
+          <p className="text-xs sm:text-sm text-[#475467]">
             Vehicles, drivers and routes you have saved for easy comparison and booking.
           </p>
         </div>

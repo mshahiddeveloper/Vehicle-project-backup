@@ -170,7 +170,7 @@ export default function MoverDetailPage() {
                 <Truck className="w-3.5 h-3.5" />
                 <span>Professional House Shifting & Cargo Fleet</span>
               </div>
-              <h1 className="font-heading font-black text-2xl sm:text-4xl tracking-tight">
+              <h1 className="font-heading font-black text-lg sm:text-2xl md:text-3xl lg:text-4xl tracking-tight leading-tight">
                 {mover.name}
               </h1>
               <p className="text-slate-300 text-sm sm:text-base max-w-xl">

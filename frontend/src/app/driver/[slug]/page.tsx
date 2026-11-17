@@ -244,7 +244,7 @@ export default function PublicDriverProfilePage() {
 
             <div className="space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="font-heading font-black text-2xl sm:text-3xl text-slate-900 tracking-tight">
+                <h1 className="font-heading font-black text-lg sm:text-2xl md:text-3xl text-slate-900 tracking-tight leading-tight">
                   {driver.name}
                 </h1>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1">

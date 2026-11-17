@@ -1431,7 +1431,7 @@ export default function SuperAdminDashboardPage() {
                         Real-time Platform Revenue & Operational Health
                       </span>
                     </div>
-                    <h2 className="text-xl sm:text-2xl font-black text-white">
+                    <h2 className="text-lg sm:text-2xl font-black text-white">
                       Platform Master Overview
                     </h2>
                     <p className="text-xs text-slate-400 mt-0.5">

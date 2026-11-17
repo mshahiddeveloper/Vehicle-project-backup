@@ -1496,7 +1496,7 @@ export default function ServiceProviderDashboardPage() {
                       <span className="text-xs uppercase tracking-wider font-bold text-teal-300">
                         Daily Commuter Shuttle Operations Desk
                       </span>
-                      <h2 className="text-2xl font-black mt-1">{companyName}</h2>
+                      <h2 className="text-lg sm:text-2xl font-black mt-1">{companyName}</h2>
                       <p className="text-xs text-slate-300 mt-1">
                         Operating verified daily school, university, and corporate office pick & drop commuter routes in {cityBase} and surrounding areas.
                       </p>
@@ -1596,7 +1596,7 @@ export default function ServiceProviderDashboardPage() {
                       <span className="text-xs uppercase tracking-wider font-bold text-orange-200">
                         Home Shifting & Cargo Moving Desk
                       </span>
-                      <h2 className="text-2xl font-black mt-1">{companyName}</h2>
+                      <h2 className="text-lg sm:text-2xl font-black mt-1">{companyName}</h2>
                       <p className="text-xs text-slate-300 mt-1">
                         Operating home shifting, office relocations, freight cargo, and heavy item moving in {cityBase} and nationwide.
                       </p>

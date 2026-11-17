@@ -846,7 +846,7 @@ export default function DriverDashboardPage() {
                     <span className="text-xs uppercase tracking-wider font-bold text-sky-400">
                       Live Duty & Marketplace Visibility
                     </span>
-                    <h2 className="text-2xl font-black mt-1">
+                    <h2 className="text-lg sm:text-2xl font-black mt-1">
                       {availability === 'OFFLINE'
                         ? 'Profile Offline & Hidden'
                         : availability === 'BUSY'

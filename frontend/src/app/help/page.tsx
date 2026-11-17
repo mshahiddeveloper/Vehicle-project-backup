@@ -90,11 +90,11 @@ export default function HelpPage() {
       <AppHeader />
 
       <main className="flex-1 max-w-[1100px] w-full mx-auto px-4 sm:px-8 py-8 md:py-14 flex flex-col gap-8">
-        <div className="flex flex-col gap-1.5">
-          <h1 className="font-heading font-extrabold text-3xl sm:text-4xl text-[#101828] tracking-tight">
+        <div className="flex flex-col gap-1 sm:gap-1.5">
+          <h1 className="font-heading font-extrabold text-lg sm:text-2xl md:text-3xl lg:text-4xl text-[#101828] tracking-tight leading-tight">
             Help centre & FAQs
           </h1>
-          <p className="text-[#475467] text-base">
+          <p className="text-[#475467] text-xs sm:text-sm md:text-base leading-relaxed">
             Answers for renters, vehicle owners, independent drivers, shuttles and movers.
           </p>
         </div>

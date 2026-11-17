@@ -148,7 +148,7 @@ export default function LegalPage() {
 
         {/* Title and version */}
         <div className="flex flex-col gap-1 border-b border-[#EEF0F2] pb-4">
-          <h1 className="font-heading font-extrabold text-3xl sm:text-4xl text-[#101828]">
+          <h1 className="font-heading font-extrabold text-lg sm:text-2xl md:text-3xl lg:text-4xl text-[#101828] leading-tight">
             {currentDoc.title}
           </h1>
           <span className="text-xs text-[#667085] font-medium">{currentDoc.version}</span>
