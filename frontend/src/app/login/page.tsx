@@ -60,6 +60,8 @@ export default function LoginPage() {
     } else if (role === 'PROVIDER') {
       if (res.user.providerSubtype === 'COMMERCIAL_CARGO') {
         router.push('/provider?mode=commercial_cargo');
+      } else if (res.user.providerSubtype === 'CITY_TO_CITY') {
+        router.push('/intercity');
       } else {
         router.push('/provider?mode=pick_and_drop');
       }
@@ -74,11 +76,13 @@ export default function LoginPage() {
       if (res.user.role === 'LISTER') router.push('/lister');
       else if (res.user.role === 'DRIVER') router.push('/driver');
       else if (res.user.role === 'PROVIDER') {
-        router.push(
-          res.user.providerSubtype === 'COMMERCIAL_CARGO'
-            ? '/provider?mode=commercial_cargo'
-            : '/provider?mode=pick_and_drop'
-        );
+        if (res.user.providerSubtype === 'COMMERCIAL_CARGO') {
+          router.push('/provider?mode=commercial_cargo');
+        } else if (res.user.providerSubtype === 'CITY_TO_CITY') {
+          router.push('/intercity');
+        } else {
+          router.push('/provider?mode=pick_and_drop');
+        }
       } else router.push('/customer');
     }
   };
@@ -208,9 +212,9 @@ export default function LoginPage() {
           {/* Quick Demo Role Switcher */}
           <div className="pt-2 border-t border-slate-100 space-y-2">
             <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase block">
-              ⚡ Quick Testing Accounts
+              ⚡ Quick Testing Accounts (5 Portals)
             </span>
-            <div className="grid grid-cols-2 gap-1.5 text-[11px] font-bold">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[11px] font-bold">
               <button
                 type="button"
                 onClick={() => quickSwitch('salman@salmanrentals.pk')}
@@ -238,6 +242,13 @@ export default function LoginPage() {
                 className="p-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-300 text-left cursor-pointer transition truncate"
               >
                 📦 Al-Makkah (Movers)
+              </button>
+              <button
+                type="button"
+                onClick={() => quickSwitch('farhan.intercity@safarpk.com')}
+                className="p-1.5 rounded-lg border border-teal-300 bg-teal-50 hover:bg-teal-100 text-teal-950 text-left cursor-pointer transition truncate col-span-2 sm:col-span-1 shadow-sm"
+              >
+                🛣️ Farhan (City to City)
               </button>
             </div>
             <div className="grid grid-cols-2 gap-1.5 text-[11px] font-bold pt-1">

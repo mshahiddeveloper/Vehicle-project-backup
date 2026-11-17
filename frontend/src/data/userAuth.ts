@@ -3,7 +3,7 @@
 import { SubscriptionPlan } from './promoCodes';
 
 export type UserRole = 'CUSTOMER' | 'LISTER' | 'DRIVER' | 'PROVIDER' | 'AGENT' | 'SUPER_ADMIN';
-export type ProviderSubtype = 'PICK_AND_DROP' | 'COMMERCIAL_CARGO';
+export type ProviderSubtype = 'PICK_AND_DROP' | 'COMMERCIAL_CARGO' | 'CITY_TO_CITY';
 export type SubscriptionStatus = 'UNSUBSCRIBED' | 'PENDING_APPROVAL' | 'ACTIVE' | 'REJECTED';
 export type KycStatus = 'UNVERIFIED' | 'PENDING_APPROVAL' | 'VERIFIED';
 
@@ -120,6 +120,7 @@ export function getApprovedServicesForUser(user: RegisteredUser): SafarServiceTy
   if (user.role === 'DRIVER') return ['HIRE_A_DRIVER'];
   if (user.role === 'PROVIDER') {
     if (user.providerSubtype === 'COMMERCIAL_CARGO') return ['HOME_SHIFTING'];
+    if (user.providerSubtype === 'CITY_TO_CITY') return ['CITY_TO_CITY'];
     return ['PICK_AND_DROP'];
   }
   return ['RENT_A_CAR', 'HIRE_A_DRIVER', 'CITY_TO_CITY', 'PICK_AND_DROP', 'HOME_SHIFTING'];
@@ -256,10 +257,10 @@ export const DEMO_USERS: RegisteredUser[] = [
   },
   {
     id: 'usr-demo-provider-pnd',
-    name: 'Kashif Nazir',
-    businessName: 'Metro Commute Services',
+    name: 'Subhan Ahmed',
+    businessName: 'Subhan Commuter Shuttles',
     phone: '+92 321 8472910',
-    email: 'metro.shuttle@safarpk.com',
+    email: 'subhan.shuttles@safarpk.com',
     password: 'password123',
     city: 'Lahore',
     countryCode: 'PK',
@@ -334,6 +335,47 @@ export const DEMO_USERS: RegisteredUser[] = [
       currency: 'PKR',
       symbol: 'Rs',
       renewsOn: '25 Dec 2026',
+    },
+  },
+  {
+    id: 'usr-demo-intercity',
+    name: 'Farhan Ahmed',
+    businessName: 'Farhan Executive Carpool & Highway Fleet',
+    phone: '+92 312 9988776',
+    email: 'farhan.intercity@safarpk.com',
+    password: 'password123',
+    city: 'Karachi',
+    countryCode: 'PK',
+    role: 'PROVIDER',
+    providerSubtype: 'CITY_TO_CITY',
+    registeredAt: '2026-02-12T10:00:00Z',
+    assignedAgentId: 'ag-1',
+    assignedAgentName: 'Kashif Raza',
+    metrics: {
+      viewCount: 1420,
+      leadsCount: 68,
+      clickCount: 290,
+      lastActive: '2026-11-17T14:30:00Z',
+    },
+    activities: [
+      {
+        id: 'act-501',
+        type: 'REGISTER',
+        title: 'City to City Operator Registered',
+        description: 'Karachi ➔ Hyderabad daily carpool & private car service registered',
+        timestamp: '2026-02-12T10:00:00Z',
+      },
+    ],
+    subscription: {
+      status: 'ACTIVE',
+      planId: 'p-intercity-1',
+      planName: 'Intercity Route Operator Pass',
+      quota: 10,
+      usedQuota: 2,
+      amountPaid: 8000,
+      currency: 'PKR',
+      symbol: 'Rs',
+      renewsOn: '18 Dec 2026',
     },
   },
   {
@@ -419,6 +461,25 @@ export function getAllRegisteredUsers(): RegisteredUser[] {
       if (changed) mutated = true;
       return u as RegisteredUser;
     });
+
+    // Ensure all demo accounts (like Subhan Shuttles and Farhan Intercity) are present and updated in storage
+    for (const demo of DEMO_USERS) {
+      const idx = sanitized.findIndex((u: any) => u.id === demo.id);
+      if (idx === -1) {
+        sanitized.push(demo);
+        mutated = true;
+      } else if (sanitized[idx].email !== demo.email || sanitized[idx].name !== demo.name) {
+        sanitized[idx] = {
+          ...sanitized[idx],
+          email: demo.email,
+          name: demo.name,
+          businessName: demo.businessName,
+          providerSubtype: demo.providerSubtype,
+        };
+        mutated = true;
+      }
+    }
+
     if (mutated) {
       localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(sanitized));
     }

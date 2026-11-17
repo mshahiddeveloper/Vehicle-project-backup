@@ -150,7 +150,13 @@ export function AppHeader({
       case 'DRIVER':
         return '/driver';
       case 'PROVIDER':
-        return '/provider';
+        if (activeUser?.providerSubtype === 'COMMERCIAL_CARGO') {
+          return '/provider?mode=commercial_cargo';
+        }
+        if (activeUser?.providerSubtype === 'CITY_TO_CITY') {
+          return '/intercity';
+        }
+        return '/provider?mode=pick_and_drop';
       case 'CUSTOMER':
       default:
         return '/customer';
@@ -197,6 +203,14 @@ export function AppHeader({
           visible: true,
         };
       }
+      if (activeUser.providerSubtype === 'CITY_TO_CITY') {
+        return {
+          label: 'Post Intercity Route',
+          href: '/intercity?tab=routes&action=new',
+          icon: Car,
+          visible: true,
+        };
+      }
       return {
         label: 'List Pick & Drop Route',
         href: '/provider?mode=pick_and_drop&tab=routes',
@@ -225,6 +239,9 @@ export function AppHeader({
     if (role === 'PROVIDER') {
       if (activeUser.providerSubtype === 'COMMERCIAL_CARGO') {
         return 'bg-orange-50 text-[#C2410C] border-orange-200/90 hover:bg-orange-100';
+      }
+      if (activeUser.providerSubtype === 'CITY_TO_CITY') {
+        return 'bg-teal-50 text-teal-800 border-teal-200/90 hover:bg-teal-100';
       }
       return 'bg-teal-50 text-teal-800 border-teal-200/90 hover:bg-teal-100';
     }
