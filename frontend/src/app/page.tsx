@@ -719,11 +719,11 @@ export default function HomePage() {
       sub: searchWhere
         ? `Showing vehicles available in "${searchWhere}" (${selectedCategory})`
         : `From local fleet partners and private vehicle owners in ${country?.name || 'Pakistan'}`,
-      viewAllText: 'View all cars',
-      viewAllHref: '/listing/l-1',
+      viewAllText: 'View all vehicles',
+      viewAllHref: '#all-listings',
       emptyIcon: Car,
       emptyLabel: 'vehicles',
-      resetLabel: 'Show All Available Cars',
+      resetLabel: 'Show All Available Vehicles',
     },
     {
       title: isPakistan ? 'Verified drivers & captains' : 'Professional chauffeurs & drivers',
@@ -1486,28 +1486,29 @@ export default function HomePage() {
                 </div>
               )}
 
-              <div className="flex items-end justify-between gap-4 flex-wrap">
-            <div className="flex flex-col gap-0.5 sm:gap-1">
-              <div className="flex items-center gap-2">
-                <h2 className="font-heading font-extrabold text-base sm:text-xl md:text-2xl tracking-tight">
-                  {currentMeta.title}
-                </h2>
-                <span className="px-2 py-0.5 rounded-full bg-[#E9F3EE] text-[#0B6B4F] text-[11px] sm:text-xs font-bold">
+              {/* Clean Single Bar: Left link to selected category data, Right real dynamic count */}
+              <div id="all-listings" className="flex items-center justify-between gap-3 w-full py-1">
+                <Link
+                  href={currentMeta.viewAllHref}
+                  onClick={(e) => {
+                    if (activeService === 0) {
+                      setVisibleCount(120);
+                      const el = document.getElementById('all-listings');
+                      if (el) {
+                        el.scrollIntoView({ behavior: 'smooth' });
+                      }
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-extrabold text-[#0B6B4F] hover:text-[#08513C] hover:underline transition group cursor-pointer"
+                >
+                  <span>{currentMeta.viewAllText}</span>
+                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                </Link>
+
+                <span className="px-2.5 py-1 rounded-full bg-[#E9F3EE] text-[#0B6B4F] text-[11px] sm:text-xs font-extrabold border border-emerald-200/80 shadow-2xs whitespace-nowrap">
                   {currentTotal} available
                 </span>
               </div>
-              <p className="text-xs sm:text-sm text-[#475467]">
-                {currentMeta.sub}
-              </p>
-            </div>
-            <Link
-              href={currentMeta.viewAllHref}
-              className="text-xs sm:text-sm font-bold text-[#0B6B4F] hover:underline flex items-center gap-1"
-            >
-              <span>{currentMeta.viewAllText}</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
 
           {/* Category Chips (Real-Time Filter) */}
           <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
