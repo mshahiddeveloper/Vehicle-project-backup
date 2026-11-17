@@ -67,9 +67,13 @@ interface VehicleDetail {
   mileageWeekly?: string;
   mileageMonthly?: string;
   extraKmRate?: string;
+  extraKmRateNum?: number;
+  serviceScope?: 'BOTH' | 'WITH_DRIVER' | 'WITHOUT_DRIVER';
+  fuelIncluded?: boolean;
+  fuelKmAllowance?: string;
   insuranceIncluded?: boolean;
   insuranceType?: string;
-  deposit: number;
+  deposit?: number;
   transmission: string;
   fuelType: string;
   engineCapacity?: string;
@@ -112,6 +116,8 @@ const VEHICLE_CATALOG: Record<string, VehicleDetail> = {
     mileageWeekly: '1,750 km / week',
     mileageMonthly: '5,500 km / month',
     extraKmRate: 'PKR 25 / km',
+    extraKmRateNum: 25,
+    serviceScope: 'BOTH',
     insuranceIncluded: true,
     insuranceType: 'Comprehensive Insurance Included',
     deposit: 30000,
@@ -198,6 +204,8 @@ const VEHICLE_CATALOG: Record<string, VehicleDetail> = {
     mileageWeekly: '1,750 km / week',
     mileageMonthly: '5,000 km / month',
     extraKmRate: 'PKR 20 / km',
+    extraKmRateNum: 20,
+    serviceScope: 'BOTH',
     insuranceIncluded: true,
     insuranceType: 'Comprehensive Insurance Included',
     deposit: 25000,
@@ -278,6 +286,8 @@ const VEHICLE_CATALOG: Record<string, VehicleDetail> = {
     mileageWeekly: '1,400 km / week',
     mileageMonthly: '4,500 km / month',
     extraKmRate: 'PKR 35 / km',
+    extraKmRateNum: 35,
+    serviceScope: 'BOTH',
     insuranceIncluded: true,
     insuranceType: 'Full Comprehensive Insurance Included',
     deposit: 50000,
@@ -383,13 +393,25 @@ export default function ListingDetailPage() {
                 found.withDriverRate || (found.dailyRate ? found.dailyRate + 2500 : 7500),
               weeklyRate: found.weeklyRate ? Number(found.weeklyRate) : undefined,
               monthlyRate: found.monthlyRate ? Number(found.monthlyRate) : undefined,
-              mileageDaily: found.mileageDaily || '250 km / day',
-              mileageWeekly: found.mileageWeekly,
-              mileageMonthly: found.mileageMonthly,
-              extraKmRate: found.extraKmRate || 'PKR 25 / km',
+              mileageDaily: found.mileageDaily || undefined,
+              mileageWeekly: found.mileageWeekly || undefined,
+              mileageMonthly: found.mileageMonthly || undefined,
+              extraKmRate: found.extraKmRate || undefined,
+              extraKmRateNum:
+                found.extraKmRateNum !== undefined && found.extraKmRateNum !== ''
+                  ? Number(found.extraKmRateNum)
+                  : found.extraKmRate
+                  ? Number(String(found.extraKmRate).replace(/\D/g, '')) || undefined
+                  : undefined,
+              serviceScope: found.serviceScope || 'BOTH',
+              fuelIncluded: !!found.fuelIncluded,
+              fuelKmAllowance: found.fuelKmAllowance || undefined,
               insuranceIncluded: found.insuranceIncluded ?? true,
               insuranceType: found.insuranceType || 'Comprehensive Insurance Included',
-              deposit: found.deposit !== undefined ? Number(found.deposit) : 20000,
+              deposit:
+                found.deposit !== undefined && found.deposit !== '' && Number(found.deposit) > 0
+                  ? Number(found.deposit)
+                  : undefined,
               transmission: found.transmission || 'Automatic',
               fuelType: found.fuelType || 'Petrol',
               engineCapacity: found.engineCapacity,
@@ -430,8 +452,16 @@ export default function ListingDetailPage() {
     } catch (e) {}
   }, [listingId]);
 
-  const [withDriver, setWithDriver] = useState(false);
+  const [withDriver, setWithDriver] = useState(car.serviceScope === 'WITH_DRIVER');
   const [hostPhoneRevealed, setHostPhoneRevealed] = useState(false);
+
+  useEffect(() => {
+    if (car.serviceScope === 'WITH_DRIVER') {
+      setWithDriver(true);
+    } else if (car.serviceScope === 'WITHOUT_DRIVER') {
+      setWithDriver(false);
+    }
+  }, [car.serviceScope]);
 
   const pickupInputRef = useRef<HTMLInputElement>(null);
   const returnInputRef = useRef<HTMLInputElement>(null);
@@ -561,7 +591,7 @@ export default function ListingDetailPage() {
     return true;
   };
 
-  const formatPKR = (v: number) => `PKR ${v.toLocaleString('en-US')}`;
+  const formatPKR = (v: number) => formatPrice(v);
 
   const calculateTotal = () => {
     const baseDaily = withDriver ? car.dailyRateWithDriver : car.dailyRate;
@@ -707,7 +737,7 @@ export default function ListingDetailPage() {
 
     const bookingRef = `BKG-${Math.floor(1000 + Math.random() * 9000)}`;
     const totalAmt = calculateTotal();
-    const totalCostStr = formatPKR(totalAmt);
+    const totalCostStr = formatPrice(totalAmt);
     const durationStr = `${daysCount} ${daysCount === 1 ? 'day' : 'days'}`;
     const serviceModeStr = withDriver ? 'With Professional Chauffeur' : 'Self-Drive';
     const pickFormatted = formatDisplayDate(pickupDate);
@@ -947,6 +977,58 @@ export default function ListingDetailPage() {
                 </span>
               </div>
 
+              {/* Service Scope Badges & Fuel Status */}
+              <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                {car.serviceScope === 'WITH_DRIVER' ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                    <Users className="w-3.5 h-3.5 text-blue-600" />
+                    {isPakistan ? 'With Driver / Captain Only' : 'With Chauffeur Only'}
+                  </span>
+                ) : car.serviceScope === 'WITHOUT_DRIVER' ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-50 text-purple-800 border border-purple-200">
+                    <Key className="w-3.5 h-3.5 text-purple-600" />
+                    Self-Drive (Without Driver) Only
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    Self-Drive & {isPakistan ? 'With Driver' : 'With Chauffeur'} Both Available
+                  </span>
+                )}
+
+                {car.fuelIncluded && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300">
+                    <Fuel className="w-3.5 h-3.5 text-amber-600" />
+                    Fuel Included Package {car.fuelKmAllowance ? `(${car.fuelKmAllowance})` : ''}
+                  </span>
+                )}
+              </div>
+
+              {/* All-Inclusive Fuel & Driver Package Highlight Box */}
+              {car.fuelIncluded && (
+                <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-200 flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/15 text-amber-800 flex items-center justify-center font-bold shrink-0">
+                      <Fuel className="w-4 h-4 text-amber-700" />
+                    </div>
+                    <div>
+                      <strong className="text-amber-950 font-bold block text-xs sm:text-sm">
+                        All-Inclusive Fuel & Driver Package
+                      </strong>
+                      <span className="text-amber-800 text-[11px]">
+                        {car.fuelKmAllowance
+                          ? `Includes vehicle rent, driver service & fuel up to ${car.fuelKmAllowance}.`
+                          : 'Includes vehicle rent, driver service & fuel package.'}{' '}
+                        Extra kilometers billed separately at host rate.
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-200 text-amber-900 px-2 py-0.5 rounded-md border border-amber-300 shrink-0">
+                    Package Included
+                  </span>
+                </div>
+              )}
+
               {/* Tier Cards Grid - Responsive & Strictly Conditional */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
                 {/* Daily Plan (Always present) */}
@@ -960,16 +1042,26 @@ export default function ListingDetailPage() {
                       <span className="text-xs text-slate-500 font-medium">/ day</span>
                     </div>
                   </div>
-                  {car.mileageDaily && (
+                  {car.mileageDaily ? (
                     <div className="text-[11px] font-semibold text-slate-600 flex items-center gap-1 pt-1.5 border-t border-emerald-200/60">
                       <Gauge className="w-3 h-3 text-emerald-600 shrink-0" />
                       <span>{car.mileageDaily}</span>
+                    </div>
+                  ) : car.fuelIncluded && car.fuelKmAllowance ? (
+                    <div className="text-[11px] font-semibold text-amber-800 flex items-center gap-1 pt-1.5 border-t border-emerald-200/60">
+                      <Fuel className="w-3 h-3 text-amber-600 shrink-0" />
+                      <span>{car.fuelKmAllowance} (Fuel Included)</span>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] font-medium text-slate-500 flex items-center gap-1 pt-1.5 border-t border-emerald-200/60">
+                      <Gauge className="w-3 h-3 text-emerald-600 shrink-0" />
+                      <span>Unlimited / Host Terms</span>
                     </div>
                   )}
                 </div>
 
                 {/* Weekly Plan (Only if provided by lister) */}
-                {car.weeklyRate ? (
+                {car.weeklyRate && car.weeklyRate > 0 ? (
                   <div className="p-3.5 rounded-xl border border-slate-200 bg-white flex flex-col justify-between gap-1 shadow-2xs">
                     <div>
                       <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Weekly Plan</span>
@@ -990,7 +1082,7 @@ export default function ListingDetailPage() {
                 ) : null}
 
                 {/* Monthly Plan (Only if provided by lister) */}
-                {car.monthlyRate ? (
+                {car.monthlyRate && car.monthlyRate > 0 ? (
                   <div className="p-3.5 rounded-xl border border-slate-200 bg-white flex flex-col justify-between gap-1 shadow-2xs">
                     <div>
                       <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Monthly Plan</span>
@@ -1013,10 +1105,12 @@ export default function ListingDetailPage() {
 
               {/* Pricing Sub-bar: Extra Km, Insurance, Deposit */}
               <div className="flex flex-wrap items-center gap-y-2 gap-x-4 pt-2 border-t border-slate-200/80 text-xs text-slate-600">
-                {car.extraKmRate && (
+                {(car.extraKmRateNum || car.extraKmRate) && (
                   <span className="flex items-center gap-1">
                     <span className="text-slate-400">Additional mileage:</span>
-                    <strong className="text-slate-800">{car.extraKmRate}</strong>
+                    <strong className="text-slate-800">
+                      {car.extraKmRateNum ? `${formatPrice(car.extraKmRateNum)} / km` : car.extraKmRate}
+                    </strong>
                   </span>
                 )}
                 {car.insuranceIncluded && (
@@ -1384,7 +1478,7 @@ export default function ListingDetailPage() {
                 <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase block">Daily Rate</span>
                 <div className="flex items-baseline gap-1">
                   <span className="font-heading font-extrabold text-2xl sm:text-3xl text-slate-900">
-                    {formatPKR(withDriver ? car.dailyRateWithDriver : car.dailyRate)}
+                    {formatPrice(withDriver ? car.dailyRateWithDriver : car.dailyRate)}
                   </span>
                   <span className="text-xs text-slate-500 font-medium">/ day</span>
                 </div>
@@ -1478,41 +1572,57 @@ export default function ListingDetailPage() {
               </div>
             </div>
 
-            {/* Self-Drive vs Chauffeur Selector */}
-            <div
-              role="radiogroup"
-              aria-label="Driver option"
-              className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl text-xs font-bold"
-            >
-              <button
-                type="button"
-                role="radio"
-                aria-checked={!withDriver}
-                onClick={() => setWithDriver(false)}
-                className={`h-8 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
-                  !withDriver ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
-                }`}
+            {/* Driver Option / Service Scope Selection */}
+            {car.serviceScope === 'WITH_DRIVER' ? (
+              <div className="p-2.5 rounded-xl bg-blue-50/80 border border-blue-200 text-xs text-blue-900 font-bold flex items-center justify-center gap-2">
+                <Users className="w-4 h-4 text-blue-700 shrink-0" />
+                <span>{isPakistan ? 'Professional Driver / Captain Included' : 'Professional Chauffeur Included'}</span>
+              </div>
+            ) : car.serviceScope === 'WITHOUT_DRIVER' ? (
+              <div className="p-2.5 rounded-xl bg-purple-50/80 border border-purple-200 text-xs text-purple-900 font-bold flex items-center justify-center gap-2">
+                <Key className="w-4 h-4 text-purple-700 shrink-0" />
+                <span>Self-Drive Rental (Without Driver) Only</span>
+              </div>
+            ) : (
+              <div
+                role="radiogroup"
+                aria-label="Driver option"
+                className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl text-xs font-bold"
               >
-                <span>Self-drive</span>
-              </button>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={withDriver}
-                onClick={() => setWithDriver(true)}
-                className={`h-8 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
-                  withDriver ? 'bg-white text-emerald-800 shadow-xs' : 'text-slate-500 hover:text-slate-900'
-                }`}
-              >
-                <span>With driver</span>
-                <span className="text-[10px] text-emerald-700 font-normal">(+2.5k)</span>
-              </button>
-            </div>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={!withDriver}
+                  onClick={() => setWithDriver(false)}
+                  className={`h-8 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                    !withDriver ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  <span>Self-drive</span>
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={withDriver}
+                  onClick={() => setWithDriver(true)}
+                  className={`h-8 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                    withDriver ? 'bg-white text-emerald-800 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  <span>{isPakistan ? 'With driver' : 'With chauffeur'}</span>
+                  {car.dailyRateWithDriver > car.dailyRate && (
+                    <span className="text-[10px] text-emerald-700 font-normal">
+                      (+{formatPrice(car.dailyRateWithDriver - car.dailyRate)})
+                    </span>
+                  )}
+                </button>
+              </div>
+            )}
 
             {/* Minimalist Price & Deposit Summary */}
             <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
               <span className="text-slate-600 font-medium">Estimated Total ({daysCount} days):</span>
-              <span className="font-heading font-extrabold text-sm text-slate-900">{formatPKR(calculateTotal())}</span>
+              <span className="font-heading font-extrabold text-sm text-slate-900">{formatPrice(calculateTotal())}</span>
             </div>
 
             {/* Streamlined, Direct Actions (WhatsApp, Book Now & Direct Chat, Show Number) */}
@@ -1581,7 +1691,7 @@ export default function ListingDetailPage() {
                     <span className="font-bold block">Estimated Total ({daysCount} days):</span>
                     <span className="text-[11px] text-emerald-800">Pay directly to host at vehicle handover</span>
                   </div>
-                  <span className="font-heading font-extrabold text-base text-emerald-900">{formatPKR(calculateTotal())}</span>
+                  <span className="font-heading font-extrabold text-base text-emerald-900">{formatPrice(calculateTotal())}</span>
                 </div>
 
                 <div className="flex flex-col gap-3">
@@ -1704,12 +1814,12 @@ export default function ListingDetailPage() {
         <div className="min-w-0 pr-2">
           <div className="flex items-baseline gap-1">
             <span className="font-heading font-extrabold text-sm text-slate-900 truncate">
-              {formatPKR(withDriver ? car.dailyRateWithDriver : car.dailyRate)}
+              {formatPrice(withDriver ? car.dailyRateWithDriver : car.dailyRate)}
             </span>
             <span className="text-[10px] text-slate-500">/day</span>
           </div>
           <span className="text-[10px] font-bold text-[#0B6B4F] block truncate">
-            {daysCount}d · {formatPKR(calculateTotal())}
+            {daysCount}d · {formatPrice(calculateTotal())}
           </span>
         </div>
 

@@ -269,9 +269,14 @@ export default function ListerDashboardPage() {
   const [carDoors, setCarDoors] = useState<number>(4);
   const [carBags, setCarBags] = useState('2 large bags');
   const [carMinAge, setCarMinAge] = useState('21');
-  const [carDeposit, setCarDeposit] = useState('15000');
-  const [carMileageDaily, setCarMileageDaily] = useState('250 km / day');
-  const [carExtraKmRate, setCarExtraKmRate] = useState('PKR 20 / km');
+  const [carDeposit, setCarDeposit] = useState('');
+  const [carMileageDaily, setCarMileageDaily] = useState('');
+  const [carMileageWeekly, setCarMileageWeekly] = useState('');
+  const [carMileageMonthly, setCarMileageMonthly] = useState('');
+  const [carExtraKmRate, setCarExtraKmRate] = useState('');
+  const [carServiceScope, setCarServiceScope] = useState<'BOTH' | 'WITH_DRIVER' | 'WITHOUT_DRIVER'>('BOTH');
+  const [carFuelIncluded, setCarFuelIncluded] = useState(false);
+  const [carFuelKmAllowance, setCarFuelKmAllowance] = useState('');
   const [carExteriorColor, setCarExteriorColor] = useState('White');
   const [carInteriorColor, setCarInteriorColor] = useState('Grey Fabric');
 
@@ -826,15 +831,15 @@ export default function ListerDashboardPage() {
         weeklyRate: carWeeklyRent ? Number(carWeeklyRent) : undefined,
         monthlyRate: carMonthlyRent ? Number(carMonthlyRent) : undefined,
         bodyType: carBodyType || 'Sedan',
-        mileageDaily: carMileageDaily || '250 km / day',
-        mileageWeekly: carWeeklyRent
-          ? `${(parseInt(carMileageDaily) || 250) * 7} km / week`
-          : undefined,
-        mileageMonthly: carMonthlyRent
-          ? `${(parseInt(carMileageDaily) || 250) * 22} km / month`
-          : undefined,
-        extraKmRate: carExtraKmRate || 'PKR 25 / km',
-        deposit: carDeposit ? Number(carDeposit) : 20000,
+        serviceScope: carServiceScope,
+        fuelIncluded: carFuelIncluded,
+        fuelKmAllowance: carFuelIncluded && carFuelKmAllowance ? carFuelKmAllowance : undefined,
+        mileageDaily: carMileageDaily ? (carMileageDaily.includes('km') ? carMileageDaily : `${carMileageDaily} km / day`) : undefined,
+        mileageWeekly: carWeeklyRent && carMileageWeekly ? (carMileageWeekly.includes('km') ? carMileageWeekly : `${carMileageWeekly} km / week`) : undefined,
+        mileageMonthly: carMonthlyRent && carMileageMonthly ? (carMileageMonthly.includes('km') ? carMileageMonthly : `${carMileageMonthly} km / month`) : undefined,
+        extraKmRate: carExtraKmRate ? `PKR ${carExtraKmRate} / km` : undefined,
+        extraKmRateNum: carExtraKmRate ? Number(carExtraKmRate.replace(/\D/g, '')) || undefined : undefined,
+        deposit: carDeposit ? Number(carDeposit) : undefined,
         insuranceIncluded: true,
         insuranceType: 'Comprehensive Insurance Included',
         engineCapacity: carEngineCapacity || undefined,
@@ -1847,17 +1852,91 @@ export default function ListerDashboardPage() {
 
                     {showDetailedSpecs && (
                       <div className="p-4 pt-2 space-y-4 border-t border-slate-200/60 mt-1">
-                        {/* Tiered Weekly & Monthly Rates */}
+                        {/* Driver & Service Scope Selection */}
+                        <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                          <label className="font-bold text-slate-800 text-xs block">
+                            Driver Service Scope *
+                          </label>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <label className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer text-xs font-bold transition ${carServiceScope === 'BOTH' ? 'bg-emerald-50 border-emerald-500 text-emerald-900' : 'bg-white border-slate-200 text-slate-700'}`}>
+                              <input
+                                type="radio"
+                                name="serviceScope"
+                                value="BOTH"
+                                checked={carServiceScope === 'BOTH'}
+                                onChange={() => setCarServiceScope('BOTH')}
+                                className="accent-[#0B6B4F]"
+                              />
+                              <span>Both (Self-Drive or Driver)</span>
+                            </label>
+                            <label className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer text-xs font-bold transition ${carServiceScope === 'WITH_DRIVER' ? 'bg-emerald-50 border-emerald-500 text-emerald-900' : 'bg-white border-slate-200 text-slate-700'}`}>
+                              <input
+                                type="radio"
+                                name="serviceScope"
+                                value="WITH_DRIVER"
+                                checked={carServiceScope === 'WITH_DRIVER'}
+                                onChange={() => setCarServiceScope('WITH_DRIVER')}
+                                className="accent-[#0B6B4F]"
+                              />
+                              <span>With Driver Only</span>
+                            </label>
+                            <label className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer text-xs font-bold transition ${carServiceScope === 'WITHOUT_DRIVER' ? 'bg-emerald-50 border-emerald-500 text-emerald-900' : 'bg-white border-slate-200 text-slate-700'}`}>
+                              <input
+                                type="radio"
+                                name="serviceScope"
+                                value="WITHOUT_DRIVER"
+                                checked={carServiceScope === 'WITHOUT_DRIVER'}
+                                onChange={() => setCarServiceScope('WITHOUT_DRIVER')}
+                                className="accent-[#0B6B4F]"
+                              />
+                              <span>Self-Drive Only</span>
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* Fuel Package Option (For Driver Bundles) */}
+                        <div className="p-3 bg-emerald-50/50 border border-emerald-200/80 rounded-xl space-y-2">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={carFuelIncluded}
+                              onChange={(e) => setCarFuelIncluded(e.target.checked)}
+                              className="w-4 h-4 rounded text-[#0B6B4F] accent-[#0B6B4F]"
+                            />
+                            <span className="font-extrabold text-xs text-slate-900">
+                              Include Fuel in Rental Package (Mandatory Fuel & Km by Driver)?
+                            </span>
+                          </label>
+                          {carFuelIncluded && (
+                            <div className="pt-1.5 pl-6">
+                              <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                                Included Fuel Mileage Allowance:
+                              </label>
+                              <input
+                                type="text"
+                                value={carFuelKmAllowance}
+                                onChange={(e) => setCarFuelKmAllowance(e.target.value)}
+                                placeholder="e.g. 100 km / day with fuel included in package"
+                                className="w-full p-2 bg-white border border-emerald-300 rounded-xl text-xs font-semibold text-slate-900"
+                              />
+                              <span className="text-[10px] text-slate-500 block mt-1">
+                                💡 Commuters will see that Fuel is bundled up to this limit. Extra km beyond this will be charged at the extra km rate.
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Tiered Weekly & Monthly Rates (All Blank by Default, Hidden if not set) */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
-                            <label className="font-bold text-slate-700 block mb-1">Weekly Rent (PKR)</label>
+                            <label className="font-bold text-slate-700 block mb-1">Weekly Rent (PKR) <span className="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
                             <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-2">
-                              <span className="font-bold text-slate-400">PKR</span>
+                              <span className="font-bold text-slate-400 text-xs">PKR</span>
                               <input
                                 type="number"
                                 value={carWeeklyRent}
                                 onChange={(e) => setCarWeeklyRent(e.target.value)}
-                                placeholder="e.g. 28000"
+                                placeholder="Leave blank if none"
                                 className="w-full font-mono font-bold outline-none text-slate-900 bg-transparent text-xs"
                               />
                               <span className="text-[10px] text-slate-400">/week</span>
@@ -1865,18 +1944,82 @@ export default function ListerDashboardPage() {
                           </div>
 
                           <div>
-                            <label className="font-bold text-slate-700 block mb-1">Monthly Rent (PKR)</label>
+                            <label className="font-bold text-slate-700 block mb-1">Monthly Rent (PKR) <span className="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
                             <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-2">
-                              <span className="font-bold text-slate-400">PKR</span>
+                              <span className="font-bold text-slate-400 text-xs">PKR</span>
                               <input
                                 type="number"
                                 value={carMonthlyRent}
                                 onChange={(e) => setCarMonthlyRent(e.target.value)}
-                                placeholder="e.g. 95000"
+                                placeholder="Leave blank if none"
                                 className="w-full font-mono font-bold outline-none text-slate-900 bg-transparent text-xs"
                               />
                               <span className="text-[10px] text-slate-400">/mo</span>
                             </div>
+                          </div>
+                        </div>
+
+                        {/* Kilometers Allowances (Daily, Weekly, Monthly - All Blank by default) */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">Daily Km Limit <span className="text-[10px] text-slate-400 font-normal">(Blank = Unlimited)</span></label>
+                            <input
+                              type="text"
+                              value={carMileageDaily}
+                              onChange={(e) => setCarMileageDaily(e.target.value)}
+                              placeholder="e.g. 200 km / day"
+                              className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">Weekly Km Limit <span className="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                            <input
+                              type="text"
+                              value={carMileageWeekly}
+                              onChange={(e) => setCarMileageWeekly(e.target.value)}
+                              placeholder="e.g. 1400 km / week"
+                              className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">Monthly Km Limit <span className="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                            <input
+                              type="text"
+                              value={carMileageMonthly}
+                              onChange={(e) => setCarMileageMonthly(e.target.value)}
+                              placeholder="e.g. 4500 km / mo"
+                              className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Extra Mileage Rate & Deposit */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">Extra Mileage Rate (PKR / km) <span className="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                            <input
+                              type="text"
+                              value={carExtraKmRate}
+                              onChange={(e) => setCarExtraKmRate(e.target.value)}
+                              placeholder="e.g. 25"
+                              className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium font-mono"
+                            />
+                            <span className="text-[10px] text-slate-400 block mt-0.5">
+                              Automatically converted into foreign currencies for international renters.
+                            </span>
+                          </div>
+
+                          <div>
+                            <label className="font-bold text-slate-700 block mb-1">Refundable Security Deposit (PKR) <span className="text-[10px] text-slate-400 font-normal">(Optional)</span></label>
+                            <input
+                              type="number"
+                              value={carDeposit}
+                              onChange={(e) => setCarDeposit(e.target.value)}
+                              placeholder="Leave blank if 0"
+                              className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                            />
                           </div>
                         </div>
 
@@ -1955,42 +2098,6 @@ export default function ListerDashboardPage() {
                               value={carMinAge}
                               onChange={(e) => setCarMinAge(e.target.value)}
                               placeholder="21"
-                              className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="font-bold text-slate-700 block mb-1">Deposit (PKR)</label>
-                            <input
-                              type="number"
-                              value={carDeposit}
-                              onChange={(e) => setCarDeposit(e.target.value)}
-                              placeholder="15000"
-                              className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Daily Mileage & Extra Km Rate */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <label className="font-bold text-slate-700 block mb-1">Daily Included Mileage</label>
-                            <input
-                              type="text"
-                              value={carMileageDaily}
-                              onChange={(e) => setCarMileageDaily(e.target.value)}
-                              placeholder="250 km / day"
-                              className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="font-bold text-slate-700 block mb-1">Extra Mileage Rate</label>
-                            <input
-                              type="text"
-                              value={carExtraKmRate}
-                              onChange={(e) => setCarExtraKmRate(e.target.value)}
-                              placeholder="PKR 25 / km"
                               className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
                             />
                           </div>
