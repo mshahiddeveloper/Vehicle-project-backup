@@ -28,6 +28,7 @@ import {
   Car,
   Award,
   ChevronLeft,
+  ChevronDown,
   AlertCircle,
   FileCheck,
   Lock,
@@ -49,6 +50,18 @@ export default function PublicDriverProfilePage() {
   const [startDate, setStartDate] = useState('2026-11-20');
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [phoneRevealed, setPhoneRevealed] = useState(false);
+  const [licenceOpen, setLicenceOpen] = useState(false);
+  const [fleetOpen, setFleetOpen] = useState(false);
+  const [servicesOpen, setServicesOpen] = useState(false);
+
+  const scrollToBooking = () => {
+    if (typeof window !== 'undefined') {
+      const el = document.getElementById('driver-booking-section');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  };
 
   if (!driver) {
     return (
@@ -306,22 +319,42 @@ export default function PublicDriverProfilePage() {
           </div>
         </div>
 
+        {/* Quick Mobile Action Bar: Check Rates & Hire */}
+        <div className="lg:hidden flex items-center gap-2 p-3 rounded-2xl bg-blue-50/80 border border-blue-200 shadow-2xs">
+          <button
+            type="button"
+            onClick={scrollToBooking}
+            className="flex-1 h-11 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition active:scale-[0.99] cursor-pointer"
+          >
+            <Calendar className="w-4 h-4 text-blue-200 shrink-0" />
+            <span>Check Rates & Hire Driver</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleWhatsApp}
+            className="h-11 px-3.5 bg-white hover:bg-slate-50 text-emerald-800 border border-emerald-300 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-[0.99] cursor-pointer shrink-0"
+          >
+            <MessageSquare className="w-4 h-4 text-emerald-600 fill-emerald-100 shrink-0" />
+            <span>WhatsApp</span>
+          </button>
+        </div>
+
         {/* 2-Column Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 items-start pt-2">
           {/* Left Column: Driver Credentials, Experience & Vehicles */}
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Bio / Summary */}
-            <div className="p-6 bg-white rounded-3xl border border-slate-200/90 shadow-sm space-y-3">
-              <h2 className="font-heading font-bold text-lg text-slate-900">
+            <div className="p-5 sm:p-6 bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-sm space-y-3">
+              <h2 className="font-heading font-bold text-base sm:text-lg text-slate-900">
                 About {driver.name}
               </h2>
-              <p className="text-sm text-slate-600 leading-relaxed">{driver.bio}</p>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">{driver.bio}</p>
 
-              <div className="flex items-center gap-1.5 flex-wrap pt-2">
+              <div className="flex items-center gap-1.5 flex-wrap pt-1">
                 {driver.tags.map((t) => (
                   <span
                     key={t}
-                    className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700"
+                    className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700"
                   >
                     {t}
                   </span>
@@ -329,81 +362,173 @@ export default function PublicDriverProfilePage() {
               </div>
             </div>
 
-            {/* Driving Licence & Certification Categories */}
-            <div className="p-6 bg-white rounded-3xl border border-slate-200/90 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h2 className="font-heading font-bold text-lg text-slate-900 flex items-center gap-2">
-                  <FileCheck className="w-5 h-5 text-emerald-600" />
-                  <span>Licence Categories & Capabilities</span>
-                </h2>
-                <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-                  Licence: {driver.licenceNumberMasked}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {driver.licenceCategories.map((cat) => (
-                  <div
-                    key={cat}
-                    className="p-3.5 rounded-2xl border border-slate-200/80 bg-slate-50 flex items-center gap-2.5 text-xs font-bold text-slate-900"
-                  >
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>{cat}</span>
+            {/* Driving Licence & Certification Categories (Mobile Accordion) */}
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-2xs overflow-hidden transition">
+              <button
+                type="button"
+                onClick={() => setLicenceOpen((prev) => !prev)}
+                className="w-full p-4 sm:p-5 flex items-center justify-between gap-3 text-left hover:bg-slate-50/80 transition cursor-pointer"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="font-heading font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-2">
+                      <FileCheck className="w-4 h-4 text-emerald-600" />
+                      <span>Licence & Driving Categories</span>
+                    </h2>
+                    <span className="text-[10px] font-mono font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                      {driver.licenceNumberMasked}
+                    </span>
                   </div>
-                ))}
-              </div>
+                  {/* Summary preview */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1.5 text-[11px] text-slate-600 font-medium">
+                    {driver.licenceCategories.slice(0, 3).map((c, i) => (
+                      <span key={i} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/60">
+                        {c}
+                      </span>
+                    ))}
+                  </div>
+                </div>
 
-              {/* Masked Credentials Notice */}
-              <div className="p-3 rounded-xl bg-slate-100/70 text-[11px] text-slate-600 flex items-center gap-2">
-                <Lock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                <span>
-                  For safety and privacy, original CNIC and driving licence cards are inspected in person upon duty handover.
-                </span>
-              </div>
+                <div className="flex items-center gap-1 shrink-0 text-slate-400">
+                  <span className="text-[11px] font-bold hidden sm:inline text-slate-500">
+                    {licenceOpen ? 'Collapse' : 'View all'}
+                  </span>
+                  <div className={`p-1.5 rounded-lg bg-slate-100 text-slate-600 transition-transform duration-200 ${licenceOpen ? 'rotate-180' : ''}`}>
+                    <ChevronDown className="w-4 h-4" />
+                  </div>
+                </div>
+              </button>
+
+              {licenceOpen && (
+                <div className="p-4 sm:p-5 pt-0 border-t border-slate-100 space-y-3 animate-in fade-in">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {driver.licenceCategories.map((cat) => (
+                      <div
+                        key={cat}
+                        className="p-3 rounded-xl border border-slate-200/80 bg-slate-50 flex items-center gap-2 text-xs font-bold text-slate-900"
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>{cat}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-slate-100/70 text-[11px] text-slate-600 flex items-center gap-2">
+                    <Lock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                    <span>
+                      Original CNIC and licence cards are physically verified upon duty start.
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Vehicle Types Can Drive */}
-            <div className="p-6 bg-white rounded-3xl border border-slate-200/90 shadow-sm space-y-4">
-              <h2 className="font-heading font-bold text-lg text-slate-900 flex items-center gap-2">
-                <Car className="w-5 h-5 text-blue-600" />
-                <span>Vehicle Fleet Experience</span>
-              </h2>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-medium text-slate-700">
-                {driver.vehicleTypesCanDrive.map((v) => (
-                  <div
-                    key={v}
-                    className="p-3 rounded-xl border border-slate-100 bg-slate-50/50 flex items-center gap-2"
-                  >
-                    <span className="w-2 h-2 rounded-full bg-blue-600" />
-                    <span>{v}</span>
+            {/* Vehicle Types Can Drive (Mobile Accordion) */}
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-2xs overflow-hidden transition">
+              <button
+                type="button"
+                onClick={() => setFleetOpen((prev) => !prev)}
+                className="w-full p-4 sm:p-5 flex items-center justify-between gap-3 text-left hover:bg-slate-50/80 transition cursor-pointer"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="font-heading font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-2">
+                      <Car className="w-4 h-4 text-blue-600" />
+                      <span>Vehicle Fleet Experience</span>
+                    </h2>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 border border-blue-200">
+                      {driver.vehicleTypesCanDrive.length} Types
+                    </span>
                   </div>
-                ))}
-              </div>
+                  {/* Summary preview */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1.5 text-[11px] text-slate-600">
+                    {driver.vehicleTypesCanDrive.slice(0, 3).map((v, i) => (
+                      <span key={i} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/60 truncate max-w-[130px]">
+                        {v}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0 text-slate-400">
+                  <span className="text-[11px] font-bold hidden sm:inline text-slate-500">
+                    {fleetOpen ? 'Collapse' : 'View all'}
+                  </span>
+                  <div className={`p-1.5 rounded-lg bg-slate-100 text-slate-600 transition-transform duration-200 ${fleetOpen ? 'rotate-180' : ''}`}>
+                    <ChevronDown className="w-4 h-4" />
+                  </div>
+                </div>
+              </button>
+
+              {fleetOpen && (
+                <div className="p-4 sm:p-5 pt-0 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-medium text-slate-700 animate-in fade-in">
+                  {driver.vehicleTypesCanDrive.map((v) => (
+                    <div
+                      key={v}
+                      className="p-2.5 rounded-xl border border-slate-100 bg-slate-50/60 flex items-center gap-2"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-blue-600" />
+                      <span>{v}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Services Offered */}
-            <div className="p-6 bg-white rounded-3xl border border-slate-200/90 shadow-sm space-y-4">
-              <h2 className="font-heading font-bold text-lg text-slate-900">
-                Services Offered
-              </h2>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-semibold text-slate-800">
-                {driver.servicesOffered.map((srv) => (
-                  <div
-                    key={srv}
-                    className="p-3 rounded-xl border border-slate-200 bg-white flex items-center gap-2 shadow-2xs"
-                  >
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>{srv}</span>
+            {/* Services Offered (Mobile Accordion) */}
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-2xs overflow-hidden transition">
+              <button
+                type="button"
+                onClick={() => setServicesOpen((prev) => !prev)}
+                className="w-full p-4 sm:p-5 flex items-center justify-between gap-3 text-left hover:bg-slate-50/80 transition cursor-pointer"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="font-heading font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-2">
+                      <Award className="w-4 h-4 text-emerald-600" />
+                      <span>Services Offered</span>
+                    </h2>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      Standard Coverage
+                    </span>
                   </div>
-                ))}
-              </div>
+                  {/* Summary preview */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1.5 text-[11px] text-slate-600">
+                    {driver.servicesOffered.slice(0, 2).map((s, i) => (
+                      <span key={i} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/60 truncate max-w-[150px]">
+                        ✓ {s}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0 text-slate-400">
+                  <span className="text-[11px] font-bold hidden sm:inline text-slate-500">
+                    {servicesOpen ? 'Collapse' : 'View all'}
+                  </span>
+                  <div className={`p-1.5 rounded-lg bg-slate-100 text-slate-600 transition-transform duration-200 ${servicesOpen ? 'rotate-180' : ''}`}>
+                    <ChevronDown className="w-4 h-4" />
+                  </div>
+                </div>
+              </button>
+
+              {servicesOpen && (
+                <div className="p-4 sm:p-5 pt-0 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs font-semibold text-slate-800 animate-in fade-in">
+                  {driver.servicesOffered.map((srv) => (
+                    <div
+                      key={srv}
+                      className="p-3 rounded-xl border border-slate-200 bg-white flex items-center gap-2 shadow-2xs"
+                    >
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>{srv}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
           {/* Right Column: Rates Matrix & Hire Inquiry */}
-          <aside className="sticky top-24 border border-slate-200/90 rounded-3xl p-6 bg-white shadow-lg space-y-5">
+          <aside id="driver-booking-section" className="sticky top-24 border border-slate-200/90 rounded-3xl p-6 bg-white shadow-lg space-y-5 scroll-mt-24">
             <h3 className="font-heading font-bold text-base text-slate-900">
               Standard Rates Matrix
             </h3>

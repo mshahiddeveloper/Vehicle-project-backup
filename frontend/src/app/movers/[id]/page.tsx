@@ -23,6 +23,7 @@ import {
   CheckCircle2,
   Calculator,
   Box,
+  ChevronDown,
 } from 'lucide-react';
 
 export default function MoverDetailPage() {
@@ -47,6 +48,17 @@ export default function MoverDetailPage() {
   const [toArea, setToArea] = useState('');
   const [quoteSuccess, setQuoteSuccess] = useState(false);
   const [phoneRevealed, setPhoneRevealed] = useState(false);
+  const [standardsOpen, setStandardsOpen] = useState(false);
+  const [policiesOpen, setPoliciesOpen] = useState(false);
+
+  const scrollToBooking = () => {
+    if (typeof window !== 'undefined') {
+      const el = document.getElementById('mover-booking-section');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  };
 
   // Calculate dynamic moving quote
   const kmRateNum = parseInt(mover.km.replace(/\D/g, ''), 10) || 100;
@@ -190,29 +202,49 @@ export default function MoverDetailPage() {
           </div>
         </div>
 
+        {/* Quick Mobile Action Bar: Calculate Quote & Book */}
+        <div className="lg:hidden flex items-center gap-2 p-3 rounded-2xl bg-orange-50/80 border border-orange-200 shadow-2xs">
+          <button
+            type="button"
+            onClick={scrollToBooking}
+            className="flex-1 h-11 px-4 bg-[#C2410C] hover:bg-[#9A3412] text-white rounded-xl font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition active:scale-[0.99] cursor-pointer"
+          >
+            <Calculator className="w-4 h-4 text-orange-200 shrink-0" />
+            <span>Calculate Shifting Cost & Book</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleWhatsApp}
+            className="h-11 px-3.5 bg-white hover:bg-slate-50 text-emerald-800 border border-emerald-300 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-[0.99] cursor-pointer shrink-0"
+          >
+            <MessageSquare className="w-4 h-4 text-emerald-600 fill-emerald-100 shrink-0" />
+            <span>WhatsApp</span>
+          </button>
+        </div>
+
         {/* Main 2-Column Content */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 items-start pt-2">
           {/* Left Column: Details & Operator Identity */}
-          <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-5">
             {/* Clickable Host / Operator Identity Section */}
             <Link
               href={`/store/${storeSlug}`}
-              className="p-5 rounded-2xl bg-slate-50 hover:bg-slate-100/90 flex items-center gap-4 border border-slate-200/80 hover:border-slate-300 transition group cursor-pointer"
+              className="p-4 sm:p-5 rounded-2xl bg-slate-50 hover:bg-slate-100/90 flex items-center gap-4 border border-slate-200/80 hover:border-slate-300 transition group cursor-pointer"
               title={`View ${mover.name}'s Public Storefront`}
             >
-              <div className="w-14 h-14 rounded-full bg-[#C2410C] text-white flex items-center justify-center font-heading font-extrabold text-xl shrink-0 group-hover:scale-105 transition shadow-sm">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#C2410C] text-white flex items-center justify-center font-heading font-extrabold text-lg sm:text-xl shrink-0 group-hover:scale-105 transition shadow-sm">
                 {mover.name.slice(0, 2).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-heading font-extrabold text-base text-slate-900 group-hover:text-[#C2410C] transition truncate">
+                  <h3 className="font-heading font-extrabold text-sm sm:text-base text-slate-900 group-hover:text-[#C2410C] transition truncate">
                     Operated by {mover.name}
                   </h3>
                   <span className="px-2 py-0.5 rounded-md bg-orange-100 text-[#9A3412] text-[10px] font-bold">
-                    View Fleet Store ➔
+                    Fleet Store ➔
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 truncate">
+                <p className="text-xs text-slate-500 truncate mt-0.5">
                   Direct Moving & Freight Fleet · Serving {mover.city} & Outstation
                 </p>
               </div>
@@ -222,90 +254,164 @@ export default function MoverDetailPage() {
             </Link>
 
             {/* Quick Specs Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-4 border border-slate-200/80 rounded-2xl flex flex-col gap-1 bg-white">
-                <Truck className="w-5 h-5 text-[#C2410C]" />
-                <span className="text-xs text-slate-500">Truck Fleet</span>
-                <span className="font-heading font-bold text-sm text-slate-900">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <div className="p-3.5 border border-slate-200/80 rounded-2xl flex flex-col gap-1 bg-white">
+                <Truck className="w-4 h-4 text-[#C2410C]" />
+                <span className="text-[11px] text-slate-500">Truck Fleet</span>
+                <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate">
                   {mover.category}
                 </span>
               </div>
-              <div className="p-4 border border-slate-200/80 rounded-2xl flex flex-col gap-1 bg-white">
-                <Calculator className="w-5 h-5 text-[#C2410C]" />
-                <span className="text-xs text-slate-500">Base Tariff</span>
-                <span className="font-heading font-bold text-sm text-slate-900">
+              <div className="p-3.5 border border-slate-200/80 rounded-2xl flex flex-col gap-1 bg-white">
+                <Calculator className="w-4 h-4 text-[#C2410C]" />
+                <span className="text-[11px] text-slate-500">Base Tariff</span>
+                <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate">
                   {mover.base}
                 </span>
               </div>
-              <div className="p-4 border border-slate-200/80 rounded-2xl flex flex-col gap-1 bg-white">
-                <MapPin className="w-5 h-5 text-[#C2410C]" />
-                <span className="text-xs text-slate-500">Distance Tariff</span>
-                <span className="font-heading font-bold text-sm text-slate-900">
+              <div className="p-3.5 border border-slate-200/80 rounded-2xl flex flex-col gap-1 bg-white">
+                <MapPin className="w-4 h-4 text-[#C2410C]" />
+                <span className="text-[11px] text-slate-500">Distance Tariff</span>
+                <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate">
                   {mover.km}
                 </span>
               </div>
-              <div className="p-4 border border-slate-200/80 rounded-2xl flex flex-col gap-1 bg-white">
-                <Users className="w-5 h-5 text-[#C2410C]" />
-                <span className="text-xs text-slate-500">Helper Tariff</span>
-                <span className="font-heading font-bold text-sm text-slate-900">
+              <div className="p-3.5 border border-slate-200/80 rounded-2xl flex flex-col gap-1 bg-white">
+                <Users className="w-4 h-4 text-[#C2410C]" />
+                <span className="text-[11px] text-slate-500">Helper Tariff</span>
+                <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate">
                   {mover.helper}
                 </span>
               </div>
             </div>
 
-            {/* Service Inclusions */}
-            <div className="p-6 border border-slate-200/80 rounded-3xl bg-white space-y-4">
-              <h2 className="font-heading font-bold text-lg text-slate-900">
-                Service Standards & Capabilities
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-slate-700">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[#C2410C] shrink-0" />
-                  <span>Heavy furniture packing with protective blankets</span>
+            {/* Service Inclusions (Mobile Accordion) */}
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-2xs overflow-hidden transition">
+              <button
+                type="button"
+                onClick={() => setStandardsOpen((prev) => !prev)}
+                className="w-full p-4 sm:p-5 flex items-center justify-between gap-3 text-left hover:bg-slate-50/80 transition cursor-pointer"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="font-heading font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-[#C2410C]" />
+                      <span>Service Standards & Capabilities</span>
+                    </h2>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-orange-50 text-[#9A3412] border border-orange-200">
+                      Standard Inclusions
+                    </span>
+                  </div>
+                  {/* Summary preview */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1.5 text-[11px] text-slate-600">
+                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/60">
+                      Furniture Packing
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/60">
+                      Covered Trucks
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/60">
+                      Trained Loaders
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[#C2410C] shrink-0" />
-                  <span>Bed and wardrobe disassembly & reassembly</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[#C2410C] shrink-0" />
-                  <span>Weather-proof covered container trucks</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[#C2410C] shrink-0" />
-                  <span>Trained physical loaders for careful stair handling</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[#C2410C] shrink-0" />
-                  <span>Local city moves as well as intercity relocation</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[#C2410C] shrink-0" />
-                  <span>Transparent direct billing upon job completion</span>
-                </div>
-              </div>
 
-              {/* Tags */}
-              <div className="flex items-center gap-1.5 flex-wrap pt-3 border-t border-slate-100">
-                {mover.tags.map((t) => (
-                  <span
-                    key={t}
-                    className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-50 text-[#9A3412] border border-orange-100"
-                  >
-                    {t}
+                <div className="flex items-center gap-1 shrink-0 text-slate-400">
+                  <span className="text-[11px] font-bold hidden sm:inline text-slate-500">
+                    {standardsOpen ? 'Collapse' : 'View all'}
                   </span>
-                ))}
-              </div>
+                  <div className={`p-1.5 rounded-lg bg-slate-100 text-slate-600 transition-transform duration-200 ${standardsOpen ? 'rotate-180' : ''}`}>
+                    <ChevronDown className="w-4 h-4" />
+                  </div>
+                </div>
+              </button>
+
+              {standardsOpen && (
+                <div className="p-4 sm:p-5 pt-0 border-t border-slate-100 space-y-3.5 animate-in fade-in">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs sm:text-sm text-slate-700">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#C2410C] shrink-0" />
+                      <span>Heavy furniture packing with protective blankets</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#C2410C] shrink-0" />
+                      <span>Bed and wardrobe disassembly & reassembly</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#C2410C] shrink-0" />
+                      <span>Weather-proof covered container trucks</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#C2410C] shrink-0" />
+                      <span>Trained physical loaders for careful stair handling</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#C2410C] shrink-0" />
+                      <span>Local city moves as well as intercity relocation</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#C2410C] shrink-0" />
+                      <span>Transparent direct billing upon job completion</span>
+                    </div>
+                  </div>
+
+                  {/* Tags */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-slate-100">
+                    {mover.tags.map((t) => (
+                      <span
+                        key={t}
+                        className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-orange-50 text-[#9A3412] border border-orange-100"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Direct Safety Notice */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-600 leading-relaxed">
-              <strong>Notice:</strong> SafarPK provides a direct communication bridge between homeowners and independent moving fleets. Confirm fragile item packing, packing boxes, and building floor elevation surcharges directly with the mover prior to loading.
+            {/* Direct Safety Notice (Mobile Accordion) */}
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-2xs overflow-hidden transition">
+              <button
+                type="button"
+                onClick={() => setPoliciesOpen((prev) => !prev)}
+                className="w-full p-4 sm:p-5 flex items-center justify-between gap-3 text-left hover:bg-slate-50/80 transition cursor-pointer"
+              >
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-heading font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-2">
+                    <Box className="w-4 h-4 text-[#C2410C]" />
+                    <span>Moving Guidelines & Floor Terms</span>
+                  </h2>
+                  {!policiesOpen && (
+                    <p className="text-xs text-slate-500 line-clamp-1 pt-1">
+                      Direct provider billing, fragile item packing & building floor elevation guidelines.
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0 text-slate-400">
+                  <span className="text-[11px] font-bold hidden sm:inline text-slate-500">
+                    {policiesOpen ? 'Collapse' : 'Read'}
+                  </span>
+                  <div className={`p-1.5 rounded-lg bg-slate-100 text-slate-600 transition-transform duration-200 ${policiesOpen ? 'rotate-180' : ''}`}>
+                    <ChevronDown className="w-4 h-4" />
+                  </div>
+                </div>
+              </button>
+              {policiesOpen && (
+                <div className="p-4 sm:p-5 pt-0 border-t border-slate-100 text-xs text-slate-600 leading-relaxed space-y-2 animate-in fade-in">
+                  <p>
+                    <strong>Notice:</strong> SafarPK provides a direct communication bridge between homeowners and independent moving fleets.
+                  </p>
+                  <p>
+                    Confirm fragile item packing, packing boxes, and building floor elevation surcharges directly with the mover prior to loading. Direct settlement upon job completion.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Right Column: Interactive Quote Calculator & Contact Card */}
-          <aside className="sticky top-24 border border-orange-200/90 rounded-3xl p-6 bg-white shadow-lg space-y-4">
+          <aside id="mover-booking-section" className="sticky top-24 border border-orange-200/90 rounded-3xl p-6 bg-white shadow-lg space-y-4 scroll-mt-24">
             {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">

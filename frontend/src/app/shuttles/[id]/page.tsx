@@ -23,6 +23,7 @@ import {
   Check,
   CheckCircle2,
   AlertCircle,
+  ChevronDown,
 } from 'lucide-react';
 
 export default function ShuttleDetailPage() {
@@ -62,6 +63,18 @@ export default function ShuttleDetailPage() {
   const [pickupStop, setPickupStop] = useState('');
   const [inquirySuccess, setInquirySuccess] = useState(false);
   const [phoneRevealed, setPhoneRevealed] = useState(false);
+  const [stopsOpen, setStopsOpen] = useState(false);
+  const [featuresOpen, setFeaturesOpen] = useState(false);
+  const [policiesOpen, setPoliciesOpen] = useState(false);
+
+  const scrollToBooking = () => {
+    if (typeof window !== 'undefined') {
+      const el = document.getElementById('shuttle-booking-section');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  };
 
   const handleCall = () => {
     setPhoneRevealed(true);
@@ -200,29 +213,49 @@ export default function ShuttleDetailPage() {
           </div>
         </div>
 
+        {/* Quick Mobile Action Bar: Reserve Seat & WhatsApp */}
+        <div className="lg:hidden flex items-center gap-2 p-3 rounded-2xl bg-teal-50/80 border border-teal-200 shadow-2xs">
+          <button
+            type="button"
+            onClick={scrollToBooking}
+            className="flex-1 h-11 px-4 bg-teal-700 hover:bg-teal-800 text-white rounded-xl font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition active:scale-[0.99] cursor-pointer"
+          >
+            <Calendar className="w-4 h-4 text-teal-200 shrink-0" />
+            <span>Reserve Monthly Seat & Inquiry</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleWhatsApp}
+            className="h-11 px-3.5 bg-white hover:bg-slate-50 text-emerald-800 border border-emerald-300 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-[0.99] cursor-pointer shrink-0"
+          >
+            <MessageSquare className="w-4 h-4 text-emerald-600 fill-emerald-100 shrink-0" />
+            <span>WhatsApp</span>
+          </button>
+        </div>
+
         {/* Main 2-Column Content */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 items-start pt-2">
           {/* Left Column: Details & Operator Identity */}
-          <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-5">
             {/* Clickable Host / Operator Identity Section */}
             <Link
               href={`/store/${storeSlug}`}
-              className="p-5 rounded-2xl bg-slate-50 hover:bg-slate-100/90 flex items-center gap-4 border border-slate-200/80 hover:border-slate-300 transition group cursor-pointer"
+              className="p-4 sm:p-5 rounded-2xl bg-slate-50 hover:bg-slate-100/90 flex items-center gap-4 border border-slate-200/80 hover:border-slate-300 transition group cursor-pointer"
               title={`View ${shuttle.op}'s Public Storefront`}
             >
-              <div className="w-14 h-14 rounded-full bg-teal-900 text-white flex items-center justify-center font-heading font-extrabold text-xl shrink-0 group-hover:scale-105 transition">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-teal-900 text-white flex items-center justify-center font-heading font-extrabold text-lg sm:text-xl shrink-0 group-hover:scale-105 transition">
                 {shuttle.op.slice(0, 2).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-heading font-extrabold text-base text-slate-900 group-hover:text-teal-700 transition truncate">
+                  <h3 className="font-heading font-extrabold text-sm sm:text-base text-slate-900 group-hover:text-teal-700 transition truncate">
                     Operated by {shuttle.op}
                   </h3>
                   <span className="px-2 py-0.5 rounded-md bg-teal-100 text-teal-800 text-[10px] font-bold">
-                    View Fleet Store ➔
+                    Fleet Store ➔
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 truncate">
+                <p className="text-xs text-slate-500 truncate mt-0.5">
                   Registered Commuter Fleet Host · Operating across {shuttle.city}
                 </p>
               </div>
@@ -232,164 +265,268 @@ export default function ShuttleDetailPage() {
             </Link>
 
             {/* Quick Specs Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-4 border border-slate-200/80 rounded-2xl flex flex-col gap-1 bg-white">
-                <Clock className="w-5 h-5 text-teal-600" />
-                <span className="text-xs text-slate-500">Morning Pickup</span>
-                <span className="font-heading font-bold text-sm text-slate-900">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <div className="p-3.5 border border-slate-200/80 rounded-2xl flex flex-col gap-1 bg-white">
+                <Clock className="w-4 h-4 text-teal-600" />
+                <span className="text-[11px] text-slate-500">Morning Pickup</span>
+                <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate">
                   {shuttle.pick}
                 </span>
               </div>
-              <div className="p-4 border border-slate-200/80 rounded-2xl flex flex-col gap-1 bg-white">
-                <Clock className="w-5 h-5 text-teal-600" />
-                <span className="text-xs text-slate-500">Return Departure</span>
-                <span className="font-heading font-bold text-sm text-slate-900">
+              <div className="p-3.5 border border-slate-200/80 rounded-2xl flex flex-col gap-1 bg-white">
+                <Clock className="w-4 h-4 text-teal-600" />
+                <span className="text-[11px] text-slate-500">Return Departure</span>
+                <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate">
                   {shuttle.back}
                 </span>
               </div>
-              <div className="p-4 border border-slate-200/80 rounded-2xl flex flex-col gap-1 bg-white">
-                <Users className="w-5 h-5 text-teal-600" />
-                <span className="text-xs text-slate-500">Vacant Seats</span>
-                <span className="font-heading font-bold text-sm text-emerald-700">
+              <div className="p-3.5 border border-slate-200/80 rounded-2xl flex flex-col gap-1 bg-white">
+                <Users className="w-4 h-4 text-teal-600" />
+                <span className="text-[11px] text-slate-500">Vacant Seats</span>
+                <span className="font-heading font-bold text-xs sm:text-sm text-emerald-700 truncate">
                   {shuttle.seats > 0 ? `${shuttle.seats} Available` : 'Fully Booked'}
                 </span>
               </div>
-              <div className="p-4 border border-slate-200/80 rounded-2xl flex flex-col gap-1 bg-white">
-                <Calendar className="w-5 h-5 text-teal-600" />
-                <span className="text-xs text-slate-500">Days</span>
-                <span className="font-heading font-bold text-sm text-slate-900">
+              <div className="p-3.5 border border-slate-200/80 rounded-2xl flex flex-col gap-1 bg-white">
+                <Calendar className="w-4 h-4 text-teal-600" />
+                <span className="text-[11px] text-slate-500">Days</span>
+                <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate">
                   {shuttle.days}
                 </span>
               </div>
             </div>
 
-            {/* Commuter Route Corridor & Intermediate Stops Timeline */}
-            <div className="p-6 border border-slate-200/80 rounded-3xl bg-white space-y-4">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <h2 className="font-heading font-bold text-lg text-slate-900 flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-emerald-700" />
-                  <span>Route Corridor & Intermediate Stops</span>
-                </h2>
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
-                  {shuttle.stops?.length || 0} Intermediate Stops
-                </span>
-              </div>
-
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                This commuter route operates on a fixed corridor through {shuttle.city}. You can reserve a seat from origin to destination, or for any in-between sub-route.
-              </p>
-
-              {/* Visual Vertical Timeline of Corridor */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col gap-3">
-                {/* 1. Origin Stop */}
-                <div className="flex items-start gap-3">
-                  <div className="flex flex-col items-center">
-                    <span className="w-3.5 h-3.5 rounded-full bg-emerald-600 border-2 border-white shadow-xs shrink-0" />
-                    <span className="w-0.5 h-6 bg-slate-300" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-black uppercase text-emerald-700 tracking-wider block">
-                      Start / First Pickup
+            {/* Commuter Route Corridor & Intermediate Stops Timeline (Mobile Accordion) */}
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-2xs overflow-hidden transition">
+              <button
+                type="button"
+                onClick={() => setStopsOpen((prev) => !prev)}
+                className="w-full p-4 sm:p-5 flex items-center justify-between gap-3 text-left hover:bg-slate-50/80 transition cursor-pointer"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="font-heading font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-emerald-700" />
+                      <span>Route Corridor & Intermediate Stops</span>
+                    </h2>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
+                      {shuttle.stops?.length || 0} Stops
                     </span>
-                    <span className="font-bold text-sm text-slate-900">{shuttle.from}</span>
-                    <span className="text-xs text-slate-500 ml-2">({shuttle.pick})</span>
+                  </div>
+                  {/* Summary preview */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1.5 text-[11px] text-slate-600">
+                    <span className="font-semibold text-slate-800">{shuttle.from}</span>
+                    <span className="text-slate-400">➔</span>
+                    <span className="font-semibold text-slate-800">{shuttle.to}</span>
+                    <span className="text-slate-500 text-[10px]">
+                      ({shuttle.stops?.length || 0} stops in between)
+                    </span>
                   </div>
                 </div>
 
-                {/* 2. Intermediate Waypoints */}
-                {shuttle.stops && shuttle.stops.length > 0 && (
-                  shuttle.stops.map((stop, idx) => (
-                    <div key={idx} className="flex items-start gap-3">
+                <div className="flex items-center gap-1 shrink-0 text-slate-400">
+                  <span className="text-[11px] font-bold hidden sm:inline text-slate-500">
+                    {stopsOpen ? 'Collapse' : 'View route'}
+                  </span>
+                  <div className={`p-1.5 rounded-lg bg-slate-100 text-slate-600 transition-transform duration-200 ${stopsOpen ? 'rotate-180' : ''}`}>
+                    <ChevronDown className="w-4 h-4" />
+                  </div>
+                </div>
+              </button>
+
+              {stopsOpen && (
+                <div className="p-4 sm:p-5 pt-0 border-t border-slate-100 space-y-3.5 animate-in fade-in">
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    This commuter route operates on a fixed corridor through {shuttle.city}. You can reserve a seat from origin to destination, or for any in-between sub-route.
+                  </p>
+
+                  {/* Visual Vertical Timeline of Corridor */}
+                  <div className="p-3.5 sm:p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col gap-3">
+                    {/* 1. Origin Stop */}
+                    <div className="flex items-start gap-3">
                       <div className="flex flex-col items-center">
-                        <span className="w-2.5 h-2.5 rounded-full bg-purple-600 border-2 border-white shadow-2xs shrink-0" />
+                        <span className="w-3.5 h-3.5 rounded-full bg-emerald-600 border-2 border-white shadow-xs shrink-0" />
                         <span className="w-0.5 h-6 bg-slate-300" />
                       </div>
-                      <div className="flex items-center justify-between flex-1 flex-wrap gap-1">
-                        <div>
-                          <span className="text-[10px] font-bold text-purple-700 uppercase block">
-                            Corridor Stop #{idx + 1}
-                          </span>
-                          <span className="font-semibold text-xs sm:text-sm text-slate-800">
-                            {stop}
-                          </span>
-                        </div>
-                        <span className="text-[10px] font-semibold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
-                          Boarding / Drop-off Point
+                      <div>
+                        <span className="text-[10px] font-black uppercase text-emerald-700 tracking-wider block">
+                          Start / First Pickup
                         </span>
+                        <span className="font-bold text-xs sm:text-sm text-slate-900">{shuttle.from}</span>
+                        <span className="text-xs text-slate-500 ml-2">({shuttle.pick})</span>
                       </div>
                     </div>
-                  ))
-                )}
 
-                {/* 3. Destination Stop */}
-                <div className="flex items-start gap-3">
-                  <div className="flex flex-col items-center">
-                    <span className="w-3.5 h-3.5 rounded-full bg-purple-800 border-2 border-white shadow-xs shrink-0" />
+                    {/* 2. Intermediate Waypoints */}
+                    {shuttle.stops && shuttle.stops.length > 0 && (
+                      shuttle.stops.map((stop, idx) => (
+                        <div key={idx} className="flex items-start gap-3">
+                          <div className="flex flex-col items-center">
+                            <span className="w-2.5 h-2.5 rounded-full bg-purple-600 border-2 border-white shadow-2xs shrink-0" />
+                            <span className="w-0.5 h-6 bg-slate-300" />
+                          </div>
+                          <div className="flex items-center justify-between flex-1 flex-wrap gap-1">
+                            <div>
+                              <span className="text-[10px] font-bold text-purple-700 uppercase block">
+                                Corridor Stop #{idx + 1}
+                              </span>
+                              <span className="font-semibold text-xs sm:text-sm text-slate-800">
+                                {stop}
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-semibold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
+                              Boarding / Drop-off
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+
+                    {/* 3. Destination Stop */}
+                    <div className="flex items-start gap-3">
+                      <div className="flex flex-col items-center">
+                        <span className="w-3.5 h-3.5 rounded-full bg-purple-800 border-2 border-white shadow-xs shrink-0" />
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-black uppercase text-purple-800 tracking-wider block">
+                          Final Destination / Hub
+                        </span>
+                        <span className="font-bold text-xs sm:text-sm text-slate-900">{shuttle.to}</span>
+                        <span className="text-xs text-slate-500 ml-2">(Return departure: {shuttle.back})</span>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-[10px] font-black uppercase text-purple-800 tracking-wider block">
-                      Final Destination / Hub
+                </div>
+              )}
+            </div>
+
+            {/* Inclusions & Features (Mobile Accordion) */}
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-2xs overflow-hidden transition">
+              <button
+                type="button"
+                onClick={() => setFeaturesOpen((prev) => !prev)}
+                className="w-full p-4 sm:p-5 flex items-center justify-between gap-3 text-left hover:bg-slate-50/80 transition cursor-pointer"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="font-heading font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-teal-600" />
+                      <span>Van Amenities & Commuter Features</span>
+                    </h2>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 border border-teal-200">
+                      Standard Inclusions
                     </span>
-                    <span className="font-bold text-sm text-slate-900">{shuttle.to}</span>
-                    <span className="text-xs text-slate-500 ml-2">(Return departure: {shuttle.back})</span>
+                  </div>
+                  {/* Summary preview */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1.5 text-[11px] text-slate-600">
+                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/60">
+                      Dual AC
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/60">
+                      Punctual Schedule
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/60">
+                      Fixed Monthly Fare
+                    </span>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Inclusions & Features */}
-            <div className="p-6 border border-slate-200/80 rounded-3xl bg-white space-y-4">
-              <h2 className="font-heading font-bold text-lg text-slate-900">
-                Vehicle & Commuter Service Features
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-slate-700">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                  <span>Dual air-conditioned comfortable seating</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                  <span>Fixed, punctual arrival and departure schedules</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                  <span>Safe doorstep or neighborhood designated pickup points</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                  <span>Monthly fixed fare with zero surge charges</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                  <span>{isPakistan ? 'Experienced, verified commercial route driver' : 'Experienced, vetted commercial route driver'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                  <span>Direct monthly payment to the operator</span>
-                </div>
-              </div>
-
-              {/* Tags */}
-              <div className="flex items-center gap-1.5 flex-wrap pt-3 border-t border-slate-100">
-                {shuttle.tags.map((t) => (
-                  <span
-                    key={t}
-                    className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700"
-                  >
-                    {t}
+                <div className="flex items-center gap-1 shrink-0 text-slate-400">
+                  <span className="text-[11px] font-bold hidden sm:inline text-slate-500">
+                    {featuresOpen ? 'Collapse' : 'View all'}
                   </span>
-                ))}
-              </div>
+                  <div className={`p-1.5 rounded-lg bg-slate-100 text-slate-600 transition-transform duration-200 ${featuresOpen ? 'rotate-180' : ''}`}>
+                    <ChevronDown className="w-4 h-4" />
+                  </div>
+                </div>
+              </button>
+
+              {featuresOpen && (
+                <div className="p-4 sm:p-5 pt-0 border-t border-slate-100 space-y-3.5 animate-in fade-in">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs sm:text-sm text-slate-700">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                      <span>Dual air-conditioned comfortable seating</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                      <span>Fixed, punctual arrival and departure schedules</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                      <span>Safe doorstep or neighborhood designated pickup points</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                      <span>Monthly fixed fare with zero surge charges</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                      <span>{isPakistan ? 'Experienced, verified commercial route driver' : 'Experienced, vetted commercial route driver'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                      <span>Direct monthly payment to the operator</span>
+                    </div>
+                  </div>
+
+                  {/* Tags */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-slate-100">
+                    {shuttle.tags.map((t) => (
+                      <span
+                        key={t}
+                        className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Direct Safety Notice */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-600 leading-relaxed">
-              <strong>Notice:</strong> SafarPK connects passengers directly with local shuttle fleet operators. Confirm pickup landmarks, attendant presence, and monthly payment terms directly with the operator before booking.
+            {/* Direct Safety Notice (Mobile Accordion) */}
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-2xs overflow-hidden transition">
+              <button
+                type="button"
+                onClick={() => setPoliciesOpen((prev) => !prev)}
+                className="w-full p-4 sm:p-5 flex items-center justify-between gap-3 text-left hover:bg-slate-50/80 transition cursor-pointer"
+              >
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-heading font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-teal-700" />
+                    <span>Commuter Safety & Booking Guidelines</span>
+                  </h2>
+                  {!policiesOpen && (
+                    <p className="text-xs text-slate-500 line-clamp-1 pt-1">
+                      Direct monthly pass settlement, designated landmark stops & timing rules.
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0 text-slate-400">
+                  <span className="text-[11px] font-bold hidden sm:inline text-slate-500">
+                    {policiesOpen ? 'Collapse' : 'Read'}
+                  </span>
+                  <div className={`p-1.5 rounded-lg bg-slate-100 text-slate-600 transition-transform duration-200 ${policiesOpen ? 'rotate-180' : ''}`}>
+                    <ChevronDown className="w-4 h-4" />
+                  </div>
+                </div>
+              </button>
+              {policiesOpen && (
+                <div className="p-4 sm:p-5 pt-0 border-t border-slate-100 text-xs text-slate-600 leading-relaxed space-y-2 animate-in fade-in">
+                  <p>
+                    <strong>Notice:</strong> SafarPK connects passengers directly with local shuttle fleet operators.
+                  </p>
+                  <p>
+                    Confirm pickup landmarks, attendant presence, and monthly payment terms directly with the operator before booking.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Right Column: Pricing & Contact Card */}
-          <aside className="sticky top-24 border border-slate-200/90 rounded-3xl p-6 bg-white shadow-lg space-y-5">
+          <aside id="shuttle-booking-section" className="sticky top-24 border border-slate-200/90 rounded-3xl p-6 bg-white shadow-lg space-y-5 scroll-mt-24">
             {/* Vacancy Status Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">

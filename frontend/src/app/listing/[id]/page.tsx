@@ -29,6 +29,7 @@ import {
   MessageSquare,
   ArrowRight,
   ChevronLeft,
+  ChevronDown,
   Users,
   Fuel,
   Gauge,
@@ -454,6 +455,21 @@ export default function ListingDetailPage() {
 
   const [withDriver, setWithDriver] = useState(car.serviceScope === 'WITH_DRIVER');
   const [hostPhoneRevealed, setHostPhoneRevealed] = useState(false);
+  const [specsOpen, setSpecsOpen] = useState(false);
+  const [featuresOpen, setFeaturesOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [policiesOpen, setPoliciesOpen] = useState(false);
+
+  const scrollToBooking = () => {
+    if (typeof window !== 'undefined') {
+      const el = document.getElementById('booking-section');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+    }
+    setStep(1);
+  };
 
   useEffect(() => {
     if (car.serviceScope === 'WITH_DRIVER') {
@@ -1130,257 +1146,271 @@ export default function ListingDetailPage() {
               </div>
             </div>
 
-            {/* 2. Car Overview / Technical Specifications Table (Strictly Conditional) */}
-            <div className="flex flex-col gap-3">
-              <h2 className="font-heading font-extrabold text-lg sm:text-xl text-slate-900 flex items-center gap-2">
-                <Car className="w-5 h-5 text-emerald-600" />
-                <span>Car Overview & Specifications</span>
-              </h2>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                {car.bodyType && (
-                  <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
-                    <Car className="w-4 h-4 text-emerald-700 shrink-0" />
-                    <div className="min-w-0">
-                      <span className="text-[11px] text-slate-500 block truncate">Body Type</span>
-                      <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
-                        {car.bodyType}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {car.transmission && (
-                  <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
-                    <Gauge className="w-4 h-4 text-emerald-700 shrink-0" />
-                    <div className="min-w-0">
-                      <span className="text-[11px] text-slate-500 block truncate">Transmission</span>
-                      <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
-                        {car.transmission}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {car.engineCapacity && (
-                  <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
-                    <Zap className="w-4 h-4 text-emerald-700 shrink-0" />
-                    <div className="min-w-0">
-                      <span className="text-[11px] text-slate-500 block truncate">Engine Capacity</span>
-                      <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
-                        {car.engineCapacity}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {car.horsepower && (
-                  <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
-                    <Sparkles className="w-4 h-4 text-emerald-700 shrink-0" />
-                    <div className="min-w-0">
-                      <span className="text-[11px] text-slate-500 block truncate">Horsepower</span>
-                      <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
-                        {car.horsepower}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {car.seats !== undefined && car.seats > 0 && (
-                  <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
-                    <Users className="w-4 h-4 text-emerald-700 shrink-0" />
-                    <div className="min-w-0">
-                      <span className="text-[11px] text-slate-500 block truncate">Seating Capacity</span>
-                      <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
-                        {car.seats} Passengers
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {car.doors !== undefined && car.doors > 0 && (
-                  <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
-                    <Layers className="w-4 h-4 text-emerald-700 shrink-0" />
-                    <div className="min-w-0">
-                      <span className="text-[11px] text-slate-500 block truncate">Doors</span>
-                      <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
-                        {car.doors} Doors
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {car.bags && (
-                  <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
-                    <Briefcase className="w-4 h-4 text-emerald-700 shrink-0" />
-                    <div className="min-w-0">
-                      <span className="text-[11px] text-slate-500 block truncate">Luggage Capacity</span>
-                      <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
-                        {car.bags}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {car.minAge !== undefined && car.minAge > 0 && (
-                  <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
-                    <Award className="w-4 h-4 text-emerald-700 shrink-0" />
-                    <div className="min-w-0">
-                      <span className="text-[11px] text-slate-500 block truncate">Minimum Age</span>
-                      <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
-                        {car.minAge} Years
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {car.fuelType && (
-                  <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
-                    <Fuel className="w-4 h-4 text-emerald-700 shrink-0" />
-                    <div className="min-w-0">
-                      <span className="text-[11px] text-slate-500 block truncate">Fuel Type</span>
-                      <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
-                        {car.fuelType}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {car.exteriorColor && (
-                  <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
-                    <Compass className="w-4 h-4 text-emerald-700 shrink-0" />
-                    <div className="min-w-0">
-                      <span className="text-[11px] text-slate-500 block truncate">Exterior Color</span>
-                      <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
-                        {car.exteriorColor}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {car.interiorColor && (
-                  <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
-                    <Layers className="w-4 h-4 text-emerald-700 shrink-0" />
-                    <div className="min-w-0">
-                      <span className="text-[11px] text-slate-500 block truncate">Interior Color</span>
-                      <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
-                        {car.interiorColor}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
+            {/* Quick Mobile Action Bar: Direct Jump to Booking & WhatsApp */}
+            <div className="lg:hidden flex items-center gap-2 p-3 rounded-2xl bg-emerald-50/80 border border-emerald-200 shadow-2xs">
+              <button
+                type="button"
+                onClick={scrollToBooking}
+                className="flex-1 h-11 px-4 bg-[#0B6B4F] hover:bg-[#08513C] text-white rounded-xl font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition active:scale-[0.99] cursor-pointer"
+              >
+                <CalendarCheck className="w-4 h-4 text-emerald-300 shrink-0" />
+                <span>Book Now & Check Dates</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleInstantWhatsAppChat}
+                className="h-11 px-3.5 bg-white hover:bg-slate-50 text-emerald-800 border border-emerald-300 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-[0.99] cursor-pointer shrink-0"
+              >
+                <WhatsAppIcon className="w-4 h-4 text-emerald-700 shrink-0" />
+                <span>WhatsApp</span>
+              </button>
             </div>
 
-            {/* 3. Categorized Features & Inclusions (Strictly Conditional) */}
+            {/* 2. Car Overview / Technical Specifications Table (Mobile Accordion) */}
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-2xs overflow-hidden transition">
+              <button
+                type="button"
+                onClick={() => setSpecsOpen((prev) => !prev)}
+                className="w-full p-4 sm:p-5 flex items-center justify-between gap-3 text-left hover:bg-slate-50/80 transition cursor-pointer"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="font-heading font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-2">
+                      <Car className="w-4 h-4 text-emerald-600" />
+                      <span>Specifications & Overview</span>
+                    </h2>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      Key Highlights
+                    </span>
+                  </div>
+                  {/* Summary preview pills visible when closed */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1.5 text-[11px] text-slate-600 font-medium">
+                    {car.transmission && (
+                      <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/60">
+                        {car.transmission}
+                      </span>
+                    )}
+                    {car.fuelType && (
+                      <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/60">
+                        {car.fuelType}
+                      </span>
+                    )}
+                    {car.seats && (
+                      <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/60">
+                        {car.seats} Seats
+                      </span>
+                    )}
+                    {car.engineCapacity && (
+                      <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/60">
+                        {car.engineCapacity}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0 text-slate-400">
+                  <span className="text-[11px] font-bold hidden sm:inline text-slate-500">
+                    {specsOpen ? 'Collapse' : 'View all'}
+                  </span>
+                  <div className={`p-1.5 rounded-lg bg-slate-100 text-slate-600 transition-transform duration-200 ${specsOpen ? 'rotate-180' : ''}`}>
+                    <ChevronDown className="w-4 h-4" />
+                  </div>
+                </div>
+              </button>
+
+              {specsOpen && (
+                <div className="p-4 sm:p-5 pt-0 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-3 gap-2.5 animate-in fade-in">
+                  {car.bodyType && (
+                    <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
+                      <Car className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <div className="min-w-0">
+                        <span className="text-[11px] text-slate-500 block truncate">Body Type</span>
+                        <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                          {car.bodyType}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {car.transmission && (
+                    <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
+                      <Gauge className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <div className="min-w-0">
+                        <span className="text-[11px] text-slate-500 block truncate">Transmission</span>
+                        <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                          {car.transmission}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {car.engineCapacity && (
+                    <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
+                      <Zap className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <div className="min-w-0">
+                        <span className="text-[11px] text-slate-500 block truncate">Engine Capacity</span>
+                        <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                          {car.engineCapacity}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {car.horsepower && (
+                    <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
+                      <Sparkles className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <div className="min-w-0">
+                        <span className="text-[11px] text-slate-500 block truncate">Horsepower</span>
+                        <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                          {car.horsepower}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {car.seats !== undefined && car.seats > 0 && (
+                    <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
+                      <Users className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <div className="min-w-0">
+                        <span className="text-[11px] text-slate-500 block truncate">Seating Capacity</span>
+                        <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                          {car.seats} Passengers
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {car.doors !== undefined && car.doors > 0 && (
+                    <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
+                      <Layers className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <div className="min-w-0">
+                        <span className="text-[11px] text-slate-500 block truncate">Doors</span>
+                        <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                          {car.doors} Doors
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {car.bags && (
+                    <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
+                      <Briefcase className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <div className="min-w-0">
+                        <span className="text-[11px] text-slate-500 block truncate">Luggage Capacity</span>
+                        <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                          {car.bags}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {car.minAge !== undefined && car.minAge > 0 && (
+                    <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
+                      <Award className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <div className="min-w-0">
+                        <span className="text-[11px] text-slate-500 block truncate">Minimum Age</span>
+                        <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                          {car.minAge} Years
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {car.fuelType && (
+                    <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
+                      <Fuel className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <div className="min-w-0">
+                        <span className="text-[11px] text-slate-500 block truncate">Fuel Type</span>
+                        <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                          {car.fuelType}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {car.exteriorColor && (
+                    <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
+                      <Compass className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <div className="min-w-0">
+                        <span className="text-[11px] text-slate-500 block truncate">Exterior Color</span>
+                        <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                          {car.exteriorColor}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {car.interiorColor && (
+                    <div className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-2.5 bg-slate-50/50">
+                      <Layers className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <div className="min-w-0">
+                        <span className="text-[11px] text-slate-500 block truncate">Interior Color</span>
+                        <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate block">
+                          {car.interiorColor}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 3. Features & Inclusions (Mobile Accordion) */}
             {(car.interiorFeatures?.length ||
               car.safetyFeatures?.length ||
               car.exteriorFeatures?.length ||
               car.comfortFeatures?.length ||
               car.infotainmentFeatures?.length ||
               car.features?.length) && (
-              <div className="flex flex-col gap-4 pt-2">
-                <h2 className="font-heading font-extrabold text-lg sm:text-xl text-slate-900 flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-emerald-600" />
-                  <span>Features & Equipment</span>
-                </h2>
-
-                <div className="flex flex-col gap-3.5">
-                  {/* Interior Features */}
-                  {car.interiorFeatures && car.interiorFeatures.length > 0 && (
-                    <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs">
-                      <h4 className="font-heading font-bold text-xs sm:text-sm text-emerald-800 mb-2.5">
-                        Interior Features
-                      </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-slate-700">
-                        {car.interiorFeatures.map((f, i) => (
-                          <div key={i} className="flex items-center gap-2">
-                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 font-bold" />
-                            <span>{f}</span>
-                          </div>
-                        ))}
-                      </div>
+              <div className="rounded-2xl border border-slate-200 bg-white shadow-2xs overflow-hidden transition">
+                <button
+                  type="button"
+                  onClick={() => setFeaturesOpen((prev) => !prev)}
+                  className="w-full p-4 sm:p-5 flex items-center justify-between gap-3 text-left hover:bg-slate-50/80 transition cursor-pointer"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="font-heading font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-emerald-600" />
+                        <span>Features & Equipment</span>
+                      </h2>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 border border-purple-200">
+                        Verified Inclusions
+                      </span>
                     </div>
-                  )}
-
-                  {/* Safety & Driver Assistance */}
-                  {car.safetyFeatures && car.safetyFeatures.length > 0 && (
-                    <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs">
-                      <h4 className="font-heading font-bold text-xs sm:text-sm text-emerald-800 mb-2.5">
-                        Safety & Driver Assistance
-                      </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-slate-700">
-                        {car.safetyFeatures.map((f, i) => (
-                          <div key={i} className="flex items-center gap-2">
-                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 font-bold" />
-                            <span>{f}</span>
-                          </div>
-                        ))}
-                      </div>
+                    {/* Summary preview of features */}
+                    <div className="flex items-center gap-1.5 flex-wrap pt-1.5 text-[11px] text-slate-600">
+                      {(car.features || ['Climate Control', 'Insurance Included', 'Sunroof']).slice(0, 3).map((f, i) => (
+                        <span key={i} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/60 truncate max-w-[140px]">
+                          ✓ {f}
+                        </span>
+                      ))}
+                      <span className="text-[10px] font-bold text-emerald-700">
+                        + More
+                      </span>
                     </div>
-                  )}
+                  </div>
 
-                  {/* Exterior Features */}
-                  {car.exteriorFeatures && car.exteriorFeatures.length > 0 && (
-                    <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs">
-                      <h4 className="font-heading font-bold text-xs sm:text-sm text-emerald-800 mb-2.5">
-                        Exterior Features
-                      </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-slate-700">
-                        {car.exteriorFeatures.map((f, i) => (
-                          <div key={i} className="flex items-center gap-2">
-                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 font-bold" />
-                            <span>{f}</span>
-                          </div>
-                        ))}
-                      </div>
+                  <div className="flex items-center gap-1 shrink-0 text-slate-400">
+                    <span className="text-[11px] font-bold hidden sm:inline text-slate-500">
+                      {featuresOpen ? 'Collapse' : 'View all'}
+                    </span>
+                    <div className={`p-1.5 rounded-lg bg-slate-100 text-slate-600 transition-transform duration-200 ${featuresOpen ? 'rotate-180' : ''}`}>
+                      <ChevronDown className="w-4 h-4" />
                     </div>
-                  )}
+                  </div>
+                </button>
 
-                  {/* Comfort & Convenience */}
-                  {car.comfortFeatures && car.comfortFeatures.length > 0 && (
-                    <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs">
-                      <h4 className="font-heading font-bold text-xs sm:text-sm text-emerald-800 mb-2.5">
-                        Comfort & Convenience
-                      </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-slate-700">
-                        {car.comfortFeatures.map((f, i) => (
-                          <div key={i} className="flex items-center gap-2">
-                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 font-bold" />
-                            <span>{f}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Infotainment & Audio */}
-                  {car.infotainmentFeatures && car.infotainmentFeatures.length > 0 && (
-                    <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs">
-                      <h4 className="font-heading font-bold text-xs sm:text-sm text-emerald-800 mb-2.5">
-                        Infotainment & Audio
-                      </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-slate-700">
-                        {car.infotainmentFeatures.map((f, i) => (
-                          <div key={i} className="flex items-center gap-2">
-                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 font-bold" />
-                            <span>{f}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Legacy Features Inclusions (if categorized arrays are absent) */}
-                  {(!car.interiorFeatures || car.interiorFeatures.length === 0) &&
-                    car.features &&
-                    car.features.length > 0 && (
+                {featuresOpen && (
+                  <div className="p-4 sm:p-5 pt-0 border-t border-slate-100 flex flex-col gap-3.5 animate-in fade-in">
+                    {/* Interior Features */}
+                    {car.interiorFeatures && car.interiorFeatures.length > 0 && (
                       <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs">
                         <h4 className="font-heading font-bold text-xs sm:text-sm text-emerald-800 mb-2.5">
-                          Inclusions & Features
+                          Interior Features
                         </h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-slate-700">
-                          {car.features.map((f, i) => (
+                          {car.interiorFeatures.map((f, i) => (
                             <div key={i} className="flex items-center gap-2">
                               <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 font-bold" />
                               <span>{f}</span>
@@ -1389,26 +1419,114 @@ export default function ListingDetailPage() {
                         </div>
                       </div>
                     )}
-                </div>
+
+                    {/* Safety & Driver Assistance */}
+                    {car.safetyFeatures && car.safetyFeatures.length > 0 && (
+                      <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs">
+                        <h4 className="font-heading font-bold text-xs sm:text-sm text-emerald-800 mb-2.5">
+                          Safety & Driver Assistance
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-slate-700">
+                          {car.safetyFeatures.map((f, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 font-bold" />
+                              <span>{f}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Exterior Features */}
+                    {car.exteriorFeatures && car.exteriorFeatures.length > 0 && (
+                      <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs">
+                        <h4 className="font-heading font-bold text-xs sm:text-sm text-emerald-800 mb-2.5">
+                          Exterior Features
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-slate-700">
+                          {car.exteriorFeatures.map((f, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 font-bold" />
+                              <span>{f}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Comfort & Convenience */}
+                    {car.comfortFeatures && car.comfortFeatures.length > 0 && (
+                      <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs">
+                        <h4 className="font-heading font-bold text-xs sm:text-sm text-emerald-800 mb-2.5">
+                          Comfort & Convenience
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-slate-700">
+                          {car.comfortFeatures.map((f, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 font-bold" />
+                              <span>{f}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Infotainment & Audio */}
+                    {car.infotainmentFeatures && car.infotainmentFeatures.length > 0 && (
+                      <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs">
+                        <h4 className="font-heading font-bold text-xs sm:text-sm text-emerald-800 mb-2.5">
+                          Infotainment & Audio
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-slate-700">
+                          {car.infotainmentFeatures.map((f, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 font-bold" />
+                              <span>{f}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Legacy Features Inclusions (if categorized arrays are absent) */}
+                    {(!car.interiorFeatures || car.interiorFeatures.length === 0) &&
+                      car.features &&
+                      car.features.length > 0 && (
+                        <div className="p-4 rounded-xl border border-slate-200/90 bg-white shadow-2xs">
+                          <h4 className="font-heading font-bold text-xs sm:text-sm text-emerald-800 mb-2.5">
+                            Inclusions & Features
+                          </h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm text-slate-700">
+                            {car.features.map((f, i) => (
+                              <div key={i} className="flex items-center gap-2">
+                                <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 font-bold" />
+                                <span>{f}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                  </div>
+                )}
               </div>
             )}
 
             {/* 4. Host Profile Card */}
             <Link
               href={`/store/${getStoreSlugForOwner(car.hostName)}`}
-              className="p-5 rounded-2xl bg-gradient-to-r from-slate-50 to-slate-100 hover:from-slate-100 hover:to-slate-200 flex items-center gap-4 border border-slate-200 transition group cursor-pointer"
+              className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-slate-50 to-slate-100 hover:from-slate-100 hover:to-slate-200 flex items-center gap-4 border border-slate-200 transition group cursor-pointer"
               title={`View ${car.hostName}'s Public Storefront`}
             >
-              <div className="w-14 h-14 rounded-full bg-slate-900 text-white flex items-center justify-center font-heading font-extrabold text-xl shrink-0 group-hover:scale-105 transition shadow-sm">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-slate-900 text-white flex items-center justify-center font-heading font-extrabold text-lg sm:text-xl shrink-0 group-hover:scale-105 transition shadow-sm">
                 {car.hostName.slice(0, 2).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-heading font-extrabold text-base text-[#101828] group-hover:text-emerald-700 transition truncate">
+                  <h3 className="font-heading font-extrabold text-sm sm:text-base text-[#101828] group-hover:text-emerald-700 transition truncate">
                     Hosted by {car.hostName}
                   </h3>
                   <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                    View Fleet Store ➔
+                    Fleet Store ➔
                   </span>
                 </div>
                 <p className="text-xs text-[#475467] truncate mt-0.5">
@@ -1420,58 +1538,120 @@ export default function ListingDetailPage() {
               </span>
             </Link>
 
-            {/* 5. About This Vehicle */}
+            {/* 5. About This Vehicle (Collapsible Accordion) */}
             {car.description && (
-              <div className="pt-4 border-t border-[#EEF0F2] flex flex-col gap-2.5">
-                <h2 className="font-heading font-bold text-xl text-[#101828]">
-                  About this car
-                </h2>
-                <p className="text-[#344054] text-sm sm:text-base leading-relaxed">
-                  {car.description}
-                </p>
+              <div className="rounded-2xl border border-slate-200 bg-white shadow-2xs overflow-hidden transition">
+                <button
+                  type="button"
+                  onClick={() => setAboutOpen((prev) => !prev)}
+                  className="w-full p-4 sm:p-5 flex items-center justify-between gap-3 text-left hover:bg-slate-50/80 transition cursor-pointer"
+                >
+                  <div className="min-w-0 flex-1">
+                    <h2 className="font-heading font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-2">
+                      <Info className="w-4 h-4 text-emerald-600" />
+                      <span>About this Vehicle & Host Notes</span>
+                    </h2>
+                    {!aboutOpen && (
+                      <p className="text-xs text-slate-500 line-clamp-1 pt-1">
+                        {car.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0 text-slate-400">
+                    <span className="text-[11px] font-bold hidden sm:inline text-slate-500">
+                      {aboutOpen ? 'Collapse' : 'Read'}
+                    </span>
+                    <div className={`p-1.5 rounded-lg bg-slate-100 text-slate-600 transition-transform duration-200 ${aboutOpen ? 'rotate-180' : ''}`}>
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                  </div>
+                </button>
+                {aboutOpen && (
+                  <div className="p-4 sm:p-5 pt-0 border-t border-slate-100 text-[#344054] text-xs sm:text-sm leading-relaxed animate-in fade-in">
+                    {car.description}
+                  </div>
+                )}
               </div>
             )}
 
-            {/* 6. Rental Guidelines & Document Requirements (matching reference) */}
-            <div className="pt-4 border-t border-[#EEF0F2] flex flex-col gap-4">
-              <h2 className="font-heading font-extrabold text-lg sm:text-xl text-[#101828]">
-                Rental Requirements & Policies
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm text-[#475467] leading-relaxed">
-                <div className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/60">
-                  <strong className="block text-[#101828] font-bold mb-1 flex items-center gap-1.5">
-                    <FileText className="w-4 h-4 text-emerald-700" />
-                    For Local Residents
-                  </strong>
-                  <span>Original Driving License and National ID (CNIC) must be presented upon vehicle handover.</span>
+            {/* 6. Rental Guidelines & Document Requirements (Mobile Accordion) */}
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-2xs overflow-hidden transition">
+              <button
+                type="button"
+                onClick={() => setPoliciesOpen((prev) => !prev)}
+                className="w-full p-4 sm:p-5 flex items-center justify-between gap-3 text-left hover:bg-slate-50/80 transition cursor-pointer"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="font-heading font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      <span>Rental Requirements & Policies</span>
+                    </h2>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                      Terms & Deposit
+                    </span>
+                  </div>
+                  {/* Summary preview */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1.5 text-[11px] text-slate-600">
+                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/60">
+                      Original CNIC / ID
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/60">
+                      Driving Licence
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/60">
+                      Direct Host Handover
+                    </span>
+                  </div>
                 </div>
-                <div className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/60">
-                  <strong className="block text-[#101828] font-bold mb-1 flex items-center gap-1.5">
-                    <Compass className="w-4 h-4 text-emerald-700" />
-                    For Tourists & Visitors
-                  </strong>
-                  <span>Valid Passport, Entry Visa, and Home Country / International Driving Permit (IDP) required.</span>
+
+                <div className="flex items-center gap-1 shrink-0 text-slate-400">
+                  <span className="text-[11px] font-bold hidden sm:inline text-slate-500">
+                    {policiesOpen ? 'Collapse' : 'View all'}
+                  </span>
+                  <div className={`p-1.5 rounded-lg bg-slate-100 text-slate-600 transition-transform duration-200 ${policiesOpen ? 'rotate-180' : ''}`}>
+                    <ChevronDown className="w-4 h-4" />
+                  </div>
                 </div>
-                <div className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/60">
-                  <strong className="block text-[#101828] font-bold mb-1 flex items-center gap-1.5">
-                    <Fuel className="w-4 h-4 text-emerald-700" />
-                    Fuel & Mileage Terms
-                  </strong>
-                  <span>Return vehicle with same fuel level. Mileage allowances apply as per chosen plan; additional km charged at standard host rate.</span>
+              </button>
+
+              {policiesOpen && (
+                <div className="p-4 sm:p-5 pt-0 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm text-[#475467] leading-relaxed animate-in fade-in">
+                  <div className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/60">
+                    <strong className="block text-[#101828] font-bold mb-1 flex items-center gap-1.5">
+                      <FileText className="w-4 h-4 text-emerald-700" />
+                      For Local Residents
+                    </strong>
+                    <span>Original Driving License and National ID (CNIC) must be presented upon vehicle handover.</span>
+                  </div>
+                  <div className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/60">
+                    <strong className="block text-[#101828] font-bold mb-1 flex items-center gap-1.5">
+                      <Compass className="w-4 h-4 text-emerald-700" />
+                      For Tourists & Visitors
+                    </strong>
+                    <span>Valid Passport, Entry Visa, and Home Country / International Driving Permit (IDP) required.</span>
+                  </div>
+                  <div className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/60">
+                    <strong className="block text-[#101828] font-bold mb-1 flex items-center gap-1.5">
+                      <Fuel className="w-4 h-4 text-emerald-700" />
+                      Fuel & Mileage Terms
+                    </strong>
+                    <span>Return vehicle with same fuel level. Mileage allowances apply as per chosen plan; additional km charged at standard host rate.</span>
+                  </div>
+                  <div className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/60">
+                    <strong className="block text-[#101828] font-bold mb-1 flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                      Direct Payment & Deposit
+                    </strong>
+                    <span>Pay 100% rental directly to host. Security deposit settled at handover and refunded immediately upon safe return.</span>
+                  </div>
                 </div>
-                <div className="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/60">
-                  <strong className="block text-[#101828] font-bold mb-1 flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                    Direct Payment & Deposit
-                  </strong>
-                  <span>Pay 100% rental directly to host. Security deposit settled at handover and refunded immediately upon safe return.</span>
-                </div>
-              </div>
+              )}
             </div>
           </div>
 
           {/* Right Column: Sleek, Minimalist Booking Card */}
-          <aside className="sticky top-24 border border-slate-200/90 rounded-3xl p-4 sm:p-6 bg-white shadow-lg flex flex-col gap-3.5 transition-all w-full max-w-full overflow-hidden">
+          <aside id="booking-section" className="sticky top-24 border border-slate-200/90 rounded-3xl p-4 sm:p-6 bg-white shadow-lg flex flex-col gap-3.5 transition-all w-full max-w-full overflow-hidden scroll-mt-24">
             {/* Price & Status Row */}
             <div className="flex items-center justify-between pb-1 border-b border-slate-100">
               <div>
