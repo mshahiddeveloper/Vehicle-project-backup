@@ -36,9 +36,11 @@ import {
   TrendingUp,
   Eye,
   Download,
+  Receipt,
 } from 'lucide-react';
 import { API_BASE, formatPKR, maskCnic, maskLicense, maskPhone } from '@/lib/api';
 import { SubscriptionPricingSection } from '@/components/SubscriptionPricingSection';
+import { BillingHistoryManager } from '@/components/BillingHistoryManager';
 import { getActiveUser, RegisteredUser } from '@/data/userAuth';
 import { DashboardStoreWidget } from '@/components/DashboardStoreWidget';
 import { AnalyticsReportHub } from '@/components/AnalyticsReportHub';
@@ -70,7 +72,7 @@ const AVAILABLE_SERVICE_TAGS = [
 
 export default function ListerDashboardPage() {
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'fleet' | 'analytics' | 'add_vehicle' | 'requests' | 'availability' | 'pricing' | 'reviews' | 'subscription' | 'profile' | 'team' | 'settings'
+    'overview' | 'fleet' | 'analytics' | 'add_vehicle' | 'requests' | 'availability' | 'reviews' | 'subscription' | 'profile' | 'team' | 'settings'
   >('overview');
 
   // Handle URL query parameters (?tab=add_vehicle&step=1)
@@ -87,7 +89,6 @@ export default function ListerDashboardPage() {
           'add_vehicle',
           'requests',
           'availability',
-          'pricing',
           'reviews',
           'subscription',
           'profile',
@@ -935,8 +936,7 @@ export default function ListerDashboardPage() {
                 { id: 'requests', label: 'Requests', icon: Calendar, badge: incomingRequests.length },
                 { id: 'analytics', label: 'Leads & Clicks', icon: BarChart2 },
                 { id: 'availability', label: 'Calendar', icon: Clock },
-                { id: 'pricing', label: 'Pricing', icon: DollarSign },
-                { id: 'subscription', label: 'Subscription', icon: CreditCard },
+                { id: 'subscription', label: 'Billing & History', icon: Receipt, badge: 'Active' },
                 { id: 'profile', label: 'Storefront Profile', icon: Building2 },
                 { id: 'team', label: 'Drivers', icon: Users },
                 { id: 'settings', label: 'Settings', icon: Settings },
@@ -1009,8 +1009,7 @@ export default function ListerDashboardPage() {
               { id: 'add_vehicle', label: '+ Add New Vehicle', icon: PlusCircle },
               { id: 'requests', label: 'Customer Requests', icon: Calendar, badge: incomingRequests.length },
               { id: 'availability', label: 'Availability Calendar', icon: Clock },
-              { id: 'pricing', label: 'Pricing & Special Rates', icon: DollarSign },
-              { id: 'subscription', label: 'Subscription & Invoices', icon: CreditCard },
+              { id: 'subscription', label: 'Billing & Invoices', icon: Receipt, badge: 'Active' },
               { id: 'profile', label: 'Business Profile & Map', icon: Building2 },
               { id: 'team', label: 'Team & Drivers', icon: Users },
               { id: 'settings', label: 'Lister Settings', icon: Settings },
@@ -2451,22 +2450,14 @@ export default function ListerDashboardPage() {
             </div>
           )}
 
-          {/* TAB 6: SUBSCRIPTION */}
+          {/* TAB 6: BILLING & SUBSCRIPTION */}
           {activeTab === 'subscription' && (
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-5">
-              <div>
-                <h3 className="font-extrabold text-base text-slate-900">Lister Subscription & Billing</h3>
-                <p className="text-xs text-slate-500">
-                  Manage fleet vehicle quotas, apply regional promo codes, and enjoy WAS - NOW discounted rates.
-                </p>
-              </div>
-
-              <SubscriptionPricingSection
-                role="CAR_RENTAL"
-                roleTitle="Fleet Lister"
-                initialPlanName="Professional Fleet (15 Vehicles)"
-              />
-            </div>
+            <BillingHistoryManager
+              role="CAR_RENTAL"
+              roleTitle="Fleet Lister"
+              businessName={businessName}
+              initialPlanName="Professional Fleet Hub (15 Vehicles)"
+            />
           )}
 
           {/* TAB 7: PROFILE & MAP */}

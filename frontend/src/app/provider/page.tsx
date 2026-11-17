@@ -33,10 +33,12 @@ import {
   Send,
   Phone,
   BarChart2,
+  Receipt,
 } from 'lucide-react';
 import { AnalyticsReportHub } from '@/components/AnalyticsReportHub';
 import { API_BASE, formatPKR, maskPhone } from '@/lib/api';
 import { SubscriptionPricingSection } from '@/components/SubscriptionPricingSection';
+import { BillingHistoryManager } from '@/components/BillingHistoryManager';
 import {
   getActiveUser,
   setActiveUser,
@@ -1158,7 +1160,7 @@ export default function ServiceProviderDashboardPage() {
       ...(hasHomeShifting
         ? [{ id: 'quotes', label: 'Moving Quotations Queue', icon: FileText, badge: quoteRequests.length }]
         : []),
-      { id: 'subscription', label: 'Provider Fleet Pass', icon: CreditCard },
+      { id: 'subscription', label: 'Billing & Fleet Pass', icon: Receipt, badge: 'Active' },
     ];
   }, [hasPickAndDrop, hasHomeShifting, routes.length, unreadProviderChatsCount, providerConversations.length, driverTeam.length, commercialFleet.length, quoteRequests.length]);
 
@@ -2928,22 +2930,14 @@ export default function ServiceProviderDashboardPage() {
             </div>
           )}
 
-          {/* TAB 7: SUBSCRIPTION */}
+          {/* TAB 7: BILLING & SUBSCRIPTION */}
           {activeTab === 'subscription' && (
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-5 text-xs">
-              <div>
-                <h3 className="font-extrabold text-base text-slate-900">Commercial Provider Monthly Pass</h3>
-                <p className="text-slate-500">
-                  Unlimited commercial cargo listings, commuter shuttles, WAS - NOW pricing, and priority directory placement.
-                </p>
-              </div>
-
-              <SubscriptionPricingSection
-                role="PROVIDER"
-                roleTitle="Logistics & Mobility Provider"
-                initialPlanName="Enterprise Cargo & Shuttle Pass"
-              />
-            </div>
+            <BillingHistoryManager
+              role="PROVIDER"
+              roleTitle="Logistics & Mobility Provider"
+              businessName={companyName}
+              initialPlanName="Enterprise Cargo & Shuttle Pass"
+            />
           )}
         </main>
       </div>

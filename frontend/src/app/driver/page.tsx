@@ -37,10 +37,12 @@ import {
   Send,
   ArrowRight,
   BarChart2,
+  Receipt,
 } from 'lucide-react';
 import { AnalyticsReportHub } from '@/components/AnalyticsReportHub';
 import { API_BASE, formatPKR, maskCnic, maskLicense, maskPhone } from '@/lib/api';
 import { SubscriptionPricingSection } from '@/components/SubscriptionPricingSection';
+import { BillingHistoryManager } from '@/components/BillingHistoryManager';
 import { getActiveUser, RegisteredUser, logoutActiveUser } from '@/data/userAuth';
 import {
   getDriverBookings,
@@ -577,7 +579,7 @@ export default function DriverDashboardPage() {
     },
     { id: 'documents', label: 'License & CNIC Verification', icon: ShieldCheck },
     { id: 'reviews', label: 'Passenger Ratings', icon: Star },
-    { id: 'subscription', label: 'Driver Monthly Pass', icon: CreditCard },
+    { id: 'subscription', label: 'Billing & Monthly Pass', icon: Receipt, badge: 'Active' },
   ];
 
   return (
@@ -2024,22 +2026,14 @@ export default function DriverDashboardPage() {
             </div>
           )}
 
-          {/* TAB 7: SUBSCRIPTION */}
+          {/* TAB 7: BILLING & SUBSCRIPTION */}
           {activeTab === 'subscription' && (
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-5 text-xs">
-              <div>
-                <h3 className="font-extrabold text-base text-slate-900">Driver Monthly Pass & Direct Leads</h3>
-                <p className="text-slate-500">
-                  Fixed monthly listing pass. Connect directly with clients, enjoy regional launch rates, and arrange your trips directly.
-                </p>
-              </div>
-
-              <SubscriptionPricingSection
-                role="DRIVER"
-                roleTitle="Chauffeur / Driver"
-                initialPlanName="Chauffeur Solo Pass"
-              />
-            </div>
+            <BillingHistoryManager
+              role="DRIVER"
+              roleTitle="Independent Chauffeur"
+              businessName={driverName}
+              initialPlanName="Independent Chauffeur Pass"
+            />
           )}
         </main>
       </div>
