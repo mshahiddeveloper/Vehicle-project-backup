@@ -779,22 +779,22 @@ export default function HomePage() {
       {/* 1. Global Navigation Header */}
       <AppHeader currentCountry={country} onCountryChange={setCountry} />
 
-      {/* 2. Hero Section - Sleek Minimal, Animated & Mobile App-Like */}
+      {/* 2. Hero Section - Sleek Minimal, Compact on Mobile */}
       <section className="bg-gradient-to-b from-[#F9FBFA] via-[#F4F7F5] to-white border-b border-[#EEF0F2]">
-        <div className="max-w-[1240px] mx-auto px-4 sm:px-8 pt-3 sm:pt-5 md:pt-6 pb-6 sm:pb-8 flex flex-col gap-3.5 sm:gap-4">
+        <div className="max-w-[1240px] mx-auto px-3 sm:px-8 pt-2 sm:pt-4 md:pt-6 pb-2 sm:pb-5 flex flex-col gap-2 sm:gap-3.5">
           {/* Minimal Animated Header Copy */}
-          <div className="flex flex-col gap-1.5 sm:gap-2 max-w-[820px]">
+          <div className="flex flex-col gap-1 sm:gap-2 max-w-[820px]">
             {/* Animated Pill Badge */}
-            <div className="self-start inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-slate-200/90 text-[11px] sm:text-xs font-bold text-slate-800 shadow-2xs">
-              <span className="w-2 h-2 rounded-full bg-[#0B6B4F] animate-pulse shrink-0" />
-              <span className="text-[#0B6B4F] font-extrabold uppercase tracking-wider text-[10px]">Direct Mobility</span>
+            <div className="self-start inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white border border-slate-200/90 text-[10px] sm:text-xs font-bold text-slate-800 shadow-2xs">
+              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#0B6B4F] animate-pulse shrink-0" />
+              <span className="text-[#0B6B4F] font-extrabold uppercase tracking-wider text-[9px] sm:text-[10px]">Direct Mobility</span>
               <span className="text-slate-300">·</span>
               <span className="text-slate-600 font-semibold truncate">{HERO_ROTATING_SERVICES[heroIdx].badge}</span>
             </div>
 
             {/* Punchy, Minimal Headline with Animated Rotating Tag */}
             <div className="space-y-0.5">
-              <h1 className="font-heading font-black text-lg sm:text-2xl md:text-3xl lg:text-4xl tracking-tight text-[#101828] leading-snug sm:leading-tight">
+              <h1 className="font-heading font-black text-sm sm:text-2xl md:text-3xl lg:text-4xl tracking-tight text-[#101828] leading-tight">
                 Move freely across {country?.name || 'Pakistan'} —{' '}
                 <span className="text-[#0B6B4F] inline-block transition-all duration-300 ease-in-out">
                   {HERO_ROTATING_SERVICES[heroIdx]?.text}
@@ -811,11 +811,11 @@ export default function HomePage() {
           {/* Search Card Container */}
           <div className="relative bg-white border border-[#E4E7EC] rounded-2xl sm:rounded-3xl shadow-[0_2px_4px_rgba(16,24,40,0.04),0_20px_48px_rgba(16,24,40,0.10)] overflow-visible z-30">
             {/* Mobile 5-Service Compact Segmented Selector (All 5 options visible at a glance without cutoff) */}
-            <div className="md:hidden p-1 sm:p-1.5 bg-[#F4F6F8] rounded-2xl m-2 border border-[#EEF0F2]">
+            <div className="md:hidden p-1 bg-[#F4F6F8] rounded-xl sm:rounded-2xl m-1 sm:m-1.5 border border-[#EEF0F2]">
               <div
                 role="tablist"
                 aria-label="What do you need?"
-                className="grid grid-cols-5 gap-1"
+                className="grid grid-cols-5 gap-0.5 sm:gap-1"
               >
                 {serviceDefs.map((srv, idx) => {
                   const Icon = srv.icon;
@@ -1364,8 +1364,8 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* Mobile App Quick Trust & Benefit Bar (Replaces 400px of giant text cards on mobile) */}
-          <div className="md:hidden grid grid-cols-3 gap-1.5 p-2 rounded-2xl bg-white border border-[#EEF0F2] shadow-2xs">
+          {/* Mobile App Quick Trust Bar - Compact, visible on sm+ screens */}
+          <div className="hidden sm:grid grid-cols-3 gap-1.5 p-2 rounded-2xl bg-white border border-[#EEF0F2] shadow-2xs">
             <div className="flex flex-col items-center justify-center text-center p-1">
               <div className="w-7 h-7 rounded-lg bg-emerald-50 text-[#0B6B4F] flex items-center justify-center mb-1">
                 <Car className="w-3.5 h-3.5" />
@@ -1441,8 +1441,8 @@ export default function HomePage() {
       </section>
 
       {/* 3. Dynamic Service Listings OR International Coming Soon & Pre-Registration */}
-      <section id="listings-results" className="py-12 md:py-16">
-        <div id="cars-results" className="max-w-[1240px] mx-auto px-5 sm:px-8 flex flex-col gap-7">
+      <section id="listings-results" className="pt-2 sm:pt-6 pb-12 sm:pb-16">
+        <div id="cars-results" className="max-w-[1240px] mx-auto px-4 sm:px-8 flex flex-col gap-3 sm:gap-6">
           {country && country.code !== 'PK' ? (
             <InternationalComingSoon
               country={country}

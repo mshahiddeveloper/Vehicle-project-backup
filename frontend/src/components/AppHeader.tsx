@@ -55,10 +55,12 @@ export function AppHeader({
   const [showCountryMenu, setShowCountryMenu] = useState(false);
   const [showCurrencyMenu, setShowCurrencyMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showMobileUserMenu, setShowMobileUserMenu] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [branding, setBranding] = useState<SiteBranding>(getSiteBranding());
 
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const mobileUserMenuRef = useRef<HTMLDivElement>(null);
   const countryMenuRef = useRef<HTMLDivElement>(null);
   const currencyMenuRef = useRef<HTMLDivElement>(null);
 
@@ -68,6 +70,9 @@ export function AppHeader({
       const target = event.target as Node;
       if (userMenuRef.current && !userMenuRef.current.contains(target)) {
         setShowUserMenu(false);
+      }
+      if (mobileUserMenuRef.current && !mobileUserMenuRef.current.contains(target)) {
+        setShowMobileUserMenu(false);
       }
       if (countryMenuRef.current && !countryMenuRef.current.contains(target)) {
         setShowCountryMenu(false);
@@ -598,16 +603,105 @@ export function AppHeader({
         </Link>
 
         {/* Right: Account or Sign In (Equal width w-9 to keep logo strictly centered) */}
-        <div className="w-9 h-9 flex items-center justify-end shrink-0">
+        <div className="relative w-9 h-9 flex items-center justify-end shrink-0" ref={mobileUserMenuRef}>
           {activeUser ? (
-            <Link
-              href={getDashboardHref(activeUser.role)}
-              className="w-8 h-8 rounded-full text-white text-xs font-black flex items-center justify-center shadow-xs shrink-0 hover:ring-2 hover:ring-emerald-400 transition"
-              style={{ backgroundColor: accentColor }}
-              title="My Account"
-            >
-              {activeUser.name.slice(0, 2).toUpperCase()}
-            </Link>
+            <>
+              <button
+                type="button"
+                onClick={() => setShowMobileUserMenu(!showMobileUserMenu)}
+                className="w-8 h-8 rounded-full text-white text-xs font-black flex items-center justify-center shadow-xs shrink-0 hover:ring-2 hover:ring-emerald-400 transition cursor-pointer"
+                style={{ backgroundColor: accentColor }}
+                title="My Account"
+                aria-label="Toggle user account menu"
+              >
+                {activeUser.name.slice(0, 2).toUpperCase()}
+              </button>
+
+              {showMobileUserMenu && (
+                <div className="absolute top-full mt-2 right-0 w-60 bg-white border border-slate-200 rounded-2xl shadow-2xl py-2 z-[99999] animate-in fade-in slide-in-from-top-2 duration-150 text-left">
+                  {/* User Profile Header */}
+                  <div className="px-3.5 py-2 border-b border-slate-100">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span
+                        className="w-7 h-7 rounded-full text-white text-[11px] font-black flex items-center justify-center shrink-0 shadow-2xs"
+                        style={{ backgroundColor: accentColor }}
+                      >
+                        {activeUser.name.slice(0, 2).toUpperCase()}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-[#101828] truncate leading-tight">
+                          {activeUser.name}
+                        </p>
+                        <p className="text-[10px] text-slate-400 truncate">
+                          {activeUser.phone || activeUser.email || 'Verified Member'}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#E9F3EE] text-[#0B6B4F]">
+                      {activeUser.role === 'LISTER'
+                        ? 'Car Rental Partner'
+                        : activeUser.role === 'DRIVER'
+                        ? 'Verified Driver'
+                        : activeUser.role === 'PROVIDER'
+                        ? 'Logistics & Shuttles'
+                        : activeUser.role}
+                    </span>
+                  </div>
+
+                  {/* Dashboard link with Icon */}
+                  <Link
+                    href={getDashboardHref(activeUser.role)}
+                    onClick={() => setShowMobileUserMenu(false)}
+                    className="flex items-center justify-between px-3.5 py-2.5 text-xs text-[#101828] hover:bg-[#F7F8FA] font-bold transition"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                        <Car className="w-3.5 h-3.5" />
+                      </div>
+                      <span>Go to Dashboard</span>
+                    </div>
+                    <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                  </Link>
+
+                  {/* Messages link */}
+                  <Link
+                    href="/inbox"
+                    onClick={() => setShowMobileUserMenu(false)}
+                    className="flex items-center gap-2.5 px-3.5 py-2 text-xs text-[#344054] hover:bg-[#F7F8FA] transition font-medium"
+                  >
+                    <MessageSquare className="w-4 h-4 text-slate-400" />
+                    <span>Inbox & Chats</span>
+                  </Link>
+
+                  {/* Settings link */}
+                  <Link
+                    href="/settings"
+                    onClick={() => setShowMobileUserMenu(false)}
+                    className="flex items-center gap-2.5 px-3.5 py-2 text-xs text-[#344054] hover:bg-[#F7F8FA] transition font-medium"
+                  >
+                    <Sparkles className="w-4 h-4 text-slate-400" />
+                    <span>Settings & Profile</span>
+                  </Link>
+
+                  <div className="border-t border-slate-100 my-1" />
+
+                  {/* Sign Out / Logout button with Icon */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logoutActiveUser();
+                      setActiveUserState(null);
+                      setShowMobileUserMenu(false);
+                      window.location.href = '/';
+                    }}
+                    className="w-full text-left flex items-center gap-2.5 px-3.5 py-2 text-xs text-rose-600 hover:bg-rose-50 transition font-bold cursor-pointer"
+                  >
+                    <LogOut className="w-4 h-4 text-rose-500" />
+                    <span>Sign Out / Log Out</span>
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <Link
               href="/login"
