@@ -12,18 +12,22 @@
   --font-mono: 'JetBrains Mono', monospace;
 }
 
-html,
+html {
+  overscroll-behavior-y: contain; /* Disables default native browser pull-to-refresh circle */
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   color: #101828;
   background-color: #FFFFFF;
   font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  overflow-x: hidden !important;
-  width: 100% !important;
-  max-width: 100vw !important;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
+  min-height: 100%;
   position: relative;
   -webkit-tap-highlight-color: transparent;
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain; /* Disables default native browser pull-to-refresh circle */
 }
 
 *, *::before, *::after {
@@ -228,15 +232,28 @@ body {
   }
 }
 
+@keyframes roadSpeedLines {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 48px;
+  }
+}
+
 .animate-car-rev {
   animation: carRevEngine 0.12s infinite ease-in-out;
 }
 
 .animate-car-launch {
-  animation: carRaceUpLaunch 0.7s cubic-bezier(0.5, 0, 0.75, 0) forwards;
+  animation: carRaceUpLaunch 0.65s cubic-bezier(0.4, 0, 0.7, 0) forwards;
 }
 
 .animate-exhaust-trail {
-  animation: exhaustSmokeTrail 0.4s ease-out infinite;
+  animation: exhaustSmokeTrail 0.35s ease-out infinite;
+}
+
+.animate-road-speed {
+  animation: roadSpeedLines 0.28s linear infinite;
 }
 
