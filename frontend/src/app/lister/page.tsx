@@ -47,6 +47,12 @@ import { getActiveUser, RegisteredUser } from '@/data/userAuth';
 import { DashboardStoreWidget } from '@/components/DashboardStoreWidget';
 import { AnalyticsReportHub } from '@/components/AnalyticsReportHub';
 import { useCountry } from '@/app/context/CountryContext';
+import {
+  CityRideItem,
+  getCustomCityRides,
+  saveCustomCityRide,
+  deleteCustomCityRide,
+} from '@/data/marketplaceData';
 
 const STANDARD_CAR_BRANDS = [
   'Suzuki',
@@ -102,11 +108,72 @@ const AVAILABLE_SERVICE_TAGS = [
 
 export default function ListerDashboardPage() {
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'fleet' | 'analytics' | 'add_vehicle' | 'requests' | 'availability' | 'reviews' | 'subscription' | 'profile' | 'team' | 'settings'
+    'overview' | 'fleet' | 'intercity' | 'analytics' | 'add_vehicle' | 'requests' | 'availability' | 'reviews' | 'subscription' | 'profile' | 'team' | 'settings'
   >('overview');
 
   const { country } = useCountry();
   const isPakistan = !country || country.code === 'PK';
+
+  // Intercity City-to-City Lister State
+  const [listerIntercityRides, setListerIntercityRides] = useState<CityRideItem[]>([]);
+  const [showAddIntercityModal, setShowAddIntercityModal] = useState(false);
+  const [newC2cFrom, setNewC2cFrom] = useState('Karachi');
+  const [newC2cTo, setNewC2cTo] = useState('Hyderabad');
+  const [newC2cDate, setNewC2cDate] = useState('Daily Departure');
+  const [newC2cTime, setNewC2cTime] = useState('08:30 AM');
+  const [newC2cRideType, setNewC2cRideType] = useState<'SEAT_SHARING' | 'FULL_CAR' | 'BOTH'>('BOTH');
+  const [newC2cCar, setNewC2cCar] = useState('Toyota Corolla Altis · AC');
+  const [newC2cPricePerSeat, setNewC2cPricePerSeat] = useState<number>(1500);
+  const [newC2cAvailableSeats, setNewC2cAvailableSeats] = useState<number>(3);
+  const [newC2cFullCarOne, setNewC2cFullCarOne] = useState<number>(8500);
+  const [newC2cFullCarRet, setNewC2cFullCarRet] = useState<number>(15000);
+  const [newC2cPickup, setNewC2cPickup] = useState('Sohrab Goth / M-9 Toll Plaza');
+  const [newC2cDrop, setNewC2cDrop] = useState('Qasim Chowk / Autobahn, Hyderabad');
+  const [newC2cBag, setNewC2cBag] = useState('1 bag per passenger');
+
+  useEffect(() => {
+    setListerIntercityRides(getCustomCityRides());
+    const handleC2cUpdate = () => {
+      setListerIntercityRides(getCustomCityRides());
+    };
+    window.addEventListener('safarpk_city_rides_updated', handleC2cUpdate);
+    return () => window.removeEventListener('safarpk_city_rides_updated', handleC2cUpdate);
+  }, []);
+
+  const handlePublishIntercityRide = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newRide: CityRideItem = {
+      id: `c2c-lister-${Date.now()}`,
+      op: businessName || listerName || 'Verified Fleet Partner',
+      car: newC2cCar,
+      fromCity: newC2cFrom,
+      toCity: newC2cTo,
+      bag: newC2cBag,
+      time: newC2cTime,
+      duration: 'Direct Highway / Motorway',
+      one: Number(newC2cFullCarOne) || 8000,
+      ret: Number(newC2cFullCarRet) || 15000,
+      ver: true,
+      tags: [
+        newC2cRideType === 'SEAT_SHARING' ? `${newC2cAvailableSeats} Seat Available` : 'Full Private Car',
+        'Direct Motorway',
+        'AC Chilled',
+      ],
+      category: newC2cRideType === 'SEAT_SHARING' ? 'Seat Sharing (Carpool)' : 'Private Car (Full Vehicle)',
+      phone: listerPhone || '+92 300 1234567',
+      whatsapp: listerWhatsApp || listerPhone || '923001234567',
+      rideType: newC2cRideType,
+      availableSeats: Number(newC2cAvailableSeats) || 1,
+      totalSeats: 4,
+      pricePerSeat: Number(newC2cPricePerSeat) || 1500,
+      departureDate: newC2cDate,
+      departureTime: newC2cTime,
+      pickupPoint: newC2cPickup,
+      dropPoint: newC2cDrop,
+    };
+    saveCustomCityRide(newRide);
+    setShowAddIntercityModal(false);
+  };
 
   // Handle URL query parameters (?tab=add_vehicle&step=1)
   useEffect(() => {
@@ -118,6 +185,7 @@ export default function ListerDashboardPage() {
         [
           'overview',
           'fleet',
+          'intercity',
           'analytics',
           'add_vehicle',
           'requests',
@@ -1048,6 +1116,7 @@ export default function ListerDashboardPage() {
             {[
               { id: 'overview', label: 'Fleet Overview', icon: Car },
               { id: 'fleet', label: 'My Vehicles Roster', icon: Car, badge: fleetList.length },
+              { id: 'intercity', label: 'Intercity & Carpool', icon: Navigation, badge: listerIntercityRides.length || 'New' },
               { id: 'analytics', label: 'Ad Analytics & Leads', icon: BarChart2, badge: 'Live' },
               { id: 'add_vehicle', label: '+ Add New Vehicle', icon: PlusCircle },
               { id: 'requests', label: 'Customer Requests', icon: Calendar, badge: incomingRequests.length },
@@ -1428,6 +1497,347 @@ export default function ListerDashboardPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* TAB 2A: INTERCITY ROUTES & SEAT SHARING CARPOOL */}
+          {activeTab === 'intercity' && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-6">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse" />
+                    <h3 className="font-extrabold text-base text-slate-900">
+                      Intercity Routes & Seat Sharing (Carpool)
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Post scheduled city-to-city trips with Seat Sharing (per-seat carpool) or full private car bookings.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddIntercityModal(true)}
+                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>+ Post New Intercity Route</span>
+                </button>
+              </div>
+
+              {/* Informational Callout */}
+              <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-2xl flex items-start gap-3">
+                <Navigation className="w-5 h-5 text-blue-700 shrink-0 mt-0.5" />
+                <div className="text-xs text-blue-900 leading-relaxed space-y-1">
+                  <p className="font-bold">How City-to-City Intercity Works on SafarPK:</p>
+                  <p className="text-blue-800">
+                    <strong>1. Seat Sharing (Carpool):</strong> Traveling with spare seats (e.g. Karachi ➔ Hyderabad or Lahore ➔ Islamabad)? Set a per-seat fare (e.g. Rs. 1,500/seat) and number of available seats. Passengers can call or WhatsApp to join.
+                  </p>
+                  <p className="text-blue-800">
+                    <strong>2. Full Private Car:</strong> Offering a private vehicle with driver for families or executives? Set one-way and return fares.
+                  </p>
+                  <p className="text-blue-800">
+                    <strong>3. Both:</strong> Allow passengers to book individual spare seats OR rent the entire vehicle for their group.
+                  </p>
+                </div>
+              </div>
+
+              {/* Active Published Routes List */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                  <span>Your Published Intercity Routes ({listerIntercityRides.length})</span>
+                  <span className="text-emerald-600 font-medium">Live on SafarPK Marketplace</span>
+                </div>
+
+                {listerIntercityRides.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {listerIntercityRides.map((r) => (
+                      <div key={r.id} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 hover:border-blue-300 transition">
+                        <div className="flex items-center justify-between">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-[#E0EAFF] text-[#1D3A8A]">
+                            <Navigation className="w-3.5 h-3.5" />
+                            <span>{r.fromCity} ➔ {r.toCity}</span>
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                            r.rideType === 'SEAT_SHARING'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : r.rideType === 'FULL_CAR'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-purple-100 text-purple-800'
+                          }`}>
+                            {r.rideType === 'SEAT_SHARING'
+                              ? `👥 Seat Sharing (${r.availableSeats} open)`
+                              : r.rideType === 'FULL_CAR'
+                              ? '🚗 Full Private Car'
+                              : '✨ Seats & Full Car'}
+                          </span>
+                        </div>
+
+                        <div>
+                          <h4 className="font-bold text-sm text-slate-900">{r.car}</h4>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {r.departureDate || 'Daily'} · {r.departureTime || r.time}
+                          </p>
+                        </div>
+
+                        {/* Pricing details */}
+                        <div className="grid grid-cols-2 gap-2 p-2.5 bg-white rounded-xl border border-slate-200 text-center">
+                          {r.rideType !== 'FULL_CAR' && (
+                            <div>
+                              <span className="text-[10px] text-slate-400 block font-bold uppercase">Per Seat</span>
+                              <span className="text-xs font-black text-emerald-700">Rs. {r.pricePerSeat?.toLocaleString('en-US') || '1,500'}</span>
+                            </div>
+                          )}
+                          {r.rideType !== 'SEAT_SHARING' && (
+                            <div className={r.rideType === 'BOTH' ? 'border-l border-slate-100' : 'col-span-2'}>
+                              <span className="text-[10px] text-slate-400 block font-bold uppercase">Full Car Fare</span>
+                              <span className="text-xs font-black text-blue-900">{formatPKR(r.one)}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="text-[11px] text-slate-600 space-y-0.5 border-t border-slate-200/60 pt-2">
+                          <p className="truncate"><strong>Pickup:</strong> {r.pickupPoint || r.fromCity}</p>
+                          <p className="truncate"><strong>Drop:</strong> {r.dropPoint || r.toCity}</p>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 text-xs">
+                          <Link
+                            href={`/city-to-city/${r.id}`}
+                            className="text-blue-600 hover:underline font-bold"
+                          >
+                            View Live Listing ➔
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => deleteCustomCityRide(r.id)}
+                            className="text-rose-600 hover:text-rose-800 font-bold flex items-center gap-1 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Remove</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center bg-slate-50 border border-dashed border-slate-300 rounded-2xl space-y-2">
+                    <Navigation className="w-8 h-8 text-slate-400 mx-auto" />
+                    <p className="text-sm font-bold text-slate-700">No Custom Intercity Routes Published Yet</p>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto">
+                      Click below to post your first route (e.g. Karachi ➔ Hyderabad or Lahore ➔ Islamabad) with seat sharing or whole vehicle booking.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddIntercityModal(true)}
+                      className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition cursor-pointer"
+                    >
+                      + Post Intercity Route
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* POST INTERCITY ROUTE MODAL */}
+              {showAddIntercityModal && (
+                <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+                  <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-xl w-full p-6 space-y-4 my-8">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                      <div>
+                        <h3 className="font-extrabold text-base text-slate-900">Post New Intercity Route</h3>
+                        <p className="text-xs text-slate-500">List seat sharing carpool or private whole car</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddIntercityModal(false)}
+                        className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <form onSubmit={handlePublishIntercityRide} className="space-y-4 text-xs">
+                      {/* From City & To City */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">From (Departure City) *</label>
+                          <input
+                            type="text"
+                            value={newC2cFrom}
+                            onChange={(e) => setNewC2cFrom(e.target.value)}
+                            placeholder="e.g. Karachi"
+                            required
+                            className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-600"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">To (Destination City) *</label>
+                          <input
+                            type="text"
+                            value={newC2cTo}
+                            onChange={(e) => setNewC2cTo(e.target.value)}
+                            placeholder="e.g. Hyderabad"
+                            required
+                            className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 outline-none focus:border-blue-600"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Ride / Booking Offering */}
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">Booking Model *</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { id: 'SEAT_SHARING', label: 'Seat Sharing Only', desc: 'Per seat price' },
+                            { id: 'FULL_CAR', label: 'Full Car Only', desc: 'Private trip' },
+                            { id: 'BOTH', label: 'Both Options', desc: 'Seats or full car' },
+                          ].map((opt) => (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() => setNewC2cRideType(opt.id as any)}
+                              className={`p-2.5 rounded-xl border text-center transition cursor-pointer ${
+                                newC2cRideType === opt.id
+                                  ? 'bg-blue-50 border-blue-600 text-blue-900 font-extrabold shadow-2xs'
+                                  : 'bg-slate-50 border-slate-200 text-slate-700 font-medium'
+                              }`}
+                            >
+                              <span className="block font-bold">{opt.label}</span>
+                              <span className="text-[10px] text-slate-500">{opt.desc}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Fares & Seats based on Selection */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                        {newC2cRideType !== 'FULL_CAR' && (
+                          <>
+                            <div>
+                              <label className="font-bold text-slate-700 block mb-1">Price Per Seat (PKR) *</label>
+                              <input
+                                type="number"
+                                value={newC2cPricePerSeat}
+                                onChange={(e) => setNewC2cPricePerSeat(Number(e.target.value))}
+                                placeholder="1500"
+                                required
+                                className="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl font-bold text-emerald-700 font-mono"
+                              />
+                            </div>
+                            <div>
+                              <label className="font-bold text-slate-700 block mb-1">Available Seats (1–4) *</label>
+                              <select
+                                value={newC2cAvailableSeats}
+                                onChange={(e) => setNewC2cAvailableSeats(Number(e.target.value))}
+                                className="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl font-bold"
+                              >
+                                <option value={1}>1 Seat Available</option>
+                                <option value={2}>2 Seats Available</option>
+                                <option value={3}>3 Seats Available</option>
+                                <option value={4}>4 Seats Available</option>
+                              </select>
+                            </div>
+                          </>
+                        )}
+                        {newC2cRideType !== 'SEAT_SHARING' && (
+                          <>
+                            <div>
+                              <label className="font-bold text-slate-700 block mb-1">Full Car One-Way (PKR) *</label>
+                              <input
+                                type="number"
+                                value={newC2cFullCarOne}
+                                onChange={(e) => setNewC2cFullCarOne(Number(e.target.value))}
+                                placeholder="8500"
+                                required
+                                className="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl font-bold font-mono"
+                              />
+                            </div>
+                            <div>
+                              <label className="font-bold text-slate-700 block mb-1">Full Car Return Trip (PKR)</label>
+                              <input
+                                type="number"
+                                value={newC2cFullCarRet}
+                                onChange={(e) => setNewC2cFullCarRet(Number(e.target.value))}
+                                placeholder="15000"
+                                className="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl font-bold font-mono"
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Car Details & Schedule */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Vehicle Model *</label>
+                          <input
+                            type="text"
+                            value={newC2cCar}
+                            onChange={(e) => setNewC2cCar(e.target.value)}
+                            placeholder="e.g. Honda City 1.2 · Chilled AC"
+                            required
+                            className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Departure Schedule *</label>
+                          <input
+                            type="text"
+                            value={newC2cTime}
+                            onChange={(e) => setNewC2cTime(e.target.value)}
+                            placeholder="e.g. 08:30 AM Daily or Flexible"
+                            required
+                            className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Pickup & Drop Points */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Pickup Landmark in {newC2cFrom}</label>
+                          <input
+                            type="text"
+                            value={newC2cPickup}
+                            onChange={(e) => setNewC2cPickup(e.target.value)}
+                            placeholder="e.g. Sohrab Goth M-9 Toll Plaza"
+                            className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">Drop-off Landmark in {newC2cTo}</label>
+                          <input
+                            type="text"
+                            value={newC2cDrop}
+                            onChange={(e) => setNewC2cDrop(e.target.value)}
+                            placeholder="e.g. Qasim Chowk / Autobahn"
+                            className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => setShowAddIntercityModal(false)}
+                          className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-50 cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Check className="w-4 h-4" />
+                          <span>Publish Route to Marketplace</span>
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

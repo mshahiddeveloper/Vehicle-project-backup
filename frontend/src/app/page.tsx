@@ -30,6 +30,7 @@ import {
   Phone,
   Briefcase,
   Users,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { AppHeader } from '@/components/AppHeader';
 import { AppFooter } from '@/components/AppFooter';
@@ -53,6 +54,7 @@ import {
   MoverItem,
   CITY_COMMUTE_AREAS,
   matchesShuttleRoute,
+  getCustomCityRides,
 } from '@/data/marketplaceData';
 import { getFeaturedAdIds, MAX_FEATURED_ADS } from '@/data/featuredAds';
 import { maskPakistaniCnic, maskPakistaniLicense } from '@/data/driverBookings';
@@ -86,6 +88,24 @@ const POPULAR_COMMUTE_CORRIDORS: Record<string, { from: string; to: string; labe
     { from: 'Bahria Town Phase 4', to: 'Faizabad', label: 'Bahria Town ➔ Faizabad' },
   ],
 };
+
+const INTERCITY_CITIES = [
+  'Karachi',
+  'Hyderabad',
+  'Lahore',
+  'Islamabad',
+  'Rawalpindi',
+  'Peshawar',
+  'Multan',
+  'Faisalabad',
+  'Sukkur',
+  'Bahawalpur',
+  'Sialkot',
+  'Gujranwala',
+  'Quetta',
+  'Abbottabad',
+  'Murree',
+];
 
 export default function HomePage() {
   const router = useRouter();
@@ -142,6 +162,36 @@ export default function HomePage() {
   const moverDateRef = useRef<HTMLInputElement>(null);
   const moverTruckRef = useRef<HTMLDivElement>(null);
 
+  // City-to-City Intercity Search States (From City, To City, Seat Sharing vs Full Car, Single Date)
+  const [c2cFromCity, setC2cFromCity] = useState<string>('Karachi');
+  const [c2cToCity, setC2cToCity] = useState<string>('Hyderabad');
+  const [c2cDate, setC2cDate] = useState<string>('');
+  const [c2cRideType, setC2cRideType] = useState<'ALL' | 'SEAT_SHARING' | 'FULL_CAR'>('ALL');
+  const [showC2cFromMenu, setShowC2cFromMenu] = useState(false);
+  const [showC2cToMenu, setShowC2cToMenu] = useState(false);
+  const [showC2cTypeMenu, setShowC2cTypeMenu] = useState(false);
+  const c2cFromRef = useRef<HTMLDivElement>(null);
+  const c2cToRef = useRef<HTMLDivElement>(null);
+  const c2cDateRef = useRef<HTMLInputElement>(null);
+  const c2cTypeRef = useRef<HTMLDivElement>(null);
+  const [customCityRides, setCustomCityRides] = useState<CityRideItem[]>([]);
+
+  useEffect(() => {
+    setCustomCityRides(getCustomCityRides());
+    const handleC2cUpdate = () => {
+      setCustomCityRides(getCustomCityRides());
+    };
+    window.addEventListener('safarpk_city_rides_updated', handleC2cUpdate);
+    return () => window.removeEventListener('safarpk_city_rides_updated', handleC2cUpdate);
+  }, []);
+
+  const handleSwapC2cCities = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const temp = c2cFromCity;
+    setC2cFromCity(c2cToCity);
+    setC2cToCity(temp);
+  };
+
   // Dropdown & Input state
   const [showCityDropdown, setShowCityDropdown] = useState(false);
   const cityDropdownRef = useRef<HTMLDivElement>(null);
@@ -181,6 +231,15 @@ export default function HomePage() {
       }
       if (moverTruckRef.current && !moverTruckRef.current.contains(target)) {
         setShowMoverTruckMenu(false);
+      }
+      if (c2cFromRef.current && !c2cFromRef.current.contains(target)) {
+        setShowC2cFromMenu(false);
+      }
+      if (c2cToRef.current && !c2cToRef.current.contains(target)) {
+        setShowC2cToMenu(false);
+      }
+      if (c2cTypeRef.current && !c2cTypeRef.current.contains(target)) {
+        setShowC2cTypeMenu(false);
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
@@ -289,8 +348,8 @@ export default function HomePage() {
     window.open(targetUrl, '_blank');
   };
 
-  // 3. City to City Ride WhatsApp Inquiry with route & rates
-  const handleRideWhatsApp = (ride: CityRideItem) => {
+  // 3. City to City Ride WhatsApp Inquiry with route & rates (Seats & Private Car support)
+  const handleRideWhatsApp = (ride: CityRideItem, bookingChoice?: 'SEAT' | 'FULL_CAR') => {
     recordClickEvent({
       clickType: 'WHATSAPP_CLICK',
       targetId: ride.id,
@@ -310,10 +369,19 @@ export default function HomePage() {
 
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://safar.pk';
     const listingUrl = `${origin}/city-to-city/${ride.id}`;
-    const fare = formatPrice(ride.one);
-    const retFare = formatPrice(ride.ret);
+    const dateText = c2cDate ? `Travel Date: ${c2cDate} | ` : (ride.departureDate ? `Departure: ${ride.departureDate} (${ride.departureTime || ride.time}) | ` : '');
 
-    const msg = `Hi, I would like to book this intercity ride operated by ${ride.op} on SafarPK: Route: ${ride.fromCity} to ${ride.toCity} Vehicle: ${ride.car} Rate: ${fare} (One-way) or ${retFare} (Return) Listing: ${listingUrl}`;
+    let pricingDetails = '';
+    if (bookingChoice === 'SEAT' || (ride.rideType === 'SEAT_SHARING' && ride.pricePerSeat)) {
+      pricingDetails = `Booking: 1 Shared Seat (Carpool) | Rate: Rs. ${ride.pricePerSeat?.toLocaleString('en-US')} / seat`;
+    } else if (bookingChoice === 'FULL_CAR' || ride.rideType === 'FULL_CAR') {
+      pricingDetails = `Booking: Full Private Car | Rate: ${formatPrice(ride.one)} (One-way) or ${formatPrice(ride.ret)} (Return)`;
+    } else {
+      // Both options available
+      pricingDetails = `Booking Options: Shared Seat @ Rs. ${ride.pricePerSeat?.toLocaleString('en-US') || '1,500'}/seat OR Full Private Car @ ${formatPrice(ride.one)}`;
+    }
+
+    const msg = `Hi, I would like to book this intercity ride with ${ride.op} on SafarPK: Route: ${ride.fromCity} to ${ride.toCity} | ${dateText}Vehicle: ${ride.car} | ${pricingDetails} | Listing: ${listingUrl}`;
     const cleanNum = (ride.whatsapp || ride.phone || '').replace(/\D/g, '');
     const targetUrl = getWhatsAppTargetUrl(cleanNum, msg);
     window.open(targetUrl, '_blank');
@@ -644,23 +712,50 @@ export default function HomePage() {
     }).sort((a, b) => sortByFeatured(a.id, b.id));
   }, [selectedCategory, searchWhere, featuredIds]);
 
-  // 3. Real-time city rides filter
+  // Combined dynamic intercity rides (seeded + lister-published custom rides)
+  const allCityRides = useMemo(() => {
+    const list = [...customCityRides, ...CITY_RIDES_DATA];
+    const seen = new Set<string>();
+    return list.filter((item) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+  }, [customCityRides]);
+
+  // 3. Real-time city rides filter (supports From City, To City, Seat Sharing vs Full Car, and Date)
   const filteredRides = useMemo(() => {
-    return CITY_RIDES_DATA.filter((ride) => {
-      if (selectedCategory !== 'All routes') {
-        if (ride.category !== selectedCategory) return false;
+    return allCityRides.filter((ride) => {
+      // 1. From City filter
+      if (c2cFromCity.trim()) {
+        const qFrom = c2cFromCity.toLowerCase().trim();
+        if (!ride.fromCity.toLowerCase().includes(qFrom)) return false;
       }
-      if (searchWhere.trim()) {
-        const q = searchWhere.toLowerCase().trim();
-        const matchFrom = ride.fromCity.toLowerCase().includes(q);
-        const matchTo = ride.toCity.toLowerCase().includes(q);
-        const matchOp = ride.op.toLowerCase().includes(q);
-        const matchTags = ride.tags.some((t) => t.toLowerCase().includes(q));
-        if (!matchFrom && !matchTo && !matchOp && !matchTags) return false;
+      // 2. To City filter
+      if (c2cToCity.trim()) {
+        const qTo = c2cToCity.toLowerCase().trim();
+        if (!ride.toCity.toLowerCase().includes(qTo)) return false;
+      }
+      // 3. Ride Type filter (Seat Sharing vs Full Car)
+      if (c2cRideType === 'SEAT_SHARING') {
+        if (ride.rideType === 'FULL_CAR') return false;
+        if (ride.availableSeats !== undefined && ride.availableSeats <= 0) return false;
+      } else if (c2cRideType === 'FULL_CAR') {
+        if (ride.rideType === 'SEAT_SHARING') return false;
+      }
+      // 4. Category filter
+      if (selectedCategory !== 'All routes') {
+        if (selectedCategory === 'Seat Sharing (Carpool)') {
+          if (ride.rideType !== 'SEAT_SHARING' && ride.rideType !== 'BOTH') return false;
+        } else if (selectedCategory === 'Private Car (Full Vehicle)') {
+          if (ride.rideType !== 'FULL_CAR' && ride.rideType !== 'BOTH') return false;
+        } else if (ride.category !== selectedCategory) {
+          return false;
+        }
       }
       return true;
     }).sort((a, b) => sortByFeatured(a.id, b.id));
-  }, [selectedCategory, searchWhere, featuredIds]);
+  }, [allCityRides, c2cFromCity, c2cToCity, c2cRideType, selectedCategory, featuredIds]);
 
   // 4. Real-time shuttles filter (Supports route corridor and intermediate stops matching)
   const filteredShuttles = useMemo(() => {
@@ -752,9 +847,11 @@ export default function HomePage() {
     },
     {
       title: 'City to city intercity rides',
-      sub: searchWhere
-        ? `Showing intercity rides connected with "${searchWhere}" (${selectedCategory})`
-        : `Fixed-rate private cars, cabins and vans across ${country?.name || 'Pakistan'}`,
+      sub: c2cFromCity && c2cToCity
+        ? (c2cDate
+            ? `Showing rides from ${c2cFromCity} to ${c2cToCity} on ${c2cDate} (${c2cRideType === 'ALL' ? 'Seats & Full Cars' : c2cRideType === 'SEAT_SHARING' ? 'Seat Sharing Carpool' : 'Private Full Car'})`
+            : `Showing intercity routes between ${c2cFromCity} and ${c2cToCity} (${c2cRideType === 'ALL' ? 'Seats & Full Cars' : c2cRideType === 'SEAT_SHARING' ? 'Seat Sharing Carpool' : 'Private Full Car'})`)
+        : `Fixed-rate private cars, carpools and passenger vans across ${country?.name || 'Pakistan'}`,
       viewAllText: 'View all rides',
       viewAllHref: '/city-to-city',
       emptyIcon: Navigation,
@@ -1285,6 +1382,239 @@ export default function HomePage() {
                 >
                   <Search className="w-4 h-4 shrink-0" />
                   <span>{isPakistan ? 'Find trucks' : 'Find movers'}</span>
+                </button>
+              </form>
+            ) : activeService === 2 ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const resultsEl = document.getElementById('listings-results') || document.getElementById('cars-results');
+                  if (resultsEl) resultsEl.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="p-2 sm:p-3 md:p-4 grid grid-cols-12 gap-2 sm:gap-2.5 items-stretch"
+              >
+                {/* Field 1: From City (Departure) */}
+                <div
+                  ref={c2cFromRef}
+                  className="col-span-12 sm:col-span-6 md:col-span-3 flex items-center gap-2 sm:gap-2.5 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-3 rounded-xl sm:rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] focus-within:bg-white focus-within:border-[#0B6B4F] focus-within:ring-2 focus-within:ring-[#0B6B4F]/10 transition relative cursor-text"
+                >
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white border border-[#EAECF0] text-[#0B6B4F] flex items-center justify-center shrink-0 shadow-2xs">
+                    <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0B6B4F]" />
+                  </div>
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <span className="text-[10px] sm:text-[11px] font-bold text-[#475467] leading-none mb-0.5 sm:mb-1">
+                      From (Departure City)
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="e.g. Karachi"
+                      value={c2cFromCity}
+                      onFocus={() => setShowC2cFromMenu(true)}
+                      onChange={(e) => {
+                        setC2cFromCity(e.target.value);
+                        setShowC2cFromMenu(true);
+                      }}
+                      className="w-full border-0 outline-none p-0 text-xs sm:text-sm font-semibold text-[#101828] bg-transparent placeholder:text-slate-400"
+                    />
+                  </div>
+
+                  {/* Quick Swap Button */}
+                  <button
+                    type="button"
+                    onClick={handleSwapC2cCities}
+                    className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-900 transition cursor-pointer shrink-0"
+                    title="Swap From and To cities"
+                  >
+                    <ArrowLeftRight className="w-3.5 h-3.5" />
+                  </button>
+
+                  {/* From City Dropdown */}
+                  {showC2cFromMenu && (
+                    <div className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[260px] max-h-60 overflow-y-auto no-scrollbar bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                      <div className="px-3 py-1.5 border-b border-slate-100 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                        Select Departure City
+                      </div>
+                      {INTERCITY_CITIES.filter((c) => !c2cFromCity || c.toLowerCase().includes(c2cFromCity.toLowerCase())).map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => {
+                            setC2cFromCity(c);
+                            setShowC2cFromMenu(false);
+                          }}
+                          className={`w-full text-left px-3.5 py-2 text-xs sm:text-sm font-bold flex items-center justify-between hover:bg-emerald-50 hover:text-[#0B6B4F] transition cursor-pointer ${
+                            c2cFromCity === c ? 'bg-emerald-50 text-[#0B6B4F]' : 'text-slate-800'
+                          }`}
+                        >
+                          <span>{c}</span>
+                          {c2cFromCity === c && <Check className="w-3.5 h-3.5 text-[#0B6B4F]" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Field 2: To City (Destination) */}
+                <div
+                  ref={c2cToRef}
+                  className="col-span-12 sm:col-span-6 md:col-span-3 flex items-center gap-2 sm:gap-2.5 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-3 rounded-xl sm:rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] focus-within:bg-white focus-within:border-[#0B6B4F] focus-within:ring-2 focus-within:ring-[#0B6B4F]/10 transition relative cursor-text"
+                >
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white border border-[#EAECF0] text-blue-700 flex items-center justify-center shrink-0 shadow-2xs">
+                    <Navigation className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-700" />
+                  </div>
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <span className="text-[10px] sm:text-[11px] font-bold text-[#475467] leading-none mb-0.5 sm:mb-1">
+                      To (Destination City)
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="e.g. Hyderabad"
+                      value={c2cToCity}
+                      onFocus={() => setShowC2cToMenu(true)}
+                      onChange={(e) => {
+                        setC2cToCity(e.target.value);
+                        setShowC2cToMenu(true);
+                      }}
+                      className="w-full border-0 outline-none p-0 text-xs sm:text-sm font-semibold text-[#101828] bg-transparent placeholder:text-slate-400"
+                    />
+                  </div>
+                  {c2cToCity && (
+                    <button
+                      type="button"
+                      onClick={() => setC2cToCity('')}
+                      className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+
+                  {/* To City Dropdown */}
+                  {showC2cToMenu && (
+                    <div className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[260px] max-h-60 overflow-y-auto no-scrollbar bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                      <div className="px-3 py-1.5 border-b border-slate-100 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                        Select Destination City
+                      </div>
+                      {INTERCITY_CITIES.filter((c) => !c2cToCity || c.toLowerCase().includes(c2cToCity.toLowerCase())).map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => {
+                            setC2cToCity(c);
+                            setShowC2cToMenu(false);
+                          }}
+                          className={`w-full text-left px-3.5 py-2 text-xs sm:text-sm font-bold flex items-center justify-between hover:bg-blue-50 hover:text-blue-800 transition cursor-pointer ${
+                            c2cToCity === c ? 'bg-blue-50 text-blue-800' : 'text-slate-800'
+                          }`}
+                        >
+                          <span>{c}</span>
+                          {c2cToCity === c && <Check className="w-3.5 h-3.5 text-blue-700" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Field 3: Travel Date (Single Date — NO Return Date!) */}
+                <div
+                  onClick={() => c2cDateRef.current?.showPicker?.() || c2cDateRef.current?.focus()}
+                  className="col-span-6 sm:col-span-6 md:col-span-2 flex items-center gap-2 sm:gap-2.5 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-2.5 sm:px-3 rounded-xl sm:rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] cursor-pointer hover:bg-white hover:border-[#0B6B4F] focus-within:bg-white focus-within:border-[#0B6B4F] focus-within:ring-2 focus-within:ring-[#0B6B4F]/10 transition relative group"
+                >
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white border border-[#EAECF0] text-[#0B6B4F] flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition">
+                    <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <span className="text-[10px] sm:text-[11px] font-bold text-[#475467] leading-none mb-0.5 sm:mb-1 truncate">
+                      Travel Date
+                    </span>
+                    <input
+                      ref={c2cDateRef}
+                      type="date"
+                      min={todayStr}
+                      value={c2cDate}
+                      onChange={(e) => setC2cDate(e.target.value)}
+                      className="w-full border-0 outline-none p-0 text-xs sm:text-sm font-semibold text-[#101828] bg-transparent cursor-pointer"
+                    />
+                  </div>
+                  {c2cDate && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setC2cDate('');
+                      }}
+                      className="text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer text-xs shrink-0"
+                    >
+                      <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Field 4: Booking Option (Seat Sharing vs Full Private Car) */}
+                <div
+                  ref={c2cTypeRef}
+                  className="col-span-6 sm:col-span-6 md:col-span-2 flex items-center gap-2 sm:gap-2.5 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-2.5 sm:px-3 rounded-xl sm:rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] cursor-pointer hover:bg-white hover:border-[#0B6B4F] transition relative"
+                  onClick={() => setShowC2cTypeMenu(!showC2cTypeMenu)}
+                >
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white border border-[#EAECF0] text-purple-700 flex items-center justify-center shrink-0 shadow-2xs">
+                    <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-700" />
+                  </div>
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <span className="text-[10px] sm:text-[11px] font-bold text-[#475467] leading-none mb-0.5 sm:mb-1 truncate">
+                      Booking Type
+                    </span>
+                    <div className="text-xs sm:text-sm font-extrabold text-[#101828] truncate">
+                      {c2cRideType === 'ALL'
+                        ? 'All Options'
+                        : c2cRideType === 'SEAT_SHARING'
+                        ? '👥 Seat Sharing'
+                        : '🚗 Private Car'}
+                    </div>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+
+                  {/* Type Menu Dropdown */}
+                  {showC2cTypeMenu && (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute top-[calc(100%+8px)] right-0 w-full min-w-[240px] bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+                    >
+                      <div className="px-3.5 py-1.5 border-b border-slate-100 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                        Select Booking Option
+                      </div>
+                      {[
+                        { id: 'ALL', label: 'All Options', desc: 'Seat sharing carpool & full car' },
+                        { id: 'SEAT_SHARING', label: '👥 Seat Sharing (Carpool)', desc: 'Book single seat (e.g. Rs. 1,500)' },
+                        { id: 'FULL_CAR', label: '🚗 Full Private Car', desc: 'Book whole car for private trip' },
+                      ].map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => {
+                            setC2cRideType(opt.id as any);
+                            setShowC2cTypeMenu(false);
+                          }}
+                          className={`w-full text-left px-3.5 py-2 hover:bg-purple-50 transition cursor-pointer flex flex-col ${
+                            c2cRideType === opt.id ? 'bg-purple-50 text-purple-900 font-extrabold' : 'text-slate-800'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs sm:text-sm font-bold">{opt.label}</span>
+                            {c2cRideType === opt.id && <Check className="w-3.5 h-3.5 text-purple-700 shrink-0" />}
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-normal mt-0.5">{opt.desc}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Field 5: Find Rides Button */}
+                <button
+                  type="submit"
+                  className="col-span-12 sm:col-span-12 md:col-span-2 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-4 rounded-xl sm:rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] active:scale-[0.99] text-white font-extrabold text-xs sm:text-sm md:text-base flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition cursor-pointer"
+                >
+                  <Search className="w-4 h-4 shrink-0" />
+                  <span>Find rides</span>
                 </button>
               </form>
             ) : (
@@ -2094,8 +2424,8 @@ export default function HomePage() {
                       )}
 
                       <div className="flex flex-col gap-3">
-                        {/* Route Header */}
-                        <div className="flex items-center justify-between gap-2">
+                        {/* Route Header with Booking Type Badge */}
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-[#E0EAFF] text-[#1D3A8A]">
                             <Navigation className="w-3.5 h-3.5" />
                             <span>{ride.fromCity} ➔ {ride.toCity}</span>
@@ -2103,6 +2433,28 @@ export default function HomePage() {
                           <span className="text-xs font-semibold text-slate-500">
                             {ride.duration}
                           </span>
+                        </div>
+
+                        {/* Booking Model Badge (Seat Sharing vs Full Private Car) */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {ride.rideType === 'SEAT_SHARING' && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-900 border border-emerald-200">
+                              <Users className="w-3 h-3 text-emerald-700" />
+                              <span>{ride.availableSeats || 1} Seat Available · Carpool Share</span>
+                            </span>
+                          )}
+                          {ride.rideType === 'FULL_CAR' && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-blue-100 text-blue-900 border border-blue-200">
+                              <Car className="w-3 h-3 text-blue-700" />
+                              <span>Full Private Car Booking</span>
+                            </span>
+                          )}
+                          {ride.rideType === 'BOTH' && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-purple-100 text-purple-900 border border-purple-200">
+                              <Sparkles className="w-3 h-3 text-purple-700" />
+                              <span>Seat Sharing ({ride.availableSeats || 1} left) or Full Car</span>
+                            </span>
+                          )}
                         </div>
 
                         {/* Vehicle Model & Operator - Links to Route Details */}
@@ -2116,23 +2468,57 @@ export default function HomePage() {
                           </div>
                         </Link>
 
-                        {/* Baggage & Schedule */}
-                        <div className="flex items-center justify-between text-xs text-[#475467] py-2 border-y border-slate-100">
-                          <span className="font-medium">{ride.bag}</span>
-                          <span className="font-medium text-slate-500">{ride.time}</span>
+                        {/* Departure Timing & Boarding Points */}
+                        <div className="p-2 rounded-xl bg-slate-50 border border-slate-100 space-y-1 text-xs text-[#475467]">
+                          <div className="flex items-center justify-between font-semibold">
+                            <span className="text-slate-500">Departure:</span>
+                            <span className="text-slate-900 font-bold">{ride.departureDate || 'Daily'} · {ride.departureTime || ride.time}</span>
+                          </div>
+                          {ride.pickupPoint && (
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="text-slate-400">Pickup:</span>
+                              <span className="text-slate-700 font-medium truncate max-w-[200px]" title={ride.pickupPoint}>
+                                {ride.pickupPoint}
+                              </span>
+                            </div>
+                          )}
                         </div>
 
-                        {/* Rates */}
-                        <div className="grid grid-cols-2 gap-2 bg-[#F7F8FA] p-3 rounded-2xl text-center">
-                          <div>
-                            <span className="text-[10px] text-slate-400 block font-bold uppercase">One-Way Fare</span>
-                            <span className="text-sm font-black text-[#101828]">{formatPrice(ride.one)}</span>
+                        {/* Rates Matrix based on Booking Type */}
+                        {ride.rideType === 'SEAT_SHARING' ? (
+                          <div className="grid grid-cols-2 gap-2 bg-emerald-50/80 border border-emerald-200 p-2.5 rounded-2xl text-center">
+                            <div>
+                              <span className="text-[10px] text-emerald-800 block font-bold uppercase">Per Seat Rate</span>
+                              <span className="text-sm font-black text-emerald-950">Rs. {ride.pricePerSeat?.toLocaleString('en-US') || '1,500'}</span>
+                            </div>
+                            <div className="border-l border-emerald-200">
+                              <span className="text-[10px] text-emerald-800 block font-bold uppercase">Available Seats</span>
+                              <span className="text-sm font-black text-emerald-800">{ride.availableSeats || 1} of {ride.totalSeats || 4} Open</span>
+                            </div>
                           </div>
-                          <div className="border-l border-slate-200/80">
-                            <span className="text-[10px] text-slate-400 block font-bold uppercase">Return Fare</span>
-                            <span className="text-sm font-black text-[#0B6B4F]">{formatPrice(ride.ret)}</span>
+                        ) : ride.rideType === 'BOTH' ? (
+                          <div className="grid grid-cols-2 gap-2 bg-gradient-to-r from-emerald-50/80 to-blue-50/80 border border-slate-200 p-2.5 rounded-2xl text-center">
+                            <div>
+                              <span className="text-[10px] text-emerald-800 block font-bold uppercase">Per Seat ({ride.availableSeats || 1} open)</span>
+                              <span className="text-sm font-black text-emerald-950">Rs. {ride.pricePerSeat?.toLocaleString('en-US') || '1,500'}</span>
+                            </div>
+                            <div className="border-l border-slate-200">
+                              <span className="text-[10px] text-blue-800 block font-bold uppercase">Full Private Car</span>
+                              <span className="text-sm font-black text-blue-950">{formatPrice(ride.one)}</span>
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="grid grid-cols-2 gap-2 bg-[#F7F8FA] p-2.5 rounded-2xl text-center">
+                            <div>
+                              <span className="text-[10px] text-slate-400 block font-bold uppercase">Full Car One-Way</span>
+                              <span className="text-sm font-black text-[#101828]">{formatPrice(ride.one)}</span>
+                            </div>
+                            <div className="border-l border-slate-200/80">
+                              <span className="text-[10px] text-slate-400 block font-bold uppercase">Full Car Return</span>
+                              <span className="text-sm font-black text-[#0B6B4F]">{formatPrice(ride.ret)}</span>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Tags */}
                         <div className="flex flex-wrap gap-1.5">

@@ -50,10 +50,19 @@ export interface CityRideItem {
   ret: number;
   ver: boolean;
   tags: string[];
-  category: 'Sedans (4 seats)' | 'Hiace (12-14 seats)' | 'SUVs & Fortuner' | 'Budget / Economy';
+  category: string;
   phone: string;
   whatsapp: string;
   contacted?: string;
+  // Seat Sharing & Private Booking Options
+  rideType?: 'SEAT_SHARING' | 'FULL_CAR' | 'BOTH';
+  availableSeats?: number;
+  totalSeats?: number;
+  pricePerSeat?: number;
+  departureDate?: string;
+  departureTime?: string;
+  pickupPoint?: string;
+  dropPoint?: string;
 }
 
 export interface ShuttleItem {
@@ -97,7 +106,14 @@ export interface MoverItem {
 export const SERVICE_CATEGORIES: Record<number, string[]> = {
   0: ['All cars', 'Sedans', 'SUVs & 4x4', 'Luxury', 'Vans & Hiace', 'Economy'],
   1: ['All drivers', 'Daily City', 'Outstation', 'Monthly', 'VIP Executive'],
-  2: ['All routes', 'Sedans (4 seats)', 'Hiace (12-14 seats)', 'SUVs & Fortuner', 'Budget / Economy'],
+  2: [
+    'All routes',
+    'Seat Sharing (Carpool)',
+    'Private Car (Full Vehicle)',
+    'Sedans (4 seats)',
+    'Hiace (12-14 seats)',
+    'SUVs & Fortuner',
+  ],
   3: ['All shuttles', 'School & College', 'Corporate Office', 'Girls Only', 'Executive Vanpool'],
   4: ['All movers', 'Suzuki Ravi (Mini)', 'Shehzore (2.5 Ton)', 'Mazda (14-17ft)', 'Office Relocation'],
 };
@@ -482,6 +498,63 @@ export const CITY_RIDES_DATA: CityRideItem[] = [
     phone: '+92 300 1234567',
     whatsapp: '923001234567',
     contacted: '✓ You sent a request · 10 Nov',
+    rideType: 'BOTH',
+    pricePerSeat: 2800,
+    availableSeats: 2,
+    totalSeats: 4,
+    departureTime: '08:00 AM & 03:00 PM',
+    departureDate: 'Daily',
+    pickupPoint: 'Thokar Niaz Baig / Babu Sabu M-2',
+    dropPoint: 'Faizabad / Zero Point Islamabad',
+  },
+  {
+    id: 'c2c-khi-hyd-share',
+    op: 'Farhan Ahmed (Executive Carpool)',
+    car: 'Honda City 1.2 · Chilled AC',
+    fromCity: 'Karachi',
+    toCity: 'Hyderabad',
+    bag: '1 medium bag / backpack per seat',
+    time: 'Morning 08:30 AM',
+    duration: '2 hrs via M-9 Motorway',
+    one: 6500,
+    ret: 12000,
+    ver: true,
+    tags: ['1 Seat Available', 'M-9 Motorway', 'Non-Smoker', 'Chilled AC'],
+    category: 'Seat Sharing (Carpool)',
+    phone: '+92 312 9988776',
+    whatsapp: '923129988776',
+    rideType: 'SEAT_SHARING',
+    pricePerSeat: 1500,
+    availableSeats: 1,
+    totalSeats: 3,
+    departureTime: '08:30 AM Daily',
+    departureDate: 'Today & Tomorrow',
+    pickupPoint: 'Maskan Chowrangi, Gulshan / Sohrab Goth M-9',
+    dropPoint: 'Latifabad Unit 7 / Hyderabad By-Pass',
+  },
+  {
+    id: 'c2c-5',
+    op: 'Sindh Highway Express',
+    car: 'Toyota Yaris ATIV · AC · 4 seats',
+    fromCity: 'Karachi',
+    toCity: 'Hyderabad',
+    bag: '3 bags in trunk',
+    time: 'Round the clock departures',
+    duration: '2.2 hrs via M-9',
+    one: 8500,
+    ret: 15000,
+    ver: true,
+    tags: ['Full Private Car', 'M-9 Motorway', 'Doorstep pickup', 'Verified driver'],
+    category: 'Private Car (Full Vehicle)',
+    phone: '+92 345 8899201',
+    whatsapp: '923458899201',
+    rideType: 'FULL_CAR',
+    availableSeats: 0,
+    totalSeats: 4,
+    departureTime: 'On-Demand / Flexible',
+    departureDate: 'Daily Available',
+    pickupPoint: 'Anywhere in Karachi (Doorstep)',
+    dropPoint: 'Anywhere in Hyderabad City / Qasim Chowk',
   },
   {
     id: 'c2c-2',
@@ -496,9 +569,41 @@ export const CITY_RIDES_DATA: CityRideItem[] = [
     ret: 27000,
     ver: true,
     tags: ['Motorway M-2', 'Driver in uniform', 'Speaks English'],
-    category: 'Sedans (4 seats)',
+    category: 'Private Car (Full Vehicle)',
     phone: '+92 300 8472910',
     whatsapp: '923008472910',
+    rideType: 'FULL_CAR',
+    availableSeats: 0,
+    totalSeats: 4,
+    departureTime: 'Flexible Departure',
+    departureDate: 'Daily',
+    pickupPoint: 'DHA Phase 5 / Gulberg Lahore',
+    dropPoint: 'F-10 / Blue Area Islamabad',
+  },
+  {
+    id: 'c2c-lhr-isb-share',
+    op: 'Usman Tariq (Weekend Motorway Share)',
+    car: 'Toyota Corolla GLi · AC',
+    fromCity: 'Lahore',
+    toCity: 'Islamabad',
+    bag: '1 trolley bag per passenger',
+    time: 'Evening 05:30 PM',
+    duration: '4.3 hrs via M-2',
+    one: 8000,
+    ret: 15000,
+    ver: true,
+    tags: ['2 Seats Left', 'Family Carpool', 'M-2 Rest Area Stop'],
+    category: 'Seat Sharing (Carpool)',
+    phone: '+92 301 5566778',
+    whatsapp: '923015566778',
+    rideType: 'SEAT_SHARING',
+    pricePerSeat: 2200,
+    availableSeats: 2,
+    totalSeats: 4,
+    departureTime: '05:30 PM Friday & Sunday',
+    departureDate: 'Weekends & Daily',
+    pickupPoint: 'Kalma Chowk / Thokar M-2 Entry',
+    dropPoint: 'Zero Point / I-8 Markaz Islamabad',
   },
   {
     id: 'c2c-3',
@@ -516,6 +621,14 @@ export const CITY_RIDES_DATA: CityRideItem[] = [
     category: 'Hiace (12-14 seats)',
     phone: '+92 321 4455667',
     whatsapp: '923214455667',
+    rideType: 'BOTH',
+    pricePerSeat: 2500,
+    availableSeats: 5,
+    totalSeats: 12,
+    departureTime: '09:00 AM & 04:00 PM',
+    departureDate: 'Daily',
+    pickupPoint: 'Faizabad Terminal / Pirwadhai',
+    dropPoint: 'Badami Bagh / Thokar Niaz Baig Lahore',
   },
   {
     id: 'c2c-4',
@@ -533,23 +646,38 @@ export const CITY_RIDES_DATA: CityRideItem[] = [
     category: 'SUVs & Fortuner',
     phone: '+92 333 5599182',
     whatsapp: '923335599182',
+    rideType: 'FULL_CAR',
+    availableSeats: 0,
+    totalSeats: 6,
+    departureTime: 'On-Demand',
+    departureDate: 'Daily Available',
+    pickupPoint: 'Islamabad Club / Serena Hotel',
+    dropPoint: 'Pearl Continental / University Town Peshawar',
   },
   {
-    id: 'c2c-5',
-    op: 'Sindh Highway Express',
-    car: 'Toyota Yaris ATIV · AC · 4 seats',
-    fromCity: 'Karachi',
-    toCity: 'Hyderabad',
-    bag: '3 bags',
-    time: 'Round the clock departures',
-    duration: '2.2 hrs via M-9',
-    one: 8500,
+    id: 'c2c-isb-pesh-share',
+    op: 'Khyber Carpool Link',
+    car: 'Honda Civic · AC · 4 seats',
+    fromCity: 'Islamabad',
+    toCity: 'Peshawar',
+    bag: '1 bag per passenger',
+    time: 'Morning 09:00 AM',
+    duration: '2 hrs via M-1',
+    one: 8000,
     ret: 15000,
     ver: true,
-    tags: ['M-9 Motorway', 'Full AC comfort', 'Verified driver'],
-    category: 'Budget / Economy',
-    phone: '+92 345 8899201',
-    whatsapp: '923458899201',
+    tags: ['1 Seat Available', 'Fast M-1 Motorway', 'AC Music'],
+    category: 'Seat Sharing (Carpool)',
+    phone: '+92 334 1122334',
+    whatsapp: '923341122334',
+    rideType: 'SEAT_SHARING',
+    pricePerSeat: 1600,
+    availableSeats: 1,
+    totalSeats: 3,
+    departureTime: '09:00 AM Daily',
+    departureDate: 'Daily',
+    pickupPoint: 'G-9 Karachi Company / Toll Plaza',
+    dropPoint: 'Hayatabad Phase 3 / Karkhano Market',
   },
   {
     id: 'c2c-6',
@@ -567,6 +695,14 @@ export const CITY_RIDES_DATA: CityRideItem[] = [
     category: 'Budget / Economy',
     phone: '+92 300 7766554',
     whatsapp: '923007766554',
+    rideType: 'BOTH',
+    pricePerSeat: 1300,
+    availableSeats: 2,
+    totalSeats: 4,
+    departureTime: '07:30 AM & 02:00 PM',
+    departureDate: 'Daily',
+    pickupPoint: 'Gatwala Toll Plaza M-3',
+    dropPoint: 'Thokar Niaz Baig / Canal Road Lahore',
   },
   {
     id: 'c2c-7',
@@ -584,6 +720,14 @@ export const CITY_RIDES_DATA: CityRideItem[] = [
     category: 'Sedans (4 seats)',
     phone: '+92 312 3344556',
     whatsapp: '923123344556',
+    rideType: 'BOTH',
+    pricePerSeat: 2100,
+    availableSeats: 2,
+    totalSeats: 4,
+    departureTime: '08:30 AM',
+    departureDate: 'Daily',
+    pickupPoint: 'Chungi No 9 / M-4 Interchange',
+    dropPoint: 'Thokar Niaz Baig, Lahore',
   },
   {
     id: 'c2c-8',
@@ -601,8 +745,46 @@ export const CITY_RIDES_DATA: CityRideItem[] = [
     category: 'SUVs & Fortuner',
     phone: '+92 333 9988776',
     whatsapp: '923339988776',
+    rideType: 'FULL_CAR',
+    availableSeats: 0,
+    totalSeats: 6,
+    departureTime: 'Round the clock',
+    departureDate: 'Daily',
+    pickupPoint: 'Peshawar Cantt / Saddar',
+    dropPoint: 'Islamabad F-6 / Blue Area',
   },
 ];
+
+// Helper functions for Lister-added custom intercity rides
+export function getCustomCityRides(): CityRideItem[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('safarpk_custom_city_rides');
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+export function saveCustomCityRide(ride: CityRideItem): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const existing = getCustomCityRides();
+    const updated = [ride, ...existing.filter((r) => r.id !== ride.id)];
+    localStorage.setItem('safarpk_custom_city_rides', JSON.stringify(updated));
+    window.dispatchEvent(new Event('safarpk_city_rides_updated'));
+  } catch (e) {}
+}
+
+export function deleteCustomCityRide(id: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const existing = getCustomCityRides();
+    const updated = existing.filter((r) => r.id !== id);
+    localStorage.setItem('safarpk_custom_city_rides', JSON.stringify(updated));
+    window.dispatchEvent(new Event('safarpk_city_rides_updated'));
+  } catch (e) {}
+}
 
 // 4. PICK & DROP COMMUTER SHUTTLES
 export const CITY_COMMUTE_AREAS: Record<string, string[]> = {
