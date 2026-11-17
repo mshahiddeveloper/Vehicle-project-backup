@@ -1030,36 +1030,78 @@ export default function AgentDashboardPage() {
 
           return (
             <>
-              {/* Mobile Horizontal App-style Tab Scrollbar (< lg screens) */}
-              <div className="lg:hidden col-span-1 w-full overflow-x-auto no-scrollbar py-1">
-                <div className="flex items-center gap-1.5 min-w-max bg-white p-1.5 rounded-2xl border border-slate-200/90 shadow-2xs">
-                  {navMenuItems.map((item) => {
-                    const Icon = item.icon;
-                    const active = activeTab === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => setActiveTab(item.id as any)}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer active:scale-95 ${
-                          active
-                            ? 'bg-[#0B6B4F] text-white shadow-sm'
-                            : 'bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                        }`}
-                      >
-                        <Icon className="w-3.5 h-3.5 shrink-0" />
-                        <span>{item.label}</span>
-                        {item.badge !== undefined && (
-                          <span
-                            className={`px-1.5 py-0.2 rounded-md text-[10px] font-bold ${
-                              active ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-700'
-                            }`}
-                          >
-                            {item.badge}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
+              {/* Mobile Quick Section Switcher & App-style Tab Scrollbar (< lg screens) */}
+              <div className="lg:hidden col-span-1 w-full space-y-2 py-1">
+                {/* Mobile Section Dropdown */}
+                <div className="bg-white p-2.5 rounded-2xl border border-slate-200/90 shadow-2xs flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-800 flex items-center justify-center text-xs shrink-0 font-bold">
+                      🎯
+                    </span>
+                    <div className="min-w-0">
+                      <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold block">
+                        Agent Desk Section
+                      </span>
+                      <span className="text-xs font-black text-[#101828] truncate block">
+                        {navMenuItems.find((i) => i.id === activeTab)?.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="relative shrink-0">
+                    <select
+                      value={activeTab}
+                      onChange={(e) => setActiveTab(e.target.value as any)}
+                      className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-10"
+                      aria-label="Switch agent section"
+                    >
+                      {navMenuItems.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.label} {item.badge ? `(${item.badge})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold border border-slate-200 flex items-center gap-1.5 shadow-2xs pointer-events-none"
+                    >
+                      <span>Switch</span>
+                      <span className="text-xs text-slate-400">▾</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Horizontal App-Style Scrollable Pill Bar */}
+                <div className="w-full overflow-x-auto no-scrollbar py-0.5">
+                  <div className="flex items-center gap-1.5 min-w-max bg-white p-1.5 rounded-2xl border border-slate-200/90 shadow-2xs">
+                    {navMenuItems.map((item) => {
+                      const Icon = item.icon;
+                      const active = activeTab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => setActiveTab(item.id as any)}
+                          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer active:scale-95 ${
+                            active
+                              ? 'bg-[#0B6B4F] text-white shadow-sm'
+                              : 'bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                          }`}
+                        >
+                          <Icon className="w-3.5 h-3.5 shrink-0" />
+                          <span>{item.label}</span>
+                          {item.badge !== undefined && (
+                            <span
+                              className={`px-1.5 py-0.2 rounded-md text-[10px] font-bold ${
+                                active ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              {item.badge}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 

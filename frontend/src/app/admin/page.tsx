@@ -1213,25 +1213,25 @@ export default function SuperAdminDashboardPage() {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-rose-500 selection:text-white">
       {/* Top Navbar */}
       <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-600 to-rose-500 text-white flex items-center justify-center font-black text-lg shadow-md shadow-rose-900/40">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <Link href="/" className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-rose-600 to-rose-500 text-white flex items-center justify-center font-black text-base sm:text-lg shadow-md shadow-rose-900/40 shrink-0">
                 ⚡
               </div>
-              <div>
-                <span className="font-extrabold text-lg text-white tracking-tight block leading-none">
+              <div className="min-w-0">
+                <span className="font-extrabold text-sm sm:text-lg text-white tracking-tight block leading-none truncate">
                   SafarPK Super Admin
                 </span>
-                <span className="text-[10px] text-slate-400 font-semibold">Root Governance & Platform Controls</span>
+                <span className="text-[10px] text-slate-400 font-semibold hidden sm:block">Root Governance & Platform Controls</span>
               </div>
             </Link>
-            <span className="hidden sm:inline-block text-[10px] uppercase tracking-wider font-extrabold px-2.5 py-1 rounded-full bg-rose-950 text-rose-300 border border-rose-800">
+            <span className="hidden md:inline-block text-[10px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full bg-rose-950 text-rose-300 border border-rose-800">
               Root Authority
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <button
               type="button"
               onClick={() => {
@@ -1242,126 +1242,222 @@ export default function SuperAdminDashboardPage() {
                   setTimeout(() => setAdminNotice(null), 4000);
                 }
               }}
-              className="text-xs font-bold px-3 py-1.5 rounded-xl text-amber-300 hover:text-white bg-amber-950/60 hover:bg-amber-900/80 border border-amber-800 transition cursor-pointer flex items-center gap-1.5"
+              className="text-[11px] sm:text-xs font-bold px-2 sm:px-3 py-1.5 rounded-xl text-amber-300 hover:text-white bg-amber-950/60 hover:bg-amber-900/80 border border-amber-800 transition cursor-pointer flex items-center gap-1"
               title="Purge dummy accounts and start fresh for real users"
             >
-              <span>🧹 Clean Demo Accounts</span>
+              <span>🧹</span>
+              <span className="hidden sm:inline">Clean Demo</span>
             </button>
             <Link
               href="/"
-              className="text-xs font-bold px-3.5 py-2 rounded-xl text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 transition"
+              className="text-[11px] sm:text-xs font-bold px-2.5 sm:px-3.5 py-1.5 rounded-xl text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 transition"
             >
-              ← Public Marketplace
+              ← Public
             </Link>
-            <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/80 px-2.5 py-1.5 rounded-xl border border-emerald-800 flex items-center gap-1.5">
+            <span className="hidden lg:flex text-xs font-mono font-bold text-emerald-400 bg-emerald-950/80 px-2.5 py-1.5 rounded-xl border border-emerald-800 items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>System Online (200 OK)</span>
+              <span>Online (200 OK)</span>
             </span>
           </div>
         </div>
       </header>
 
       {/* Main Grid */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Sidebar Nav */}
-        <aside className="space-y-1">
-          <nav className="bg-slate-900/80 rounded-3xl border border-slate-800/90 p-2.5 space-y-1.5 text-xs font-semibold shadow-xl">
-            {[
-              {
-                id: 'overview',
-                label: '👑 Platform Master Overview',
-                icon: TrendingUp,
-                badge: 'Live',
-                pendingCount: registeredUsersList.filter((u) => u.subscription?.status === 'PENDING_APPROVAL').length,
-              },
-              { id: 'services', label: 'Service Master Switches', icon: SlidersHorizontal },
-              { id: 'listings', label: 'All Listings (Full CRUD)', icon: Car, badge: listings.length },
-              {
-                id: 'plans',
-                label: 'Subscription Packages & Approvals',
-                icon: DollarSign,
-                badge: plans.length,
-                pendingCount: registeredUsersList.filter((u) => u.subscription?.status === 'PENDING_APPROVAL').length,
-              },
-              { id: 'promocodes', label: 'Promo Codes & Discounts', icon: Tag, badge: promoCodes.length },
-              { id: 'promotions', label: 'Promotional Announcement Bar', icon: Bell, alert: promoEnabled ? 1 : 0 },
-              { id: 'featured', label: 'Featured Ads (Top 9 Slots)', icon: Sparkles },
-              { id: 'doc_rules', label: 'Document Rules Matrix', icon: FileCheck },
-              { id: 'directory', label: 'User & Vendor Directory', icon: Search, badge: allMergedDirectoryUsers.length },
-              {
-                id: 'analytics',
-                label: '📊 Analytics & Intelligence Hub',
-                icon: BarChart2,
-                badge: 'Live',
-              },
-              {
-                id: 'leads',
-                label: 'All Leads & Click Activity',
-                icon: BarChart3,
-                badge: leadsList.length,
-                pendingCount: leadsList.filter((l) => l.status === 'NEW').length,
-              },
-              {
-                id: 'subscription_leads',
-                label: '📞 Subscription Follow-Up Desk',
-                icon: PhoneCall,
-                badge: registeredUsersList.filter(
-                  (u) =>
-                    u.role !== 'CUSTOMER' &&
-                    u.role !== 'AGENT' &&
-                    u.role !== 'SUPER_ADMIN' &&
-                    (u.subscription?.status === 'UNSUBSCRIBED' || !u.subscription?.status)
-                ).length,
-              },
-              { id: 'agents', label: 'Staff / Agent Management', icon: Users, badge: agents.length },
-              { id: 'stealthAudit', label: '🛡️ Stealth Anti-Fraud Log', icon: ShieldCheck, alert: stealthAuditLogs.filter(l => l.isSuspicious).length },
-              { id: 'legal', label: 'Terms & Safety Disclaimers', icon: FileText },
-              {
-                id: 'countries',
-                label: 'Global Network & Inquiries',
-                icon: Globe,
-                badge: intlInquiries.filter((i) => i.status === 'NEW').length || undefined,
-              },
-              {
-                id: 'branding',
-                label: '🎨 Portal Branding & Logos',
-                icon: Sparkles,
-              },
-            ].map((item: any) => {
-              const Icon = item.icon;
-              const active = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id as any)}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition cursor-pointer ${
-                    active
-                      ? 'bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow-md shadow-rose-900/30 font-bold'
-                      : 'text-slate-400 hover:bg-slate-800/60 hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Icon className="w-4 h-4 shrink-0" />
-                    <span className="truncate">{item.label}</span>
+      <div className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
+        {/* Navigation Definitions */}
+        {(() => {
+          const adminNavItems = [
+            {
+              id: 'overview',
+              label: '👑 Platform Master Overview',
+              shortLabel: 'Overview',
+              icon: TrendingUp,
+              badge: 'Live',
+              pendingCount: registeredUsersList.filter((u) => u.subscription?.status === 'PENDING_APPROVAL').length,
+            },
+            { id: 'services', label: 'Service Master Switches', shortLabel: 'Services', icon: SlidersHorizontal },
+            { id: 'listings', label: 'All Listings (Full CRUD)', shortLabel: 'Listings', icon: Car, badge: listings.length },
+            {
+              id: 'plans',
+              label: 'Subscription Packages & Approvals',
+              shortLabel: 'Packages',
+              icon: DollarSign,
+              badge: plans.length,
+              pendingCount: registeredUsersList.filter((u) => u.subscription?.status === 'PENDING_APPROVAL').length,
+            },
+            { id: 'promocodes', label: 'Promo Codes & Discounts', shortLabel: 'Promos', icon: Tag, badge: promoCodes.length },
+            { id: 'promotions', label: 'Promotional Announcement Bar', shortLabel: 'Alert Bar', icon: Bell, alert: promoEnabled ? 1 : 0 },
+            { id: 'featured', label: 'Featured Ads (Top 9 Slots)', shortLabel: 'Featured', icon: Sparkles },
+            { id: 'doc_rules', label: 'Document Rules Matrix', shortLabel: 'Doc Rules', icon: FileCheck },
+            { id: 'directory', label: 'User & Vendor Directory', shortLabel: 'Directory', icon: Search, badge: allMergedDirectoryUsers.length },
+            {
+              id: 'analytics',
+              label: '📊 Analytics & Intelligence Hub',
+              shortLabel: 'Analytics',
+              icon: BarChart2,
+              badge: 'Live',
+            },
+            {
+              id: 'leads',
+              label: 'All Leads & Click Activity',
+              shortLabel: 'Leads',
+              icon: BarChart3,
+              badge: leadsList.length,
+              pendingCount: leadsList.filter((l) => l.status === 'NEW').length,
+            },
+            {
+              id: 'subscription_leads',
+              label: '📞 Subscription Follow-Up Desk',
+              shortLabel: 'Follow-ups',
+              icon: PhoneCall,
+              badge: registeredUsersList.filter(
+                (u) =>
+                  u.role !== 'CUSTOMER' &&
+                  u.role !== 'AGENT' &&
+                  u.role !== 'SUPER_ADMIN' &&
+                  (u.subscription?.status === 'UNSUBSCRIBED' || !u.subscription?.status)
+              ).length,
+            },
+            { id: 'agents', label: 'Staff / Agent Management', shortLabel: 'Agents', icon: Users, badge: agents.length },
+            { id: 'stealthAudit', label: '🛡️ Stealth Anti-Fraud Log', shortLabel: 'Anti-Fraud', icon: ShieldCheck, alert: stealthAuditLogs.filter(l => l.isSuspicious).length },
+            { id: 'legal', label: 'Terms & Safety Disclaimers', shortLabel: 'Legal', icon: FileText },
+            {
+              id: 'countries',
+              label: 'Global Network & Inquiries',
+              shortLabel: 'Global',
+              icon: Globe,
+              badge: intlInquiries.filter((i) => i.status === 'NEW').length || undefined,
+            },
+            {
+              id: 'branding',
+              label: '🎨 Portal Branding & Logos',
+              shortLabel: 'Branding',
+              icon: Sparkles,
+            },
+          ];
+
+          return (
+            <>
+              {/* Mobile Quick Section Switcher & App-Style Pill Bar (< lg screens) */}
+              <div className="lg:hidden col-span-1 space-y-2.5">
+                {/* Mobile Section Dropdown */}
+                <div className="bg-slate-900/95 p-3 rounded-2xl border border-slate-800 shadow-lg flex items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-7 h-7 rounded-lg bg-rose-600/20 text-rose-400 flex items-center justify-center text-xs shrink-0 font-bold">
+                      ⚡
+                    </span>
+                    <div className="min-w-0">
+                      <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold block">
+                        Admin Section
+                      </span>
+                      <span className="text-xs font-black text-white truncate block">
+                        {adminNavItems.find((i) => i.id === activeTab)?.label}
+                      </span>
+                    </div>
                   </div>
-                  {item.pendingCount !== undefined && item.pendingCount > 0 ? (
-                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-black bg-amber-400 text-slate-950 shrink-0 animate-pulse">
-                      {item.pendingCount} PENDING
-                    </span>
-                  ) : item.alert !== undefined && item.alert > 0 ? (
-                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-black bg-amber-400 text-slate-950 shrink-0">
-                      LIVE
-                    </span>
-                  ) : item.badge !== undefined ? (
-                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-800 text-slate-300 shrink-0">
-                      {item.badge}
-                    </span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </nav>
-        </aside>
+
+                  <div className="relative shrink-0">
+                    <select
+                      value={activeTab}
+                      onChange={(e) => setActiveTab(e.target.value as any)}
+                      className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-10"
+                      aria-label="Switch admin section"
+                    >
+                      {adminNavItems.map((item) => (
+                        <option key={item.id} value={item.id} className="bg-slate-900 text-white">
+                          {item.label} {item.pendingCount ? `(${item.pendingCount} PENDING)` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 flex items-center gap-1.5 shadow-2xs pointer-events-none"
+                    >
+                      <span>Switch</span>
+                      <span className="text-xs text-slate-400">▾</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Horizontal Swipeable Nav Pills */}
+                <div className="w-full overflow-x-auto no-scrollbar py-0.5">
+                  <div className="flex items-center gap-1.5 min-w-max bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800/90 shadow-sm">
+                    {adminNavItems.map((item) => {
+                      const Icon = item.icon;
+                      const active = activeTab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => setActiveTab(item.id as any)}
+                          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer active:scale-95 ${
+                            active
+                              ? 'bg-rose-600 text-white shadow-md shadow-rose-900/40'
+                              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                          }`}
+                        >
+                          <Icon className="w-3.5 h-3.5 shrink-0" />
+                          <span>{item.shortLabel || item.label}</span>
+                          {item.pendingCount !== undefined && item.pendingCount > 0 ? (
+                            <span className="px-1.5 py-0.2 rounded-md text-[10px] font-black bg-amber-400 text-slate-950 animate-pulse">
+                              {item.pendingCount}
+                            </span>
+                          ) : item.badge !== undefined ? (
+                            <span
+                              className={`px-1.5 py-0.2 rounded-md text-[10px] font-bold ${
+                                active ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-300'
+                              }`}
+                            >
+                              {item.badge}
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Desktop Sidebar Nav (Hidden on Mobile) */}
+              <aside className="hidden lg:block space-y-1">
+                <nav className="bg-slate-900/80 rounded-3xl border border-slate-800/90 p-2.5 space-y-1.5 text-xs font-semibold shadow-xl sticky top-20">
+                  {adminNavItems.map((item: any) => {
+                    const Icon = item.icon;
+                    const active = activeTab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setActiveTab(item.id as any)}
+                        className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition cursor-pointer ${
+                          active
+                            ? 'bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow-md shadow-rose-900/30 font-bold'
+                            : 'text-slate-400 hover:bg-slate-800/60 hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Icon className="w-4 h-4 shrink-0" />
+                          <span className="truncate">{item.label}</span>
+                        </div>
+                        {item.pendingCount !== undefined && item.pendingCount > 0 ? (
+                          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-black bg-amber-400 text-slate-950 shrink-0 animate-pulse">
+                            {item.pendingCount} PENDING
+                          </span>
+                        ) : item.alert !== undefined && item.alert > 0 ? (
+                          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-black bg-amber-400 text-slate-950 shrink-0">
+                            LIVE
+                          </span>
+                        ) : item.badge !== undefined ? (
+                          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-800 text-slate-300 shrink-0">
+                            {item.badge}
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </nav>
+              </aside>
+            </>
+          );
+        })()}
 
         {/* Canvas */}
         <main className="lg:col-span-3 space-y-6">
@@ -1485,118 +1581,118 @@ export default function SuperAdminDashboardPage() {
                   </div>
                 </div>
 
-                {/* 4 Primary Executive Metric Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* 4 Primary Executive Metric Cards (Compact 2x2 Grid on Mobile) */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
                   {/* Card 1: Subscription Revenue */}
-                  <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-950 border border-emerald-500/30 flex flex-col justify-between shadow-lg">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                      <span className="text-xs font-bold text-slate-400">Subscription Revenue</span>
-                      <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-sm">
+                  <div className="p-3.5 sm:p-5 rounded-2xl bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-950 border border-emerald-500/30 flex flex-col justify-between shadow-lg">
+                    <div className="flex items-center justify-between pb-1.5 sm:pb-2 border-b border-slate-800">
+                      <span className="text-[11px] sm:text-xs font-bold text-slate-400 truncate">Revenue Inflow</span>
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-xs sm:text-sm shrink-0">
                         ₨
                       </div>
                     </div>
-                    <div className="py-3">
-                      <span className="text-[11px] text-emerald-400 font-bold uppercase tracking-wider block">
-                        {timeFilter === 'TODAY' ? "Today's Inflow" : timeFilter === 'WEEK' ? "Past 7 Days" : timeFilter === 'MONTH' ? "This Month's Inflow" : "All Time Total"}
+                    <div className="py-2 sm:py-3">
+                      <span className="text-[10px] sm:text-[11px] text-emerald-400 font-bold uppercase tracking-wider block truncate">
+                        {timeFilter === 'TODAY' ? "Today" : timeFilter === 'WEEK' ? "Past 7 Days" : timeFilter === 'MONTH' ? "This Month" : "All Time"}
                       </span>
-                      <h3 className="text-2xl sm:text-3xl font-black text-white font-mono mt-0.5">
+                      <h3 className="text-lg sm:text-2xl md:text-3xl font-black text-white font-mono mt-0.5 truncate">
                         PKR {formatPKR(periodRevenue)}
                       </h3>
-                      <p className="text-[11px] text-slate-400 mt-1">
-                        All-Time Lifetime: <strong className="text-slate-200">PKR {formatPKR(allTimeRevenue)}</strong>
+                      <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 sm:mt-1 truncate">
+                        All-Time: <strong className="text-slate-200">PKR {formatPKR(allTimeRevenue)}</strong>
                       </p>
                     </div>
-                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-emerald-400">
-                      <span>✓ 100% Platform Retained</span>
-                      <span>{filteredPayments.length} txns</span>
+                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] sm:text-[11px] text-emerald-400">
+                      <span className="truncate">✓ 100% Platform Retained</span>
+                      <span className="font-mono font-bold shrink-0">{filteredPayments.length} txns</span>
                     </div>
                   </div>
 
                   {/* Card 2: Active Subscribers */}
-                  <div className="p-5 rounded-2xl bg-gradient-to-br from-blue-950/40 via-slate-900 to-slate-950 border border-blue-500/30 flex flex-col justify-between shadow-lg">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                      <span className="text-xs font-bold text-slate-400">Paying Subscribers</span>
-                      <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-black text-sm">
-                        <Users className="w-4 h-4" />
+                  <div className="p-3.5 sm:p-5 rounded-2xl bg-gradient-to-br from-blue-950/40 via-slate-900 to-slate-950 border border-blue-500/30 flex flex-col justify-between shadow-lg">
+                    <div className="flex items-center justify-between pb-1.5 sm:pb-2 border-b border-slate-800">
+                      <span className="text-[11px] sm:text-xs font-bold text-slate-400 truncate">Subscribers</span>
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-black text-xs sm:text-sm shrink-0">
+                        <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       </div>
                     </div>
-                    <div className="py-3">
-                      <span className="text-[11px] text-blue-400 font-bold uppercase tracking-wider block">
-                        Active Subscribed Vendors
+                    <div className="py-2 sm:py-3">
+                      <span className="text-[10px] sm:text-[11px] text-blue-400 font-bold uppercase tracking-wider block truncate">
+                        Active Partners
                       </span>
-                      <h3 className="text-2xl sm:text-3xl font-black text-white font-mono mt-0.5">
+                      <h3 className="text-lg sm:text-2xl md:text-3xl font-black text-white font-mono mt-0.5 truncate">
                         {activeSubscribersCount} Active
                       </h3>
-                      <p className="text-[11px] text-slate-400 mt-1">
-                        Out of <strong className="text-slate-200">{totalVendorsCount} Total Partners</strong>
+                      <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 sm:mt-1 truncate">
+                        Out of <strong className="text-slate-200">{totalVendorsCount} Total</strong>
                       </p>
                     </div>
-                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-blue-400">
-                      <span>Listers, Drivers & Movers</span>
-                      <span>0% Commission</span>
+                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] sm:text-[11px] text-blue-400">
+                      <span className="truncate">Fleet & Drivers</span>
+                      <span className="shrink-0">0% Comm.</span>
                     </div>
                   </div>
 
                   {/* Card 3: Pending Approvals & Requests */}
-                  <div className="p-5 rounded-2xl bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-950 border border-amber-500/30 flex flex-col justify-between shadow-lg">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                      <span className="text-xs font-bold text-slate-400">Action Required</span>
-                      <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-black text-sm">
+                  <div className="p-3.5 sm:p-5 rounded-2xl bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-950 border border-amber-500/30 flex flex-col justify-between shadow-lg">
+                    <div className="flex items-center justify-between pb-1.5 sm:pb-2 border-b border-slate-800">
+                      <span className="text-[11px] sm:text-xs font-bold text-slate-400 truncate">Action Required</span>
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-black text-xs sm:text-sm shrink-0">
                         ⏳
                       </div>
                     </div>
-                    <div className="py-3">
-                      <span className="text-[11px] text-amber-400 font-bold uppercase tracking-wider block">
-                        Pending Admin Verification
+                    <div className="py-2 sm:py-3">
+                      <span className="text-[10px] sm:text-[11px] text-amber-400 font-bold uppercase tracking-wider block truncate">
+                        Verification Queue
                       </span>
-                      <h3 className="text-2xl sm:text-3xl font-black text-white font-mono mt-0.5">
+                      <h3 className="text-lg sm:text-2xl md:text-3xl font-black text-white font-mono mt-0.5 truncate">
                         {pendingSubs.length} Payments
                       </h3>
-                      <p className="text-[11px] text-slate-400 mt-1">
-                        <strong className="text-slate-200">{pendingKycCount} Identity Docs</strong> awaiting check
+                      <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 sm:mt-1 truncate">
+                        <strong className="text-slate-200">{pendingKycCount} Docs</strong> check
                       </p>
                     </div>
-                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px]">
+                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] sm:text-[11px]">
                       {pendingSubs.length > 0 ? (
-                        <span className="text-amber-400 font-black animate-pulse">⚡ Needs Approval</span>
+                        <span className="text-amber-400 font-black animate-pulse truncate">⚡ Needs Approval</span>
                       ) : (
-                        <span className="text-emerald-400 font-bold">✓ Queue Cleared</span>
+                        <span className="text-emerald-400 font-bold truncate">✓ Queue Cleared</span>
                       )}
                       <button
                         type="button"
                         onClick={() => setActiveTab('plans')}
-                        className="text-amber-300 underline font-bold hover:text-white"
+                        className="text-amber-300 underline font-bold hover:text-white shrink-0 ml-1"
                       >
-                        Open Queue ➔
+                        Open ➔
                       </button>
                     </div>
                   </div>
 
                   {/* Card 4: Total Live Inventory */}
-                  <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-950/40 via-slate-900 to-slate-950 border border-purple-500/30 flex flex-col justify-between shadow-lg">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                      <span className="text-xs font-bold text-slate-400">Active Listings</span>
-                      <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center font-black text-sm">
-                        <Car className="w-4 h-4" />
+                  <div className="p-3.5 sm:p-5 rounded-2xl bg-gradient-to-br from-purple-950/40 via-slate-900 to-slate-950 border border-purple-500/30 flex flex-col justify-between shadow-lg">
+                    <div className="flex items-center justify-between pb-1.5 sm:pb-2 border-b border-slate-800">
+                      <span className="text-[11px] sm:text-xs font-bold text-slate-400 truncate">Marketplace Fleet</span>
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center font-black text-xs sm:text-sm shrink-0">
+                        <Car className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       </div>
                     </div>
-                    <div className="py-3">
-                      <span className="text-[11px] text-purple-400 font-bold uppercase tracking-wider block">
-                        Marketplace Inventory
+                    <div className="py-2 sm:py-3">
+                      <span className="text-[10px] sm:text-[11px] text-purple-400 font-bold uppercase tracking-wider block truncate">
+                        Live Units
                       </span>
-                      <h3 className="text-2xl sm:text-3xl font-black text-white font-mono mt-0.5">
+                      <h3 className="text-lg sm:text-2xl md:text-3xl font-black text-white font-mono mt-0.5 truncate">
                         {listings.length} Units
                       </h3>
-                      <p className="text-[11px] text-slate-400 mt-1">
-                        Vehicles, Chauffeurs & Shuttles
+                      <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 sm:mt-1 truncate">
+                        Cars, Drivers, Shuttles
                       </p>
                     </div>
-                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-purple-400">
-                      <span>Across 8 Major Cities</span>
+                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] sm:text-[11px] text-purple-400">
+                      <span className="truncate">Across Cities</span>
                       <button
                         type="button"
                         onClick={() => setActiveTab('listings')}
-                        className="text-purple-300 underline font-bold hover:text-white"
+                        className="text-purple-300 underline font-bold hover:text-white shrink-0 ml-1"
                       >
                         Manage ➔
                       </button>
@@ -1605,40 +1701,40 @@ export default function SuperAdminDashboardPage() {
                 </div>
 
                 {/* Category Revenue Breakdown Matrix */}
-                <div className="p-5 bg-slate-900/80 rounded-2xl border border-slate-800 space-y-3">
+                <div className="p-3.5 sm:p-5 bg-slate-900/80 rounded-2xl border border-slate-800 space-y-2.5 sm:space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-sm text-white flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4 text-emerald-400" />
+                    <h4 className="font-bold text-xs sm:text-sm text-white flex items-center gap-1.5 sm:gap-2">
+                      <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
                       <span>Subscription Inflow by Sector ({timeFilter})</span>
                     </h4>
-                    <span className="text-xs text-slate-400">Direct Partner Memberships</span>
+                    <span className="text-[11px] text-slate-400 hidden sm:inline">Direct Partner Memberships</span>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                    <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 block text-[11px]">🚗 Car Rental Hosts</span>
-                      <strong className="text-base font-mono font-bold text-emerald-400 mt-1 block">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 text-xs">
+                    <div className="p-2.5 sm:p-3 bg-slate-950 rounded-xl border border-slate-800">
+                      <span className="text-slate-400 block text-[10px] sm:text-[11px] truncate">🚗 Car Rentals</span>
+                      <strong className="text-sm sm:text-base font-mono font-bold text-emerald-400 mt-0.5 block truncate">
                         PKR {formatPKR(listerRevenue)}
                       </strong>
                     </div>
 
-                    <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 block text-[11px]">👨‍✈️ Independent Chauffeurs</span>
-                      <strong className="text-base font-mono font-bold text-blue-400 mt-1 block">
+                    <div className="p-2.5 sm:p-3 bg-slate-950 rounded-xl border border-slate-800">
+                      <span className="text-slate-400 block text-[10px] sm:text-[11px] truncate">👨‍✈️ Chauffeurs</span>
+                      <strong className="text-sm sm:text-base font-mono font-bold text-blue-400 mt-0.5 block truncate">
                         PKR {formatPKR(driverRevenue)}
                       </strong>
                     </div>
 
-                    <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 block text-[11px]">📦 Cargo & Home Shifting</span>
-                      <strong className="text-base font-mono font-bold text-orange-400 mt-1 block">
+                    <div className="p-2.5 sm:p-3 bg-slate-950 rounded-xl border border-slate-800">
+                      <span className="text-slate-400 block text-[10px] sm:text-[11px] truncate">📦 Movers & Cargo</span>
+                      <strong className="text-sm sm:text-base font-mono font-bold text-orange-400 mt-0.5 block truncate">
                         PKR {formatPKR(cargoRevenue)}
                       </strong>
                     </div>
 
-                    <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 block text-[11px]">🚌 Commuter Shuttles</span>
-                      <strong className="text-base font-mono font-bold text-teal-400 mt-1 block">
+                    <div className="p-2.5 sm:p-3 bg-slate-950 rounded-xl border border-slate-800">
+                      <span className="text-slate-400 block text-[10px] sm:text-[11px] truncate">🚌 Shuttles</span>
+                      <strong className="text-sm sm:text-base font-mono font-bold text-teal-400 mt-0.5 block truncate">
                         PKR {formatPKR(shuttleRevenue)}
                       </strong>
                     </div>
@@ -1785,159 +1881,258 @@ export default function SuperAdminDashboardPage() {
                     }
 
                     return (
-                      <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
-                        <table className="w-full text-left text-xs min-w-[850px]">
-                          <thead>
-                            <tr className="border-b border-slate-800 text-slate-400 font-bold bg-slate-900/60">
-                              <th className="p-3.5">Subscriber / Business</th>
-                              <th className="p-3.5">Category</th>
-                              <th className="p-3.5">Plan & Quota</th>
-                              <th className="p-3.5">Amount Paid</th>
-                              <th className="p-3.5">Payment Mode & Ref</th>
-                              <th className="p-3.5">Date & Time</th>
-                              <th className="p-3.5">Status</th>
-                              <th className="p-3.5 text-right">Verification Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-800/60">
-                            {displayed.map((pay) => (
-                              <tr key={pay.id} className="hover:bg-slate-900/40 transition">
-                                <td className="p-3.5">
-                                  <div className="font-bold text-white text-sm">{pay.userName}</div>
+                      <>
+                        {/* Mobile Responsive Cards (< md screens) */}
+                        <div className="md:hidden space-y-2.5">
+                          {displayed.map((pay) => (
+                            <div
+                              key={pay.id}
+                              className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 space-y-2.5 text-xs shadow-sm"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="font-bold text-white text-sm truncate">{pay.userName}</div>
                                   {pay.businessName && (
-                                    <div className="text-[11px] text-slate-400">{pay.businessName}</div>
+                                    <div className="text-[11px] text-slate-400 truncate">{pay.businessName}</div>
                                   )}
                                   <div className="text-[10px] text-slate-500 font-mono mt-0.5">📞 {pay.phone}</div>
-                                </td>
-
-                                <td className="p-3.5">
-                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                    pay.role === 'LISTER'
-                                      ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                                      : pay.role === 'DRIVER'
-                                      ? 'bg-blue-950 text-blue-300 border border-blue-800'
-                                      : 'bg-orange-950 text-orange-300 border border-orange-800'
-                                  }`}>
-                                    {pay.role === 'LISTER'
-                                      ? 'Car Rental'
-                                      : pay.role === 'DRIVER'
-                                      ? 'Chauffeur'
-                                      : pay.providerSubtype === 'COMMERCIAL_CARGO'
-                                      ? 'Cargo Mover'
-                                      : 'Commuter Shuttle'}
-                                  </span>
-                                </td>
-
-                                <td className="p-3.5">
-                                  <div className="font-bold text-slate-200">{pay.planName}</div>
-                                  <div className="text-[10px] text-slate-400">{pay.notes || 'Monthly Subscription'}</div>
-                                </td>
-
-                                <td className="p-3.5">
+                                </div>
+                                <div className="flex flex-col items-end shrink-0">
                                   <span className="font-black text-sm text-emerald-400 font-mono">
                                     PKR {formatPKR(pay.amountPaid)}
                                   </span>
-                                </td>
+                                  <span className={`px-2 py-0.5 rounded text-[9px] font-bold mt-1 ${
+                                    pay.status === 'CONFIRMED'
+                                      ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                      : pay.status === 'PENDING'
+                                      ? 'bg-amber-950 text-amber-300 border border-amber-800 animate-pulse'
+                                      : 'bg-rose-950 text-rose-300 border border-rose-800'
+                                  }`}>
+                                    {pay.status === 'CONFIRMED' ? '✓ PAID' : pay.status === 'PENDING' ? '⏳ PENDING' : '✕ FAILED'}
+                                  </span>
+                                </div>
+                              </div>
 
-                                <td className="p-3.5">
-                                  <div className="font-bold text-slate-300">{pay.paymentMode}</div>
-                                  <div className="text-[10px] text-slate-400 font-mono">Ref: {pay.paymentRef}</div>
+                              <div className="grid grid-cols-2 gap-2 p-2 bg-slate-900/80 rounded-xl border border-slate-800/80 text-[11px]">
+                                <div>
+                                  <span className="text-slate-400 block text-[10px]">Plan</span>
+                                  <strong className="text-slate-200 block truncate">{pay.planName}</strong>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 block text-[10px]">Payment</span>
+                                  <strong className="text-slate-300 block truncate">
+                                    {pay.paymentMode} {pay.paymentRef ? `· ${pay.paymentRef}` : ''}
+                                  </strong>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-900">
+                                <span className="text-[10px] text-slate-400">
+                                  {new Date(pay.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                </span>
+                                <div className="flex items-center gap-1.5">
                                   {pay.slipUrl && (
                                     <button
                                       type="button"
                                       onClick={() => setAdminSlipModal(pay.slipUrl!)}
-                                      className="text-[10px] text-emerald-400 hover:text-emerald-300 hover:underline font-bold flex items-center gap-1 mt-0.5 cursor-pointer"
+                                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
                                     >
-                                      <span>📷 View Slip Attached</span>
+                                      <Eye className="w-3 h-3 text-emerald-400" />
+                                      <span>Slip</span>
                                     </button>
                                   )}
-                                </td>
-
-                                <td className="p-3.5 text-slate-400 text-[11px] whitespace-nowrap">
-                                  {new Date(pay.date).toLocaleDateString('en-GB', {
-                                    day: 'numeric',
-                                    month: 'short',
-                                    year: 'numeric',
-                                  })}{' '}
-                                  ·{' '}
-                                  {new Date(pay.date).toLocaleTimeString([], {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                  })}
-                                </td>
-
-                                <td className="p-3.5">
-                                  {pay.status === 'CONFIRMED' ? (
-                                    <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-950 text-emerald-300 border border-emerald-800 inline-flex items-center gap-1">
-                                      <span>✓</span>
-                                      <span>PAID & LIVE</span>
-                                    </span>
-                                  ) : pay.status === 'PENDING' ? (
-                                    <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-950 text-amber-300 border border-amber-800 inline-flex items-center gap-1 animate-pulse">
-                                      <span>⏳</span>
-                                      <span>PENDING</span>
-                                    </span>
-                                  ) : (
-                                    <span className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-950 text-rose-300 border border-rose-800 inline-flex items-center gap-1">
-                                      <span>✕</span>
-                                      <span>FAILED</span>
-                                    </span>
+                                  {pay.status === 'PENDING' && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (confirm(`Approve payment of PKR ${formatPKR(pay.amountPaid)} for ${pay.userName}?`)) {
+                                            approveSubscriptionPayment(pay.id, 'Super Admin');
+                                            const updated = getAllSubscriptionPayments();
+                                            setSubscriptionPayments(updated);
+                                          }
+                                        }}
+                                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition"
+                                      >
+                                        Approve
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const reason = prompt('Enter rejection reason for this payment:', 'Bank credit not found / invalid receipt');
+                                          if (reason) {
+                                            rejectSubscriptionPayment(pay.id, 'Super Admin', reason);
+                                            const updated = getAllSubscriptionPayments();
+                                            setSubscriptionPayments(updated);
+                                          }
+                                        }}
+                                        className="px-2 py-1 bg-rose-950 text-rose-300 hover:bg-rose-900 border border-rose-800 rounded-lg text-xs font-bold transition"
+                                      >
+                                        ✕
+                                      </button>
+                                    </>
                                   )}
-                                </td>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
 
-                                <td className="p-3.5 text-right whitespace-nowrap">
-                                  <div className="flex items-center justify-end gap-1.5">
+                        {/* Desktop Table (Hidden on Mobile) */}
+                        <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+                          <table className="w-full text-left text-xs min-w-[850px]">
+                            <thead>
+                              <tr className="border-b border-slate-800 text-slate-400 font-bold bg-slate-900/60">
+                                <th className="p-3.5">Subscriber / Business</th>
+                                <th className="p-3.5">Category</th>
+                                <th className="p-3.5">Plan & Quota</th>
+                                <th className="p-3.5">Amount Paid</th>
+                                <th className="p-3.5">Payment Mode & Ref</th>
+                                <th className="p-3.5">Date & Time</th>
+                                <th className="p-3.5">Status</th>
+                                <th className="p-3.5 text-right">Verification Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/60">
+                              {displayed.map((pay) => (
+                                <tr key={pay.id} className="hover:bg-slate-900/40 transition">
+                                  <td className="p-3.5">
+                                    <div className="font-bold text-white text-sm">{pay.userName}</div>
+                                    {pay.businessName && (
+                                      <div className="text-[11px] text-slate-400">{pay.businessName}</div>
+                                    )}
+                                    <div className="text-[10px] text-slate-500 font-mono mt-0.5">📞 {pay.phone}</div>
+                                  </td>
+
+                                  <td className="p-3.5">
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                      pay.role === 'LISTER'
+                                        ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                        : pay.role === 'DRIVER'
+                                        ? 'bg-blue-950 text-blue-300 border border-blue-800'
+                                        : 'bg-orange-950 text-orange-300 border border-orange-800'
+                                    }`}>
+                                      {pay.role === 'LISTER'
+                                        ? 'Car Rental'
+                                        : pay.role === 'DRIVER'
+                                        ? 'Chauffeur'
+                                        : pay.providerSubtype === 'COMMERCIAL_CARGO'
+                                        ? 'Cargo Mover'
+                                        : 'Commuter Shuttle'}
+                                    </span>
+                                  </td>
+
+                                  <td className="p-3.5">
+                                    <div className="font-bold text-slate-200">{pay.planName}</div>
+                                    <div className="text-[10px] text-slate-400">{pay.notes || 'Monthly Subscription'}</div>
+                                  </td>
+
+                                  <td className="p-3.5">
+                                    <span className="font-black text-sm text-emerald-400 font-mono">
+                                      PKR {formatPKR(pay.amountPaid)}
+                                    </span>
+                                  </td>
+
+                                  <td className="p-3.5">
+                                    <div className="font-bold text-slate-300">{pay.paymentMode}</div>
+                                    <div className="text-[10px] text-slate-400 font-mono">Ref: {pay.paymentRef}</div>
                                     {pay.slipUrl && (
                                       <button
                                         type="button"
                                         onClick={() => setAdminSlipModal(pay.slipUrl!)}
-                                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                                        title="View Deposit Proof Slip"
+                                        className="text-[10px] text-emerald-400 hover:text-emerald-300 hover:underline font-bold flex items-center gap-1 mt-0.5 cursor-pointer"
                                       >
-                                        <Eye className="w-3.5 h-3.5 text-emerald-400" />
-                                        <span>Slip</span>
+                                        <span>📷 View Slip Attached</span>
                                       </button>
                                     )}
+                                  </td>
 
-                                    {pay.status === 'PENDING' && (
-                                      <>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            if (confirm(`Approve payment of PKR ${formatPKR(pay.amountPaid)} for ${pay.userName} and activate listing quota?`)) {
-                                              approveSubscriptionPayment(pay.id, 'Super Admin');
-                                              const updated = getAllSubscriptionPayments();
-                                              setSubscriptionPayments(updated);
-                                            }
-                                          }}
-                                          className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-xs"
-                                        >
-                                          <span>✓ Approve</span>
-                                        </button>
+                                  <td className="p-3.5 text-slate-400 text-[11px] whitespace-nowrap">
+                                    {new Date(pay.date).toLocaleDateString('en-GB', {
+                                      day: 'numeric',
+                                      month: 'short',
+                                      year: 'numeric',
+                                    })}{' '}
+                                    ·{' '}
+                                    {new Date(pay.date).toLocaleTimeString([], {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })}
+                                  </td>
 
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const reason = prompt('Enter rejection reason for this payment:', 'Bank credit not found / invalid receipt');
-                                            if (reason) {
-                                              rejectSubscriptionPayment(pay.id, 'Super Admin', reason);
-                                              const updated = getAllSubscriptionPayments();
-                                              setSubscriptionPayments(updated);
-                                            }
-                                          }}
-                                          className="px-2.5 py-1 bg-rose-600/80 hover:bg-rose-600 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                                        >
-                                          <span>✕ Reject</span>
-                                        </button>
-                                      </>
+                                  <td className="p-3.5">
+                                    {pay.status === 'CONFIRMED' ? (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-950 text-emerald-300 border border-emerald-800 inline-flex items-center gap-1">
+                                        <span>✓</span>
+                                        <span>PAID & LIVE</span>
+                                      </span>
+                                    ) : pay.status === 'PENDING' ? (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-950 text-amber-300 border border-amber-800 inline-flex items-center gap-1 animate-pulse">
+                                        <span>⏳</span>
+                                        <span>PENDING</span>
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-950 text-rose-300 border border-rose-800 inline-flex items-center gap-1">
+                                        <span>✕</span>
+                                        <span>FAILED</span>
+                                      </span>
                                     )}
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                                  </td>
+
+                                  <td className="p-3.5 text-right whitespace-nowrap">
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      {pay.slipUrl && (
+                                        <button
+                                          type="button"
+                                          onClick={() => setAdminSlipModal(pay.slipUrl!)}
+                                          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                                          title="View Deposit Proof Slip"
+                                        >
+                                          <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                                          <span>Slip</span>
+                                        </button>
+                                      )}
+
+                                      {pay.status === 'PENDING' && (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              if (confirm(`Approve payment of PKR ${formatPKR(pay.amountPaid)} for ${pay.userName} and activate listing quota?`)) {
+                                                approveSubscriptionPayment(pay.id, 'Super Admin');
+                                                const updated = getAllSubscriptionPayments();
+                                                setSubscriptionPayments(updated);
+                                              }
+                                            }}
+                                            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-xs"
+                                          >
+                                            <span>✓ Approve</span>
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const reason = prompt('Enter rejection reason for this payment:', 'Bank credit not found / invalid receipt');
+                                              if (reason) {
+                                                rejectSubscriptionPayment(pay.id, 'Super Admin', reason);
+                                                const updated = getAllSubscriptionPayments();
+                                                setSubscriptionPayments(updated);
+                                              }
+                                            }}
+                                            className="px-2.5 py-1 bg-rose-600/80 hover:bg-rose-600 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                                          >
+                                            <span>✕ Reject</span>
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
                     );
                   })()}
                 </div>
