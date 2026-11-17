@@ -30,6 +30,7 @@ import { COUNTRIES, CountryInfo, SUPPORTED_CURRENCIES, CurrencyInfo } from '@/da
 import { getActiveUser, RegisteredUser, logoutActiveUser } from '@/data/userAuth';
 import { useCountry } from '@/app/context/CountryContext';
 import { getSiteBranding, SiteBranding } from '@/data/branding';
+import { MobilePullToRefresh } from '@/components/MobilePullToRefresh';
 
 interface AppHeaderProps {
   currentCountry?: CountryInfo;
@@ -618,6 +619,9 @@ export function AppHeader({
           )}
         </div>
       </div>
+
+      {/* Mobile Animated Pull-to-Refresh Car below header */}
+      <MobilePullToRefresh />
     </header>
 
     {/* ========================================================================= */}

@@ -23,6 +23,7 @@ body {
   position: relative;
   -webkit-tap-highlight-color: transparent;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain; /* Disables default native browser pull-to-refresh circle */
 }
 
 *, *::before, *::after {
@@ -187,5 +188,55 @@ body {
     line-height: 1.15rem !important;
     color: #667085 !important;
   }
+}
+
+/* Pull-to-Refresh Car Race Animations (Mobile Only) */
+@keyframes carRevEngine {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  25% {
+    transform: translateY(-1.5px) scale(1.02);
+  }
+  75% {
+    transform: translateY(1px) scale(0.99);
+  }
+}
+
+@keyframes carRaceUpLaunch {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  15% {
+    transform: translateY(5px) scale(0.96); /* Pre-launch squat */
+  }
+  100% {
+    transform: translateY(-220px) scale(1.18);
+    opacity: 0;
+  }
+}
+
+@keyframes exhaustSmokeTrail {
+  0% {
+    opacity: 0.85;
+    transform: translateY(0) scale(0.6);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(22px) scale(1.8);
+  }
+}
+
+.animate-car-rev {
+  animation: carRevEngine 0.12s infinite ease-in-out;
+}
+
+.animate-car-launch {
+  animation: carRaceUpLaunch 0.7s cubic-bezier(0.5, 0, 0.75, 0) forwards;
+}
+
+.animate-exhaust-trail {
+  animation: exhaustSmokeTrail 0.4s ease-out infinite;
 }
 
