@@ -135,6 +135,13 @@ export default function HomePage() {
   const [showShuttlePickupMenu, setShowShuttlePickupMenu] = useState(false);
   const [showShuttleDropMenu, setShowShuttleDropMenu] = useState(false);
 
+  // Home Shifting & Cargo Mover Search States
+  const [showMoverCityMenu, setShowMoverCityMenu] = useState(false);
+  const [showMoverTruckMenu, setShowMoverTruckMenu] = useState(false);
+  const moverCityRef = useRef<HTMLDivElement>(null);
+  const moverDateRef = useRef<HTMLInputElement>(null);
+  const moverTruckRef = useRef<HTMLDivElement>(null);
+
   // Dropdown & Input state
   const [showCityDropdown, setShowCityDropdown] = useState(false);
   const cityDropdownRef = useRef<HTMLDivElement>(null);
@@ -168,6 +175,12 @@ export default function HomePage() {
       }
       if (shuttleDropRef.current && !shuttleDropRef.current.contains(target)) {
         setShowShuttleDropMenu(false);
+      }
+      if (moverCityRef.current && !moverCityRef.current.contains(target)) {
+        setShowMoverCityMenu(false);
+      }
+      if (moverTruckRef.current && !moverTruckRef.current.contains(target)) {
+        setShowMoverTruckMenu(false);
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
@@ -360,7 +373,8 @@ export default function HomePage() {
     const kmFare = formatPrice((mover as any).perKmNum || mover.km);
     const helperFare = formatPrice((mover as any).helperNum || mover.helper);
 
-    const msg = `Hi, I would like to get a moving quote from ${mover.name} on SafarPK: Moving Fleet: ${mover.trucks} City: ${mover.city} Rates: Base ${baseFare} | Per KM ${kmFare} | Helper ${helperFare} Listing: ${listingUrl}`;
+    const dateInfo = searchPickup ? `Shifting Date: ${searchPickup} | ` : '';
+    const msg = `Hi, I would like to get a moving quote from ${mover.name} on SafarPK: ${dateInfo}Moving Fleet: ${mover.trucks} City: ${mover.city} Rates: Base ${baseFare} | Per KM ${kmFare} | Helper ${helperFare} Listing: ${listingUrl}`;
     const cleanNum = (mover.whatsapp || mover.phone || '').replace(/\D/g, '');
     const targetUrl = getWhatsAppTargetUrl(cleanNum, msg);
     window.open(targetUrl, '_blank');
@@ -761,7 +775,9 @@ export default function HomePage() {
     {
       title: isPakistan ? 'Home & office cargo movers' : 'Moving & cargo logistics',
       sub: searchWhere
-        ? `Showing movers and trucks in "${searchWhere}" (${selectedCategory})`
+        ? (searchPickup
+            ? `Showing movers available on ${searchPickup} in "${searchWhere}" (${selectedCategory})`
+            : `Showing movers and trucks in "${searchWhere}" (${selectedCategory})`)
         : (isPakistan ? `Covered containers, Shehzore & Mazda trucks with mazdoors across Pakistan` : `Moving trucks, cargo haulers and logistics teams with helpers across ${country?.name || 'region'}`),
       viewAllText: isPakistan ? 'View all movers' : 'View all cargo movers',
       viewAllHref: '/movers',
@@ -1061,6 +1077,214 @@ export default function HomePage() {
                 >
                   <Search className="w-4 h-4 shrink-0" />
                   <span>Find routes</span>
+                </button>
+              </form>
+            ) : activeService === 4 ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const resultsEl = document.getElementById('listings-results') || document.getElementById('cars-results');
+                  if (resultsEl) resultsEl.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="p-2 sm:p-3 md:p-4 grid grid-cols-12 gap-2 sm:gap-2.5 items-stretch"
+              >
+                {/* Field 1: Moving City / Area (Where) */}
+                <div
+                  ref={moverCityRef}
+                  className="col-span-12 md:col-span-4 flex items-center gap-2.5 sm:gap-3 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-3 sm:px-3.5 rounded-xl sm:rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] focus-within:bg-white focus-within:border-[#0B6B4F] focus-within:ring-2 focus-within:ring-[#0B6B4F]/10 transition relative cursor-text"
+                >
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white border border-[#EAECF0] text-[#0B6B4F] flex items-center justify-center shrink-0 shadow-2xs">
+                    <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <span className="text-[10px] sm:text-[11px] font-bold text-[#475467] leading-none mb-0.5 sm:mb-1">
+                      Moving City / Area
+                    </span>
+                    <input
+                      type="text"
+                      placeholder={`City or area, e.g. ${availableCities[0] || 'Karachi'}`}
+                      value={searchWhere}
+                      onFocus={() => setShowMoverCityMenu(true)}
+                      onChange={(e) => {
+                        setSearchWhere(e.target.value);
+                        setShowMoverCityMenu(true);
+                      }}
+                      className="w-full border-0 outline-none p-0 text-xs sm:text-sm font-semibold text-[#101828] bg-transparent placeholder:text-slate-400"
+                    />
+                  </div>
+                  {searchWhere ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSearchWhere('');
+                        setShowMoverCityMenu(true);
+                      }}
+                      className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowMoverCityMenu(!showMoverCityMenu);
+                      }}
+                      className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+                  )}
+
+                  {/* Mover City Menu */}
+                  {showMoverCityMenu && (
+                    <div className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[280px] bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                      <div className="px-3.5 py-1.5 border-b border-slate-100 flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        <span>Cities in {country?.name || 'Pakistan'} {country?.flag}</span>
+                        <span className="text-emerald-700 font-mono font-semibold">{filteredCities.length} found</span>
+                      </div>
+                      <div className="max-h-56 overflow-y-auto no-scrollbar py-1">
+                        {filteredCities.map((cityName) => {
+                          const isSelected = searchWhere.toLowerCase() === cityName.toLowerCase();
+                          return (
+                            <button
+                              key={cityName}
+                              type="button"
+                              onClick={() => {
+                                setSearchWhere(cityName);
+                                setShowMoverCityMenu(false);
+                              }}
+                              className={`w-full text-left px-3.5 py-2 text-xs sm:text-sm font-medium flex items-center justify-between hover:bg-[#F4F7F5] transition cursor-pointer ${
+                                isSelected ? 'bg-[#E9F3EE] text-[#0B6B4F] font-bold' : 'text-[#344054]'
+                              }`}
+                            >
+                              <span className="flex items-center gap-2.5">
+                                <MapPin className="w-3.5 h-3.5 text-[#0B6B4F]" />
+                                <span>{cityName}</span>
+                              </span>
+                              {isSelected && <Check className="w-4 h-4 text-[#0B6B4F]" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Field 2: Shifting Date (Single Date Picker — NO Return Date!) */}
+                <div
+                  onClick={() => moverDateRef.current?.showPicker?.() || moverDateRef.current?.focus()}
+                  className="col-span-6 sm:col-span-6 md:col-span-3 flex items-center gap-2 sm:gap-2.5 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-2.5 sm:px-3.5 rounded-xl sm:rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] cursor-pointer hover:bg-white hover:border-[#0B6B4F] focus-within:bg-white focus-within:border-[#0B6B4F] focus-within:ring-2 focus-within:ring-[#0B6B4F]/10 transition relative group"
+                >
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white border border-[#EAECF0] text-[#0B6B4F] flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition">
+                    <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <div className="flex items-center gap-1 mb-0.5 sm:mb-1">
+                      <span className="text-[10px] sm:text-[11px] font-bold text-[#475467] leading-none truncate">
+                        Shifting Date
+                      </span>
+                      <span className="hidden sm:inline text-[9px] font-semibold text-emerald-800 bg-emerald-100/80 px-1 rounded">1-Day</span>
+                    </div>
+                    <input
+                      ref={moverDateRef}
+                      type="date"
+                      min={todayStr}
+                      value={searchPickup}
+                      onChange={(e) => setSearchPickup(e.target.value)}
+                      className="w-full border-0 outline-none p-0 text-xs sm:text-sm font-semibold text-[#101828] bg-transparent cursor-pointer"
+                    />
+                  </div>
+                  {searchPickup && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSearchPickup('');
+                      }}
+                      className="text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer text-xs shrink-0"
+                    >
+                      <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Field 3: Truck / Load Requirement (Select Vehicle Type For Move) */}
+                <div
+                  ref={moverTruckRef}
+                  className="col-span-6 sm:col-span-6 md:col-span-3 flex items-center gap-2 sm:gap-2.5 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-2.5 sm:px-3.5 rounded-xl sm:rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] cursor-pointer hover:bg-white hover:border-[#0B6B4F] transition relative"
+                  onClick={() => setShowMoverTruckMenu(!showMoverTruckMenu)}
+                >
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white border border-[#EAECF0] text-orange-600 flex items-center justify-center shrink-0 shadow-2xs">
+                    <Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-600" />
+                  </div>
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <span className="text-[10px] sm:text-[11px] font-bold text-[#475467] leading-none mb-0.5 sm:mb-1 truncate">
+                      Truck / Move Size
+                    </span>
+                    <div className="text-xs sm:text-sm font-extrabold text-[#101828] truncate">
+                      {selectedCategory === 'All movers' ? 'All Trucks & Cargo' : selectedCategory}
+                    </div>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+
+                  {/* Truck Menu Dropdown */}
+                  {showMoverTruckMenu && (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute top-[calc(100%+8px)] right-0 sm:left-0 w-full min-w-[260px] max-w-[320px] bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+                    >
+                      <div className="px-3.5 py-1.5 border-b border-slate-100 flex items-center justify-between text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                        <span>Select Vehicle / Load Size</span>
+                        <span className="text-orange-600 font-bold">Direct Rates</span>
+                      </div>
+                      <div className="py-1">
+                        {SERVICE_CATEGORIES[4].map((cat) => {
+                          const isSelected = selectedCategory === cat;
+                          const descriptions: Record<string, string> = {
+                            'All movers': 'Show all vehicle sizes and fleets',
+                            'Suzuki Ravi (Mini)': '1-Room flat, single sofa or luggage cargo',
+                            'Shehzore (2.5 Ton)': '1 to 2 BHK apartment shifting (Popular)',
+                            'Mazda (14-17ft)': 'Large 3+ BHK house with heavy furniture',
+                            'Office Relocation': 'Workstations, servers, safe & commercial cargo',
+                          };
+                          return (
+                            <button
+                              key={cat}
+                              type="button"
+                              onClick={() => {
+                                setSelectedCategory(cat);
+                                setShowMoverTruckMenu(false);
+                              }}
+                              className={`w-full text-left px-3.5 py-2 hover:bg-orange-50/70 transition cursor-pointer flex flex-col ${
+                                isSelected ? 'bg-orange-50 text-orange-900 font-extrabold' : 'text-slate-800'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs sm:text-sm font-bold truncate">
+                                  {cat === 'All movers' ? 'All Trucks & Cargo' : cat}
+                                </span>
+                                {isSelected && <Check className="w-4 h-4 text-[#0B6B4F] shrink-0" />}
+                              </div>
+                              <span className="text-[10px] text-slate-500 font-normal mt-0.5 truncate">
+                                {descriptions[cat] || 'Verified moving truck'}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Field 4: Find Trucks Submit Button */}
+                <button
+                  type="submit"
+                  className="col-span-12 sm:col-span-6 md:col-span-2 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-4 rounded-xl sm:rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] active:scale-[0.99] text-white font-extrabold text-xs sm:text-sm md:text-base flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition cursor-pointer"
+                >
+                  <Search className="w-4 h-4 shrink-0" />
+                  <span>{isPakistan ? 'Find trucks' : 'Find movers'}</span>
                 </button>
               </form>
             ) : (
