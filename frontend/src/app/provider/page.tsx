@@ -62,6 +62,7 @@ import {
   getWhatsAppTargetUrl,
   generateOwnerFollowUpWhatsAppText,
 } from '@/data/chatEngine';
+import { CITY_COMMUTE_AREAS } from '@/data/marketplaceData';
 
 const DEFAULT_ALMAKKA_FLEET = [
   {
@@ -3112,19 +3113,47 @@ export default function ServiceProviderDashboardPage() {
 
               {/* Stops & Timings */}
               <div>
-                <label className="font-bold text-slate-700 block mb-1">
-                  Scheduled Waypoints / Stops with Timings
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-bold text-slate-700 block">
+                    Scheduled Waypoints & In-Between Stops *
+                  </label>
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                    Sub-route matching active
+                  </span>
+                </div>
                 <textarea
                   rows={2}
                   value={newRouteStopsText}
                   onChange={(e) => setNewRouteStopsText(e.target.value)}
-                  placeholder="e.g. Saddar (07:15) ➔ Chandni Chowk (07:30) ➔ Faizabad (07:45) ➔ Blue Area (08:15)"
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium"
+                  placeholder="e.g. Area 1 (07:15) ➔ Area 2 (07:30) ➔ Area 3 (07:45) ➔ Area 4 (08:15)"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-xs sm:text-sm"
                 />
-                <span className="text-[10px] text-slate-400 block mt-0.5">
-                  Separate stops with &quot;➔&quot; or commas. Customers can click these stops to book in-between locations.
-                </span>
+                
+                {/* Quick Area Chips for Selected City */}
+                <div className="mt-2 flex flex-col gap-1.5 p-2.5 bg-emerald-50/60 border border-emerald-100 rounded-xl">
+                  <span className="text-[10px] font-extrabold text-emerald-900 flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-emerald-700" />
+                    <span>Quick-add major areas in {newRouteCity} (Click to append):</span>
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {(CITY_COMMUTE_AREAS[newRouteCity] || CITY_COMMUTE_AREAS['Karachi'] || []).slice(0, 10).map((area) => (
+                      <button
+                        key={area}
+                        type="button"
+                        onClick={() => {
+                          const separator = newRouteStopsText.trim() ? ' ➔ ' : '';
+                          setNewRouteStopsText((prev) => `${prev.trim()}${separator}${area}`);
+                        }}
+                        className="px-2 py-0.5 rounded-md bg-white border border-emerald-200 text-[10px] font-bold text-emerald-800 hover:bg-emerald-600 hover:text-white transition cursor-pointer"
+                      >
+                        + {area}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block leading-tight">
+                    💡 <strong>How sub-route matching works:</strong> If you add 8 stops between your origin and destination, passengers searching between <em>any two stops along the corridor</em> (e.g. Stop 2 to Stop 5) will be matched to your van!
+                  </span>
+                </div>
               </div>
 
               {/* Timings */}

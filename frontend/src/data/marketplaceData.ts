@@ -62,6 +62,7 @@ export interface ShuttleItem {
   city: string;
   from: string;
   to: string;
+  stops?: string[];
   pick: string;
   back: string;
   van: string;
@@ -604,13 +605,272 @@ export const CITY_RIDES_DATA: CityRideItem[] = [
 ];
 
 // 4. PICK & DROP COMMUTER SHUTTLES
+export const CITY_COMMUTE_AREAS: Record<string, string[]> = {
+  Karachi: [
+    'Gulshan-e-Iqbal',
+    'Clifton',
+    'DHA (Defence)',
+    'Gulistan-e-Johar',
+    'I.I. Chundrigar Road',
+    'Saddar',
+    'North Nazimabad',
+    'Malir Cantt',
+    'Shahrah-e-Faisal',
+    'Federal B Area (FB Area)',
+    'Korangi Industrial Area',
+    'Bahria Town Karachi',
+    'Karachi University / NED',
+    'Airport / Star Gate',
+    'NIPA',
+    'Hassan Square',
+    'Tower / Kemari',
+    'Nazimabad',
+    'PECHS',
+    'Gulshan-e-Hadeed',
+  ],
+  Lahore: [
+    'DHA Phase 5 & 6',
+    'Gulberg III',
+    'Johar Town',
+    'Model Town',
+    'Bahria Town Lahore',
+    'Canal Road',
+    'Wapda Town',
+    'Faisal Town',
+    'Mall Road',
+    'Kalma Chowk / IT Park',
+    'Cavalry Ground',
+    'Thokar Niaz Baig',
+    'Punjab University Campus',
+    'Allama Iqbal Town',
+    'Shadman',
+  ],
+  Islamabad: [
+    'Blue Area',
+    'F-10 / F-11 Markaz',
+    'F-8 Markaz',
+    'F-6 / F-7 Markaz',
+    'G-10 / G-11 Markaz',
+    'Pak Secretariat',
+    'I-8 Markaz',
+    'NUST H-12',
+    'DHA Phase 2 Islamabad',
+    'Bahria Town Phase 1-8',
+    'Zero Point',
+    'FAST / H-9',
+  ],
+  Rawalpindi: [
+    'Saddar Rawalpindi',
+    'Chandni Chowk / Murree Rd',
+    'Faizabad Interchange',
+    'Adyala Road',
+    'Bahria Town Rawalpindi',
+    'Chaklala Scheme 3',
+    'Peshawar Road',
+    'Westridge',
+  ],
+  Faisalabad: [
+    'Kohinoor City',
+    'D-Ground People’s Colony',
+    'Khurrianwala Industrial Zone',
+    'Clock Tower Bazaar',
+    'Canal Road',
+    'University of Agriculture',
+  ],
+  Peshawar: [
+    'Hayatabad Phase 3',
+    'University Town',
+    'Saddar Peshawar',
+    'Khyber Medical University',
+    'Warsak Road',
+    'Ring Road',
+  ],
+};
+
+export function matchesShuttleRoute(
+  shuttle: ShuttleItem,
+  fromQuery?: string,
+  toQuery?: string,
+  cityQuery?: string
+): boolean {
+  if (cityQuery && cityQuery.trim()) {
+    const qCity = cityQuery.trim().toLowerCase();
+    if (!shuttle.city.toLowerCase().includes(qCity) && !qCity.includes(shuttle.city.toLowerCase())) {
+      return false;
+    }
+  }
+
+  const cleanFrom = (fromQuery || '').trim().toLowerCase();
+  const cleanTo = (toQuery || '').trim().toLowerCase();
+
+  // If no specific route search term, matches city
+  if (!cleanFrom && !cleanTo) return true;
+
+  // Ordered corridor sequence
+  const stopsSequence: string[] = [
+    shuttle.from,
+    ...(shuttle.stops || []),
+    shuttle.to,
+  ].map((s) => s.toLowerCase());
+
+  const findStopIndex = (query: string): number => {
+    return stopsSequence.findIndex(
+      (stop) => stop.includes(query) || query.includes(stop)
+    );
+  };
+
+  if (cleanFrom && cleanTo) {
+    const fromIdx = findStopIndex(cleanFrom);
+    const toIdx = findStopIndex(cleanTo);
+    // If both stops exist on the route corridor
+    if (fromIdx !== -1 && toIdx !== -1) {
+      return true;
+    }
+    return false;
+  }
+
+  if (cleanFrom) {
+    return findStopIndex(cleanFrom) !== -1;
+  }
+
+  if (cleanTo) {
+    return findStopIndex(cleanTo) !== -1;
+  }
+
+  return true;
+}
+
 export const SHUTTLES_DATA: ShuttleItem[] = [
+  // --- KARACHI ROUTES ---
+  {
+    id: 'sht-khi-1',
+    op: 'Karachi Coastal Express',
+    city: 'Karachi',
+    from: 'Malir Cantt',
+    to: 'I.I. Chundrigar Road / Tower',
+    stops: ['Model Colony', 'Airport / Star Gate', 'Gulshan-e-Iqbal', 'NIPA', 'Hassan Square', 'Shahrah-e-Faisal', 'FTC', 'Saddar', 'I.I. Chundrigar Road'],
+    pick: '7:30 AM',
+    back: '5:45 PM',
+    van: 'Toyota HiAce Grand Cabin · Chilled AC',
+    days: 'Mon–Fri',
+    seats: 3,
+    total: 14,
+    fare: 'Rs. 12,500',
+    fareNum: 12500,
+    tags: ['Corporate Office', 'Bankers & IT Staff', 'Punctual GPS Tracked'],
+    category: 'Corporate Office',
+    phone: '+92 345 8899201',
+    whatsapp: '923458899201',
+  },
+  {
+    id: 'sht-khi-2',
+    op: 'Al-Huda Girls Commute',
+    city: 'Karachi',
+    from: 'Gulshan-e-Iqbal (Block 13D)',
+    to: 'Clifton (Do Talwar / Teen Talwar)',
+    stops: ['Civic Centre', 'National Stadium', 'Karsaz', 'Shahrah-e-Faisal', 'FTC Flyover', 'DHA Phase 2', 'Clifton'],
+    pick: '7:15 AM',
+    back: '3:30 PM',
+    van: 'Toyota HiAce · AC',
+    days: 'Mon–Sat',
+    seats: 2,
+    total: 14,
+    fare: 'Rs. 10,500',
+    fareNum: 10500,
+    tags: ['Girls Only', 'Female Attendant', 'School & College', 'CCTV on board'],
+    category: 'Girls Only',
+    phone: '+92 321 4455667',
+    whatsapp: '923214455667',
+  },
+  {
+    id: 'sht-khi-3',
+    op: 'Johar Executive Pool',
+    city: 'Karachi',
+    from: 'Gulistan-e-Johar (Block 1–15)',
+    to: 'Saddar & I.I. Chundrigar Road',
+    stops: ['Kamran Chowrangi', 'University Road', 'Samama Shopping Mall', 'NIPA', 'Civic Centre', 'Jail Chowrangi', 'Numaish', 'M.A. Jinnah Road', 'Saddar'],
+    pick: '7:40 AM',
+    back: '5:30 PM',
+    van: 'Suzuki APV GLX · Dual AC',
+    days: 'Mon–Fri',
+    seats: 4,
+    total: 7,
+    fare: 'Rs. 11,000',
+    fareNum: 11000,
+    tags: ['Corporate Office', 'Reserved Seating', 'Executive Vanpool'],
+    category: 'Corporate Office',
+    phone: '+92 333 1122334',
+    whatsapp: '923331122334',
+  },
+  {
+    id: 'sht-khi-4',
+    op: 'North Nazimabad Twin Corridors',
+    city: 'Karachi',
+    from: 'North Nazimabad (Five Star)',
+    to: 'DHA Phase 5 & 6',
+    stops: ['KDA Chowrangi', 'Nazimabad 7', 'Liaquatabad 10', 'Guru Mandir', 'PECHS', 'Shahrah-e-Faisal', 'Baloch Colony Bridge', 'DHA Phase 2', 'DHA Phase 6'],
+    pick: '7:20 AM',
+    back: '5:45 PM',
+    van: 'Toyota Coaster Saloon · AC',
+    days: 'Mon–Fri',
+    seats: 5,
+    total: 22,
+    fare: 'Rs. 11,500',
+    fareNum: 11500,
+    tags: ['Corporate & Executive', 'Wide Reclining Seats', 'GPS Live Tracking'],
+    category: 'Executive Vanpool',
+    phone: '+92 300 8877665',
+    whatsapp: '923008877665',
+  },
+  {
+    id: 'sht-khi-5',
+    op: 'Bahria Town Karachi Fast Link',
+    city: 'Karachi',
+    from: 'Bahria Town Karachi (Main Gate)',
+    to: 'Shahrah-e-Faisal & FTC',
+    stops: ['Toll Plaza M-9', 'Safoora Goth', 'Malir Cantt Checkpost', 'Airport', 'Karsaz', 'Shahrah-e-Faisal', 'FTC'],
+    pick: '7:00 AM',
+    back: '6:15 PM',
+    van: 'Toyota HiAce Grand Cabin · AC',
+    days: 'Mon–Fri',
+    seats: 4,
+    total: 14,
+    fare: 'Rs. 14,000',
+    fareNum: 14000,
+    tags: ['Corporate Office', 'High-Speed Express', 'Highway Commuter'],
+    category: 'Corporate Office',
+    phone: '+92 302 9988776',
+    whatsapp: '923029988776',
+  },
+  {
+    id: 'sht-khi-6',
+    op: 'Federal B University Shuttle',
+    city: 'Karachi',
+    from: 'Federal B Area (Water Pump)',
+    to: 'Karachi University / NED University',
+    stops: ['Aisha Manzil', 'Yaseenabad', 'Mukka Chowk', 'Sohrab Goth', 'Maskan Chowrangi', 'KU Silver Jubilee Gate', 'NED Gate 1'],
+    pick: '7:45 AM',
+    back: '2:30 PM',
+    van: 'Toyota HiAce · AC',
+    days: 'Mon–Sat',
+    seats: 3,
+    total: 14,
+    fare: 'Rs. 7,500',
+    fareNum: 7500,
+    tags: ['School & College', 'University Pass', 'Student Special'],
+    category: 'School & College',
+    phone: '+92 313 5544332',
+    whatsapp: '923135544332',
+  },
+
+  // --- LAHORE ROUTES ---
   {
     id: 'sht-1',
     op: 'Noor Shuttles',
     city: 'Lahore',
     from: 'DHA Phase 5 & 6',
     to: 'Gulberg III (Main Boulevard)',
+    stops: ['DHA Phase 5', 'DHA Phase 6', 'Bedian Road', 'Walton Road', 'Cavalry Ground', 'Main Boulevard', 'Gulberg III'],
     pick: '7:10 AM',
     back: '2:15 PM',
     van: 'Toyota HiAce · AC',
@@ -631,6 +891,7 @@ export const SHUTTLES_DATA: ShuttleItem[] = [
     city: 'Lahore',
     from: 'Johar Town / Wapda Town',
     to: 'Gulberg & Kalma Chowk IT Park',
+    stops: ['Johar Town G-1', 'Doctor Hospital', 'Wapda Town Roundabout', 'Faisal Town', 'Model Town Link Rd', 'Kalma Chowk', 'Gulberg III'],
     pick: '8:00 AM',
     back: '5:30 PM',
     van: 'Suzuki APV GLX · Dual AC',
@@ -650,6 +911,7 @@ export const SHUTTLES_DATA: ShuttleItem[] = [
     city: 'Lahore',
     from: 'Bahria Town Lahore',
     to: 'Canal Road / Thokar Universities',
+    stops: ['Bahria Town Safari', 'Sector C Commercial', 'Canal Road', 'Thokar Niaz Baig', 'Doctors Hospital', 'Punjab University Campus'],
     pick: '6:55 AM',
     back: '1:45 PM',
     van: 'Toyota HiAce Grand Cabin · AC',
@@ -663,12 +925,15 @@ export const SHUTTLES_DATA: ShuttleItem[] = [
     phone: '+92 333 4455667',
     whatsapp: '923334455667',
   },
+
+  // --- ISLAMABAD / RAWALPINDI ROUTES ---
   {
     id: 'sht-4',
     op: 'Capital Commuters',
     city: 'Islamabad',
     from: 'F-10 & F-11 Markaz',
     to: 'Blue Area & Secretariat',
+    stops: ['F-11 Markaz', 'F-10 Roundabout', 'G-10', 'G-9 Peshawar Morr', 'Blue Area Kulsum Plaza', 'Stock Exchange', 'Pak Secretariat'],
     pick: '8:15 AM',
     back: '5:00 PM',
     van: 'Toyota HiAce · AC',
@@ -688,6 +953,7 @@ export const SHUTTLES_DATA: ShuttleItem[] = [
     city: 'Rawalpindi',
     from: 'Saddar Rawalpindi',
     to: 'Air University / NUST H-12',
+    stops: ['Saddar Metro', 'Mareer Chowk', 'Chandni Chowk', 'Faizabad', 'I-8 Signal', 'Zero Point', 'H-9/H-12 NUST Gate'],
     pick: '7:30 AM',
     back: '4:30 PM',
     van: 'Toyota Coaster Saloon · AC',
@@ -701,31 +967,15 @@ export const SHUTTLES_DATA: ShuttleItem[] = [
     phone: '+92 300 5544332',
     whatsapp: '923005544332',
   },
-  {
-    id: 'sht-6',
-    op: 'Karachi Coastal Shuttle',
-    city: 'Karachi',
-    from: 'Gulshan-e-Iqbal',
-    to: 'I.I. Chundrigar Road',
-    pick: '7:45 AM',
-    back: '6:00 PM',
-    van: 'Toyota HiAce · Dual AC',
-    days: 'Mon–Fri',
-    seats: 4,
-    total: 14,
-    fare: 'Rs. 12,000',
-    fareNum: 12000,
-    tags: ['Bankers & IT professionals', 'Dedicated reserved seat'],
-    category: 'Corporate Office',
-    phone: '+92 345 8899201',
-    whatsapp: '923458899201',
-  },
+
+  // --- FAISALABAD & PESHAWAR ---
   {
     id: 'sht-7',
     op: 'Faisalabad Textile Pool',
     city: 'Faisalabad',
     from: 'Kohinoor City',
     to: 'Khurrianwala Industrial Zone',
+    stops: ['Kohinoor 1', 'D-Ground', 'Jaranwala Road', 'Gatwala', 'Khurrianwala Interchange'],
     pick: '8:00 AM',
     back: '5:30 PM',
     van: 'Suzuki APV · AC',
@@ -745,6 +995,7 @@ export const SHUTTLES_DATA: ShuttleItem[] = [
     city: 'Peshawar',
     from: 'Hayatabad Phase 3',
     to: 'University Town & Saddar',
+    stops: ['Phase 3 Chowk', 'Tatara Park', 'Jamrud Road', 'University of Peshawar Gate', 'University Town', 'Khyber Bazaar', 'Saddar'],
     pick: '7:30 AM',
     back: '3:00 PM',
     van: 'Toyota HiAce · AC',

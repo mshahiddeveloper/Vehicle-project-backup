@@ -52,11 +52,41 @@ import {
   CityRideItem,
   ShuttleItem,
   MoverItem,
+  CITY_COMMUTE_AREAS,
+  matchesShuttleRoute,
 } from '@/data/marketplaceData';
 import { getFeaturedAdIds, MAX_FEATURED_ADS } from '@/data/featuredAds';
 import { maskPakistaniCnic, maskPakistaniLicense } from '@/data/driverBookings';
 import { getWhatsAppTargetUrl } from '@/data/chatEngine';
 import { slugify, getStoreSlugForOwner } from '@/data/storefrontEngine';
+
+const POPULAR_COMMUTE_CORRIDORS: Record<string, { from: string; to: string; label: string }[]> = {
+  Karachi: [
+    { from: 'Malir Cantt', to: 'Clifton', label: 'Malir ➔ Clifton' },
+    { from: 'Gulshan-e-Iqbal', to: 'I.I. Chundrigar Road', label: 'Gulshan ➔ I.I. Chundrigar' },
+    { from: 'Gulistan-e-Johar', to: 'Saddar', label: 'Johar ➔ Saddar' },
+    { from: 'North Nazimabad', to: 'DHA (Defence)', label: 'North Nazimabad ➔ DHA' },
+    { from: 'Drigh Road', to: 'Metropole', label: 'Drigh Road ➔ Metropole' },
+    { from: 'Bahria Town Karachi', to: 'FTC (Shahrah-e-Faisal)', label: 'Bahria Town ➔ FTC' },
+    { from: 'Karsaz', to: 'Baloch Colony', label: 'Karsaz ➔ Baloch Colony' },
+  ],
+  Lahore: [
+    { from: 'Johar Town', to: 'Gulberg', label: 'Johar Town ➔ Gulberg' },
+    { from: 'DHA Phase 5', to: 'Kalma Chowk', label: 'DHA Phase 5 ➔ Kalma Chowk' },
+    { from: 'Wapda Town', to: 'Mall Road', label: 'Wapda Town ➔ Mall Road' },
+    { from: 'Bahria Town', to: 'Canal Road', label: 'Bahria Town ➔ Canal Road' },
+  ],
+  Islamabad: [
+    { from: 'Rawalpindi Saddar', to: 'Blue Area', label: 'Saddar ➔ Blue Area' },
+    { from: 'Bahria Town Phase 7', to: 'Blue Area', label: 'Bahria Town ➔ Blue Area' },
+    { from: 'Faizabad', to: 'Pak Secretariat', label: 'Faizabad ➔ Secretariat' },
+    { from: 'G-11 Markaz', to: 'F-8 Markaz', label: 'G-11 ➔ F-8' },
+  ],
+  Rawalpindi: [
+    { from: 'Saddar', to: 'Blue Area Islamabad', label: 'Saddar ➔ Blue Area' },
+    { from: 'Bahria Town Phase 4', to: 'Faizabad', label: 'Bahria Town ➔ Faizabad' },
+  ],
+};
 
 export default function HomePage() {
   const router = useRouter();
@@ -93,16 +123,27 @@ export default function HomePage() {
   // Active Service Tab (0: Rent a Car, 1: Hire Driver, 2: City to City, 3: Pick & Drop, 4: Movers)
   const [activeService, setActiveService] = useState<number>(0);
 
-  // Search Fields
+  // Search Fields for Cars / Rentals
   const [searchWhere, setSearchWhere] = useState('');
   const [searchPickup, setSearchPickup] = useState('');
   const [searchReturn, setSearchReturn] = useState('');
+
+  // Commuter Route Search Fields for Pick & Drop (Route-First with Intermediate Stops Matching)
+  const [shuttleCity, setShuttleCity] = useState<string>('Karachi');
+  const [shuttlePickupArea, setShuttlePickupArea] = useState<string>('');
+  const [shuttleDropArea, setShuttleDropArea] = useState<string>('');
+  const [showShuttleCityMenu, setShowShuttleCityMenu] = useState(false);
+  const [showShuttlePickupMenu, setShowShuttlePickupMenu] = useState(false);
+  const [showShuttleDropMenu, setShowShuttleDropMenu] = useState(false);
 
   // Dropdown & Input state
   const [showCityDropdown, setShowCityDropdown] = useState(false);
   const cityDropdownRef = useRef<HTMLDivElement>(null);
   const pickupDateRef = useRef<HTMLInputElement>(null);
   const returnDateRef = useRef<HTMLInputElement>(null);
+  const shuttleCityRef = useRef<HTMLDivElement>(null);
+  const shuttlePickupRef = useRef<HTMLDivElement>(null);
+  const shuttleDropRef = useRef<HTMLDivElement>(null);
 
   // Computed today's date string YYYY-MM-DD
   const todayStr = useMemo(() => {
@@ -113,11 +154,21 @@ export default function HomePage() {
     return `${year}-${month}-${day}`;
   }, []);
 
-  // Close city dropdown on click outside
+  // Close dropdowns on click outside
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
-      if (cityDropdownRef.current && !cityDropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (cityDropdownRef.current && !cityDropdownRef.current.contains(target)) {
         setShowCityDropdown(false);
+      }
+      if (shuttleCityRef.current && !shuttleCityRef.current.contains(target)) {
+        setShowShuttleCityMenu(false);
+      }
+      if (shuttlePickupRef.current && !shuttlePickupRef.current.contains(target)) {
+        setShowShuttlePickupMenu(false);
+      }
+      if (shuttleDropRef.current && !shuttleDropRef.current.contains(target)) {
+        setShowShuttleDropMenu(false);
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
@@ -598,24 +649,36 @@ export default function HomePage() {
     }).sort((a, b) => sortByFeatured(a.id, b.id));
   }, [selectedCategory, searchWhere, featuredIds]);
 
-  // 4. Real-time shuttles filter
+  // 4. Real-time shuttles filter (Supports route corridor and intermediate stops matching)
   const filteredShuttles = useMemo(() => {
     return SHUTTLES_DATA.filter((shuttle) => {
       if (selectedCategory !== 'All shuttles') {
         if (shuttle.category !== selectedCategory) return false;
       }
-      if (searchWhere.trim()) {
+      // Route matching by city, pickup stop, and drop-off stop along corridor
+      if (shuttleCity || shuttlePickupArea || shuttleDropArea) {
+        const matches = matchesShuttleRoute(
+          shuttle,
+          shuttlePickupArea,
+          shuttleDropArea,
+          shuttleCity
+        );
+        if (!matches) return false;
+      }
+      // General keyword search fallback
+      if (searchWhere.trim() && !shuttlePickupArea && !shuttleDropArea) {
         const q = searchWhere.toLowerCase().trim();
         const matchCity = shuttle.city.toLowerCase().includes(q);
         const matchFrom = shuttle.from.toLowerCase().includes(q);
         const matchTo = shuttle.to.toLowerCase().includes(q);
         const matchOp = shuttle.op.toLowerCase().includes(q);
         const matchTags = shuttle.tags.some((t) => t.toLowerCase().includes(q));
-        if (!matchCity && !matchFrom && !matchTo && !matchOp && !matchTags) return false;
+        const matchStops = (shuttle.stops || []).some((st) => st.toLowerCase().includes(q));
+        if (!matchCity && !matchFrom && !matchTo && !matchOp && !matchTags && !matchStops) return false;
       }
       return true;
     }).sort((a, b) => sortByFeatured(a.id, b.id));
-  }, [selectedCategory, searchWhere, featuredIds]);
+  }, [selectedCategory, shuttleCity, shuttlePickupArea, shuttleDropArea, searchWhere, featuredIds]);
 
   // 5. Real-time movers filter
   const filteredMovers = useMemo(() => {
@@ -810,217 +873,409 @@ export default function HomePage() {
               })}
             </div>
 
-            {/* Interactive Search Form */}
-            <form
-              onSubmit={handleSearchSubmit}
-              className="p-2 sm:p-3 md:p-4 grid grid-cols-12 gap-2 sm:gap-2.5 items-stretch"
-            >
-              {/* Field 1: Where / City Combobox with Country-Specific Dropdown & Write/Search Option */}
-              <div
-                ref={cityDropdownRef}
-                className="col-span-12 md:col-span-4 flex items-center gap-2.5 sm:gap-3 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-3 sm:px-3.5 rounded-xl sm:rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] focus-within:bg-white focus-within:border-[#0B6B4F] focus-within:ring-2 focus-within:ring-[#0B6B4F]/10 transition relative cursor-text"
+            {/* Interactive Search Form: Route-First for Pick & Drop (No Dates), Full Calendar for Rentals */}
+            {activeService === 3 ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const resultsEl = document.getElementById('listings-results') || document.getElementById('cars-results');
+                  if (resultsEl) resultsEl.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="p-2 sm:p-3 md:p-4 grid grid-cols-12 gap-2 sm:gap-2.5 items-stretch"
               >
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white border border-[#EAECF0] text-[#0B6B4F] flex items-center justify-center shrink-0 shadow-2xs">
-                  <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                </div>
-                <div className="flex-1 min-w-0 flex flex-col justify-center">
-                  <span className="text-[10px] sm:text-[11px] font-bold text-[#475467] leading-none mb-0.5 sm:mb-1">
-                    Where
-                  </span>
-                  <input
-                    type="text"
-                    placeholder={`City or area, e.g. ${availableCities[0] || 'Karachi'}`}
-                    value={searchWhere}
-                    onFocus={() => setShowCityDropdown(true)}
-                    onChange={(e) => {
-                      setSearchWhere(e.target.value);
-                      setShowCityDropdown(true);
-                    }}
-                    className="w-full border-0 outline-none p-0 text-xs sm:text-sm font-semibold text-[#101828] bg-transparent placeholder:text-slate-400"
-                  />
-                </div>
-
-                {searchWhere ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSearchWhere('');
-                      setShowCityDropdown(true);
-                    }}
-                    className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowCityDropdown(!showCityDropdown);
-                    }}
-                    className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
-                  >
-                    <ChevronDown className="w-4 h-4" />
-                  </button>
-                )}
-
-                {/* Country-Specific City Dropdown Menu */}
-                {showCityDropdown && (
-                  <div className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[280px] bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                    <div className="px-3.5 py-1.5 border-b border-slate-100 flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                      <span>Cities in {country?.name || 'Pakistan'} {country?.flag}</span>
-                      <span className="text-emerald-700 font-mono font-semibold">
-                        {filteredCities.length} found
-                      </span>
-                    </div>
-
-                    <div className="max-h-56 overflow-y-auto no-scrollbar py-1">
-                      {filteredCities.length > 0 ? (
-                        filteredCities.map((cityName) => {
-                          const isSelected =
-                            searchWhere.toLowerCase() === cityName.toLowerCase();
-                          return (
-                            <button
-                              key={cityName}
-                              type="button"
-                              onClick={() => {
-                                setSearchWhere(cityName);
-                                setShowCityDropdown(false);
-                              }}
-                              className={`w-full text-left px-3.5 py-2 text-xs sm:text-sm font-medium flex items-center justify-between hover:bg-[#F4F7F5] transition cursor-pointer ${
-                                isSelected
-                                  ? 'bg-[#E9F3EE] text-[#0B6B4F] font-bold'
-                                  : 'text-[#344054]'
-                              }`}
-                            >
-                              <span className="flex items-center gap-2.5">
-                                <MapPin className="w-3.5 h-3.5 text-[#0B6B4F]" />
-                                <span>{cityName}</span>
-                              </span>
-                              {isSelected && <Check className="w-4 h-4 text-[#0B6B4F]" />}
-                            </button>
-                          );
-                        })
-                      ) : (
-                        <div className="px-3.5 py-3 text-center text-xs text-slate-500">
-                          <p>No preset city named &ldquo;{searchWhere}&rdquo;</p>
-                          <button
-                            type="button"
-                            onClick={() => setShowCityDropdown(false)}
-                            className="mt-1.5 text-xs font-bold text-[#0B6B4F] hover:underline"
-                          >
-                            Use &ldquo;{searchWhere}&rdquo; as custom location
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {searchWhere &&
-                      filteredCities.length > 0 &&
-                      !filteredCities.some((c) => c.toLowerCase() === searchWhere.toLowerCase()) && (
-                        <div className="border-t border-slate-100 px-3.5 py-2 bg-slate-50">
-                          <button
-                            type="button"
-                            onClick={() => setShowCityDropdown(false)}
-                            className="w-full text-left text-xs font-bold text-[#0B6B4F] hover:underline flex items-center gap-1.5"
-                          >
-                            <span>Search in:</span>
-                            <span className="truncate text-slate-900">&ldquo;{searchWhere}&rdquo;</span>
-                          </button>
-                        </div>
-                      )}
-                  </div>
-                )}
-              </div>
-
-              {/* Fields 2 & 3: Compact Side-by-Side Dates on Mobile, Balanced Columns on Desktop */}
-              <div className="col-span-12 md:col-span-6 grid grid-cols-2 gap-2 md:gap-2.5">
-                {/* Pick-up Date (Calendar popup, past dates disabled) */}
+                {/* Field 1: Commute City / Hub */}
                 <div
-                  onClick={() => pickupDateRef.current?.showPicker?.() || pickupDateRef.current?.focus()}
-                  className="flex items-center gap-2 sm:gap-3 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-2.5 sm:px-3.5 rounded-xl sm:rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] cursor-pointer hover:bg-white hover:border-[#0B6B4F] focus-within:bg-white focus-within:border-[#0B6B4F] focus-within:ring-2 focus-within:ring-[#0B6B4F]/10 transition relative group"
+                  ref={shuttleCityRef}
+                  className="col-span-12 sm:col-span-6 md:col-span-3 flex items-center gap-2.5 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-3 rounded-xl sm:rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] focus-within:bg-white focus-within:border-[#0B6B4F] focus-within:ring-2 focus-within:ring-[#0B6B4F]/10 transition relative cursor-pointer"
+                  onClick={() => setShowShuttleCityMenu(!showShuttleCityMenu)}
                 >
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white border border-[#EAECF0] text-[#0B6B4F] flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition">
-                    <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white border border-[#EAECF0] text-[#0B6B4F] flex items-center justify-center shrink-0 shadow-2xs">
+                    <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </div>
                   <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    <span className="text-[10px] sm:text-[11px] font-bold text-[#475467] leading-none mb-0.5 sm:mb-1 truncate">
-                      Pick-up Date
+                    <span className="text-[10px] sm:text-[11px] font-bold text-[#475467] leading-none mb-0.5 sm:mb-1">
+                      City / Hub
+                    </span>
+                    <div className="text-xs sm:text-sm font-extrabold text-[#101828] truncate">
+                      {shuttleCity || 'Karachi'}
+                    </div>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+
+                  {/* City Dropdown */}
+                  {showShuttleCityMenu && (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[220px] bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+                    >
+                      <div className="px-3 py-1.5 border-b border-slate-100 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                        Select Commute City
+                      </div>
+                      {Object.keys(CITY_COMMUTE_AREAS).map((cityName) => (
+                        <button
+                          key={cityName}
+                          type="button"
+                          onClick={() => {
+                            setShuttleCity(cityName);
+                            setShuttlePickupArea('');
+                            setShuttleDropArea('');
+                            setShowShuttleCityMenu(false);
+                          }}
+                          className={`w-full text-left px-3.5 py-2 text-xs sm:text-sm font-bold flex items-center justify-between hover:bg-emerald-50 hover:text-[#0B6B4F] transition cursor-pointer ${
+                            shuttleCity === cityName ? 'bg-emerald-50 text-[#0B6B4F]' : 'text-slate-800'
+                          }`}
+                        >
+                          <span>{cityName}</span>
+                          {shuttleCity === cityName && <Check className="w-3.5 h-3.5 text-[#0B6B4F]" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Field 2: From (Boarding / Pick-up Area or Corridor Stop) */}
+                <div
+                  ref={shuttlePickupRef}
+                  className="col-span-12 sm:col-span-6 md:col-span-3.5 flex items-center gap-2.5 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-3 rounded-xl sm:rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] focus-within:bg-white focus-within:border-[#0B6B4F] focus-within:ring-2 focus-within:ring-[#0B6B4F]/10 transition relative cursor-text"
+                >
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white border border-[#EAECF0] text-emerald-700 flex items-center justify-center shrink-0 shadow-2xs">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
+                  </div>
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <span className="text-[10px] sm:text-[11px] font-bold text-[#475467] leading-none mb-0.5 sm:mb-1">
+                      Pick-up Area / Stop (From)
                     </span>
                     <input
-                      ref={pickupDateRef}
-                      type="date"
-                      min={todayStr}
-                      value={searchPickup}
+                      type="text"
+                      placeholder={`e.g. ${CITY_COMMUTE_AREAS[shuttleCity]?.[0] || 'Malir'}`}
+                      value={shuttlePickupArea}
+                      onFocus={() => setShowShuttlePickupMenu(true)}
                       onChange={(e) => {
-                        setSearchPickup(e.target.value);
-                        if (searchReturn && e.target.value > searchReturn) {
-                          setSearchReturn(e.target.value);
-                        }
+                        setShuttlePickupArea(e.target.value);
+                        setShowShuttlePickupMenu(true);
                       }}
-                      className="w-full border-0 outline-none p-0 text-xs sm:text-sm font-semibold text-[#101828] bg-transparent cursor-pointer"
+                      className="w-full border-0 outline-none p-0 text-xs sm:text-sm font-semibold text-[#101828] bg-transparent placeholder:text-slate-400"
                     />
                   </div>
-                  {searchPickup && (
+                  {shuttlePickupArea && (
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSearchPickup('');
-                      }}
-                      className="text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer text-xs shrink-0"
+                      onClick={() => setShuttlePickupArea('')}
+                      className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
                     >
-                      <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                      <X className="w-3.5 h-3.5" />
                     </button>
+                  )}
+
+                  {/* Pickup Suggestions */}
+                  {showShuttlePickupMenu && (
+                    <div className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[260px] max-h-60 overflow-y-auto no-scrollbar bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                      <div className="px-3 py-1.5 border-b border-slate-100 flex items-center justify-between text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                        <span>{shuttleCity} Areas & Corridor Stops</span>
+                        <span className="text-emerald-700 font-mono font-bold">Sub-route support</span>
+                      </div>
+                      {(CITY_COMMUTE_AREAS[shuttleCity] || CITY_COMMUTE_AREAS['Karachi'])
+                        .filter((area) => !shuttlePickupArea || area.toLowerCase().includes(shuttlePickupArea.toLowerCase()))
+                        .map((area) => (
+                          <button
+                            key={area}
+                            type="button"
+                            onClick={() => {
+                              setShuttlePickupArea(area);
+                              setShowShuttlePickupMenu(false);
+                            }}
+                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-800 hover:bg-emerald-50 hover:text-[#0B6B4F] transition flex items-center gap-2 cursor-pointer"
+                          >
+                            <MapPin className="w-3 h-3 text-slate-400" />
+                            <span className="truncate">{area}</span>
+                          </button>
+                        ))}
+                    </div>
                   )}
                 </div>
 
-                {/* Return Date (Calendar popup, past dates disabled) */}
+                {/* Field 3: To (Drop-off Area / Institution / Destination) */}
                 <div
-                  onClick={() => returnDateRef.current?.showPicker?.() || returnDateRef.current?.focus()}
-                  className="flex items-center gap-2 sm:gap-3 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-2.5 sm:px-3.5 rounded-xl sm:rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] cursor-pointer hover:bg-white hover:border-[#0B6B4F] focus-within:bg-white focus-within:border-[#0B6B4F] focus-within:ring-2 focus-within:ring-[#0B6B4F]/10 transition relative group"
+                  ref={shuttleDropRef}
+                  className="col-span-12 sm:col-span-6 md:col-span-3.5 flex items-center gap-2.5 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-3 rounded-xl sm:rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] focus-within:bg-white focus-within:border-[#0B6B4F] focus-within:ring-2 focus-within:ring-[#0B6B4F]/10 transition relative cursor-text"
                 >
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white border border-[#EAECF0] text-[#0B6B4F] flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition">
-                    <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white border border-[#EAECF0] text-purple-700 flex items-center justify-center shrink-0 shadow-2xs">
+                    <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-700" />
                   </div>
                   <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    <span className="text-[10px] sm:text-[11px] font-bold text-[#475467] leading-none mb-0.5 sm:mb-1 truncate">
-                      Return Date
+                    <span className="text-[10px] sm:text-[11px] font-bold text-[#475467] leading-none mb-0.5 sm:mb-1">
+                      Drop-off Area / Institution (To)
                     </span>
                     <input
-                      ref={returnDateRef}
-                      type="date"
-                      min={searchPickup || todayStr}
-                      value={searchReturn}
-                      onChange={(e) => setSearchReturn(e.target.value)}
-                      className="w-full border-0 outline-none p-0 text-xs sm:text-sm font-semibold text-[#101828] bg-transparent cursor-pointer"
+                      type="text"
+                      placeholder={`e.g. ${CITY_COMMUTE_AREAS[shuttleCity]?.[1] || 'Clifton'}`}
+                      value={shuttleDropArea}
+                      onFocus={() => setShowShuttleDropMenu(true)}
+                      onChange={(e) => {
+                        setShuttleDropArea(e.target.value);
+                        setShowShuttleDropMenu(true);
+                      }}
+                      className="w-full border-0 outline-none p-0 text-xs sm:text-sm font-semibold text-[#101828] bg-transparent placeholder:text-slate-400"
                     />
                   </div>
-                  {searchReturn && (
+                  {shuttleDropArea && (
+                    <button
+                      type="button"
+                      onClick={() => setShuttleDropArea('')}
+                      className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+
+                  {/* Drop-off Suggestions */}
+                  {showShuttleDropMenu && (
+                    <div className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[260px] max-h-60 overflow-y-auto no-scrollbar bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                      <div className="px-3 py-1.5 border-b border-slate-100 flex items-center justify-between text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                        <span>{shuttleCity} Drop-offs & Hubs</span>
+                        <span className="text-purple-700 font-mono font-bold">Sub-route support</span>
+                      </div>
+                      {(CITY_COMMUTE_AREAS[shuttleCity] || CITY_COMMUTE_AREAS['Karachi'])
+                        .filter((area) => !shuttleDropArea || area.toLowerCase().includes(shuttleDropArea.toLowerCase()))
+                        .map((area) => (
+                          <button
+                            key={area}
+                            type="button"
+                            onClick={() => {
+                              setShuttleDropArea(area);
+                              setShowShuttleDropMenu(false);
+                            }}
+                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-800 hover:bg-purple-50 hover:text-purple-800 transition flex items-center gap-2 cursor-pointer"
+                          >
+                            <MapPin className="w-3 h-3 text-slate-400" />
+                            <span className="truncate">{area}</span>
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Find Routes Button */}
+                <button
+                  type="submit"
+                  className="col-span-12 sm:col-span-6 md:col-span-2 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-4 rounded-xl sm:rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] active:scale-[0.99] text-white font-extrabold text-xs sm:text-sm md:text-base flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition cursor-pointer"
+                >
+                  <Search className="w-4 h-4 shrink-0" />
+                  <span>Find routes</span>
+                </button>
+              </form>
+            ) : (
+              <form
+                onSubmit={handleSearchSubmit}
+                className="p-2 sm:p-3 md:p-4 grid grid-cols-12 gap-2 sm:gap-2.5 items-stretch"
+              >
+                {/* Field 1: Where / City Combobox with Country-Specific Dropdown & Write/Search Option */}
+                <div
+                  ref={cityDropdownRef}
+                  className="col-span-12 md:col-span-4 flex items-center gap-2.5 sm:gap-3 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-3 sm:px-3.5 rounded-xl sm:rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] focus-within:bg-white focus-within:border-[#0B6B4F] focus-within:ring-2 focus-within:ring-[#0B6B4F]/10 transition relative cursor-text"
+                >
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white border border-[#EAECF0] text-[#0B6B4F] flex items-center justify-center shrink-0 shadow-2xs">
+                    <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <span className="text-[10px] sm:text-[11px] font-bold text-[#475467] leading-none mb-0.5 sm:mb-1">
+                      Where
+                    </span>
+                    <input
+                      type="text"
+                      placeholder={`City or area, e.g. ${availableCities[0] || 'Karachi'}`}
+                      value={searchWhere}
+                      onFocus={() => setShowCityDropdown(true)}
+                      onChange={(e) => {
+                        setSearchWhere(e.target.value);
+                        setShowCityDropdown(true);
+                      }}
+                      className="w-full border-0 outline-none p-0 text-xs sm:text-sm font-semibold text-[#101828] bg-transparent placeholder:text-slate-400"
+                    />
+                  </div>
+
+                  {searchWhere ? (
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setSearchReturn('');
+                        setSearchWhere('');
+                        setShowCityDropdown(true);
                       }}
-                      className="text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer text-xs shrink-0"
+                      className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
                     >
-                      <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowCityDropdown(!showCityDropdown);
+                      }}
+                      className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
+                    >
+                      <ChevronDown className="w-4 h-4" />
                     </button>
                   )}
-                </div>
-              </div>
 
-              {/* Submit Button */}
-              <button
-                type="submit"
-                className="col-span-12 md:col-span-2 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-4 sm:px-6 rounded-xl sm:rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] active:scale-[0.99] text-white font-extrabold text-xs sm:text-sm md:text-base flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition cursor-pointer"
-              >
-                <Search className="w-4 h-4 shrink-0" />
-                <span>{currentService.go}</span>
-              </button>
-            </form>
+                  {/* Country-Specific City Dropdown Menu */}
+                  {showCityDropdown && (
+                    <div className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[280px] bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                      <div className="px-3.5 py-1.5 border-b border-slate-100 flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        <span>Cities in {country?.name || 'Pakistan'} {country?.flag}</span>
+                        <span className="text-emerald-700 font-mono font-semibold">
+                          {filteredCities.length} found
+                        </span>
+                      </div>
+
+                      <div className="max-h-56 overflow-y-auto no-scrollbar py-1">
+                        {filteredCities.length > 0 ? (
+                          filteredCities.map((cityName) => {
+                            const isSelected =
+                              searchWhere.toLowerCase() === cityName.toLowerCase();
+                            return (
+                              <button
+                                key={cityName}
+                                type="button"
+                                onClick={() => {
+                                  setSearchWhere(cityName);
+                                  setShowCityDropdown(false);
+                                }}
+                                className={`w-full text-left px-3.5 py-2 text-xs sm:text-sm font-medium flex items-center justify-between hover:bg-[#F4F7F5] transition cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-[#E9F3EE] text-[#0B6B4F] font-bold'
+                                    : 'text-[#344054]'
+                                }`}
+                              >
+                                <span className="flex items-center gap-2.5">
+                                  <MapPin className="w-3.5 h-3.5 text-[#0B6B4F]" />
+                                  <span>{cityName}</span>
+                                </span>
+                                {isSelected && <Check className="w-4 h-4 text-[#0B6B4F]" />}
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <div className="px-3.5 py-3 text-center text-xs text-slate-500">
+                            <p>No preset city named &ldquo;{searchWhere}&rdquo;</p>
+                            <button
+                              type="button"
+                              onClick={() => setShowCityDropdown(false)}
+                              className="mt-1.5 text-xs font-bold text-[#0B6B4F] hover:underline"
+                            >
+                              Use &ldquo;{searchWhere}&rdquo; as custom location
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {searchWhere &&
+                        filteredCities.length > 0 &&
+                        !filteredCities.some((c) => c.toLowerCase() === searchWhere.toLowerCase()) && (
+                          <div className="border-t border-slate-100 px-3.5 py-2 bg-slate-50">
+                            <button
+                              type="button"
+                              onClick={() => setShowCityDropdown(false)}
+                              className="w-full text-left text-xs font-bold text-[#0B6B4F] hover:underline flex items-center gap-1.5"
+                            >
+                              <span>Search in:</span>
+                              <span className="truncate text-slate-900">&ldquo;{searchWhere}&rdquo;</span>
+                            </button>
+                          </div>
+                        )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Fields 2 & 3: Compact Side-by-Side Dates on Mobile, Balanced Columns on Desktop */}
+                <div className="col-span-12 md:col-span-6 grid grid-cols-2 gap-2 md:gap-2.5">
+                  {/* Pick-up Date (Calendar popup, past dates disabled) */}
+                  <div
+                    onClick={() => pickupDateRef.current?.showPicker?.() || pickupDateRef.current?.focus()}
+                    className="flex items-center gap-2 sm:gap-3 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-2.5 sm:px-3.5 rounded-xl sm:rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] cursor-pointer hover:bg-white hover:border-[#0B6B4F] focus-within:bg-white focus-within:border-[#0B6B4F] focus-within:ring-2 focus-within:ring-[#0B6B4F]/10 transition relative group"
+                  >
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white border border-[#EAECF0] text-[#0B6B4F] flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition">
+                      <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                      <span className="text-[10px] sm:text-[11px] font-bold text-[#475467] leading-none mb-0.5 sm:mb-1 truncate">
+                        Pick-up Date
+                      </span>
+                      <input
+                        ref={pickupDateRef}
+                        type="date"
+                        min={todayStr}
+                        value={searchPickup}
+                        onChange={(e) => {
+                          setSearchPickup(e.target.value);
+                          if (searchReturn && e.target.value > searchReturn) {
+                            setSearchReturn(e.target.value);
+                          }
+                        }}
+                        className="w-full border-0 outline-none p-0 text-xs sm:text-sm font-semibold text-[#101828] bg-transparent cursor-pointer"
+                      />
+                    </div>
+                    {searchPickup && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSearchPickup('');
+                        }}
+                        className="text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer text-xs shrink-0"
+                      >
+                        <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Return Date (Calendar popup, past dates disabled) */}
+                  <div
+                    onClick={() => returnDateRef.current?.showPicker?.() || returnDateRef.current?.focus()}
+                    className="flex items-center gap-2 sm:gap-3 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-2.5 sm:px-3.5 rounded-xl sm:rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] cursor-pointer hover:bg-white hover:border-[#0B6B4F] focus-within:bg-white focus-within:border-[#0B6B4F] focus-within:ring-2 focus-within:ring-[#0B6B4F]/10 transition relative group"
+                  >
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white border border-[#EAECF0] text-[#0B6B4F] flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition">
+                      <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                      <span className="text-[10px] sm:text-[11px] font-bold text-[#475467] leading-none mb-0.5 sm:mb-1 truncate">
+                        Return Date
+                      </span>
+                      <input
+                        ref={returnDateRef}
+                        type="date"
+                        min={searchPickup || todayStr}
+                        value={searchReturn}
+                        onChange={(e) => setSearchReturn(e.target.value)}
+                        className="w-full border-0 outline-none p-0 text-xs sm:text-sm font-semibold text-[#101828] bg-transparent cursor-pointer"
+                      />
+                    </div>
+                    {searchReturn && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSearchReturn('');
+                        }}
+                        className="text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer text-xs shrink-0"
+                      >
+                        <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  className="col-span-12 md:col-span-2 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-4 sm:px-6 rounded-xl sm:rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] active:scale-[0.99] text-white font-extrabold text-xs sm:text-sm md:text-base flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition cursor-pointer"
+                >
+                  <Search className="w-4 h-4 shrink-0" />
+                  <span>{currentService.go}</span>
+                </button>
+              </form>
+            )}
 
             {/* Hint bar */}
             <div className="flex items-center gap-2 px-3.5 sm:px-5 pb-3 sm:pb-3.5 text-[11px] sm:text-xs text-[#475467]">
@@ -1029,40 +1284,86 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Popular Cities in Active Country (Single-row clean scroll on mobile) */}
-          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-0.5 text-xs sm:text-sm -mx-1 px-1 flex-nowrap">
-            <span className="text-[#475467] font-semibold shrink-0 text-xs sm:text-sm">Popular:</span>
-            {availableCities.slice(0, 6).map((cityName) => (
-              <button
-                key={cityName}
-                type="button"
-                onClick={() => {
-                  setSearchWhere(cityName);
-                  setVisibleCount(60);
-                }}
-                className={`px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full border transition cursor-pointer font-semibold shrink-0 text-xs ${
-                  searchWhere.toLowerCase() === cityName.toLowerCase()
-                    ? 'bg-[#0B6B4F] text-white border-[#0B6B4F] shadow-xs'
-                    : 'bg-white border-[#E4E7EC] text-[#344054] hover:border-slate-400'
-                }`}
-              >
-                {cityName}
-              </button>
-            ))}
-            {searchWhere && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchWhere('');
-                  setVisibleCount(60);
-                }}
-                className="px-2.5 py-1 rounded-full text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-1 transition shrink-0"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>Reset</span>
-              </button>
-            )}
-          </div>
+          {/* Popular Cities in Active Country OR Commuter Corridors when activeService === 3 */}
+          {activeService === 3 ? (
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-0.5 text-xs sm:text-sm -mx-1 px-1 flex-nowrap">
+              <span className="text-[#0B6B4F] font-bold shrink-0 text-xs sm:text-sm flex items-center gap-1">
+                <Navigation className="w-3.5 h-3.5" />
+                <span>Popular {shuttleCity} Corridors:</span>
+              </span>
+              {(POPULAR_COMMUTE_CORRIDORS[shuttleCity] || POPULAR_COMMUTE_CORRIDORS['Karachi']).map((corr) => {
+                const active =
+                  shuttlePickupArea.toLowerCase().includes(corr.from.toLowerCase()) &&
+                  shuttleDropArea.toLowerCase().includes(corr.to.toLowerCase());
+                return (
+                  <button
+                    key={corr.label}
+                    type="button"
+                    onClick={() => {
+                      setShuttlePickupArea(corr.from);
+                      setShuttleDropArea(corr.to);
+                      setVisibleCount(60);
+                    }}
+                    className={`px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full border transition cursor-pointer font-bold shrink-0 text-xs ${
+                      active
+                        ? 'bg-[#0B6B4F] text-white border-[#0B6B4F] shadow-xs'
+                        : 'bg-white border-[#E4E7EC] text-[#344054] hover:border-emerald-600 hover:text-emerald-700'
+                    }`}
+                  >
+                    {corr.label}
+                  </button>
+                );
+              })}
+              {(shuttlePickupArea || shuttleDropArea) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShuttlePickupArea('');
+                    setShuttleDropArea('');
+                    setVisibleCount(60);
+                  }}
+                  className="px-2.5 py-1 rounded-full text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-1 transition shrink-0 cursor-pointer"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Clear Corridor</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-0.5 text-xs sm:text-sm -mx-1 px-1 flex-nowrap">
+              <span className="text-[#475467] font-semibold shrink-0 text-xs sm:text-sm">Popular:</span>
+              {availableCities.slice(0, 6).map((cityName) => (
+                <button
+                  key={cityName}
+                  type="button"
+                  onClick={() => {
+                    setSearchWhere(cityName);
+                    setVisibleCount(60);
+                  }}
+                  className={`px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full border transition cursor-pointer font-semibold shrink-0 text-xs ${
+                    searchWhere.toLowerCase() === cityName.toLowerCase()
+                      ? 'bg-[#0B6B4F] text-white border-[#0B6B4F] shadow-xs'
+                      : 'bg-white border-[#E4E7EC] text-[#344054] hover:border-slate-400'
+                  }`}
+                >
+                  {cityName}
+                </button>
+              ))}
+              {searchWhere && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchWhere('');
+                    setVisibleCount(60);
+                  }}
+                  className="px-2.5 py-1 rounded-full text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-1 transition shrink-0"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Reset</span>
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Mobile App Quick Trust & Benefit Bar (Replaces 400px of giant text cards on mobile) */}
           <div className="md:hidden grid grid-cols-3 gap-1.5 p-2 rounded-2xl bg-white border border-[#EEF0F2] shadow-2xs">
@@ -1742,6 +2043,48 @@ export default function HomePage() {
                             <span className="font-bold text-[#0B6B4F]">{shuttle.days}</span>
                           </div>
                         </div>
+
+                        {/* Route Corridor & Intermediate Stops Preview */}
+                        {shuttle.stops && shuttle.stops.length > 0 && (
+                          <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl p-2.5 flex flex-col gap-1.5">
+                            <div className="flex items-center justify-between text-[11px] font-bold text-emerald-900">
+                              <span className="flex items-center gap-1">
+                                <Navigation className="w-3 h-3 text-emerald-700" />
+                                <span>Corridor: {shuttle.stops.length} Intermediate Stops</span>
+                              </span>
+                              <span className="text-[10px] text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold">
+                                Board anywhere
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-600 leading-snug">
+                              <span className="font-bold text-slate-900">{shuttle.from}</span>
+                              <span className="text-emerald-700 font-bold mx-1">➔</span>
+                              {shuttle.stops.map((stop, i) => {
+                                const isHighlight =
+                                  (shuttlePickupArea && stop.toLowerCase().includes(shuttlePickupArea.toLowerCase())) ||
+                                  (shuttleDropArea && stop.toLowerCase().includes(shuttleDropArea.toLowerCase()));
+                                return (
+                                  <React.Fragment key={i}>
+                                    <span
+                                      className={
+                                        isHighlight
+                                          ? 'font-black text-emerald-900 bg-emerald-200/90 px-1 py-0.5 rounded shadow-2xs'
+                                          : 'font-medium text-slate-700'
+                                      }
+                                    >
+                                      {stop}
+                                    </span>
+                                    {i < shuttle.stops!.length - 1 && (
+                                      <span className="text-slate-400 mx-1">➔</span>
+                                    )}
+                                  </React.Fragment>
+                                );
+                              })}
+                              <span className="text-emerald-700 font-bold mx-1">➔</span>
+                              <span className="font-bold text-slate-900">{shuttle.to}</span>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Monthly Fare */}
                         <div className="flex justify-between items-baseline px-1">

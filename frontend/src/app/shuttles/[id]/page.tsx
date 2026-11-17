@@ -263,6 +263,80 @@ export default function ShuttleDetailPage() {
               </div>
             </div>
 
+            {/* Commuter Route Corridor & Intermediate Stops Timeline */}
+            <div className="p-6 border border-slate-200/80 rounded-3xl bg-white space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h2 className="font-heading font-bold text-lg text-slate-900 flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-emerald-700" />
+                  <span>Route Corridor & Intermediate Stops</span>
+                </h2>
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                  {shuttle.stops?.length || 0} Intermediate Stops
+                </span>
+              </div>
+
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                This commuter route operates on a fixed corridor through {shuttle.city}. You can reserve a seat from origin to destination, or for any in-between sub-route.
+              </p>
+
+              {/* Visual Vertical Timeline of Corridor */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col gap-3">
+                {/* 1. Origin Stop */}
+                <div className="flex items-start gap-3">
+                  <div className="flex flex-col items-center">
+                    <span className="w-3.5 h-3.5 rounded-full bg-emerald-600 border-2 border-white shadow-xs shrink-0" />
+                    <span className="w-0.5 h-6 bg-slate-300" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-emerald-700 tracking-wider block">
+                      Start / First Pickup
+                    </span>
+                    <span className="font-bold text-sm text-slate-900">{shuttle.from}</span>
+                    <span className="text-xs text-slate-500 ml-2">({shuttle.pick})</span>
+                  </div>
+                </div>
+
+                {/* 2. Intermediate Waypoints */}
+                {shuttle.stops && shuttle.stops.length > 0 && (
+                  shuttle.stops.map((stop, idx) => (
+                    <div key={idx} className="flex items-start gap-3">
+                      <div className="flex flex-col items-center">
+                        <span className="w-2.5 h-2.5 rounded-full bg-purple-600 border-2 border-white shadow-2xs shrink-0" />
+                        <span className="w-0.5 h-6 bg-slate-300" />
+                      </div>
+                      <div className="flex items-center justify-between flex-1 flex-wrap gap-1">
+                        <div>
+                          <span className="text-[10px] font-bold text-purple-700 uppercase block">
+                            Corridor Stop #{idx + 1}
+                          </span>
+                          <span className="font-semibold text-xs sm:text-sm text-slate-800">
+                            {stop}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-semibold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
+                          Boarding / Drop-off Point
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
+
+                {/* 3. Destination Stop */}
+                <div className="flex items-start gap-3">
+                  <div className="flex flex-col items-center">
+                    <span className="w-3.5 h-3.5 rounded-full bg-purple-800 border-2 border-white shadow-xs shrink-0" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-purple-800 tracking-wider block">
+                      Final Destination / Hub
+                    </span>
+                    <span className="font-bold text-sm text-slate-900">{shuttle.to}</span>
+                    <span className="text-xs text-slate-500 ml-2">(Return departure: {shuttle.back})</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Inclusions & Features */}
             <div className="p-6 border border-slate-200/80 rounded-3xl bg-white space-y-4">
               <h2 className="font-heading font-bold text-lg text-slate-900">
