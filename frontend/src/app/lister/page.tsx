@@ -39,9 +39,6 @@ import {
   Receipt,
   ChevronDown,
   ChevronUp,
-  Receipt,
-  ChevronDown,
-  ChevronUp,
 } from 'lucide-react';
 import { API_BASE, formatPKR, maskCnic, maskLicense, maskPhone } from '@/lib/api';
 import { SubscriptionPricingSection } from '@/components/SubscriptionPricingSection';

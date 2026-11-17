@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -49,6 +50,7 @@ export function AppHeader({
     setCurrency: ctxSetCurrency,
   } = useCountry();
   const [activeUser, setActiveUserState] = useState<RegisteredUser | null>(null);
+  const [mounted, setMounted] = useState(false);
   const [showCountryMenu, setShowCountryMenu] = useState(false);
   const [showCurrencyMenu, setShowCurrencyMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -76,6 +78,7 @@ export function AppHeader({
 
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('touchstart', handleClickOutside);
+    setMounted(true);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('touchstart', handleClickOutside);
@@ -226,7 +229,8 @@ export function AppHeader({
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs font-sans transition-all">
+    <>
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs font-sans transition-all">
       {/* ========================================================================= */}
       {/* 1. DESKTOP HEADER (Screens md and above)                                 */}
       {/* ========================================================================= */}
@@ -614,24 +618,33 @@ export function AppHeader({
           )}
         </div>
       </div>
+    </header>
 
-      {/* ========================================================================= */}
-      {/* 3. MOBILE SLIDING DRAWER (Glassmorphic Left Panel)                       */}
-      {/* ========================================================================= */}
-      {mobileDrawerOpen && (
+    {/* ========================================================================= */}
+    {/* 3. MOBILE SLIDING DRAWER (Portal to document.body, Full Viewport, Solid) */}
+    {/* ========================================================================= */}
+    {mounted && createPortal(
+      <div className={`md:hidden ${mobileDrawerOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
+        {/* Dark Backdrop Overlay */}
         <div
-          className="fixed inset-0 bg-black/45 backdrop-blur-xs z-50 md:hidden animate-in fade-in duration-200"
+          className={`fixed inset-0 bg-black/60 backdrop-blur-xs z-[99998] transition-opacity duration-300 ease-in-out ${
+            mobileDrawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
           onClick={() => setMobileDrawerOpen(false)}
+          aria-hidden="true"
         />
-      )}
 
-      <div
-        className={`fixed inset-y-0 left-0 w-[86vw] max-w-[340px] z-50 bg-white/95 backdrop-blur-2xl border-r border-slate-200/80 shadow-2xl flex flex-col md:hidden transition-transform duration-300 ease-out ${
-          mobileDrawerOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
-        {/* Drawer Header with Logo & Close Button */}
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/60">
+        {/* Solid White Sliding Drawer Panel */}
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Navigation Menu"
+          className={`fixed inset-y-0 left-0 w-[86vw] max-w-[340px] z-[99999] bg-white border-r border-slate-200 shadow-2xl flex flex-col transition-transform duration-300 ease-out transform ${
+            mobileDrawerOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
+          {/* Drawer Header with Logo & Close Button */}
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/80">
           <Link
             href="/"
             onClick={() => setMobileDrawerOpen(false)}
@@ -942,6 +955,9 @@ export function AppHeader({
           </a>
         </div>
       </div>
-    </header>
-  );
+    </div>,
+    document.body
+  )}
+</>
+);
 }
