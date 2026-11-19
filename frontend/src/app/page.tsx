@@ -574,15 +574,36 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('safarpk_saved_items');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          setSavedIds(parsed.map((item: any) => item.id || item));
+    const syncSaved = () => {
+      try {
+        const ids = new Set<string>();
+        const raw = localStorage.getItem('safarpk_saved_items');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            parsed.forEach((item: any) => ids.add(item.id || item));
+          }
         }
-      }
-    } catch (e) {}
+        const rawVehicles = localStorage.getItem('safarpk_saved_vehicles');
+        if (rawVehicles) {
+          const parsedVehicles = JSON.parse(rawVehicles);
+          if (Array.isArray(parsedVehicles)) {
+            parsedVehicles.forEach((id: string) => ids.add(id));
+          }
+        }
+        setSavedIds(Array.from(ids));
+      } catch (e) {}
+    };
+
+    syncSaved();
+    window.addEventListener('safarpk_saved_updated', syncSaved);
+    window.addEventListener('safarpk_favorites_updated', syncSaved);
+    window.addEventListener('storage', syncSaved);
+    return () => {
+      window.removeEventListener('safarpk_saved_updated', syncSaved);
+      window.removeEventListener('safarpk_favorites_updated', syncSaved);
+      window.removeEventListener('storage', syncSaved);
+    };
   }, []);
 
   const toggleSave = (car: VehicleCardItem) => {
@@ -613,7 +634,9 @@ export default function HomePage() {
       }
       setSavedIds(updated);
       localStorage.setItem('safarpk_saved_items', JSON.stringify(storedList));
+      localStorage.setItem('safarpk_saved_vehicles', JSON.stringify(updated));
       window.dispatchEvent(new Event('safarpk_saved_updated'));
+      window.dispatchEvent(new Event('safarpk_favorites_updated'));
     } catch (e) {}
   };
 
@@ -943,7 +966,7 @@ export default function HomePage() {
           </div>
 
           {/* Search Card Container */}
-          <div className="relative bg-white border border-[#E4E7EC] rounded-2xl sm:rounded-3xl shadow-[0_2px_4px_rgba(16,24,40,0.04),0_20px_48px_rgba(16,24,40,0.10)] overflow-visible z-30">
+          <div className="relative bg-white border border-[#E4E7EC] rounded-2xl sm:rounded-3xl shadow-[0_2px_4px_rgba(16,24,40,0.04),0_20px_48px_rgba(16,24,40,0.10)] overflow-visible z-40">
             {/* Mobile 5-Service Compact Segmented Selector (All 5 options visible at a glance without cutoff) */}
             <div className="md:hidden p-1 bg-[#F4F6F8] rounded-xl sm:rounded-2xl m-1 sm:m-1.5 border border-[#EEF0F2]">
               <div
@@ -1039,7 +1062,7 @@ export default function HomePage() {
                   {showShuttleCityMenu && (
                     <div
                       onClick={(e) => e.stopPropagation()}
-                      className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[220px] bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+                      className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[220px] bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-1.5 z-[999] animate-in fade-in slide-in-from-top-2 duration-150"
                     >
                       <div className="px-3 py-1.5 border-b border-slate-100 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
                         Select Commute City
@@ -1102,7 +1125,7 @@ export default function HomePage() {
 
                   {/* Pickup Suggestions */}
                   {showShuttlePickupMenu && (
-                    <div className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[260px] max-h-60 overflow-y-auto no-scrollbar bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[260px] max-h-60 overflow-y-auto no-scrollbar bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-1.5 z-[999] animate-in fade-in slide-in-from-top-2 duration-150">
                       <div className="px-3 py-1.5 border-b border-slate-100 flex items-center justify-between text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
                         <span>{shuttleCity} Areas & Corridor Stops</span>
                         <span className="text-emerald-700 font-mono font-bold">Sub-route support</span>
@@ -1163,7 +1186,7 @@ export default function HomePage() {
 
                   {/* Drop-off Suggestions */}
                   {showShuttleDropMenu && (
-                    <div className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[260px] max-h-60 overflow-y-auto no-scrollbar bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[260px] max-h-60 overflow-y-auto no-scrollbar bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-1.5 z-[999] animate-in fade-in slide-in-from-top-2 duration-150">
                       <div className="px-3 py-1.5 border-b border-slate-100 flex items-center justify-between text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
                         <span>{shuttleCity} Drop-offs & Hubs</span>
                         <span className="text-purple-700 font-mono font-bold">Sub-route support</span>
@@ -1257,7 +1280,7 @@ export default function HomePage() {
 
                   {/* Mover City Menu */}
                   {showMoverCityMenu && (
-                    <div className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[280px] bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[280px] bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-2 z-[999] animate-in fade-in slide-in-from-top-2 duration-150">
                       <div className="px-3.5 py-1.5 border-b border-slate-100 flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                         <span>Cities in {country?.name || 'Pakistan'} {country?.flag}</span>
                         <span className="text-emerald-700 font-mono font-semibold">{filteredCities.length} found</span>
@@ -1351,7 +1374,7 @@ export default function HomePage() {
                   {showMoverTruckMenu && (
                     <div
                       onClick={(e) => e.stopPropagation()}
-                      className="absolute top-[calc(100%+8px)] right-0 sm:left-0 w-full min-w-[260px] max-w-[320px] bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+                      className="absolute top-[calc(100%+8px)] right-0 sm:left-0 w-full min-w-[260px] max-w-[320px] bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-2 z-[999] animate-in fade-in slide-in-from-top-2 duration-150"
                     >
                       <div className="px-3.5 py-1.5 border-b border-slate-100 flex items-center justify-between text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
                         <span>Select Vehicle / Load Size</span>
@@ -1451,7 +1474,7 @@ export default function HomePage() {
 
                   {/* From City Dropdown */}
                   {showC2cFromMenu && (
-                    <div className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[260px] max-h-60 overflow-y-auto no-scrollbar bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[260px] max-h-60 overflow-y-auto no-scrollbar bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-1.5 z-[999] animate-in fade-in slide-in-from-top-2 duration-150">
                       <div className="px-3 py-1.5 border-b border-slate-100 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
                         Select Departure City
                       </div>
@@ -1511,7 +1534,7 @@ export default function HomePage() {
 
                   {/* To City Dropdown */}
                   {showC2cToMenu && (
-                    <div className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[260px] max-h-60 overflow-y-auto no-scrollbar bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[260px] max-h-60 overflow-y-auto no-scrollbar bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-1.5 z-[999] animate-in fade-in slide-in-from-top-2 duration-150">
                       <div className="px-3 py-1.5 border-b border-slate-100 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
                         Select Destination City
                       </div>
@@ -1597,7 +1620,7 @@ export default function HomePage() {
                   {showC2cTypeMenu && (
                     <div
                       onClick={(e) => e.stopPropagation()}
-                      className="absolute top-[calc(100%+8px)] right-0 w-full min-w-[240px] bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+                      className="absolute top-[calc(100%+8px)] right-0 w-full min-w-[240px] bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-1.5 z-[999] animate-in fade-in slide-in-from-top-2 duration-150"
                     >
                       <div className="px-3.5 py-1.5 border-b border-slate-100 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
                         Select Booking Option
@@ -1695,7 +1718,7 @@ export default function HomePage() {
 
                   {/* Country-Specific City Dropdown Menu */}
                   {showCityDropdown && (
-                    <div className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[280px] bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[280px] bg-white border border-[#E4E7EC] rounded-2xl shadow-2xl py-2 z-[999] animate-in fade-in slide-in-from-top-2 duration-150">
                       <div className="px-3.5 py-1.5 border-b border-slate-100 flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                         <span>Cities in {country?.name || 'Pakistan'} {country?.flag}</span>
                         <span className="text-emerald-700 font-mono font-semibold">

@@ -63,303 +63,239 @@ function MobileNavBarContent() {
 
   const currentTab = runtimeTab || searchParams.get('tab') || 'overview';
 
-  // Generate dynamic tabs based strictly on user authentication status and role
+  // Generate dynamic tabs based strictly on user authentication status, role, and current screen route
   const getTabs = (): NavTabItem[] => {
-    // 1. GUEST / LOGGED OUT USER
-    if (!activeUser) {
+    // 1. ADMIN / SUPER ADMIN VIEW (/admin, /admin/console, etc. - Matching Page 42)
+    if (pathname.startsWith('/admin') || activeUser?.role === 'SUPER_ADMIN') {
+      const isConsole = pathname === '/admin/console' || currentTab === 'directory' || currentTab === 'modules';
+      const isApprovals = currentTab === 'plans';
+      const isHome = (pathname === '/admin' && (currentTab === 'overview' || (!searchParams.get('tab') && !runtimeTab))) && !isConsole && !isApprovals;
+
       return [
         {
           label: 'Home',
-          href: '/',
+          href: '/admin?tab=overview',
           icon: Home,
-          isActive: pathname === '/' || pathname.startsWith('/listing'),
-        },
-        {
-          label: 'Saved',
-          href: '/saved',
-          icon: Heart,
-          isActive: pathname === '/saved',
-        },
-        {
-          label: 'Bookings',
-          href: '/login',
-          icon: CalendarCheck,
-          isActive: pathname === '/customer',
-        },
-        {
-          label: 'Inbox',
-          href: '/inbox',
-          icon: MessageSquare,
-          isActive: pathname === '/inbox',
-        },
-        {
-          label: 'Account',
-          href: '/login',
-          icon: User,
-          isActive: pathname === '/login',
-        },
-      ];
-    }
-
-    const role = (activeUser.role || '').toUpperCase();
-
-    // 2. LOGGED IN CAR RENTAL LISTER / HOST
-    if (role === 'LISTER') {
-      const isLister = pathname === '/lister';
-      return [
-        {
-          label: 'Dashboard',
-          href: '/lister?tab=overview',
-          icon: LayoutDashboard,
-          isActive: isLister && (currentTab === 'overview' || (!searchParams.get('tab') && !runtimeTab)),
+          isActive: isHome,
           tabKey: 'overview',
         },
         {
-          label: 'My Fleet',
-          href: '/lister?tab=fleet',
-          icon: Car,
-          isActive: isLister && currentTab === 'fleet',
-          tabKey: 'fleet',
-        },
-        {
-          label: '+ Add Car',
-          href: '/lister?tab=add_vehicle',
-          icon: PlusCircle,
-          isAction: true,
-          isActive: isLister && currentTab === 'add_vehicle',
-          tabKey: 'add_vehicle',
-        },
-        {
-          label: 'Bookings',
-          href: '/lister?tab=requests',
-          icon: CalendarCheck,
-          isActive: isLister && currentTab === 'requests',
-          tabKey: 'requests',
-        },
-        {
-          label: 'Inbox',
-          href: '/inbox',
-          icon: MessageSquare,
-          isActive: pathname === '/inbox',
-        },
-      ];
-    }
-
-    // 3. LOGGED IN CITY TO CITY OPERATOR
-    if (role === 'PROVIDER' && activeUser.providerSubtype === 'CITY_TO_CITY') {
-      const isIntercity = pathname === '/intercity';
-      return [
-        {
-          label: 'Routes',
-          href: '/intercity?tab=routes',
-          icon: Navigation,
-          isActive: isIntercity && (currentTab === 'routes' || (!searchParams.get('tab') && !runtimeTab)),
-          tabKey: 'routes',
-        },
-        {
-          label: 'Requests',
-          href: '/intercity?tab=inquiries',
-          icon: Users,
-          isActive: isIntercity && currentTab === 'inquiries',
-          tabKey: 'inquiries',
-        },
-        {
-          label: '+ Route',
-          href: '/intercity?action=new',
-          icon: PlusCircle,
-          isAction: true,
-          isActive: isIntercity && searchParams.get('action') === 'new',
-        },
-        {
-          label: 'Fleet',
-          href: '/intercity?tab=fleet',
-          icon: Car,
-          isActive: isIntercity && currentTab === 'fleet',
-          tabKey: 'fleet',
-        },
-        {
-          label: 'Pass & Bill',
-          href: '/intercity?tab=billing',
-          icon: Wallet,
-          isActive: isIntercity && currentTab === 'billing',
-          tabKey: 'billing',
-        },
-      ];
-    }
-
-    // 4. LOGGED IN COMMERCIAL TRANSPORT PROVIDER (Shuttles / Cargo Movers)
-    if (role === 'PROVIDER') {
-      const isProvider = pathname === '/provider';
-      return [
-        {
-          label: 'Fleet Hub',
-          href: '/provider',
-          icon: LayoutDashboard,
-          isActive: isProvider && (currentTab === 'overview' || (!searchParams.get('tab') && !runtimeTab)),
-          tabKey: 'overview',
-        },
-        {
-          label: activeUser.providerSubtype === 'COMMERCIAL_CARGO' ? 'Vehicles' : 'Routes',
-          href: activeUser.providerSubtype === 'COMMERCIAL_CARGO' ? '/provider?tab=fleet' : '/provider?tab=routes',
-          icon: activeUser.providerSubtype === 'COMMERCIAL_CARGO' ? Truck : Navigation,
-          isActive: isProvider && (currentTab === 'routes' || currentTab === 'fleet'),
-          tabKey: activeUser.providerSubtype === 'COMMERCIAL_CARGO' ? 'fleet' : 'routes',
-        },
-        {
-          label: 'Quotes',
-          href: '/provider?tab=quotes',
-          icon: FileText,
-          isActive: isProvider && currentTab === 'quotes',
-          tabKey: 'quotes',
-        },
-        {
-          label: 'Bookings',
-          href: '/provider?tab=bookings',
-          icon: CalendarCheck,
-          isActive: isProvider && currentTab === 'bookings',
-          tabKey: 'bookings',
-        },
-        {
-          label: 'Inbox',
-          href: '/inbox',
-          icon: MessageSquare,
-          isActive: pathname === '/inbox',
-        },
-      ];
-    }
-
-    // 5. LOGGED IN PROFESSIONAL DRIVER / CHAUFFEUR
-    if (role === 'DRIVER') {
-      const isDriver = pathname === '/driver';
-      const isOverview = isDriver && (currentTab === 'overview' || (!searchParams.get('tab') && !runtimeTab));
-      const isRequests = isDriver && currentTab === 'requests';
-      const isAvailability = isDriver && currentTab === 'availability';
-      const isSubscription = isDriver && currentTab === 'subscription';
-      const isChats = pathname === '/inbox' || (isDriver && currentTab === 'chats');
-
-      return [
-        {
-          label: 'Duty Hub',
-          href: '/driver?tab=overview',
+          label: 'Approvals',
+          href: '/admin?tab=plans',
           icon: ShieldCheck,
+          isActive: isApprovals,
+          tabKey: 'plans',
+        },
+        {
+          label: 'Modules',
+          href: '/admin?tab=modules',
+          icon: LayoutDashboard,
+          isActive: isConsole,
+          tabKey: 'modules',
+        },
+      ];
+    }
+
+    // 2. STAFF AGENT DESK (/agent - Matching Page 28)
+    if (pathname.startsWith('/agent') || activeUser?.role === 'AGENT') {
+      const isTickets = currentTab === 'tickets';
+      const isCaller = currentTab === 'overview' || currentTab === 'caller' || (!searchParams.get('tab') && !runtimeTab);
+
+      return [
+        {
+          label: 'Tickets',
+          href: '/agent?tab=tickets',
+          icon: FileText,
+          isActive: isTickets,
+          tabKey: 'tickets',
+        },
+        {
+          label: 'Caller lookup',
+          href: '/agent?tab=overview',
+          icon: Search,
+          isActive: isCaller,
+          tabKey: 'overview',
+        },
+      ];
+    }
+
+    // 3. DRIVER DASHBOARD (/driver - Matching Page 24)
+    if (pathname.startsWith('/driver') || activeUser?.role === 'DRIVER') {
+      const isOverview = pathname === '/driver' && (currentTab === 'overview' || (!searchParams.get('tab') && !runtimeTab));
+      const isRequests = currentTab === 'requests';
+      const isInbox = pathname === '/inbox';
+      const isProfile = pathname === '/settings' || currentTab === 'profile';
+
+      return [
+        {
+          label: 'Home',
+          href: '/driver?tab=overview',
+          icon: Home,
           isActive: isOverview,
           tabKey: 'overview',
         },
         {
-          label: 'My Trips',
+          label: 'Requests',
           href: '/driver?tab=requests',
           icon: CalendarCheck,
           isActive: isRequests,
           tabKey: 'requests',
         },
         {
-          label: 'Schedule',
-          href: '/driver?tab=availability',
-          icon: Calendar,
-          isActive: isAvailability,
-          tabKey: 'availability',
-        },
-        {
-          label: 'Earnings',
-          href: '/driver?tab=subscription',
-          icon: Wallet,
-          isActive: isSubscription,
-          tabKey: 'subscription',
-        },
-        {
           label: 'Inbox',
           href: '/inbox',
           icon: MessageSquare,
-          isActive: pathname === '/inbox' || (isDriver && currentTab === 'chats'),
+          isActive: isInbox,
+        },
+        {
+          label: 'Profile',
+          href: '/settings',
+          icon: User,
+          isActive: isProfile,
         },
       ];
     }
 
-    // 6. LOGGED IN AGENT
-    if (role === 'AGENT') {
-      const isAgent = pathname === '/agent';
+    // 4. MOVERS / COMMERCIAL CARGO PROVIDER (Matching Page 26)
+    if (
+      pathname.startsWith('/movers') ||
+      (pathname.startsWith('/provider') && activeUser?.providerSubtype === 'COMMERCIAL_CARGO')
+    ) {
+      const isHome = pathname.startsWith('/provider') && (currentTab === 'overview' || (!searchParams.get('tab') && !runtimeTab));
+      const isTrucks = currentTab === 'fleet' || pathname === '/movers';
+      const isInbox = pathname === '/inbox';
+      const isAccount = pathname === '/settings';
+
       return [
         {
-          label: 'Agent Desk',
-          href: '/agent?tab=overview',
-          icon: LayoutDashboard,
-          isActive: isAgent && (currentTab === 'overview' || (!searchParams.get('tab') && !runtimeTab)),
+          label: 'Home',
+          href: '/provider?tab=overview',
+          icon: Home,
+          isActive: isHome,
           tabKey: 'overview',
         },
         {
-          label: 'Leads',
-          href: '/agent?tab=leads',
-          icon: FileText,
-          isActive: isAgent && currentTab === 'leads',
-          tabKey: 'leads',
-        },
-        {
-          label: 'Clients',
-          href: '/agent?tab=clients',
-          icon: Users,
-          isActive: isAgent && currentTab === 'clients',
-          tabKey: 'clients',
-        },
-        {
-          label: 'Earnings',
-          href: '/agent?tab=earnings',
-          icon: Wallet,
-          isActive: isAgent && currentTab === 'earnings',
-          tabKey: 'earnings',
+          label: 'Trucks',
+          href: '/provider?tab=fleet',
+          icon: Truck,
+          isActive: isTrucks,
+          tabKey: 'fleet',
         },
         {
           label: 'Inbox',
           href: '/inbox',
           icon: MessageSquare,
-          isActive: pathname === '/inbox',
+          isActive: isInbox,
+        },
+        {
+          label: 'Account',
+          href: '/settings',
+          icon: User,
+          isActive: isAccount,
         },
       ];
     }
 
-    // 7. LOGGED IN ADMIN / SUPER ADMIN
-    if (role === 'SUPER_ADMIN' || role === 'ADMIN') {
-      const isAdmin = pathname === '/admin';
+    // 5. PICK & DROP / SHUTTLE PROVIDER (Matching Page 25)
+    if (
+      pathname.startsWith('/shuttles') ||
+      (pathname.startsWith('/provider') && activeUser?.providerSubtype === 'PICK_AND_DROP') ||
+      (pathname.startsWith('/provider') && !activeUser?.providerSubtype)
+    ) {
+      const isHome = pathname.startsWith('/provider') && (currentTab === 'overview' || (!searchParams.get('tab') && !runtimeTab));
+      const isRoutes = currentTab === 'routes' || pathname === '/shuttles';
+      const isInbox = pathname === '/inbox';
+      const isAccount = pathname === '/settings';
+
       return [
         {
-          label: 'Console',
-          href: '/admin',
-          icon: LayoutDashboard,
-          isActive: isAdmin,
+          label: 'Home',
+          href: '/provider?tab=overview',
+          icon: Home,
+          isActive: isHome,
+          tabKey: 'overview',
         },
         {
-          label: 'Approvals',
-          href: '/admin',
-          icon: ShieldCheck,
-          isActive: false,
-        },
-        {
-          label: 'Users',
-          href: '/admin',
-          icon: Users,
-          isActive: false,
+          label: 'Routes',
+          href: '/provider?tab=routes',
+          icon: Navigation,
+          isActive: isRoutes,
+          tabKey: 'routes',
         },
         {
           label: 'Inbox',
           href: '/inbox',
           icon: MessageSquare,
-          isActive: pathname === '/inbox',
+          isActive: isInbox,
         },
         {
-          label: 'Explore',
-          href: '/',
-          icon: Compass,
-          isActive: pathname === '/',
+          label: 'Account',
+          href: '/settings',
+          icon: User,
+          isActive: isAccount,
         },
       ];
     }
 
-    // 8. DEFAULT: LOGGED IN CUSTOMER / RENTER
+    // 6. OWNER / CAR RENTAL LISTER (/lister - Matching Page 14)
+    if (pathname.startsWith('/lister') || activeUser?.role === 'LISTER' || activeUser?.role === 'OWNER') {
+      const isLister = pathname === '/lister';
+      const isDashboard = isLister && (currentTab === 'overview' || (!searchParams.get('tab') && !runtimeTab));
+      const isRequests = isLister && currentTab === 'requests';
+      const isCars = isLister && (currentTab === 'fleet' || currentTab === 'add_vehicle');
+      const isInbox = pathname === '/inbox';
+      const isAccount = pathname === '/settings';
+
+      return [
+        {
+          label: 'Dashboard',
+          href: '/lister?tab=overview',
+          icon: LayoutDashboard,
+          isActive: isDashboard,
+          tabKey: 'overview',
+        },
+        {
+          label: 'Requests',
+          href: '/lister?tab=requests',
+          icon: CalendarCheck,
+          isActive: isRequests,
+          tabKey: 'requests',
+        },
+        {
+          label: 'My cars',
+          href: '/lister?tab=fleet',
+          icon: Car,
+          isActive: isCars,
+          tabKey: 'fleet',
+        },
+        {
+          label: 'Inbox',
+          href: '/inbox',
+          icon: MessageSquare,
+          isActive: isInbox,
+        },
+        {
+          label: 'Account',
+          href: '/settings',
+          icon: User,
+          isActive: isAccount,
+        },
+      ];
+    }
+
+    // 7. DEFAULT: CUSTOMER / VISITOR (Matching Page 6, 7, 10, 11, 13, 48)
     return [
       {
-        label: 'Home',
+        label: 'Explore',
         href: '/',
-        icon: Home,
+        icon: Compass,
         isActive: pathname === '/' || pathname.startsWith('/listing'),
+      },
+      {
+        label: 'Bookings',
+        href: activeUser ? '/customer' : '/login',
+        icon: CalendarCheck,
+        isActive: pathname === '/customer',
       },
       {
         label: 'Saved',
@@ -368,22 +304,16 @@ function MobileNavBarContent() {
         isActive: pathname === '/saved',
       },
       {
-        label: 'Bookings',
-        href: '/customer',
-        icon: CalendarCheck,
-        isActive: pathname === '/customer',
-      },
-      {
         label: 'Inbox',
         href: '/inbox',
         icon: MessageSquare,
         isActive: pathname === '/inbox',
       },
       {
-        label: 'Account',
-        href: '/settings',
+        label: 'Profile',
+        href: activeUser ? '/settings' : '/login',
         icon: User,
-        isActive: pathname === '/settings',
+        isActive: pathname === '/settings' || pathname === '/login',
       },
     ];
   };

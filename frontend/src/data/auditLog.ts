@@ -218,6 +218,26 @@ export function logAuditEvent(
 }
 
 /**
+ * Convenience helper for recording an administrative mutation event
+ */
+export function recordAuditAction(params: any): AuditLogEntry {
+  return logAuditEvent({
+    action: params.action || 'ADMIN_ACTION',
+    actor: {
+      id: params.staffId || 'SUPER_ADMIN',
+      name: params.staffName || 'Super Admin',
+      role: 'SUPER_ADMIN',
+    },
+    targetType: params.targetType || 'SYSTEM',
+    targetId: params.targetId || 'SYSTEM',
+    diff: params.diff || [],
+    staffId: params.staffId || 'SUPER_ADMIN',
+    agentName: params.staffName || 'Super Admin',
+    actionDesc: params.details || params.action,
+  } as any);
+}
+
+/**
  * Retrieve audit logs filtered by targetId
  */
 export function getAuditLogsByTarget(targetId: string): AuditLogEntry[] {

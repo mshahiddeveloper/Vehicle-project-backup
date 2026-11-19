@@ -49,6 +49,8 @@ import {
   Shield,
   Compass,
   FileText,
+  Heart,
+  Share2,
 } from 'lucide-react';
 
 interface VehicleDetail {
@@ -521,6 +523,96 @@ export default function ListingDetailPage() {
   const [cnicNumber, setCnicNumber] = useState('');
   const [validationError, setValidationError] = useState('');
 
+  // Wishlist & Share State (Page 8 Specification)
+  const [isSaved, setIsSaved] = useState(false);
+  const [shareNotice, setShareNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      const rawVehicles = localStorage.getItem('safarpk_saved_vehicles');
+      const rawItems = localStorage.getItem('safarpk_saved_items');
+      let saved = false;
+      if (rawVehicles) {
+        const parsed = JSON.parse(rawVehicles);
+        if (Array.isArray(parsed) && parsed.includes(car.id)) saved = true;
+      }
+      if (!saved && rawItems) {
+        const parsed = JSON.parse(rawItems);
+        if (Array.isArray(parsed) && parsed.some((it: any) => (it.id || it) === car.id)) saved = true;
+      }
+      setIsSaved(saved);
+    } catch (e) {}
+  }, [car.id]);
+
+  const handleToggleSave = () => {
+    try {
+      const nextSaved = !isSaved;
+      setIsSaved(nextSaved);
+
+      let vIds: string[] = [];
+      const rawVehicles = localStorage.getItem('safarpk_saved_vehicles');
+      if (rawVehicles) {
+        try { vIds = JSON.parse(rawVehicles); } catch (e) {}
+      }
+      if (nextSaved) {
+        if (!vIds.includes(car.id)) vIds.push(car.id);
+      } else {
+        vIds = vIds.filter((id) => id !== car.id);
+      }
+      localStorage.setItem('safarpk_saved_vehicles', JSON.stringify(vIds));
+
+      let storedList: any[] = [];
+      const rawItems = localStorage.getItem('safarpk_saved_items');
+      if (rawItems) {
+        try { storedList = JSON.parse(rawItems); } catch (e) {}
+      }
+      if (nextSaved) {
+        storedList = storedList.filter((item) => (item.id || item) !== car.id);
+        storedList.unshift({
+          id: car.id,
+          title: car.title,
+          name: car.title,
+          category: 'Cars',
+          specs: `${car.transmission} · ${car.year} · ${car.seats} seats`,
+          city: car.city,
+          rate: `PKR ${car.dailyRate.toLocaleString()} / day`,
+          price: `PKR ${car.dailyRate.toLocaleString()} / day`,
+          savedAt: new Date().toISOString(),
+        });
+      } else {
+        storedList = storedList.filter((item) => (item.id || item) !== car.id);
+      }
+      localStorage.setItem('safarpk_saved_items', JSON.stringify(storedList));
+
+      window.dispatchEvent(new Event('safarpk_saved_updated'));
+      window.dispatchEvent(new Event('safarpk_favorites_updated'));
+
+      setShareNotice(nextSaved ? 'Saved to wishlist!' : 'Removed from wishlist');
+      setTimeout(() => setShareNotice(null), 2500);
+    } catch (e) {}
+  };
+
+  const handleShareListing = async () => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://safar.pk';
+    const shareUrl = `${origin}/listing/${car.id}`;
+    if (typeof navigator !== 'undefined' && (navigator as any).share) {
+      try {
+        await (navigator as any).share({
+          title: `${car.title} on SafarPK`,
+          text: `Check out this ${car.title} for rent in ${car.city} on SafarPK!`,
+          url: shareUrl,
+        });
+        return;
+      } catch (e) {}
+    }
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      await navigator.clipboard.writeText(shareUrl);
+      setShareNotice('Link copied to clipboard!');
+      setTimeout(() => setShareNotice(null), 2500);
+    }
+  };
+
   // Populate active user info if logged in or previously saved
   useEffect(() => {
     const user = getActiveUser();
@@ -928,8 +1020,54 @@ export default function ListingDetailPage() {
               alt={car.title}
               className="w-full h-full object-cover"
             />
+
+            {/* Top action overlay (Back, Share, Save) matching App-Detail.dc.html & Page 8 */}
+            <button
+              type="button"
+              onClick={() => router.back()}
+              aria-label="Back"
+              className="absolute top-4 left-4 z-20 w-10 h-10 rounded-full bg-white/95 backdrop-blur-sm border border-slate-200/60 shadow-md flex items-center justify-center text-slate-800 hover:bg-white active:scale-95 transition cursor-pointer"
+            >
+              <ChevronLeft className="w-5 h-5 stroke-[2.4]" />
+            </button>
+
+            <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleShareListing}
+                aria-label="Share"
+                className="w-10 h-10 rounded-full bg-white/95 backdrop-blur-sm border border-slate-200/60 shadow-md flex items-center justify-center text-slate-800 hover:bg-white active:scale-95 transition cursor-pointer"
+              >
+                <Share2 className="w-4 h-4 stroke-[2.2]" />
+              </button>
+              <button
+                type="button"
+                onClick={handleToggleSave}
+                aria-label="Save"
+                className="w-10 h-10 rounded-full bg-white/95 backdrop-blur-sm border border-slate-200/60 shadow-md flex items-center justify-center hover:bg-white active:scale-95 transition cursor-pointer"
+              >
+                <Heart
+                  className={`w-4.5 h-4.5 transition ${
+                    isSaved ? 'text-rose-500 fill-rose-500 stroke-rose-500' : 'text-slate-800'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Share / Save Feedback Toast */}
+            {shareNotice && (
+              <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 bg-slate-900/90 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg backdrop-blur-sm animate-in fade-in duration-150">
+                {shareNotice}
+              </div>
+            )}
+
             <span className="absolute left-4 bottom-4 text-xs font-bold text-[#667085] bg-white/95 px-3 py-1 rounded-md shadow-xs">
               Exterior Photo
+            </span>
+
+            {/* Photo counter chip 1/8 */}
+            <span className="absolute right-4 bottom-4 z-20 bg-black/60 backdrop-blur-sm text-white text-xs font-semibold px-2.5 py-1 rounded-full">
+              1 / 8
             </span>
           </div>
           <div className="hidden md:flex bg-slate-100 items-end p-3 text-xs font-semibold text-[#667085]">

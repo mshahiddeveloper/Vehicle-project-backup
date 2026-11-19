@@ -102,6 +102,7 @@ import {
   rejectSubscriptionPayment,
   createManualVendorWithSubscription,
   SubscriptionPaymentRecord,
+  extendUserSubscription,
 } from '@/data/userAuth';
 import {
   getAllLeads,
@@ -110,6 +111,7 @@ import {
   MarketplaceLead,
   MarketplaceClickEvent,
 } from '@/data/activityTracker';
+import { normalizeWhatsAppPhone } from '@/data/chatEngine';
 import {
   getInternationalInquiries,
   getAdminContactEmail,
@@ -133,6 +135,29 @@ export default function SuperAdminDashboardPage() {
       }
     }
   }, []);
+
+  // User Search & Role Filter for Overview
+  const [adminUserSearch, setAdminUserSearch] = useState('');
+  const [adminRoleFilter, setAdminRoleFilter] = useState<string>('ALL');
+
+  // Extend Plan Modal State (Desktop & Mobile)
+  const [extendModalUser, setExtendModalUser] = useState<RegisteredUser | null>(null);
+  const [extendDays, setExtendDays] = useState<number>(30);
+  const [extendReason, setExtendReason] = useState<string>('Administrative Plan Extension');
+  const [extendNotifyWhatsApp, setExtendNotifyWhatsApp] = useState<boolean>(true);
+  const [quickExtendUserId, setQuickExtendUserId] = useState<string>('');
+  const [quickExtendDays, setQuickExtendDays] = useState<number>(30);
+
+  // Promo Creator State (Desktop & Mobile)
+  const [ncCode, setNcCode] = useState('');
+  const [ncType, setNcType] = useState<'PERCENTAGE' | 'FIXED_AMOUNT' | 'EXTRA_TIME'>('PERCENTAGE');
+  const [ncValue, setNcValue] = useState<number>(20);
+  const [ncUnit, setNcUnit] = useState<'DAYS' | 'MONTHS'>('MONTHS');
+  const [ncApplies, setNcApplies] = useState<'ON_PAY' | 'ANYTIME'>('ON_PAY');
+  const [ncCountry, setNcCountry] = useState<string>('PK');
+  const [ncRoles, setNcRoles] = useState<string>('ALL');
+  const [ncMax, setNcMax] = useState<number>(100);
+  const [ncExpires, setNcExpires] = useState<string>('2026-12-31');
 
   // International Expansion & Partner Pre-Registrations
   const [intlInquiries, setIntlInquiries] = useState<InternationalInquiry[]>([]);
@@ -162,6 +187,58 @@ export default function SuperAdminDashboardPage() {
   const handleUpdateInquiryStatus = (id: string, status: InternationalInquiry['status']) => {
     updateInternationalInquiryStatus(id, status);
     setIntlInquiries(getInternationalInquiries());
+  };
+
+  const handleExtendPlan = (user: RegisteredUser, days: number, reason: string) => {
+    extendUserSubscription(user.id, days, reason, 'SUPER_ADMIN');
+    setRegisteredUsersList(getAllRegisteredUsers());
+    setAdminNotice(`Plan extended by ${days} days for ${user.businessName || user.name}!`);
+    if (extendNotifyWhatsApp && user.phone) {
+      const text = encodeURIComponent(
+        `Assalam-o-Alaikum ${user.name},\nYour SafarPK subscription plan has been extended by ${days} days (${reason}). Thank you for partnering with SafarPK!`
+      );
+      if (typeof window !== 'undefined') {
+        window.open(`https://wa.me/${normalizeWhatsAppPhone(user.phone)}?text=${text}`, '_blank');
+      }
+    }
+    setExtendModalUser(null);
+    setTimeout(() => setAdminNotice(null), 5000);
+  };
+
+  const handleAddPromoCode = () => {
+    if (!ncCode.trim()) {
+      alert('Please enter a promo code');
+      return;
+    }
+    const newPromo: PromoCode = {
+      id: `PROMO-${Date.now()}`,
+      code: ncCode.trim().toUpperCase(),
+      discountType: ncType === 'EXTRA_TIME' ? 'PERCENTAGE' : ncType,
+      discountValue: ncValue,
+      appliesTo: ncRoles === 'ALL' ? ['CAR_RENTAL', 'DRIVER', 'PICK_DROP', 'MOVERS'] : [ncRoles as any],
+      validUntil: ncExpires,
+      usageLimit: ncMax,
+      usedCount: 0,
+      isActive: true,
+      minBookingDays: 1,
+      minAmount: 0,
+    };
+    const updated = [newPromo, ...promoCodes];
+    setPromoCodes(updated);
+    saveStoredPromoCodes(updated);
+    setAdminNotice(`Promo code ${newPromo.code} created successfully!`);
+    setNcCode('');
+    setTimeout(() => setAdminNotice(null), 4000);
+  };
+
+  const getPromoPreviewSentence = () => {
+    if (ncType === 'PERCENTAGE') {
+      return `Takes ${ncValue}% off price for ${ncRoles === 'ALL' ? 'all' : ncRoles} plans in ${ncCountry} until ${ncExpires}.`;
+    }
+    if (ncType === 'FIXED_AMOUNT') {
+      return `Takes Rs. ${formatPKR(ncValue)} off price for ${ncRoles === 'ALL' ? 'all' : ncRoles} plans in ${ncCountry} until ${ncExpires}.`;
+    }
+    return `Adds ${ncValue} ${ncUnit.toLowerCase()} to plan (${ncApplies === 'ON_PAY' ? 'when they pay' : 'anytime, no payment needed'}) for ${ncRoles === 'ALL' ? 'all' : ncRoles} in ${ncCountry} until ${ncExpires}.`;
   };
 
   // Master Service Switches
@@ -1210,269 +1287,345 @@ export default function SuperAdminDashboardPage() {
     : stealthAuditLogs.filter((log) => log.staffId === stealthFilterAgent);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-rose-500 selection:text-white">
-      {/* Top Navbar */}
-      <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <Link href="/" className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-rose-600 to-rose-500 text-white flex items-center justify-center font-black text-base sm:text-lg shadow-md shadow-rose-900/40 shrink-0">
-                ⚡
-              </div>
-              <div className="min-w-0">
-                <span className="font-extrabold text-sm sm:text-lg text-white tracking-tight block leading-none truncate">
-                  SafarPK Super Admin
-                </span>
-                <span className="text-[10px] text-slate-400 font-semibold hidden sm:block">Root Governance & Platform Controls</span>
-              </div>
-            </Link>
-            <span className="hidden md:inline-block text-[10px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full bg-rose-950 text-rose-300 border border-rose-800">
-              Root Authority
+    <div className="min-h-screen bg-[#F7F8FA] text-[#101828] flex flex-col font-sans selection:bg-[#0B6B4F] selection:text-white antialiased">
+      {/* Mobile Top Header (matching App-Admin.dc.html) */}
+      <header className="lg:hidden bg-[#101828] text-white border-b border-[#1E293B] p-4 flex flex-col gap-3 sticky top-0 z-40">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="w-8 h-8 rounded-lg bg-[#0B6B4F] text-white flex items-center justify-center font-black text-sm shrink-0">
+              S
             </span>
+            <div className="min-w-0">
+              <span className="font-extrabold text-sm text-white block leading-tight truncate">
+                SafarPK Admin
+              </span>
+              <span className="text-[11px] font-bold text-[#F5B547] block leading-none">
+                SUPER ADMIN
+              </span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
               onClick={() => {
-                if (confirm('🧹 Clean / Purge all demo accounts?\n\nThis will remove demo users and leave only your Super Admin account (admin@safarpk.com) so that all new user registrations will be 100% REAL.')) {
+                if (confirm('🧹 Clean / Purge all demo accounts?\n\nThis will remove demo users and leave only your Super Admin account (admin@safarpk.com).')) {
                   purgeDemoData();
                   setRegisteredUsersList(getAllRegisteredUsers());
-                  setAdminNotice('✅ Demo accounts purged! The portal is now 100% clean for real user registrations.');
+                  setAdminNotice('✅ Demo accounts purged! The portal is clean for real user registrations.');
                   setTimeout(() => setAdminNotice(null), 4000);
                 }
               }}
-              className="text-[11px] sm:text-xs font-bold px-2 sm:px-3 py-1.5 rounded-xl text-amber-300 hover:text-white bg-amber-950/60 hover:bg-amber-900/80 border border-amber-800 transition cursor-pointer flex items-center gap-1"
-              title="Purge dummy accounts and start fresh for real users"
+              className="text-[11px] font-bold px-2 py-1 rounded-lg text-amber-300 bg-amber-950/70 border border-amber-800"
+              title="Clean demo data"
             >
-              <span>🧹</span>
-              <span className="hidden sm:inline">Clean Demo</span>
+              🧹 Demo
             </button>
             <Link
-              href="/"
-              className="text-[11px] sm:text-xs font-bold px-2.5 sm:px-3.5 py-1.5 rounded-xl text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 transition"
+              href="/admin/console"
+              className="text-[11px] font-bold px-2 py-1 rounded-lg text-slate-200 bg-slate-800 border border-slate-700"
             >
-              ← Public
+              Console
             </Link>
-            <span className="hidden lg:flex text-xs font-mono font-bold text-emerald-400 bg-emerald-950/80 px-2.5 py-1.5 rounded-xl border border-emerald-800 items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Online (200 OK)</span>
-            </span>
+            <Link
+              href="/"
+              className="text-[11px] font-bold px-2 py-1 rounded-lg text-slate-300 bg-slate-800 border border-slate-700"
+            >
+              ← Site
+            </Link>
+          </div>
+        </div>
+
+        {/* 3 Segmented Tabs (Today / Approvals / All modules) */}
+        <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-white/10 text-xs font-bold text-center">
+          <button
+            type="button"
+            onClick={() => setActiveTab('overview')}
+            className={`py-1.5 rounded-lg transition cursor-pointer ${
+              activeTab === 'overview'
+                ? 'bg-white text-[#101828] shadow-xs'
+                : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            Today
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('plans')}
+            className={`py-1.5 rounded-lg transition cursor-pointer flex items-center justify-center gap-1 ${
+              activeTab === 'plans'
+                ? 'bg-white text-[#101828] shadow-xs'
+                : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <span>Approvals</span>
+            {registeredUsersList.filter((u) => u.subscription?.status === 'PENDING_APPROVAL').length > 0 && (
+              <span className="w-4 h-4 rounded-full bg-[#D92D20] text-white text-[10px] flex items-center justify-center font-bold">
+                {registeredUsersList.filter((u) => u.subscription?.status === 'PENDING_APPROVAL').length}
+              </span>
+            )}
+          </button>
+          <Link
+            href="/admin/console"
+            className="py-1.5 rounded-lg text-slate-300 hover:text-white transition flex items-center justify-center"
+          >
+            All modules
+          </Link>
+        </div>
+
+        {/* Swipeable Sub-tab Pills */}
+        <div className="w-full overflow-x-auto no-scrollbar py-0.5">
+          <div className="flex items-center gap-1.5 min-w-max text-xs font-semibold">
+            {[
+              { id: 'overview', label: 'Overview' },
+              { id: 'directory', label: 'Directory' },
+              { id: 'listings', label: 'Listings' },
+              { id: 'plans', label: 'Packages' },
+              { id: 'promocodes', label: 'Promos' },
+              { id: 'leads', label: 'Leads' },
+              { id: 'agents', label: 'Agents' },
+              { id: 'services', label: 'Services' },
+              { id: 'doc_rules', label: 'Doc Rules' },
+              { id: 'featured', label: 'Featured Top 9' },
+              { id: 'analytics', label: 'Analytics' },
+              { id: 'stealthAudit', label: 'Anti-Fraud' },
+              { id: 'countries', label: 'Global' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`px-3 py-1.5 rounded-lg transition cursor-pointer whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'bg-[#0B6B4F] text-white font-bold shadow-xs'
+                    : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
         </div>
       </header>
 
-      {/* Main Grid */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
-        {/* Navigation Definitions */}
-        {(() => {
-          const adminNavItems = [
-            {
-              id: 'overview',
-              label: '👑 Platform Master Overview',
-              shortLabel: 'Overview',
-              icon: TrendingUp,
-              badge: 'Live',
-              pendingCount: registeredUsersList.filter((u) => u.subscription?.status === 'PENDING_APPROVAL').length,
-            },
-            { id: 'services', label: 'Service Master Switches', shortLabel: 'Services', icon: SlidersHorizontal },
-            { id: 'listings', label: 'All Listings (Full CRUD)', shortLabel: 'Listings', icon: Car, badge: listings.length },
-            {
-              id: 'plans',
-              label: 'Subscription Packages & Approvals',
-              shortLabel: 'Packages',
-              icon: DollarSign,
-              badge: plans.length,
-              pendingCount: registeredUsersList.filter((u) => u.subscription?.status === 'PENDING_APPROVAL').length,
-            },
-            { id: 'promocodes', label: 'Promo Codes & Discounts', shortLabel: 'Promos', icon: Tag, badge: promoCodes.length },
-            { id: 'promotions', label: 'Promotional Announcement Bar', shortLabel: 'Alert Bar', icon: Bell, alert: promoEnabled ? 1 : 0 },
-            { id: 'featured', label: 'Featured Ads (Top 9 Slots)', shortLabel: 'Featured', icon: Sparkles },
-            { id: 'doc_rules', label: 'Document Rules Matrix', shortLabel: 'Doc Rules', icon: FileCheck },
-            { id: 'directory', label: 'User & Vendor Directory', shortLabel: 'Directory', icon: Search, badge: allMergedDirectoryUsers.length },
-            {
-              id: 'analytics',
-              label: '📊 Analytics & Intelligence Hub',
-              shortLabel: 'Analytics',
-              icon: BarChart2,
-              badge: 'Live',
-            },
-            {
-              id: 'leads',
-              label: 'All Leads & Click Activity',
-              shortLabel: 'Leads',
-              icon: BarChart3,
-              badge: leadsList.length,
-              pendingCount: leadsList.filter((l) => l.status === 'NEW').length,
-            },
-            {
-              id: 'subscription_leads',
-              label: '📞 Subscription Follow-Up Desk',
-              shortLabel: 'Follow-ups',
-              icon: PhoneCall,
-              badge: registeredUsersList.filter(
-                (u) =>
-                  u.role !== 'CUSTOMER' &&
-                  u.role !== 'AGENT' &&
-                  u.role !== 'SUPER_ADMIN' &&
-                  (u.subscription?.status === 'UNSUBSCRIBED' || !u.subscription?.status)
-              ).length,
-            },
-            { id: 'agents', label: 'Staff / Agent Management', shortLabel: 'Agents', icon: Users, badge: agents.length },
-            { id: 'stealthAudit', label: '🛡️ Stealth Anti-Fraud Log', shortLabel: 'Anti-Fraud', icon: ShieldCheck, alert: stealthAuditLogs.filter(l => l.isSuspicious).length },
-            { id: 'legal', label: 'Terms & Safety Disclaimers', shortLabel: 'Legal', icon: FileText },
-            {
-              id: 'countries',
-              label: 'Global Network & Inquiries',
-              shortLabel: 'Global',
-              icon: Globe,
-              badge: intlInquiries.filter((i) => i.status === 'NEW').length || undefined,
-            },
-            {
-              id: 'branding',
-              label: '🎨 Portal Branding & Logos',
-              shortLabel: 'Branding',
-              icon: Sparkles,
-            },
-          ];
+      {/* Main Container */}
+      <div className="flex-1 w-full flex flex-col lg:flex-row">
+        {/* Desktop Sidebar (matching Desktop-Admin.dc.html) */}
+        <nav
+          aria-label="Admin"
+          className="hidden lg:flex flex-col w-[256px] min-w-[256px] shrink-0 bg-[#101828] text-white p-5 gap-2 border-r border-[#1E293B] sticky top-0 max-h-screen overflow-y-auto"
+        >
+          {/* Logo & Super Admin Pill */}
+          <div className="flex items-center gap-2.5 pb-2">
+            <span className="w-8 h-8 rounded-lg bg-[#0B6B4F] text-white flex items-center justify-center font-black text-base shrink-0">
+              S
+            </span>
+            <span className="font-extrabold text-xl text-white tracking-tight">
+              SafarPK
+            </span>
+          </div>
 
-          return (
-            <>
-              {/* Mobile Quick Section Switcher & App-Style Pill Bar (< lg screens) */}
-              <div className="lg:hidden col-span-1 space-y-2.5">
-                {/* Mobile Section Dropdown */}
-                <div className="bg-slate-900/95 p-3 rounded-2xl border border-slate-800 shadow-lg flex items-center justify-between gap-2.5">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="w-7 h-7 rounded-lg bg-rose-600/20 text-rose-400 flex items-center justify-center text-xs shrink-0 font-bold">
-                      ⚡
+          <span className="self-start px-2 py-0.5 rounded-md bg-[#F5B547] text-[#101828] text-[10px] font-black tracking-wider uppercase mb-2">
+            SUPER ADMIN
+          </span>
+
+          {/* Hub Direct Links */}
+          <div className="p-2 rounded-xl bg-white/5 border border-white/5 flex flex-col gap-1 mb-2">
+            <Link
+              href="/admin/console"
+              className="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-200 hover:text-white hover:bg-white/10 transition"
+            >
+              <span className="flex items-center gap-2">
+                <span className="text-sm">🗂️</span>
+                <span>All Modules Console</span>
+              </span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] bg-[#0B6B4F] text-white font-bold">
+                Hub
+              </span>
+            </Link>
+            <Link
+              href="/admin/agents"
+              className="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-200 hover:text-white hover:bg-white/10 transition"
+            >
+              <span className="flex items-center gap-2">
+                <span className="text-sm">👥</span>
+                <span>Staff & Agents Portal</span>
+              </span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-slate-300 font-bold">
+                3
+              </span>
+            </Link>
+          </div>
+
+          {/* Navigation Links */}
+          <div className="flex flex-col gap-0.5 text-xs font-semibold">
+            {[
+              {
+                id: 'overview',
+                label: 'Platform overview',
+                icon: TrendingUp,
+              },
+              {
+                id: 'directory',
+                label: 'User & vendor directory',
+                icon: Search,
+                badge: allMergedDirectoryUsers.length,
+              },
+              {
+                id: 'plans',
+                label: 'Packages & approvals',
+                icon: DollarSign,
+                pendingCount: registeredUsersList.filter((u) => u.subscription?.status === 'PENDING_APPROVAL').length,
+              },
+              {
+                id: 'promocodes',
+                label: 'Promo codes',
+                icon: Tag,
+                badge: promoCodes.length,
+              },
+              {
+                id: 'listings',
+                label: 'All vehicle listings',
+                icon: Car,
+                badge: listings.length,
+              },
+              {
+                id: 'leads',
+                label: 'Leads & click activity',
+                icon: BarChart3,
+                badge: leadsList.length,
+              },
+              {
+                id: 'subscription_leads',
+                label: 'Subscription follow-ups',
+                icon: PhoneCall,
+              },
+              {
+                id: 'services',
+                label: 'Service switches',
+                icon: SlidersHorizontal,
+              },
+              {
+                id: 'doc_rules',
+                label: 'Document rules matrix',
+                icon: FileCheck,
+              },
+              {
+                id: 'featured',
+                label: 'Featured top 9 slots',
+                icon: Sparkles,
+              },
+              {
+                id: 'promotions',
+                label: 'Announcement bar',
+                icon: Bell,
+              },
+              {
+                id: 'analytics',
+                label: 'Analytics hub',
+                icon: BarChart2,
+              },
+              {
+                id: 'stealthAudit',
+                label: 'Stealth anti-fraud log',
+                icon: ShieldCheck,
+              },
+              {
+                id: 'legal',
+                label: 'Terms & safety legal',
+                icon: FileText,
+              },
+              {
+                id: 'countries',
+                label: 'Global network',
+                icon: Globe,
+              },
+              {
+                id: 'branding',
+                label: 'Portal branding',
+                icon: Sparkles,
+              },
+            ].map((item) => {
+              const active = activeTab === item.id;
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveTab(item.id as any)}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition cursor-pointer text-left ${
+                    active
+                      ? 'bg-[#0B6B4F] text-white font-bold shadow-xs'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5 truncate">
+                    <Icon className="w-3.5 h-3.5 shrink-0 opacity-80" />
+                    <span className="truncate">{item.label}</span>
+                  </span>
+                  {item.pendingCount && item.pendingCount > 0 ? (
+                    <span className="px-1.5 py-0.5 rounded-full bg-[#D92D20] text-white text-[10px] font-bold shrink-0 animate-pulse">
+                      {item.pendingCount}
                     </span>
-                    <div className="min-w-0">
-                      <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold block">
-                        Admin Section
-                      </span>
-                      <span className="text-xs font-black text-white truncate block">
-                        {adminNavItems.find((i) => i.id === activeTab)?.label}
-                      </span>
-                    </div>
-                  </div>
+                  ) : item.badge !== undefined ? (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-slate-300 font-bold shrink-0">
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
 
-                  <div className="relative shrink-0">
-                    <select
-                      value={activeTab}
-                      onChange={(e) => setActiveTab(e.target.value as any)}
-                      className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-10"
-                      aria-label="Switch admin section"
-                    >
-                      {adminNavItems.map((item) => (
-                        <option key={item.id} value={item.id} className="bg-slate-900 text-white">
-                          {item.label} {item.pendingCount ? `(${item.pendingCount} PENDING)` : ''}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 flex items-center gap-1.5 shadow-2xs pointer-events-none"
-                    >
-                      <span>Switch</span>
-                      <span className="text-xs text-slate-400">▾</span>
-                    </button>
-                  </div>
-                </div>
+          {/* Footer Utilities */}
+          <div className="pt-4 mt-auto border-t border-white/10 flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm('🧹 Clean / Purge all demo accounts?\n\nThis will remove demo users and leave only your Super Admin account (admin@safarpk.com).')) {
+                  purgeDemoData();
+                  setRegisteredUsersList(getAllRegisteredUsers());
+                  setAdminNotice('✅ Demo accounts purged! The portal is clean for real user registrations.');
+                  setTimeout(() => setAdminNotice(null), 4000);
+                }
+              }}
+              className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-amber-300 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/80 transition cursor-pointer"
+            >
+              <span>🧹</span>
+              <span>Clean Demo Data</span>
+            </button>
+            <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
+              <Link href="/" className="hover:text-white transition">
+                ← Public Site
+              </Link>
+              <span className="flex items-center gap-1 font-mono text-emerald-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>200 OK</span>
+              </span>
+            </div>
+          </div>
+        </nav>
 
-                {/* Horizontal Swipeable Nav Pills */}
-                <div className="w-full overflow-x-auto no-scrollbar py-0.5">
-                  <div className="flex items-center gap-1.5 min-w-max bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800/90 shadow-sm">
-                    {adminNavItems.map((item) => {
-                      const Icon = item.icon;
-                      const active = activeTab === item.id;
-                      return (
-                        <button
-                          key={item.id}
-                          onClick={() => setActiveTab(item.id as any)}
-                          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer active:scale-95 ${
-                            active
-                              ? 'bg-rose-600 text-white shadow-md shadow-rose-900/40'
-                              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                          }`}
-                        >
-                          <Icon className="w-3.5 h-3.5 shrink-0" />
-                          <span>{item.shortLabel || item.label}</span>
-                          {item.pendingCount !== undefined && item.pendingCount > 0 ? (
-                            <span className="px-1.5 py-0.2 rounded-md text-[10px] font-black bg-amber-400 text-slate-950 animate-pulse">
-                              {item.pendingCount}
-                            </span>
-                          ) : item.badge !== undefined ? (
-                            <span
-                              className={`px-1.5 py-0.2 rounded-md text-[10px] font-bold ${
-                                active ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-300'
-                              }`}
-                            >
-                              {item.badge}
-                            </span>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* Desktop Sidebar Nav (Hidden on Mobile) */}
-              <aside className="hidden lg:block space-y-1">
-                <nav className="bg-slate-900/80 rounded-3xl border border-slate-800/90 p-2.5 space-y-1.5 text-xs font-semibold shadow-xl sticky top-20">
-                  {adminNavItems.map((item: any) => {
-                    const Icon = item.icon;
-                    const active = activeTab === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => setActiveTab(item.id as any)}
-                        className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition cursor-pointer ${
-                          active
-                            ? 'bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow-md shadow-rose-900/30 font-bold'
-                            : 'text-slate-400 hover:bg-slate-800/60 hover:text-white'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <Icon className="w-4 h-4 shrink-0" />
-                          <span className="truncate">{item.label}</span>
-                        </div>
-                        {item.pendingCount !== undefined && item.pendingCount > 0 ? (
-                          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-black bg-amber-400 text-slate-950 shrink-0 animate-pulse">
-                            {item.pendingCount} PENDING
-                          </span>
-                        ) : item.alert !== undefined && item.alert > 0 ? (
-                          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-black bg-amber-400 text-slate-950 shrink-0">
-                            LIVE
-                          </span>
-                        ) : item.badge !== undefined ? (
-                          <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-800 text-slate-300 shrink-0">
-                            {item.badge}
-                          </span>
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </nav>
-              </aside>
-            </>
-          );
-        })()}
-
-        {/* Canvas */}
-        <main className="lg:col-span-3 space-y-6">
+        {/* Main Canvas */}
+        <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl w-full">
           {adminNotice && (
-            <div className="p-4 bg-emerald-950/90 border border-emerald-700 text-emerald-200 rounded-2xl text-xs font-bold flex items-center justify-between shadow-lg">
+            <div className="p-4 bg-[#E9F3EE] border border-[#0B6B4F]/40 text-[#08513C] rounded-2xl text-xs font-bold flex items-center justify-between shadow-xs">
               <div className="flex items-center gap-2">
-                <span className="text-sm">✓</span>
+                <span className="text-sm font-black">✓</span>
                 <span>{adminNotice}</span>
               </div>
-              <button onClick={() => setAdminNotice(null)} className="text-emerald-400 hover:text-white cursor-pointer">✕</button>
+              <button
+                type="button"
+                onClick={() => setAdminNotice(null)}
+                className="text-[#0B6B4F] hover:text-[#08513C] cursor-pointer font-bold"
+              >
+                ✕
+              </button>
             </div>
           )}
 
           {/* ========================================================================= */}
-          {/* TAB 0: 👑 PLATFORM MASTER OVERVIEW & REVENUE OPERATIONS                    */}
+          {/* TAB 0: 👑 PLATFORM OVERVIEW (matching Desktop-Admin.dc.html)               */}
           {/* ========================================================================= */}
           {activeTab === 'overview' && (() => {
             const now = new Date();
@@ -1497,672 +1650,950 @@ export default function SuperAdminDashboardPage() {
             const periodRevenue = filteredPayments.reduce((sum, p) => sum + (p.amountPaid || 0), 0);
             const allTimeRevenue = subscriptionPayments.reduce((sum, p) => sum + (p.amountPaid || 0), 0);
 
-            const activeSubscribersCount = registeredUsersList.filter(
-              (u) => u.subscription?.status === 'ACTIVE'
-            ).length;
-
             const pendingSubs = registeredUsersList.filter(
               (u) => u.subscription?.status === 'PENDING_APPROVAL'
             );
 
-            const pendingKycCount = registeredUsersList.filter(
-              (u) => u.kycStatus === 'PENDING_APPROVAL'
-            ).length;
+            // Filter users for the table
+            const filteredUsersForTable = registeredUsersList.filter((u) => {
+              if (adminRoleFilter === 'CUSTOMER' && u.role !== 'CUSTOMER') return false;
+              if (adminRoleFilter === 'LISTER' && u.role !== 'LISTER' && u.role !== 'OWNER') return false;
+              if (adminRoleFilter === 'DRIVER' && u.role !== 'DRIVER') return false;
+              if (adminRoleFilter === 'PICK_DROP' && !(u.role === 'PROVIDER' && u.providerSubtype === 'PICK_AND_DROP')) return false;
+              if (adminRoleFilter === 'MOVERS' && !(u.role === 'PROVIDER' && u.providerSubtype === 'COMMERCIAL_CARGO')) return false;
 
-            const totalVendorsCount = registeredUsersList.filter(
-              (u) => u.role !== 'CUSTOMER' && u.role !== 'SUPER_ADMIN'
-            ).length;
-
-            const listerRevenue = filteredPayments.filter(p => p.role === 'LISTER').reduce((s, p) => s + p.amountPaid, 0);
-            const driverRevenue = filteredPayments.filter(p => p.role === 'DRIVER').reduce((s, p) => s + p.amountPaid, 0);
-            const cargoRevenue = filteredPayments.filter(p => p.role === 'PROVIDER' && p.providerSubtype === 'COMMERCIAL_CARGO').reduce((s, p) => s + p.amountPaid, 0);
-            const shuttleRevenue = filteredPayments.filter(p => p.role === 'PROVIDER' && p.providerSubtype === 'PICK_AND_DROP').reduce((s, p) => s + p.amountPaid, 0);
+              if (adminUserSearch.trim()) {
+                const q = adminUserSearch.toLowerCase();
+                const matchName = u.name?.toLowerCase().includes(q);
+                const matchBiz = u.businessName?.toLowerCase().includes(q);
+                const matchPhone = u.phone?.toLowerCase().includes(q);
+                const matchId = u.id?.toLowerCase().includes(q);
+                const matchCity = u.city?.toLowerCase().includes(q);
+                const matchCnic = (u as any).cnic?.toLowerCase().includes(q);
+                if (!matchName && !matchBiz && !matchPhone && !matchId && !matchCity && !matchCnic) return false;
+              }
+              return true;
+            });
 
             return (
               <div className="space-y-6">
-                {/* Header & Quick Action */}
-                <div className="bg-slate-900/90 rounded-3xl border border-slate-800 p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+                {/* Header Row: Title + Search Users */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-950 text-rose-300 border border-rose-800">
-                        EXECUTIVE COMMAND CENTER
-                      </span>
-                      <span className="text-xs text-slate-400">
-                        Real-time Platform Revenue & Operational Health
-                      </span>
-                    </div>
-                    <h2 className="text-lg sm:text-2xl font-black text-white">
-                      Platform Master Overview
-                    </h2>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Monitors all vendor subscriptions, incoming payments, and pending administrative tasks across Pakistan.
+                    <h1 className="text-2xl sm:text-3xl font-extrabold text-[#101828] tracking-tight">
+                      Platform overview
+                    </h1>
+                    <p className="text-xs text-[#667085] mt-0.5">
+                      Live numbers, member subscriptions, approvals queue, and activity across Pakistan
                     </p>
                   </div>
 
                   <div className="flex items-center gap-3 flex-wrap">
+                    <label className="flex items-center gap-2.5 h-[42px] px-3.5 rounded-xl bg-white border border-[#E4E7EC] min-w-[280px] sm:min-w-[340px] shadow-xs">
+                      <Search className="w-4 h-4 text-[#667085] shrink-0" />
+                      <input
+                        type="search"
+                        aria-label="Search users"
+                        placeholder="Search users, phone, CNIC, ref"
+                        value={adminUserSearch}
+                        onChange={(e) => setAdminUserSearch(e.target.value)}
+                        className="flex-1 min-w-0 border-0 outline-none text-sm font-medium text-[#101828] placeholder-[#98A2B3] bg-transparent"
+                      />
+                    </label>
+
                     <button
                       type="button"
                       onClick={() => setShowManualVendorModal(true)}
-                      className="h-11 px-5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs rounded-xl shadow-lg shadow-emerald-950/50 flex items-center gap-2 transition cursor-pointer active:scale-95 shrink-0"
+                      className="h-[42px] px-4 rounded-xl bg-[#0B6B4F] hover:bg-[#08513C] text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer shrink-0"
                     >
                       <PlusCircle className="w-4 h-4" />
-                      <span>+ Manually Register & Activate Vendor</span>
+                      <span>+ Register Vendor</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Filter Selector Bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-900/60 rounded-2xl border border-slate-800">
-                  <div className="flex items-center gap-2 text-xs text-slate-400 font-bold">
-                    <Filter className="w-3.5 h-3.5 text-rose-400" />
-                    <span>Time Window Revenue Filter:</span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs font-bold">
-                    {[
-                      { id: 'TODAY', label: '📅 Today' },
-                      { id: 'WEEK', label: '🗓️ This Week' },
-                      { id: 'MONTH', label: '📊 This Month' },
-                      { id: 'ALL', label: '🌐 All Time' },
-                    ].map((f) => (
-                      <button
-                        key={f.id}
-                        type="button"
-                        onClick={() => setTimeFilter(f.id as any)}
-                        className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                          timeFilter === f.id
-                            ? 'bg-rose-600 text-white shadow-md'
-                            : 'text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        {f.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 4 Primary Executive Metric Cards (Compact 2x2 Grid on Mobile) */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-                  {/* Card 1: Subscription Revenue */}
-                  <div className="p-3.5 sm:p-5 rounded-2xl bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-950 border border-emerald-500/30 flex flex-col justify-between shadow-lg">
-                    <div className="flex items-center justify-between pb-1.5 sm:pb-2 border-b border-slate-800">
-                      <span className="text-[11px] sm:text-xs font-bold text-slate-400 truncate">Revenue Inflow</span>
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-xs sm:text-sm shrink-0">
-                        ₨
-                      </div>
-                    </div>
-                    <div className="py-2 sm:py-3">
-                      <span className="text-[10px] sm:text-[11px] text-emerald-400 font-bold uppercase tracking-wider block truncate">
-                        {timeFilter === 'TODAY' ? "Today" : timeFilter === 'WEEK' ? "Past 7 Days" : timeFilter === 'MONTH' ? "This Month" : "All Time"}
-                      </span>
-                      <h3 className="text-lg sm:text-2xl md:text-3xl font-black text-white font-mono mt-0.5 truncate">
-                        PKR {formatPKR(periodRevenue)}
-                      </h3>
-                      <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 sm:mt-1 truncate">
-                        All-Time: <strong className="text-slate-200">PKR {formatPKR(allTimeRevenue)}</strong>
-                      </p>
-                    </div>
-                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] sm:text-[11px] text-emerald-400">
-                      <span className="truncate">✓ 100% Platform Retained</span>
-                      <span className="font-mono font-bold shrink-0">{filteredPayments.length} txns</span>
-                    </div>
-                  </div>
-
-                  {/* Card 2: Active Subscribers */}
-                  <div className="p-3.5 sm:p-5 rounded-2xl bg-gradient-to-br from-blue-950/40 via-slate-900 to-slate-950 border border-blue-500/30 flex flex-col justify-between shadow-lg">
-                    <div className="flex items-center justify-between pb-1.5 sm:pb-2 border-b border-slate-800">
-                      <span className="text-[11px] sm:text-xs font-bold text-slate-400 truncate">Subscribers</span>
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-black text-xs sm:text-sm shrink-0">
-                        <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                      </div>
-                    </div>
-                    <div className="py-2 sm:py-3">
-                      <span className="text-[10px] sm:text-[11px] text-blue-400 font-bold uppercase tracking-wider block truncate">
-                        Active Partners
-                      </span>
-                      <h3 className="text-lg sm:text-2xl md:text-3xl font-black text-white font-mono mt-0.5 truncate">
-                        {activeSubscribersCount} Active
-                      </h3>
-                      <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 sm:mt-1 truncate">
-                        Out of <strong className="text-slate-200">{totalVendorsCount} Total</strong>
-                      </p>
-                    </div>
-                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] sm:text-[11px] text-blue-400">
-                      <span className="truncate">Fleet & Drivers</span>
-                      <span className="shrink-0">0% Comm.</span>
-                    </div>
-                  </div>
-
-                  {/* Card 3: Pending Approvals & Requests */}
-                  <div className="p-3.5 sm:p-5 rounded-2xl bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-950 border border-amber-500/30 flex flex-col justify-between shadow-lg">
-                    <div className="flex items-center justify-between pb-1.5 sm:pb-2 border-b border-slate-800">
-                      <span className="text-[11px] sm:text-xs font-bold text-slate-400 truncate">Action Required</span>
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-black text-xs sm:text-sm shrink-0">
-                        ⏳
-                      </div>
-                    </div>
-                    <div className="py-2 sm:py-3">
-                      <span className="text-[10px] sm:text-[11px] text-amber-400 font-bold uppercase tracking-wider block truncate">
-                        Verification Queue
-                      </span>
-                      <h3 className="text-lg sm:text-2xl md:text-3xl font-black text-white font-mono mt-0.5 truncate">
-                        {pendingSubs.length} Payments
-                      </h3>
-                      <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 sm:mt-1 truncate">
-                        <strong className="text-slate-200">{pendingKycCount} Docs</strong> check
-                      </p>
-                    </div>
-                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] sm:text-[11px]">
-                      {pendingSubs.length > 0 ? (
-                        <span className="text-amber-400 font-black animate-pulse truncate">⚡ Needs Approval</span>
-                      ) : (
-                        <span className="text-emerald-400 font-bold truncate">✓ Queue Cleared</span>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab('plans')}
-                        className="text-amber-300 underline font-bold hover:text-white shrink-0 ml-1"
-                      >
-                        Open ➔
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Card 4: Total Live Inventory */}
-                  <div className="p-3.5 sm:p-5 rounded-2xl bg-gradient-to-br from-purple-950/40 via-slate-900 to-slate-950 border border-purple-500/30 flex flex-col justify-between shadow-lg">
-                    <div className="flex items-center justify-between pb-1.5 sm:pb-2 border-b border-slate-800">
-                      <span className="text-[11px] sm:text-xs font-bold text-slate-400 truncate">Marketplace Fleet</span>
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center font-black text-xs sm:text-sm shrink-0">
-                        <Car className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                      </div>
-                    </div>
-                    <div className="py-2 sm:py-3">
-                      <span className="text-[10px] sm:text-[11px] text-purple-400 font-bold uppercase tracking-wider block truncate">
-                        Live Units
-                      </span>
-                      <h3 className="text-lg sm:text-2xl md:text-3xl font-black text-white font-mono mt-0.5 truncate">
-                        {listings.length} Units
-                      </h3>
-                      <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 sm:mt-1 truncate">
-                        Cars, Drivers, Shuttles
-                      </p>
-                    </div>
-                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] sm:text-[11px] text-purple-400">
-                      <span className="truncate">Across Cities</span>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab('listings')}
-                        className="text-purple-300 underline font-bold hover:text-white shrink-0 ml-1"
-                      >
-                        Manage ➔
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Category Revenue Breakdown Matrix */}
-                <div className="p-3.5 sm:p-5 bg-slate-900/80 rounded-2xl border border-slate-800 space-y-2.5 sm:space-y-3">
+                {/* Section 1: Key Numbers / KPIs (matching Desktop-Admin.dc.html #overview) */}
+                <section id="overview" aria-label="Key numbers" className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-xs sm:text-sm text-white flex items-center gap-1.5 sm:gap-2">
-                      <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <span>Subscription Inflow by Sector ({timeFilter})</span>
-                    </h4>
-                    <span className="text-[11px] text-slate-400 hidden sm:inline">Direct Partner Memberships</span>
+                    <span className="text-xs font-bold text-[#475467] uppercase tracking-wider">
+                      Key Performance Indicators
+                    </span>
+                    <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-[#E4E7EC] text-xs font-bold shadow-xs">
+                      {[
+                        { id: 'TODAY', label: 'Today' },
+                        { id: 'WEEK', label: '7 Days' },
+                        { id: 'MONTH', label: 'This Month' },
+                        { id: 'ALL', label: 'All Time' },
+                      ].map((f) => (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => setTimeFilter(f.id as any)}
+                          className={`px-2.5 py-1 rounded-lg transition cursor-pointer text-[11px] ${
+                            timeFilter === f.id
+                              ? 'bg-[#101828] text-white'
+                              : 'text-[#475467] hover:text-[#101828]'
+                          }`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 text-xs">
-                    <div className="p-2.5 sm:p-3 bg-slate-950 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 block text-[10px] sm:text-[11px] truncate">🚗 Car Rentals</span>
-                      <strong className="text-sm sm:text-base font-mono font-bold text-emerald-400 mt-0.5 block truncate">
-                        PKR {formatPKR(listerRevenue)}
-                      </strong>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                    <div className="bg-white border border-[#EEF0F2] rounded-2xl p-4 sm:p-5 flex flex-col gap-1 shadow-xs">
+                      <span className="text-xs font-semibold text-[#475467]">Registered users</span>
+                      <span className="text-2xl sm:text-3xl font-extrabold text-[#101828]">
+                        {registeredUsersList.length}
+                      </span>
+                      <span className="text-xs text-[#667085] truncate">
+                        {registeredUsersList.filter((u) => u.role === 'LISTER' || u.role === 'OWNER').length} fleet · {registeredUsersList.filter((u) => u.role === 'DRIVER').length} drivers
+                      </span>
                     </div>
 
-                    <div className="p-2.5 sm:p-3 bg-slate-950 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 block text-[10px] sm:text-[11px] truncate">👨‍✈️ Chauffeurs</span>
-                      <strong className="text-sm sm:text-base font-mono font-bold text-blue-400 mt-0.5 block truncate">
-                        PKR {formatPKR(driverRevenue)}
-                      </strong>
+                    <div className="bg-white border border-[#EEF0F2] rounded-2xl p-4 sm:p-5 flex flex-col gap-1 shadow-xs">
+                      <span className="text-xs font-semibold text-[#475467]">Live listings</span>
+                      <span className="text-2xl sm:text-3xl font-extrabold text-[#101828]">
+                        {listings.length}
+                      </span>
+                      <span className="text-xs text-[#667085] truncate">
+                        {listings.filter((l) => l.isActive !== false).length} active · {listings.filter((l) => l.isVerified).length} verified
+                      </span>
                     </div>
 
-                    <div className="p-2.5 sm:p-3 bg-slate-950 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 block text-[10px] sm:text-[11px] truncate">📦 Movers & Cargo</span>
-                      <strong className="text-sm sm:text-base font-mono font-bold text-orange-400 mt-0.5 block truncate">
-                        PKR {formatPKR(cargoRevenue)}
-                      </strong>
+                    <div className="bg-white border border-[#EEF0F2] rounded-2xl p-4 sm:p-5 flex flex-col gap-1 shadow-xs">
+                      <span className="text-xs font-semibold text-[#475467]">Leads & clicks</span>
+                      <span className="text-2xl sm:text-3xl font-extrabold text-[#101828]">
+                        {leadsList.length + clicksList.length}
+                      </span>
+                      <span className="text-xs text-[#667085] truncate">
+                        {leadsList.length} leads · {clicksList.length} clicks
+                      </span>
                     </div>
 
-                    <div className="p-2.5 sm:p-3 bg-slate-950 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 block text-[10px] sm:text-[11px] truncate">🚌 Shuttles</span>
-                      <strong className="text-sm sm:text-base font-mono font-bold text-teal-400 mt-0.5 block truncate">
-                        PKR {formatPKR(shuttleRevenue)}
-                      </strong>
+                    <div className="bg-white border border-[#EEF0F2] rounded-2xl p-4 sm:p-5 flex flex-col gap-1 shadow-xs">
+                      <span className="text-xs font-semibold text-[#475467]">Plan revenue</span>
+                      <span className="text-2xl sm:text-3xl font-extrabold text-[#0B6B4F]">
+                        PKR {formatPKR(periodRevenue)}
+                      </span>
+                      <span className="text-xs text-[#667085] truncate">
+                        All-time: PKR {formatPKR(allTimeRevenue)}
+                      </span>
                     </div>
+                  </div>
+                </section>
+
+                {/* Page 42: Quick Lister Plan Extension Widget */}
+                <div className="bg-gradient-to-br from-[#0B6B4F] to-[#08513C] text-white rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col gap-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-emerald-300" />
+                      <h2 className="font-extrabold text-base sm:text-lg text-white">Extend a lister's plan</h2>
+                    </div>
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white/20 text-emerald-100">
+                      Quick action
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-emerald-100 leading-relaxed">
+                    Grant complimentary plan days or extend an active subscription directly with instant WhatsApp notification.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    {/* Vendor Dropdown */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[11px] font-bold text-emerald-200">Select Lister / Vendor</label>
+                      <select
+                        value={quickExtendUserId}
+                        onChange={(e) => setQuickExtendUserId(e.target.value)}
+                        className="w-full h-11 px-3 rounded-xl bg-white text-[#101828] text-xs font-bold border-0 outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer shadow-xs"
+                      >
+                        <option value="">-- Choose a vendor / host --</option>
+                        {registeredUsersList
+                          .filter((u) => u.role === 'LISTER' || u.role === 'OWNER' || u.role === 'PROVIDER' || u.role === 'DRIVER')
+                          .map((u) => (
+                            <option key={u.id} value={u.id}>
+                              {u.name} ({u.businessName || u.role}) - {u.phone}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+
+                    {/* Days Picker Chips */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[11px] font-bold text-emerald-200">Extension Duration</label>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {[
+                          { label: '+7d', val: 7 },
+                          { label: '+15d', val: 15 },
+                          { label: '+30d', val: 30 },
+                          { label: '+90d', val: 90 },
+                        ].map((chip) => (
+                          <button
+                            key={chip.val}
+                            type="button"
+                            onClick={() => setQuickExtendDays(chip.val)}
+                            className={`h-11 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                              quickExtendDays === chip.val
+                                ? 'bg-white text-[#0B6B4F] shadow-xs'
+                                : 'bg-white/10 hover:bg-white/20 text-white'
+                            }`}
+                          >
+                            {chip.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 pt-1 flex-wrap">
+                    <span className="text-[11px] text-emerald-200">
+                      {quickExtendUserId
+                        ? `Will add ${quickExtendDays} days & notify owner on WhatsApp`
+                        : 'Select an owner above to activate extension'}
+                    </span>
+
+                    <button
+                      type="button"
+                      disabled={!quickExtendUserId}
+                      onClick={() => {
+                        if (!quickExtendUserId) return;
+                        const target = registeredUsersList.find((u) => u.id === quickExtendUserId);
+                        if (!target) return;
+                        extendUserSubscription(target.id, quickExtendDays, 'Super Admin Quick Extension');
+                        setRegisteredUsersList(getAllRegisteredUsers());
+                        if (target.phone) {
+                          const clean = normalizeWhatsAppPhone(target.phone);
+                          const msg = encodeURIComponent(`Assalam-o-Alaikum ${target.name}! Your SafarPK plan has been extended by ${quickExtendDays} days by Super Admin. Shukriya!`);
+                          window.open(`https://wa.me/${clean}?text=${msg}`, '_blank');
+                        }
+                        setAdminNotice(`✅ Extended ${target.name}'s plan by ${quickExtendDays} days!`);
+                        setTimeout(() => setAdminNotice(null), 4000);
+                      }}
+                      className="h-10 px-5 rounded-xl bg-white hover:bg-emerald-50 active:scale-95 text-[#0B6B4F] font-bold text-xs shadow-xs transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                    >
+                      Extend Plan Now
+                    </button>
                   </div>
                 </div>
 
-                {/* FAST APPROVAL ACTION BOX (If any subscription is pending) */}
-                {pendingSubs.length > 0 && (
-                  <div className="p-5 rounded-2xl bg-amber-950/50 border-2 border-amber-500/50 space-y-3 shadow-xl">
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-2.5">
-                        <span className="w-3 h-3 rounded-full bg-amber-400 animate-ping" />
-                        <h4 className="font-black text-sm text-white">
-                          ⚠️ Attention: {pendingSubs.length} Pending Subscription Payment(s) Awaiting Approval
-                        </h4>
+                {/* Page 42: Needs Your Attention Approvals Queue */}
+                {subscriptionPayments.filter((p) => p.status === 'PENDING').length > 0 && (
+                  <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 sm:p-5 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="w-5 h-5 text-amber-600" />
+                        <h2 className="font-extrabold text-base text-amber-950">Needs your attention</h2>
                       </div>
-                      <span className="text-xs text-amber-300 font-bold">Immediate Action Required</span>
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-200 text-amber-900">
+                        {subscriptionPayments.filter((p) => p.status === 'PENDING').length} pending approval
+                      </span>
                     </div>
 
-                    <div className="space-y-2">
-                      {pendingSubs.map((u) => (
-                        <div
-                          key={u.id}
-                          className="p-4 bg-slate-900/90 rounded-xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-                        >
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-white text-sm">{u.name}</span>
-                              {u.businessName && <span className="text-slate-400">({u.businessName})</span>}
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300">
-                                {u.role}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                      {subscriptionPayments
+                        .filter((p) => p.status === 'PENDING')
+                        .slice(0, 4)
+                        .map((p) => (
+                          <div key={p.id} className="bg-white p-3.5 rounded-xl border border-amber-200/80 shadow-2xs flex flex-col gap-2">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <span className="font-extrabold text-xs text-[#101828] block">{p.listerName}</span>
+                                <span className="text-[11px] text-slate-500">{p.packageName} · PKR {p.amountPaid.toLocaleString()}</span>
+                              </div>
+                              <span className="text-[10px] font-mono px-2 py-0.5 bg-slate-100 rounded text-slate-700">
+                                {p.paymentMethod}
                               </span>
                             </div>
-                            <div className="flex flex-wrap items-center gap-3 text-slate-400 mt-1">
-                              <span>📞 {u.phone}</span>
-                              <span>Plan: <strong className="text-amber-300">{u.subscription.planName}</strong></span>
-                              <span>Amount: <strong className="text-emerald-400">PKR {formatPKR(u.subscription.amountPaid || 0)}</strong></span>
-                              <span>Ref: <strong className="text-white font-mono">{u.subscription.paymentRef || 'N/A'}</strong></span>
+                            <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100">
+                              {p.receiptUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedPaymentForReceipt(p)}
+                                  className="px-2.5 py-1 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer transition"
+                                >
+                                  View Slip
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  rejectSubscriptionPayment(p.id, 'Super Admin Reject');
+                                  setSubscriptionPayments(getAllSubscriptionPayments());
+                                  setRegisteredUsersList(getAllRegisteredUsers());
+                                  setAdminNotice(`Payment rejected for ${p.listerName}`);
+                                  setTimeout(() => setAdminNotice(null), 3000);
+                                }}
+                                className="px-2.5 py-1 text-xs font-bold text-[#D92D20] bg-rose-50 hover:bg-rose-100 rounded-lg cursor-pointer transition"
+                              >
+                                Reject
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  approveSubscriptionPayment(p.id, 'Super Admin Instant');
+                                  setSubscriptionPayments(getAllSubscriptionPayments());
+                                  setRegisteredUsersList(getAllRegisteredUsers());
+                                  setAdminNotice(`✅ Approved payment for ${p.listerName}!`);
+                                  setTimeout(() => setAdminNotice(null), 3000);
+                                }}
+                                className="px-3 py-1 text-xs font-bold text-white bg-[#0B6B4F] hover:bg-[#08513C] rounded-lg cursor-pointer transition"
+                              >
+                                Approve
+                              </button>
                             </div>
                           </div>
-
-                          <div className="flex items-center gap-2 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => handleApproveUserSubscription(u.id)}
-                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md"
-                            >
-                              <Check className="w-4 h-4" />
-                              <span>Approve & Unlock Quota</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleRejectUserSubscription(u.id)}
-                              className="px-3 py-2 bg-rose-950 text-rose-300 hover:bg-rose-900 border border-rose-800 rounded-xl font-bold transition cursor-pointer"
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        ))}
                     </div>
                   </div>
                 )}
 
-                {/* SUBSCRIPTION FINANCIAL REVENUE LEDGER TABLE */}
-                <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-4 shadow-xl">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-800">
-                    <div>
-                      <h3 className="font-extrabold text-base text-white flex items-center gap-2">
-                        <Wallet className="w-5 h-5 text-emerald-400" />
-                        <span>Live Subscription Revenue & Transaction Ledger</span>
-                      </h3>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        Audit bank receipts, verify manual deposits, approve pending member quotas, or reject invalid slips in real-time.
-                      </p>
+                {/* Section 2: Users Table with Role Filters (matching Desktop-Admin.dc.html #users) */}
+                <section
+                  id="users"
+                  className="bg-white border border-[#EEF0F2] rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col gap-3.5"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <h2 className="font-extrabold text-lg text-[#101828]">Users</h2>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
+                        {filteredUsersForTable.length} shown
+                      </span>
                     </div>
 
-                    {/* Filter Pills for Status */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => setPaymentStatusFilter('ALL')}
-                        className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
-                          paymentStatusFilter === 'ALL'
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                        }`}
-                      >
-                        All ({subscriptionPayments.length})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPaymentStatusFilter('PENDING')}
-                        className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
-                          paymentStatusFilter === 'PENDING'
-                            ? 'bg-amber-600 text-white shadow-xs'
-                            : 'bg-slate-800 text-amber-300 hover:bg-slate-700'
-                        }`}
-                      >
-                        <span>Pending</span>
-                        <span className="w-4 h-4 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] flex items-center justify-center">
-                          {subscriptionPayments.filter((p) => p.status === 'PENDING').length}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPaymentStatusFilter('CONFIRMED')}
-                        className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
-                          paymentStatusFilter === 'CONFIRMED'
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : 'bg-slate-800 text-emerald-300 hover:bg-slate-700'
-                        }`}
-                      >
-                        Paid ({subscriptionPayments.filter((p) => p.status === 'CONFIRMED').length})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPaymentStatusFilter('FAILED')}
-                        className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
-                          paymentStatusFilter === 'FAILED'
-                            ? 'bg-rose-600 text-white shadow-xs'
-                            : 'bg-slate-800 text-rose-300 hover:bg-slate-700'
-                        }`}
-                      >
-                        Failed ({subscriptionPayments.filter((p) => p.status === 'FAILED').length})
-                      </button>
+                    {/* Role Filter Buttons */}
+                    <div className="flex gap-1.5 flex-wrap">
+                      {[
+                        { id: 'ALL', label: 'All' },
+                        { id: 'CUSTOMER', label: 'Customer' },
+                        { id: 'LISTER', label: 'Fleet owner' },
+                        { id: 'DRIVER', label: 'Driver' },
+                        { id: 'PICK_DROP', label: 'Pick & drop' },
+                        { id: 'MOVERS', label: 'Movers' },
+                      ].map((f) => (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => setAdminRoleFilter(f.id)}
+                          className={`px-3 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                            adminRoleFilter === f.id
+                              ? 'bg-[#0B6B4F] text-white shadow-xs'
+                              : 'bg-white border border-[#D0D5DD] text-[#344054] hover:bg-slate-50'
+                          }`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
-                  {(() => {
-                    const displayed = filteredPayments.filter((p) => {
-                      if (paymentStatusFilter === 'ALL') return true;
-                      return p.status === paymentStatusFilter;
-                    });
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-sm min-w-[960px]">
+                      <thead>
+                        <tr className="text-left text-[#667085] text-xs border-b border-[#F0F2F4]">
+                          <th className="py-2.5 pr-2 font-semibold">User</th>
+                          <th className="p-2 font-semibold">Role</th>
+                          <th className="p-2 font-semibold">Phone · City</th>
+                          <th className="p-2 font-semibold">Joined</th>
+                          <th className="p-2 font-semibold">Plan</th>
+                          <th className="p-2 font-semibold">Views · Leads · Clicks</th>
+                          <th className="py-2.5 pl-2 font-semibold">Assigned agent</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#F0F2F4]">
+                        {filteredUsersForTable.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="py-8 text-center text-xs text-[#667085]">
+                              No users match current filters or search query.
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredUsersForTable.map((u) => {
+                            const userLeads = leadsList.filter((l) => l.vendorPhone === u.phone || (l as any).ownerId === u.id);
+                            const userClicks = clicksList.filter((c) => c.phone === u.phone || (c as any).ownerId === u.id);
+                            const canExtend = u.role !== 'CUSTOMER' && u.role !== 'SUPER_ADMIN';
 
-                    if (displayed.length === 0) {
-                      return (
-                        <div className="p-8 text-center bg-slate-950/60 rounded-2xl border border-slate-800">
-                          <p className="text-xs text-slate-400">
-                            No transactions recorded matching status filter ({paymentStatusFilter}) for {timeFilter}.
-                          </p>
-                        </div>
-                      );
-                    }
+                            return (
+                              <tr key={u.id} className="hover:bg-slate-50/70 transition">
+                                <td className="py-3 pr-2">
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="font-bold text-[#101828] text-sm">{u.name}</span>
+                                    <span className="text-xs text-[#667085]">
+                                      {u.businessName || 'Individual'} · <span className="font-mono text-[11px] text-[#475467]">{u.id}</span>
+                                    </span>
+                                  </div>
+                                </td>
 
-                    return (
-                      <>
-                        {/* Mobile Responsive Cards (< md screens) */}
-                        <div className="md:hidden space-y-2.5">
-                          {displayed.map((pay) => (
-                            <div
-                              key={pay.id}
-                              className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 space-y-2.5 text-xs shadow-sm"
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <div className="font-bold text-white text-sm truncate">{pay.userName}</div>
-                                  {pay.businessName && (
-                                    <div className="text-[11px] text-slate-400 truncate">{pay.businessName}</div>
-                                  )}
-                                  <div className="text-[10px] text-slate-500 font-mono mt-0.5">📞 {pay.phone}</div>
-                                </div>
-                                <div className="flex flex-col items-end shrink-0">
-                                  <span className="font-black text-sm text-emerald-400 font-mono">
-                                    PKR {formatPKR(pay.amountPaid)}
-                                  </span>
-                                  <span className={`px-2 py-0.5 rounded text-[9px] font-bold mt-1 ${
-                                    pay.status === 'CONFIRMED'
-                                      ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                                      : pay.status === 'PENDING'
-                                      ? 'bg-amber-950 text-amber-300 border border-amber-800 animate-pulse'
-                                      : 'bg-rose-950 text-rose-300 border border-rose-800'
+                                <td className="p-2">
+                                  <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                    u.role === 'LISTER' || u.role === 'OWNER'
+                                      ? 'bg-[#E9F3EE] text-[#08513C]'
+                                      : u.role === 'DRIVER'
+                                      ? 'bg-amber-50 text-amber-800'
+                                      : u.role === 'PROVIDER'
+                                      ? u.providerSubtype === 'COMMERCIAL_CARGO'
+                                        ? 'bg-orange-50 text-orange-800'
+                                        : 'bg-indigo-50 text-indigo-800'
+                                      : u.role === 'SUPER_ADMIN'
+                                      ? 'bg-slate-900 text-[#F5B547]'
+                                      : 'bg-slate-100 text-slate-700'
                                   }`}>
-                                    {pay.status === 'CONFIRMED' ? '✓ PAID' : pay.status === 'PENDING' ? '⏳ PENDING' : '✕ FAILED'}
+                                    {u.role === 'LISTER' || u.role === 'OWNER'
+                                      ? 'Fleet owner'
+                                      : u.role === 'DRIVER'
+                                      ? 'Chauffeur'
+                                      : u.role === 'PROVIDER'
+                                      ? u.providerSubtype === 'COMMERCIAL_CARGO'
+                                        ? 'Movers'
+                                        : 'Pick & Drop'
+                                      : u.role === 'SUPER_ADMIN'
+                                      ? 'Super Admin'
+                                      : 'Customer'}
                                   </span>
-                                </div>
+                                </td>
+
+                                <td className="p-2 text-[#475467] text-xs">
+                                  <span className="font-mono">{u.phone}</span> · {u.city || 'Karachi'}
+                                </td>
+
+                                <td className="p-2 text-[#475467] text-xs">
+                                  {u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Nov 2026'}
+                                </td>
+
+                                <td className="p-2">
+                                  <div className="flex flex-col items-start gap-1">
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                      u.subscription?.status === 'ACTIVE'
+                                        ? 'bg-emerald-50 text-emerald-700'
+                                        : u.subscription?.status === 'PENDING_APPROVAL'
+                                        ? 'bg-amber-50 text-amber-700 animate-pulse'
+                                        : 'bg-slate-100 text-slate-600'
+                                    }`}>
+                                      {u.subscription?.planName || 'No plan'} · {u.subscription?.status || 'UNSUBSCRIBED'}
+                                    </span>
+                                    {u.subscription?.validUntil && (
+                                      <span className="text-[11px] text-[#475467]">
+                                        Ends {new Date(u.subscription.validUntil).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                      </span>
+                                    )}
+                                    {canExtend && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setExtendModalUser(u)}
+                                        className="h-7 px-2.5 rounded-lg border border-[#0B6B4F] bg-white text-[#0B6B4F] hover:bg-[#E9F3EE] font-semibold text-xs transition cursor-pointer mt-0.5"
+                                      >
+                                        + Extend plan
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+
+                                <td className="p-2 text-xs font-mono text-[#344054]">
+                                  <span>{userLeads.length} leads · {userClicks.length} clicks</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setActiveTab('leads')}
+                                    className="font-sans font-semibold text-xs text-[#0B6B4F] hover:underline ml-2"
+                                  >
+                                    Leads report
+                                  </button>
+                                </td>
+
+                                <td className="py-3 pl-2">
+                                  <select
+                                    aria-label="Assign agent"
+                                    value={u.assignedAgentId || ''}
+                                    onChange={(e) => {
+                                      handleAssignUserToAgent(u.id, e.target.value);
+                                      setAdminNotice(`Assigned ${u.name} to agent successfully.`);
+                                      setTimeout(() => setAdminNotice(null), 3000);
+                                    }}
+                                    className="h-8 border border-[#D0D5DD] rounded-lg px-2 text-xs font-semibold bg-white text-[#344054] focus:outline-none focus:ring-1 focus:ring-[#0B6B4F]"
+                                  >
+                                    <option value="">Unassigned</option>
+                                    <option value="AG-101">Kashif Raza</option>
+                                    <option value="AG-102">Bilal Ahmed</option>
+                                    <option value="AG-103">Ayesha Khan</option>
+                                  </select>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+
+                {/* Section 3 & 4: Responsive Grid for Payments & Promos */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+                  {/* Payments to Approve (#payments) */}
+                  <section
+                    id="payments"
+                    className="bg-white border border-[#EEF0F2] rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col gap-3.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <h2 className="font-extrabold text-lg text-[#101828]">Payments to approve</h2>
+                        {pendingSubs.length > 0 && (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-black bg-[#D92D20] text-white animate-pulse">
+                            {pendingSubs.length} pending
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('plans')}
+                        className="text-xs font-semibold text-[#0B6B4F] hover:underline cursor-pointer"
+                      >
+                        All Packages ➔
+                      </button>
+                    </div>
+
+                    {subscriptionPayments.filter((p) => p.status === 'PENDING').length === 0 ? (
+                      <div className="p-6 text-center bg-slate-50 rounded-xl border border-dashed border-[#D0D5DD]">
+                        <p className="text-xs font-bold text-[#08513C]">
+                          ✓ All pending subscription payments approved! Queue cleared.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {subscriptionPayments
+                          .filter((p) => p.status === 'PENDING')
+                          .map((p) => (
+                            <div
+                              key={p.id}
+                              className="p-3 border border-[#EEF0F2] rounded-xl flex items-center gap-3 flex-wrap"
+                            >
+                              <div
+                                onClick={() => p.slipUrl && setAdminSlipModal(p.slipUrl)}
+                                className={`w-12 h-14 rounded-lg border border-[#E4E7EC] flex items-center justify-center text-[10px] font-bold text-[#667085] shrink-0 cursor-pointer ${
+                                  p.slipUrl ? 'bg-emerald-50 text-[#08513C] hover:opacity-80' : 'bg-[#F2F4F7]'
+                                }`}
+                                title={p.slipUrl ? 'Click to inspect receipt slip' : 'No receipt attached'}
+                              >
+                                {p.slipUrl ? 'SLIP 📷' : 'RECEIPT'}
                               </div>
 
-                              <div className="grid grid-cols-2 gap-2 p-2 bg-slate-900/80 rounded-xl border border-slate-800/80 text-[11px]">
-                                <div>
-                                  <span className="text-slate-400 block text-[10px]">Plan</span>
-                                  <strong className="text-slate-200 block truncate">{pay.planName}</strong>
-                                </div>
-                                <div>
-                                  <span className="text-slate-400 block text-[10px]">Payment</span>
-                                  <strong className="text-slate-300 block truncate">
-                                    {pay.paymentMode} {pay.paymentRef ? `· ${pay.paymentRef}` : ''}
-                                  </strong>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-900">
-                                <span className="text-[10px] text-slate-400">
-                                  {new Date(pay.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                              <div className="flex-1 min-w-[180px] flex flex-col gap-0.5">
+                                <span className="font-bold text-[#101828] text-sm">{p.userName}</span>
+                                <span className="text-xs text-[#475467]">
+                                  {p.planName} · PKR {formatPKR(p.amountPaid)}
                                 </span>
-                                <div className="flex items-center gap-1.5">
-                                  {pay.slipUrl && (
-                                    <button
-                                      type="button"
-                                      onClick={() => setAdminSlipModal(pay.slipUrl!)}
-                                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                                    >
-                                      <Eye className="w-3 h-3 text-emerald-400" />
-                                      <span>Slip</span>
-                                    </button>
-                                  )}
-                                  {pay.status === 'PENDING' && (
-                                    <>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          if (confirm(`Approve payment of PKR ${formatPKR(pay.amountPaid)} for ${pay.userName}?`)) {
-                                            approveSubscriptionPayment(pay.id, 'Super Admin');
-                                            const updated = getAllSubscriptionPayments();
-                                            setSubscriptionPayments(updated);
-                                          }
-                                        }}
-                                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition"
-                                      >
-                                        Approve
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const reason = prompt('Enter rejection reason for this payment:', 'Bank credit not found / invalid receipt');
-                                          if (reason) {
-                                            rejectSubscriptionPayment(pay.id, 'Super Admin', reason);
-                                            const updated = getAllSubscriptionPayments();
-                                            setSubscriptionPayments(updated);
-                                          }
-                                        }}
-                                        className="px-2 py-1 bg-rose-950 text-rose-300 hover:bg-rose-900 border border-rose-800 rounded-lg text-xs font-bold transition"
-                                      >
-                                        ✕
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
+                                <span className="text-[11px] text-[#667085]">
+                                  {p.paymentMode} · <span className="font-mono text-[#101828]">{p.paymentRef}</span>
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const reason = prompt('Enter rejection reason for this payment:', 'Bank credit not found / invalid receipt');
+                                    if (reason) {
+                                      rejectSubscriptionPayment(p.id, 'Super Admin', reason);
+                                      setSubscriptionPayments(getAllSubscriptionPayments());
+                                      setAdminNotice(`Rejected payment for ${p.userName}`);
+                                      if (p.phone) {
+                                        const text = encodeURIComponent(`Assalam-o-Alaikum ${p.userName},\nYour SafarPK subscription payment ref ${p.paymentRef} could not be verified: ${reason}. Please reply with valid bank screenshot.`);
+                                        window.open(`https://wa.me/${normalizeWhatsAppPhone(p.phone)}?text=${text}`, '_blank');
+                                      }
+                                    }
+                                  }}
+                                  className="h-9 px-3 rounded-xl border border-[#FDA29B] bg-white text-[#B42318] hover:bg-rose-50 text-xs font-semibold transition cursor-pointer"
+                                >
+                                  Reject + WhatsApp
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    approveSubscriptionPayment(p.id, 'Super Admin');
+                                    setSubscriptionPayments(getAllSubscriptionPayments());
+                                    setRegisteredUsersList(getAllRegisteredUsers());
+                                    setAdminNotice(`Approved payment and unlocked quota for ${p.userName}!`);
+                                    setTimeout(() => setAdminNotice(null), 4000);
+                                  }}
+                                  className="h-9 px-3 rounded-xl bg-[#0B6B4F] hover:bg-[#08513C] text-white text-xs font-semibold shadow-xs transition cursor-pointer"
+                                >
+                                  Approve & unlock
+                                </button>
                               </div>
                             </div>
                           ))}
-                        </div>
+                      </div>
+                    )}
+                  </section>
 
-                        {/* Desktop Table (Hidden on Mobile) */}
-                        <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
-                          <table className="w-full text-left text-xs min-w-[850px]">
-                            <thead>
-                              <tr className="border-b border-slate-800 text-slate-400 font-bold bg-slate-900/60">
-                                <th className="p-3.5">Subscriber / Business</th>
-                                <th className="p-3.5">Category</th>
-                                <th className="p-3.5">Plan & Quota</th>
-                                <th className="p-3.5">Amount Paid</th>
-                                <th className="p-3.5">Payment Mode & Ref</th>
-                                <th className="p-3.5">Date & Time</th>
-                                <th className="p-3.5">Status</th>
-                                <th className="p-3.5 text-right">Verification Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-800/60">
-                              {displayed.map((pay) => (
-                                <tr key={pay.id} className="hover:bg-slate-900/40 transition">
-                                  <td className="p-3.5">
-                                    <div className="font-bold text-white text-sm">{pay.userName}</div>
-                                    {pay.businessName && (
-                                      <div className="text-[11px] text-slate-400">{pay.businessName}</div>
-                                    )}
-                                    <div className="text-[10px] text-slate-500 font-mono mt-0.5">📞 {pay.phone}</div>
-                                  </td>
+                  {/* Promo Codes Module (#promos) */}
+                  <section
+                    id="promos"
+                    className="bg-white border border-[#EEF0F2] rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col gap-3.5"
+                  >
+                    <div>
+                      <h2 className="font-extrabold text-lg text-[#101828]">Promo codes</h2>
+                      <p className="text-xs text-[#475467] mt-0.5">
+                        Discount codes, or extra-time codes that add days or months to a plan.
+                      </p>
+                    </div>
 
-                                  <td className="p-3.5">
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                      pay.role === 'LISTER'
-                                        ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                                        : pay.role === 'DRIVER'
-                                        ? 'bg-blue-950 text-blue-300 border border-blue-800'
-                                        : 'bg-orange-950 text-orange-300 border border-orange-800'
-                                    }`}>
-                                      {pay.role === 'LISTER'
-                                        ? 'Car Rental'
-                                        : pay.role === 'DRIVER'
-                                        ? 'Chauffeur'
-                                        : pay.providerSubtype === 'COMMERCIAL_CARGO'
-                                        ? 'Cargo Mover'
-                                        : 'Commuter Shuttle'}
-                                    </span>
-                                  </td>
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse text-xs min-w-[480px]">
+                        <thead>
+                          <tr className="text-left text-[#667085] border-b border-[#F0F2F4]">
+                            <th className="py-2 pr-2 font-semibold">Code</th>
+                            <th className="p-2 font-semibold">Gives</th>
+                            <th className="p-2 font-semibold">For</th>
+                            <th className="p-2 font-semibold">Used</th>
+                            <th className="p-2 font-semibold">Ends</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#F0F2F4]">
+                          {promoCodes.slice(0, 4).map((c) => (
+                            <tr key={c.id}>
+                              <td className="py-2.5 pr-2">
+                                <span className="font-mono font-bold text-[#101828] text-xs block">
+                                  {c.code}
+                                </span>
+                              </td>
+                              <td className="p-2 font-bold text-[#0B6B4F]">
+                                {c.discountType === 'PERCENTAGE'
+                                  ? `${c.discountValue}% OFF`
+                                  : `PKR ${formatPKR(c.discountValue)} OFF`}
+                              </td>
+                              <td className="p-2 text-[#475467]">
+                                {Array.isArray(c.appliesTo) ? c.appliesTo.join(', ') : 'ALL'}
+                              </td>
+                              <td className="p-2 text-[#475467]">{c.usedCount || 0}</td>
+                              <td className="p-2 text-[#475467]">{c.validUntil || '2026-12-31'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
 
-                                  <td className="p-3.5">
-                                    <div className="font-bold text-slate-200">{pay.planName}</div>
-                                    <div className="text-[10px] text-slate-400">{pay.notes || 'Monthly Subscription'}</div>
-                                  </td>
+                    {/* Inline Promo Code Creator Form (matching Desktop-Admin.dc.html) */}
+                    <div className="pt-3 border-t border-[#F0F2F4] grid grid-cols-3 gap-2">
+                      <span className="col-span-3 text-xs font-bold text-[#101828]">
+                        Create Promo Code
+                      </span>
 
-                                  <td className="p-3.5">
-                                    <span className="font-black text-sm text-emerald-400 font-mono">
-                                      PKR {formatPKR(pay.amountPaid)}
-                                    </span>
-                                  </td>
+                      <input
+                        type="text"
+                        aria-label="Code"
+                        value={ncCode}
+                        onChange={(e) => setNcCode(e.target.value.toUpperCase())}
+                        placeholder="CODE, e.g. EXTRA2M"
+                        className="h-9 border border-[#D0D5DD] rounded-lg px-2.5 font-mono font-bold text-xs uppercase"
+                      />
 
-                                  <td className="p-3.5">
-                                    <div className="font-bold text-slate-300">{pay.paymentMode}</div>
-                                    <div className="text-[10px] text-slate-400 font-mono">Ref: {pay.paymentRef}</div>
-                                    {pay.slipUrl && (
-                                      <button
-                                        type="button"
-                                        onClick={() => setAdminSlipModal(pay.slipUrl!)}
-                                        className="text-[10px] text-emerald-400 hover:text-emerald-300 hover:underline font-bold flex items-center gap-1 mt-0.5 cursor-pointer"
-                                      >
-                                        <span>📷 View Slip Attached</span>
-                                      </button>
-                                    )}
-                                  </td>
+                      <select
+                        aria-label="Promo type"
+                        value={ncType}
+                        onChange={(e) => setNcType(e.target.value as any)}
+                        className="h-9 border border-[#D0D5DD] rounded-lg px-2 text-xs font-semibold bg-white"
+                      >
+                        <option value="PERCENTAGE">% off price</option>
+                        <option value="FIXED_AMOUNT">Rs. off price</option>
+                        <option value="EXTRA_TIME">Extra time on plan</option>
+                      </select>
 
-                                  <td className="p-3.5 text-slate-400 text-[11px] whitespace-nowrap">
-                                    {new Date(pay.date).toLocaleDateString('en-GB', {
-                                      day: 'numeric',
-                                      month: 'short',
-                                      year: 'numeric',
-                                    })}{' '}
-                                    ·{' '}
-                                    {new Date(pay.date).toLocaleTimeString([], {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                    })}
-                                  </td>
+                      <input
+                        type="number"
+                        min={1}
+                        aria-label="Value"
+                        value={ncValue}
+                        onChange={(e) => setNcValue(parseInt(e.target.value) || 0)}
+                        placeholder="Value (e.g. 20)"
+                        className="h-9 border border-[#D0D5DD] rounded-lg px-2.5 text-xs font-semibold"
+                      />
 
-                                  <td className="p-3.5">
-                                    {pay.status === 'CONFIRMED' ? (
-                                      <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-950 text-emerald-300 border border-emerald-800 inline-flex items-center gap-1">
-                                        <span>✓</span>
-                                        <span>PAID & LIVE</span>
-                                      </span>
-                                    ) : pay.status === 'PENDING' ? (
-                                      <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-950 text-amber-300 border border-amber-800 inline-flex items-center gap-1 animate-pulse">
-                                        <span>⏳</span>
-                                        <span>PENDING</span>
-                                      </span>
-                                    ) : (
-                                      <span className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-950 text-rose-300 border border-rose-800 inline-flex items-center gap-1">
-                                        <span>✕</span>
-                                        <span>FAILED</span>
-                                      </span>
-                                    )}
-                                  </td>
+                      {ncType === 'EXTRA_TIME' && (
+                        <>
+                          <select
+                            aria-label="Days or months"
+                            value={ncUnit}
+                            onChange={(e) => setNcUnit(e.target.value as any)}
+                            className="h-9 border border-[#D0D5DD] rounded-lg px-2 text-xs font-semibold bg-white"
+                          >
+                            <option value="DAYS">Days</option>
+                            <option value="MONTHS">Months</option>
+                          </select>
+                          <select
+                            aria-label="When it applies"
+                            value={ncApplies}
+                            onChange={(e) => setNcApplies(e.target.value as any)}
+                            className="col-span-2 h-9 border border-[#D0D5DD] rounded-lg px-2 text-xs font-semibold bg-white"
+                          >
+                            <option value="ON_PAY">When they pay for a plan</option>
+                            <option value="ANYTIME">Anytime, no payment needed</option>
+                          </select>
+                        </>
+                      )}
 
-                                  <td className="p-3.5 text-right whitespace-nowrap">
-                                    <div className="flex items-center justify-end gap-1.5">
-                                      {pay.slipUrl && (
-                                        <button
-                                          type="button"
-                                          onClick={() => setAdminSlipModal(pay.slipUrl!)}
-                                          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                                          title="View Deposit Proof Slip"
-                                        >
-                                          <Eye className="w-3.5 h-3.5 text-emerald-400" />
-                                          <span>Slip</span>
-                                        </button>
-                                      )}
+                      <select
+                        aria-label="Country"
+                        value={ncCountry}
+                        onChange={(e) => setNcCountry(e.target.value)}
+                        className="h-9 border border-[#D0D5DD] rounded-lg px-2 text-xs font-semibold bg-white"
+                      >
+                        <option value="PK">PK</option>
+                        <option value="AE">AE</option>
+                        <option value="SA">SA</option>
+                        <option value="GB">GB</option>
+                        <option value="US">US</option>
+                        <option value="GLOBAL">GLOBAL</option>
+                      </select>
 
-                                      {pay.status === 'PENDING' && (
-                                        <>
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              if (confirm(`Approve payment of PKR ${formatPKR(pay.amountPaid)} for ${pay.userName} and activate listing quota?`)) {
-                                                approveSubscriptionPayment(pay.id, 'Super Admin');
-                                                const updated = getAllSubscriptionPayments();
-                                                setSubscriptionPayments(updated);
-                                              }
-                                            }}
-                                            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-xs"
-                                          >
-                                            <span>✓ Approve</span>
-                                          </button>
+                      <select
+                        aria-label="Eligible roles"
+                        value={ncRoles}
+                        onChange={(e) => setNcRoles(e.target.value)}
+                        className="h-9 border border-[#D0D5DD] rounded-lg px-2 text-xs font-semibold bg-white"
+                      >
+                        <option value="ALL">ALL ROLES</option>
+                        <option value="CAR_RENTAL">CAR_RENTAL</option>
+                        <option value="DRIVER">DRIVER</option>
+                        <option value="PICK_DROP">PICK_DROP</option>
+                        <option value="MOVERS">MOVERS</option>
+                      </select>
 
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              const reason = prompt('Enter rejection reason for this payment:', 'Bank credit not found / invalid receipt');
-                                              if (reason) {
-                                                rejectSubscriptionPayment(pay.id, 'Super Admin', reason);
-                                                const updated = getAllSubscriptionPayments();
-                                                setSubscriptionPayments(updated);
-                                              }
-                                            }}
-                                            className="px-2.5 py-1 bg-rose-600/80 hover:bg-rose-600 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                                          >
-                                            <span>✕ Reject</span>
-                                          </button>
-                                        </>
-                                      )}
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </>
-                    );
-                  })()}
+                      <input
+                        type="number"
+                        min={1}
+                        aria-label="Max uses"
+                        value={ncMax}
+                        onChange={(e) => setNcMax(parseInt(e.target.value) || 100)}
+                        placeholder="Max uses"
+                        className="h-9 border border-[#D0D5DD] rounded-lg px-2.5 text-xs font-semibold"
+                      />
+
+                      <label className="col-span-3 flex items-center gap-2 text-xs font-semibold text-[#344054]">
+                        <span>Code ends on:</span>
+                        <input
+                          type="date"
+                          value={ncExpires}
+                          onChange={(e) => setNcExpires(e.target.value)}
+                          className="flex-1 h-9 border border-[#D0D5DD] rounded-lg px-2.5 text-xs font-medium"
+                        />
+                      </label>
+
+                      {/* Live Sentence Preview */}
+                      <span className="col-span-3 p-2.5 rounded-lg bg-[#F7F8FA] border border-[#E4E7EC] text-xs text-[#344054] font-medium">
+                        {getPromoPreviewSentence()}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={handleAddPromoCode}
+                        className="col-span-2 h-10 rounded-xl bg-[#101828] hover:bg-slate-800 text-white font-bold text-xs shadow-xs transition cursor-pointer"
+                      >
+                        Add Promo Code
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNcCode('');
+                          setNcValue(20);
+                        }}
+                        className="h-10 rounded-xl border border-[#D0D5DD] bg-white text-[#344054] hover:bg-slate-50 font-bold text-xs transition cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </section>
                 </div>
 
-                {/* Admin Slip Preview Modal */}
+                {/* Section 5: Latest Leads & Clicks (#leads) */}
+                <section
+                  id="leads"
+                  className="bg-white border border-[#EEF0F2] rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col gap-3.5"
+                >
+                  <div className="flex items-center justify-between">
+                    <h2 className="font-extrabold text-lg text-[#101828]">Latest leads & clicks</h2>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('leads')}
+                      className="text-xs font-semibold text-[#0B6B4F] hover:underline cursor-pointer"
+                    >
+                      View All Activity Log ➔
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-xs min-w-[720px]">
+                      <thead>
+                        <tr className="text-left text-[#667085] border-b border-[#F0F2F4]">
+                          <th className="py-2.5 pr-2 font-semibold">When</th>
+                          <th className="p-2 font-semibold">Customer</th>
+                          <th className="p-2 font-semibold">For listing</th>
+                          <th className="p-2 font-semibold">Type</th>
+                          <th className="py-2.5 pl-2 font-semibold">Lister (gets lead)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#F0F2F4]">
+                        {leadsList.slice(0, 6).map((l) => (
+                          <tr key={l.id} className="hover:bg-slate-50/70 transition">
+                            <td className="py-2.5 pr-2 text-[#475467]">
+                              {new Date(l.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · {new Date(l.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                            <td className="p-2 font-bold text-[#101828]">
+                              {l.customerName}
+                              <span className="block text-[11px] font-mono text-[#667085] font-normal">
+                                {l.customerPhone}
+                              </span>
+                            </td>
+                            <td className="p-2 text-[#344054]">
+                              {l.vehicleTitle || 'Vehicle Inquiry'}
+                            </td>
+                            <td className="p-2">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                l.leadType === 'BOOKING_REQUEST'
+                                  ? 'bg-emerald-50 text-emerald-700'
+                                  : l.leadType === 'WHATSAPP_CLICK'
+                                  ? 'bg-teal-50 text-teal-700'
+                                  : 'bg-blue-50 text-blue-700'
+                              }`}>
+                                {l.leadType}
+                              </span>
+                            </td>
+                            <td className="py-2.5 pl-2 text-[#344054]">
+                              {l.vendorBusinessName || 'Safar Partner'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+
+                {/* Extend Plan Modal Dialog */}
+                {extendModalUser && (
+                  <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="extT"
+                    className="fixed inset-0 bg-[#101828]/50 backdrop-blur-xs flex items-center justify-center p-4 z-50"
+                  >
+                    <div className="w-[480px] max-w-full bg-white rounded-2xl p-6 flex flex-col gap-4 shadow-2xl border border-[#EEF0F2]">
+                      <div>
+                        <h2 id="extT" className="font-extrabold text-xl text-[#101828]">
+                          Extend Plan
+                        </h2>
+                        <p className="text-sm text-[#475467] mt-0.5">
+                          {extendModalUser.businessName || extendModalUser.name} · {extendModalUser.subscription?.planName || 'Standard Plan'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-[#475467] mb-1.5">
+                          Quick Extension Options
+                        </label>
+                        <div className="grid grid-cols-4 gap-2">
+                          {[
+                            { days: 7, label: '+7 days' },
+                            { days: 15, label: '+15 days' },
+                            { days: 30, label: '+1 month' },
+                            { days: 90, label: '+3 months' },
+                          ].map((q) => (
+                            <button
+                              key={q.days}
+                              type="button"
+                              onClick={() => setExtendDays(q.days)}
+                              className={`h-10 rounded-xl font-bold text-xs transition cursor-pointer border ${
+                                extendDays === q.days
+                                  ? 'border-[#0B6B4F] bg-[#E9F3EE] text-[#08513C]'
+                                  : 'border-[#E4E7EC] bg-white text-[#344054] hover:bg-slate-50'
+                              }`}
+                            >
+                              {q.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-[#475467] mb-1">
+                          Custom Extension Days
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={extendDays}
+                          onChange={(e) => setExtendDays(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-full h-10 px-3 rounded-xl border border-[#D0D5DD] text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#0B6B4F]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-[#475467] mb-1">
+                          Reason for Extension
+                        </label>
+                        <input
+                          type="text"
+                          value={extendReason}
+                          onChange={(e) => setExtendReason(e.target.value)}
+                          placeholder="e.g. Promotional goodwill, downtime compensation"
+                          className="w-full h-10 px-3 rounded-xl border border-[#D0D5DD] text-sm focus:outline-none focus:ring-2 focus:ring-[#0B6B4F]"
+                        />
+                      </div>
+
+                      <label className="flex items-center gap-2 text-xs font-medium text-[#475467] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={extendNotifyWhatsApp}
+                          onChange={(e) => setExtendNotifyWhatsApp(e.target.checked)}
+                          className="rounded text-[#0B6B4F] focus:ring-[#0B6B4F]"
+                        />
+                        <span>Notify lister via WhatsApp with updated validity</span>
+                      </label>
+
+                      <div className="flex gap-2.5 pt-2 border-t border-[#F2F4F7]">
+                        <button
+                          type="button"
+                          onClick={() => setExtendModalUser(null)}
+                          className="flex-1 h-11 rounded-xl border border-[#D0D5DD] bg-white font-bold text-sm text-[#344054] hover:bg-slate-50 transition cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleExtendPlan(extendModalUser, extendDays, extendReason)}
+                          className="flex-1 h-11 rounded-xl bg-[#0B6B4F] hover:bg-[#08513C] text-white font-bold text-sm shadow-md transition cursor-pointer"
+                        >
+                          Confirm & Extend
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Slip Preview Modal */}
                 {adminSlipModal && (
                   <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
-                    <div className="relative max-w-lg w-full bg-slate-900 rounded-3xl overflow-hidden border border-slate-700 shadow-2xl p-4 space-y-3">
-                      <div className="flex items-center justify-between text-white pb-2 border-b border-slate-800">
+                    <div className="relative max-w-lg w-full bg-white rounded-3xl overflow-hidden border border-[#E4E7EC] shadow-2xl p-5 space-y-3">
+                      <div className="flex items-center justify-between text-[#101828] pb-2 border-b border-[#F0F2F4]">
                         <span className="text-xs font-bold font-mono">Subscriber Payment Deposit Slip</span>
                         <button
                           type="button"
                           onClick={() => setAdminSlipModal(null)}
-                          className="p-1 text-slate-400 hover:text-white rounded-lg"
+                          className="p-1 text-[#667085] hover:text-[#101828] rounded-lg cursor-pointer"
                         >
                           <X className="w-5 h-5" />
                         </button>
                       </div>
-                      <div className="max-h-[70vh] overflow-auto flex items-center justify-center bg-black/50 rounded-2xl p-2">
+                      <div className="max-h-[70vh] overflow-auto flex items-center justify-center bg-slate-50 rounded-2xl p-2">
                         <img
                           src={adminSlipModal}
                           alt="Bank deposit slip"
-                          className="max-h-[65vh] w-auto object-contain rounded-lg"
+                          className="max-h-[65vh] w-auto object-contain rounded-lg shadow-sm"
                         />
                       </div>
                       <div className="flex justify-end">
                         <button
                           type="button"
                           onClick={() => setAdminSlipModal(null)}
-                          className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition"
+                          className="px-4 py-2 bg-[#101828] hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition cursor-pointer"
                         >
                           Close Slip View
                         </button>

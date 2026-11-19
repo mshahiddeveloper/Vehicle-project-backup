@@ -26,6 +26,7 @@ import {
   Share2,
   Navigation,
   ArrowRight,
+  ArrowLeft,
   Users,
   Menu,
   ArrowUpDown,
@@ -81,12 +82,20 @@ export function MobileHomeNativeView() {
   const [city, setCity] = useState<string>('Lahore');
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [citySheetOpen, setCitySheetOpen] = useState(false);
+  const [citySearchQuery, setCitySearchQuery] = useState('');
   const [searchSheetOpen, setSearchSheetOpen] = useState(false);
   const [activeServiceIdx, setActiveServiceIdx] = useState(0); // 0: Rent car, 1: Drivers, 2: City to City, 3: Pick & drop, 4: Movers
   const [selectedCarCategory, setSelectedCarCategory] = useState(0); // 0: All cars, 1: Sedans, 2: SUVs, 3: Luxury, 4: Vans
   const [isSelfDrive, setIsSelfDrive] = useState(true);
   const [savedCarIds, setSavedCarIds] = useState<string[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isFilteredResultsView, setIsFilteredResultsView] = useState(false);
+  const [datePickerSheetOpen, setDatePickerSheetOpen] = useState(false);
+  const [selectedTransmission, setSelectedTransmission] = useState<'All' | 'Automatic' | 'Manual'>('All');
+  const [selectedPriceMax, setSelectedPriceMax] = useState<number | null>(null);
+  const [transmissionSheetOpen, setTransmissionSheetOpen] = useState(false);
+  const [carCategorySheetOpen, setCarCategorySheetOpen] = useState(false);
+  const [priceSheetOpen, setPriceSheetOpen] = useState(false);
 
   // Search Sheet Specific Inputs
   const [searchWhere, setSearchWhere] = useState('Lahore');
@@ -94,12 +103,14 @@ export function MobileHomeNativeView() {
   const [returnDate, setReturnDate] = useState('');
   const [c2cFromCity, setC2cFromCity] = useState('Lahore');
   const [c2cToCity, setC2cToCity] = useState('Islamabad');
+  const [c2cSearchQuery, setC2cSearchQuery] = useState('');
   const [c2cPickerSheetOpen, setC2cPickerSheetOpen] = useState<'from' | 'to' | null>(null);
 
   // Shuttles corridor inputs
   const [shuttleCity, setShuttleCity] = useState('Karachi');
   const [shuttlePickupArea, setShuttlePickupArea] = useState('');
   const [shuttleDropArea, setShuttleDropArea] = useState('');
+  const [shuttleAreaSearchQuery, setShuttleAreaSearchQuery] = useState('');
   const [shuttleAreaSheetOpen, setShuttleAreaSheetOpen] = useState<'pickup' | 'drop' | null>(null);
 
   // Movers inputs
@@ -107,20 +118,47 @@ export function MobileHomeNativeView() {
   const [moverToArea, setMoverToArea] = useState('');
   const [moverDate, setMoverDate] = useState('');
   const [moverAreaSheetOpen, setMoverAreaSheetOpen] = useState<'from' | 'to' | null>(null);
+  const [moverAreaSearchQuery, setMoverAreaSearchQuery] = useState('');
+
+  const syncSavedFavorites = () => {
+    try {
+      if (typeof window === 'undefined') return;
+      const idsSet = new Set<string>();
+      const rawVehicles = localStorage.getItem('safarpk_saved_vehicles');
+      if (rawVehicles) {
+        const parsed = JSON.parse(rawVehicles);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((id: string) => idsSet.add(id));
+        }
+      }
+      const rawItems = localStorage.getItem('safarpk_saved_items');
+      if (rawItems) {
+        const parsedItems = JSON.parse(rawItems);
+        if (Array.isArray(parsedItems)) {
+          parsedItems.forEach((it: any) => {
+            if (it.id) idsSet.add(it.id);
+          });
+        }
+      }
+      setSavedCarIds(Array.from(idsSet));
+    } catch (e) {}
+  };
 
   useEffect(() => {
     setActiveUser(getActiveUser());
     const onAuth = () => setActiveUser(getActiveUser());
     window.addEventListener('safarpk_auth_state_changed', onAuth);
 
-    // Load saved favorites
-    try {
-      const stored = localStorage.getItem('safarpk_saved_vehicles');
-      if (stored) setSavedCarIds(JSON.parse(stored));
-    } catch (e) {}
+    syncSavedFavorites();
+    window.addEventListener('safarpk_saved_updated', syncSavedFavorites);
+    window.addEventListener('safarpk_favorites_updated', syncSavedFavorites);
+    window.addEventListener('storage', syncSavedFavorites);
 
     return () => {
       window.removeEventListener('safarpk_auth_state_changed', onAuth);
+      window.removeEventListener('safarpk_saved_updated', syncSavedFavorites);
+      window.removeEventListener('safarpk_favorites_updated', syncSavedFavorites);
+      window.removeEventListener('storage', syncSavedFavorites);
     };
   }, []);
 
@@ -138,8 +176,9 @@ export function MobileHomeNativeView() {
   };
 
   const toggleSaveCar = (carId: string, carName: string) => {
+    const isCurrentlySaved = savedCarIds.includes(carId);
     let updated: string[];
-    if (savedCarIds.includes(carId)) {
+    if (isCurrentlySaved) {
       updated = savedCarIds.filter((id) => id !== carId);
       showToast(`Removed "${carName}" from saved`);
     } else {
@@ -147,9 +186,41 @@ export function MobileHomeNativeView() {
       showToast(`Saved "${carName}" to your wishlist!`);
     }
     setSavedCarIds(updated);
+
     try {
-      localStorage.setItem('safarpk_saved_vehicles', JSON.stringify(updated));
-      window.dispatchEvent(new Event('safarpk_favorites_updated'));
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('safarpk_saved_vehicles', JSON.stringify(updated));
+
+        // Interlink with safarpk_saved_items for full desktop & /saved compatibility
+        let storedList: any[] = [];
+        const rawItems = localStorage.getItem('safarpk_saved_items');
+        if (rawItems) {
+          try {
+            storedList = JSON.parse(rawItems);
+          } catch (e) {}
+        }
+
+        if (isCurrentlySaved) {
+          storedList = storedList.filter((item) => (item.id || item) !== carId);
+        } else {
+          const foundCar = filteredCars.find((c) => c.id === carId) || CARS_DATA.find((c) => c.id === carId);
+          storedList = storedList.filter((item) => (item.id || item) !== carId);
+          storedList.unshift({
+            id: carId,
+            title: foundCar?.name || carName,
+            name: foundCar?.name || carName,
+            category: 'Cars',
+            specs: foundCar?.specs || 'Verified Car Rental',
+            city: foundCar?.city || city,
+            rate: foundCar?.price || 'PKR 12,000 / day',
+            price: foundCar?.price || 'PKR 12,000 / day',
+            savedAt: new Date().toISOString(),
+          });
+        }
+        localStorage.setItem('safarpk_saved_items', JSON.stringify(storedList));
+        window.dispatchEvent(new Event('safarpk_saved_updated'));
+        window.dispatchEvent(new Event('safarpk_favorites_updated'));
+      }
     } catch (e) {}
   };
 
@@ -212,7 +283,8 @@ export function MobileHomeNativeView() {
   // Dynamic Service Datasets Filtered by Location
   const filteredCars = useMemo(() => {
     let list = [...CARS_DATA];
-    const cityMatches = list.filter((c) => c.city.toLowerCase() === city.toLowerCase());
+    const targetCity = searchWhere || city;
+    const cityMatches = list.filter((c) => c.city.toLowerCase() === targetCity.toLowerCase());
     if (cityMatches.length > 0) list = cityMatches;
     if (selectedCarCategory === 1) {
       list = list.filter((c) => c.category === 'Sedans');
@@ -223,45 +295,55 @@ export function MobileHomeNativeView() {
     } else if (selectedCarCategory === 4) {
       list = list.filter((c) => c.category === 'Vans & Hiace');
     }
+    if (selectedTransmission !== 'All') {
+      list = list.filter((c) => c.specs.toLowerCase().includes(selectedTransmission.toLowerCase()));
+    }
+    if (selectedPriceMax) {
+      list = list.filter((c) => c.priceNum <= selectedPriceMax);
+    }
     return list;
-  }, [city, selectedCarCategory]);
+  }, [city, searchWhere, selectedCarCategory, selectedTransmission, selectedPriceMax]);
 
   const filteredDrivers = useMemo(() => {
     const list = [...DRIVERS_DATA];
-    const cityMatches = list.filter((d) => d.city.toLowerCase() === city.toLowerCase());
+    const targetCity = searchWhere || city;
+    const cityMatches = list.filter((d) => d.city.toLowerCase() === targetCity.toLowerCase());
     return cityMatches.length > 0 ? cityMatches : list;
-  }, [city]);
+  }, [city, searchWhere]);
 
   const filteredRides = useMemo(() => {
     const list = [...CITY_RIDES_DATA];
+    const targetCity = searchWhere || city;
     const cityMatches = list.filter(
       (r) =>
-        r.fromCity.toLowerCase() === city.toLowerCase() ||
-        r.toCity.toLowerCase() === city.toLowerCase()
+        r.fromCity.toLowerCase() === targetCity.toLowerCase() ||
+        r.toCity.toLowerCase() === targetCity.toLowerCase()
     );
     return cityMatches.length > 0 ? cityMatches : list;
-  }, [city]);
+  }, [city, searchWhere]);
 
   const filteredShuttles = useMemo(() => {
     let list = [...SHUTTLES_DATA];
+    const targetCity = shuttleCity || searchWhere || city;
     if (shuttlePickupArea || shuttleDropArea) {
       list = list.filter((s) =>
-        matchesShuttleRoute(s, shuttlePickupArea, shuttleDropArea, shuttleCity || city)
+        matchesShuttleRoute(s, shuttlePickupArea, shuttleDropArea, targetCity)
       );
     } else {
       const cityMatches = list.filter(
-        (s) => s.city.toLowerCase() === (shuttleCity || city).toLowerCase()
+        (s) => s.city.toLowerCase() === targetCity.toLowerCase()
       );
       if (cityMatches.length > 0) list = cityMatches;
     }
     return list.length > 0 ? list : SHUTTLES_DATA;
-  }, [city, shuttleCity, shuttlePickupArea, shuttleDropArea]);
+  }, [city, searchWhere, shuttleCity, shuttlePickupArea, shuttleDropArea]);
 
   const filteredMovers = useMemo(() => {
     const list = [...MOVERS_DATA];
-    const cityMatches = list.filter((m) => m.city.toLowerCase() === city.toLowerCase());
+    const targetCity = searchWhere || city;
+    const cityMatches = list.filter((m) => m.city.toLowerCase() === targetCity.toLowerCase());
     return cityMatches.length > 0 ? cityMatches : list;
-  }, [city]);
+  }, [city, searchWhere]);
 
   const userInitials = useMemo(() => {
     if (!activeUser || !activeUser.name) return 'HA';
@@ -282,78 +364,159 @@ export function MobileHomeNativeView() {
       {/* ========================================================================= */}
       {/* 1. TOP APP BAR (Native Mobile Clean Header matching AppHeader)             */}
       {/* ========================================================================= */}
-      <header className="sticky top-0 z-40 bg-white border-b border-[#EEF0F2] px-3.5 pt-2.5 pb-2.5 flex flex-col gap-2 shadow-2xs">
-        {/* Row 1: Hamburger Menu (Left) + SafarPK Logo (Center) + Bell & Avatar (Right) */}
-        <div className="flex items-center justify-between gap-2 h-11">
-          {/* Hamburger Menu Icon */}
-          <button
-            type="button"
-            onClick={() => setMobileDrawerOpen(true)}
-            className="w-9 h-9 rounded-xl flex items-center justify-center bg-slate-100/90 hover:bg-slate-200 active:scale-95 text-slate-800 transition cursor-pointer shrink-0 shadow-2xs border border-slate-200/60"
-            aria-label="Open Navigation Drawer"
-          >
-            <Menu className="w-5 h-5 text-slate-800" />
-          </button>
+      {!isFilteredResultsView ? (
+        <header className="sticky top-0 z-40 bg-white border-b border-[#EEF0F2] px-3.5 pt-2.5 pb-2.5 flex flex-col gap-2 shadow-2xs">
+          {/* Row 1: Hamburger Menu (Left) + SafarPK Logo (Center) + Bell & Avatar (Right) */}
+          <div className="flex items-center justify-between gap-2 h-11">
+            <button
+              type="button"
+              onClick={() => setMobileDrawerOpen(true)}
+              className="w-9 h-9 rounded-xl flex items-center justify-center bg-slate-100/90 hover:bg-slate-200 active:scale-95 text-slate-800 transition cursor-pointer shrink-0 shadow-2xs border border-slate-200/60"
+              aria-label="Open Navigation Drawer"
+            >
+              <Menu className="w-5 h-5 text-slate-800" />
+            </button>
 
-          {/* Centered SafarPK Brand Logo */}
-          <Link href="/" className="flex items-center justify-center group shrink-0">
-            <div className="flex items-center gap-2">
-              <span className="w-7 h-7 rounded-xl bg-[#0B6B4F] text-white flex items-center justify-center font-extrabold text-sm shadow-xs shrink-0">
-                S
-              </span>
-              <span className="font-heading font-black text-lg tracking-tight text-[#101828] leading-none whitespace-nowrap">
-                SafarPK
-              </span>
+            <Link href="/" className="flex items-center justify-center group shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="w-7 h-7 rounded-xl bg-[#0B6B4F] text-white flex items-center justify-center font-extrabold text-sm shadow-xs shrink-0">
+                  S
+                </span>
+                <span className="font-heading font-black text-lg tracking-tight text-[#101828] leading-none whitespace-nowrap">
+                  SafarPK
+                </span>
+              </div>
+            </Link>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <Link
+                href="/inbox"
+                aria-label="Notifications"
+                className="relative w-9 h-9 rounded-full bg-[#F2F4F7] text-[#101828] flex items-center justify-center transition active:scale-95 hover:bg-slate-200"
+              >
+                <Bell className="w-4.5 h-4.5 stroke-[2] text-slate-700" />
+                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#D92D20] ring-2 ring-[#F2F4F7]" />
+              </Link>
+
+              <Link
+                href={activeUser ? '/customer' : '/login'}
+                aria-label="My account"
+                className="w-9 h-9 rounded-full bg-[#0B6B4F] text-white font-bold text-xs flex items-center justify-center shadow-xs transition active:scale-95 hover:ring-2 hover:ring-emerald-400"
+              >
+                {userInitials}
+              </Link>
             </div>
-          </Link>
-
-          {/* Right Action Buttons: Notification Bell + User Profile Initials */}
-          <div className="flex items-center gap-2 shrink-0">
-            <Link
-              href="/inbox"
-              aria-label="Notifications"
-              className="relative w-9 h-9 rounded-full bg-[#F2F4F7] text-[#101828] flex items-center justify-center transition active:scale-95 hover:bg-slate-200"
-            >
-              <Bell className="w-4.5 h-4.5 stroke-[2] text-slate-700" />
-              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#D92D20] ring-2 ring-[#F2F4F7]" />
-            </Link>
-
-            <Link
-              href={activeUser ? '/customer' : '/login'}
-              aria-label="My account"
-              className="w-9 h-9 rounded-full bg-[#0B6B4F] text-white font-bold text-xs flex items-center justify-center shadow-xs transition active:scale-95 hover:ring-2 hover:ring-emerald-400"
-            >
-              {userInitials}
-            </Link>
           </div>
-        </div>
 
-        {/* Row 2: Origin City Selector Pill + Universal Search Bar */}
-        <div className="flex items-center gap-2">
-          {/* Origin City Click-to-Change Selector (Prevents Soft Keyboard) */}
-          <button
-            type="button"
-            onClick={() => setCitySheetOpen(true)}
-            className="flex items-center gap-1.5 h-10 px-3 rounded-xl bg-[#E9F3EE] hover:bg-emerald-100/70 text-[#08513C] font-bold text-xs shrink-0 transition active:scale-95 cursor-pointer border border-[#D0E5DA]"
-          >
-            <MapPin className="w-3.5 h-3.5 text-[#0B6B4F] stroke-[2.2]" />
-            <span className="max-w-[75px] truncate">{city}</span>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
-          </button>
+          {/* Row 2: Location Selector + Universal Search Bar */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCitySheetOpen(true)}
+              className="flex items-center gap-1.5 h-10 px-3 rounded-xl bg-[#E9F3EE] hover:bg-emerald-100/70 text-[#08513C] font-bold text-xs shrink-0 transition active:scale-95 cursor-pointer border border-[#D0E5DA]"
+            >
+              <MapPin className="w-3.5 h-3.5 text-[#0B6B4F] stroke-[2.2]" />
+              <span className="max-w-[75px] truncate">{city}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+            </button>
 
-          {/* Universal Search Bar Opener */}
-          <button
-            type="button"
-            onClick={() => setSearchSheetOpen(true)}
-            className="flex-1 flex items-center gap-2 h-10 px-3 rounded-xl bg-[#F7F8FA] hover:bg-slate-100 border border-[#E4E7EC] text-left text-xs text-slate-500 truncate transition active:scale-[0.99] shadow-2xs cursor-pointer"
-          >
-            <Search className="w-3.5 h-3.5 text-slate-600 shrink-0" />
-            <span className="truncate font-semibold text-slate-800">
-              {curService.title} in {city}...
-            </span>
-          </button>
-        </div>
-      </header>
+            <button
+              type="button"
+              onClick={() => setSearchSheetOpen(true)}
+              className="flex-1 flex items-center gap-2 h-10 px-3 rounded-xl bg-[#F7F8FA] hover:bg-slate-100 border border-[#E4E7EC] text-left text-xs text-slate-500 truncate transition active:scale-[0.99] shadow-2xs cursor-pointer"
+            >
+              <Search className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+              <span className="truncate font-semibold text-slate-800">
+                {curService.title} in {city}...
+              </span>
+            </button>
+          </div>
+        </header>
+      ) : (
+        <header className="sticky top-0 z-40 bg-white border-b border-[#EEF0F2] px-3.5 pt-2.5 pb-2.5 flex flex-col gap-2 shadow-2xs">
+          <div className="flex items-center justify-between gap-2 h-11">
+            <button
+              type="button"
+              onClick={() => setIsFilteredResultsView(false)}
+              className="w-9 h-9 rounded-xl flex items-center justify-center bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-800 transition cursor-pointer shrink-0"
+              aria-label="Back to explore"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+
+            <div
+              onClick={() => setSearchSheetOpen(true)}
+              className="flex-1 flex items-center justify-center px-3 py-1.5 rounded-full border border-slate-200 bg-white shadow-2xs cursor-pointer active:scale-[0.99] transition text-center hover:bg-slate-50"
+            >
+              <div className="flex flex-col items-center">
+                <span className="font-heading font-black text-xs text-[#101828]">
+                  {searchWhere || city}
+                </span>
+                <span className="text-[10px] text-slate-500 font-medium">
+                  {pickupDate && returnDate ? `${pickupDate} – ${returnDate}` : '14 – 16 Nov'} · {isSelfDrive ? 'Self-drive' : 'With driver'}
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSearchSheetOpen(true)}
+              className="w-9 h-9 rounded-xl flex items-center justify-center bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-800 transition cursor-pointer shrink-0"
+              aria-label="Open search filter"
+            >
+              <SlidersHorizontal className="w-4 h-4 text-slate-700" />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+            <button
+              type="button"
+              onClick={() => setIsSelfDrive(!isSelfDrive)}
+              className={`h-8 px-3 rounded-full text-xs font-bold transition cursor-pointer shrink-0 ${
+                isSelfDrive ? 'bg-[#101828] text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              Self-drive
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedTransmission(selectedTransmission === 'Automatic' ? 'All' : 'Automatic')}
+              className={`h-8 px-3 rounded-full text-xs font-bold transition cursor-pointer shrink-0 ${
+                selectedTransmission === 'Automatic' ? 'bg-[#101828] text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              Automatic
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedCarCategory(selectedCarCategory === 1 ? 0 : 1)}
+              className={`h-8 px-3 rounded-full text-xs font-bold transition cursor-pointer shrink-0 ${
+                selectedCarCategory === 1 ? 'bg-[#101828] text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              Sedan
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedCarCategory(selectedCarCategory === 2 ? 0 : 2)}
+              className={`h-8 px-3 rounded-full text-xs font-bold transition cursor-pointer shrink-0 ${
+                selectedCarCategory === 2 ? 'bg-[#101828] text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              SUV
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedPriceMax(selectedPriceMax === 10000 ? null : 10000)}
+              className={`h-8 px-3 rounded-full text-xs font-bold transition cursor-pointer shrink-0 ${
+                selectedPriceMax === 10000 ? 'bg-[#101828] text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              Under PKR 10k
+            </button>
+          </div>
+        </header>
+      )}
 
       {/* Slide-out Sidebar Drawer with Accordions & Role Badge */}
       <MobileNavigationDrawer
@@ -967,176 +1130,17 @@ export function MobileHomeNativeView() {
         </section>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 3. CITY PICKER BOTTOM SHEET (Native Modal, No Soft Keyboard)               */}
-      {/* ========================================================================= */}
-      {citySheetOpen && (
-        <div className="fixed inset-0 z-[999999] bg-black/50 backdrop-blur-xs flex flex-col justify-end">
-          <div
-            className="flex-1"
-            onClick={() => setCitySheetOpen(false)}
-            aria-label="Close"
-          />
-          <div className="bg-white rounded-t-[26px] p-4 pb-8 max-h-[82vh] overflow-y-auto flex flex-col gap-2 shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
-            <div className="w-10 h-1.5 rounded-full bg-[#D0D5DD] mx-auto mb-2 shrink-0" />
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <h3 className="font-heading font-extrabold text-[20px] text-[#101828]">Choose your city</h3>
-              <button
-                type="button"
-                onClick={() => setCitySheetOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="divide-y divide-slate-100 py-1">
-              {PAKISTAN_CITIES.map((c) => {
-                const isSelected = c.name === city;
-                return (
-                  <button
-                    key={c.name}
-                    type="button"
-                    onClick={() => {
-                      setCity(c.name);
-                      setSearchWhere(c.name);
-                      setCitySheetOpen(false);
-                      showToast(`City set to ${c.name}`);
-                    }}
-                    className="w-full flex items-center justify-between py-3.5 px-2 text-left hover:bg-slate-50 transition cursor-pointer font-semibold text-[16px]"
-                  >
-                    <span className={isSelected ? 'text-[#0B6B4F] font-bold' : 'text-[#101828]'}>
-                      {c.name}
-                    </span>
-                    {isSelected && <Check className="w-5 h-5 text-[#0B6B4F] stroke-[2.6]" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* 4. CITY TO CITY MAJOR HUBS PICKER SHEET                                   */}
-      {/* ========================================================================= */}
-      {c2cPickerSheetOpen && (
-        <div className="fixed inset-0 z-[999999] bg-black/50 backdrop-blur-xs flex flex-col justify-end">
-          <div
-            className="flex-1"
-            onClick={() => setC2cPickerSheetOpen(null)}
-            aria-label="Close"
-          />
-          <div className="bg-white rounded-t-[26px] p-4 pb-8 max-h-[82vh] overflow-y-auto flex flex-col gap-2 shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
-            <div className="w-10 h-1.5 rounded-full bg-[#D0D5DD] mx-auto mb-2 shrink-0" />
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <h3 className="font-heading font-extrabold text-[18px] text-[#101828]">
-                {c2cPickerSheetOpen === 'from' ? 'Select Departure City' : 'Select Destination City'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setC2cPickerSheetOpen(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="py-2">
-              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block mb-2 px-1">
-                Major Hubs
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                {MAJOR_HUBS.map((hub) => (
-                  <button
-                    key={hub}
-                    type="button"
-                    onClick={() => {
-                      if (c2cPickerSheetOpen === 'from') setC2cFromCity(hub);
-                      else setC2cToCity(hub);
-                      setC2cPickerSheetOpen(null);
-                    }}
-                    className={`py-2.5 px-3 rounded-xl border text-left font-bold text-xs transition cursor-pointer ${
-                      (c2cPickerSheetOpen === 'from' ? c2cFromCity : c2cToCity) === hub
-                        ? 'border-[#0B6B4F] bg-[#E9F3EE] text-[#08513C]'
-                        : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50'
-                    }`}
-                  >
-                    {hub}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="divide-y divide-slate-100 py-1">
-              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block mb-2 px-1">
-                Other Connected Cities
-              </span>
-              {INTERCITY_CITIES.filter((c) => !MAJOR_HUBS.includes(c as any)).map((hub) => (
-                <button
-                  key={hub}
-                  type="button"
-                  onClick={() => {
-                    if (c2cPickerSheetOpen === 'from') setC2cFromCity(hub);
-                    else setC2cToCity(hub);
-                    setC2cPickerSheetOpen(null);
-                  }}
-                  className="w-full flex items-center justify-between py-2.5 px-2 text-left font-semibold text-xs text-slate-700 hover:bg-slate-50 transition cursor-pointer"
-                >
-                  <span>{hub}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* 5. SHUTTLES CORRIDOR AREA PICKER SHEET                                     */}
-      {/* ========================================================================= */}
-      {shuttleAreaSheetOpen && (
-        <div className="fixed inset-0 z-[999999] bg-black/50 backdrop-blur-xs flex flex-col justify-end">
-          <div
-            className="flex-1"
-            onClick={() => setShuttleAreaSheetOpen(null)}
-            aria-label="Close"
-          />
-          <div className="bg-white rounded-t-[26px] p-4 pb-8 max-h-[82vh] overflow-y-auto flex flex-col gap-2 shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
-            <div className="w-10 h-1.5 rounded-full bg-[#D0D5DD] mx-auto mb-2 shrink-0" />
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <div>
-                <h3 className="font-heading font-extrabold text-[18px] text-[#101828]">
-                  {shuttleAreaSheetOpen === 'pickup' ? 'Select Pick-up Stop' : 'Select Drop-off Stop'}
-                </h3>
-                <span className="text-xs text-slate-500">Corridor stops in {shuttleCity}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShuttleAreaSheetOpen(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="divide-y divide-slate-100 py-1">
-              {(CITY_COMMUTE_AREAS[shuttleCity] || CITY_COMMUTE_AREAS['Karachi']).map((area) => (
-                <button
-                  key={area}
-                  type="button"
-                  onClick={() => {
-                    if (shuttleAreaSheetOpen === 'pickup') setShuttlePickupArea(area);
-                    else setShuttleDropArea(area);
-                    setShuttleAreaSheetOpen(null);
-                  }}
-                  className="w-full flex items-center justify-between py-3 px-2 text-left font-semibold text-xs text-slate-800 hover:bg-slate-50 transition cursor-pointer"
-                >
-                  <span>{area}</span>
-                  <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                </button>
-              ))}
-            </div>
-          </div>
+      {/* Floating Map Button on Search Results View (Page 7) */}
+      {isFilteredResultsView && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
+          <button
+            type="button"
+            onClick={() => showToast('Opening interactive map view...')}
+            className="flex items-center gap-2 h-11 px-5 rounded-full bg-[#101828] text-white font-bold text-xs shadow-xl hover:bg-slate-800 active:scale-95 transition cursor-pointer border border-slate-700"
+          >
+            <Compass className="w-4 h-4 text-emerald-400 stroke-[2.2]" />
+            <span>Map</span>
+          </button>
         </div>
       )}
 
@@ -1144,7 +1148,7 @@ export function MobileHomeNativeView() {
       {/* 6. SEARCH BOTTOM SHEET (Segmented 5-Col Grid & Non-Keyboard Pickers)      */}
       {/* ========================================================================= */}
       {searchSheetOpen && (
-        <div className="fixed inset-0 z-[999999] bg-black/50 backdrop-blur-xs flex flex-col justify-end">
+        <div className="fixed inset-0 z-[999990] bg-black/50 backdrop-blur-xs flex flex-col justify-end">
           <div
             className="flex-1"
             onClick={() => setSearchSheetOpen(false)}
@@ -1160,7 +1164,7 @@ export function MobileHomeNativeView() {
               <button
                 type="button"
                 onClick={() => setSearchSheetOpen(false)}
-                className="h-8 px-3 rounded-full bg-[#F2F4F7] font-semibold text-xs text-slate-700 cursor-pointer"
+                className="h-8 px-3 rounded-full bg-[#F2F4F7] hover:bg-slate-200 font-semibold text-xs text-slate-700 cursor-pointer transition"
               >
                 Cancel
               </button>
@@ -1193,7 +1197,7 @@ export function MobileHomeNativeView() {
 
             {/* Form Fields Card */}
             <div className="border border-[#E4E7EC] rounded-2xl overflow-hidden bg-white divide-y divide-[#EEF0F2]">
-              {/* SERVICE 0: CAR RENTAL & SERVICE 1: DRIVERS (City Selector without soft keyboard) */}
+              {/* SERVICE 0: CAR RENTAL & SERVICE 1: DRIVERS */}
               {(activeServiceIdx === 0 || activeServiceIdx === 1) && (
                 <div className="flex items-center gap-3 min-h-[58px] px-3.5">
                   <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
@@ -1215,7 +1219,7 @@ export function MobileHomeNativeView() {
                 </div>
               )}
 
-              {/* SERVICE 2: CITY TO CITY (Leaving from & Going to major hubs + swap button) */}
+              {/* SERVICE 2: CITY TO CITY */}
               {activeServiceIdx === 2 && (
                 <>
                   <div className="flex items-center gap-3 min-h-[58px] px-3.5">
@@ -1336,14 +1340,8 @@ export function MobileHomeNativeView() {
                     <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
                       <MapPin className="w-4 h-4 stroke-[2.2]" />
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setCitySheetOpen(true)}
-                      className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
-                    >
-                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
-                        Moving City
-                      </span>
+                    <button type="button" onClick={() => setCitySheetOpen(true)} className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0">
+                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">Moving City</span>
                       <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
                         <span>{searchWhere || city}</span>
                         <ChevronDown className="w-4 h-4 text-slate-400" />
@@ -1355,36 +1353,26 @@ export function MobileHomeNativeView() {
                     <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
                       <Navigation className="w-4 h-4 stroke-[2.2]" />
                     </span>
-                    <span className="flex-1 flex flex-col justify-center">
-                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
-                        Moving from (Current Area)
-                      </span>
-                      <input
-                        type="text"
-                        value={moverFromArea}
-                        onChange={(e) => setMoverFromArea(e.target.value)}
-                        placeholder="e.g. Gulberg, Johar Town"
-                        className="border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent"
-                      />
-                    </span>
+                    <div className="flex-1 flex flex-col justify-center">
+                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">Moving from (Current Area)</span>
+                      <div className="flex items-center justify-between">
+                        <input type="text" value={moverFromArea} onChange={(e) => setMoverFromArea(e.target.value)} placeholder="e.g. Gulberg, Johar Town" className="flex-1 border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent" />
+                        <button type="button" onClick={() => setMoverAreaSheetOpen('from')} className="px-2 py-0.5 text-[11px] font-bold text-[#0B6B4F] bg-emerald-50 hover:bg-emerald-100 rounded-lg transition cursor-pointer shrink-0 ml-1">Pick area</button>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-3 min-h-[58px] px-3.5">
                     <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
                       <Flag className="w-4 h-4 stroke-[2.2]" />
                     </span>
-                    <span className="flex-1 flex flex-col justify-center">
-                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
-                        Moving to (Destination Area)
-                      </span>
-                      <input
-                        type="text"
-                        value={moverToArea}
-                        onChange={(e) => setMoverToArea(e.target.value)}
-                        placeholder="e.g. DHA Phase 6, Bahria Town"
-                        className="border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent"
-                      />
-                    </span>
+                    <div className="flex-1 flex flex-col justify-center">
+                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">Moving to (Destination Area)</span>
+                      <div className="flex items-center justify-between">
+                        <input type="text" value={moverToArea} onChange={(e) => setMoverToArea(e.target.value)} placeholder="e.g. DHA Phase 6, Bahria Town" className="flex-1 border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent" />
+                        <button type="button" onClick={() => setMoverAreaSheetOpen('to')} className="px-2 py-0.5 text-[11px] font-bold text-[#0B6B4F] bg-emerald-50 hover:bg-emerald-100 rounded-lg transition cursor-pointer shrink-0 ml-1">Pick area</button>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-3 min-h-[58px] px-3.5">
@@ -1445,6 +1433,68 @@ export function MobileHomeNativeView() {
                   </span>
                 </label>
               )}
+
+              {/* SPECIFIC FILTER OPTIONS FOR CARS: Transmission, Category, Budget */}
+              {activeServiceIdx === 0 && (
+                <>
+                  <div className="flex items-center gap-3 min-h-[58px] px-3.5 hover:bg-slate-50/70 transition">
+                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <SlidersHorizontal className="w-4 h-4 stroke-[2.2]" />
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setTransmissionSheetOpen(true)}
+                      className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
+                    >
+                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
+                        Transmission
+                      </span>
+                      <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
+                        <span>{selectedTransmission === 'All' ? 'Any transmission' : selectedTransmission}</span>
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                      </span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-3 min-h-[58px] px-3.5 hover:bg-slate-50/70 transition">
+                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <Car className="w-4 h-4 stroke-[2.2]" />
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCarCategorySheetOpen(true)}
+                      className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
+                    >
+                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
+                        Vehicle Type
+                      </span>
+                      <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
+                        <span>{CAR_CATEGORIES[selectedCarCategory] || 'All cars'}</span>
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                      </span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-3 min-h-[58px] px-3.5 hover:bg-slate-50/70 transition">
+                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <Clock className="w-4 h-4 stroke-[2.2]" />
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setPriceSheetOpen(true)}
+                      className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
+                    >
+                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
+                        Daily Budget
+                      </span>
+                      <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
+                        <span>{selectedPriceMax ? `Under PKR ${selectedPriceMax.toLocaleString()}` : 'Any budget'}</span>
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                      </span>
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Self-drive vs With Driver Toggle (Car Rental Only) */}
@@ -1475,18 +1525,37 @@ export function MobileHomeNativeView() {
               </div>
             )}
 
-            {/* Action Submit Button */}
-            <button
-              type="button"
-              onClick={() => {
-                setSearchSheetOpen(false);
-                showToast(`Filtered listings for ${curService.label}`);
-              }}
-              className="h-[54px] rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] active:scale-[0.99] text-white font-bold text-base flex items-center justify-center gap-2.5 transition shadow-md cursor-pointer"
-            >
-              <Search className="w-5 h-5 stroke-[2.4]" />
-              <span>{curService.goText}</span>
-            </button>
+            {/* Action Buttons: Reset & Show Listings */}
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCarCategory(0);
+                  setSelectedTransmission('All');
+                  setSelectedPriceMax(null);
+                  setPickupDate('');
+                  setReturnDate('');
+                  setIsSelfDrive(true);
+                  showToast('Filters reset to default');
+                }}
+                className="h-[52px] px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 active:scale-[0.99] text-slate-700 font-bold text-xs transition cursor-pointer shrink-0"
+              >
+                Reset
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchSheetOpen(false);
+                  setIsFilteredResultsView(true);
+                  showToast(`Found ${filteredCars.length} listings in ${searchWhere || city}`);
+                }}
+                className="flex-1 h-[52px] rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] active:scale-[0.99] text-white font-bold text-base flex items-center justify-center gap-2.5 transition shadow-md cursor-pointer"
+              >
+                <Search className="w-5 h-5 stroke-[2.4]" />
+                <span>Show listings</span>
+              </button>
+            </div>
 
             <span className="text-center text-xs text-[#667085]">
               Pay the owner at pick-up · zero advance deposit
@@ -1494,6 +1563,549 @@ export function MobileHomeNativeView() {
           </div>
         </div>
       )}
+
+      {/* ========================================================================= */}
+      {/* 2. SUB-SHEETS (ALWAYS RENDERED IN FRONT WITH z-[1000005])                 */}
+      {/* ========================================================================= */}
+
+      {/* CITY PICKER SUB-SHEET */}
+      {citySheetOpen && (
+        <div className="fixed inset-0 z-[1000005] bg-black/60 backdrop-blur-xs flex flex-col justify-end">
+          <div
+            className="flex-1"
+            onClick={() => setCitySheetOpen(false)}
+            aria-label="Close"
+          />
+          <div className="bg-white rounded-t-[26px] p-4 pb-8 max-h-[85vh] overflow-y-auto flex flex-col gap-2.5 shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
+            <div className="w-10 h-1.5 rounded-full bg-[#D0D5DD] mx-auto mb-1 shrink-0" />
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCitySheetOpen(false)}
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+                  aria-label="Back to filter options"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 stroke-[2.4]" />
+                  <span>Back</span>
+                </button>
+                <h3 className="font-heading font-extrabold text-[19px] text-[#101828]">Choose your city</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCitySheetOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer hover:bg-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={citySearchQuery}
+                onChange={(e) => setCitySearchQuery(e.target.value)}
+                placeholder="Search city..."
+                className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0B6B4F]"
+              />
+              {citySearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setCitySearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="divide-y divide-slate-100 py-1">
+              {PAKISTAN_CITIES
+                .filter((c) => !citySearchQuery || c.name.toLowerCase().includes(citySearchQuery.toLowerCase()))
+                .map((c) => {
+                  const isSelected = activeServiceIdx === 3
+                    ? c.name === (shuttleCity || city)
+                    : c.name === (searchWhere || city);
+                  return (
+                    <button
+                      key={c.name}
+                      type="button"
+                      onClick={() => {
+                        setCity(c.name);
+                        if (activeServiceIdx === 3) {
+                          setShuttleCity(c.name);
+                          setShuttlePickupArea('');
+                          setShuttleDropArea('');
+                        } else {
+                          setSearchWhere(c.name);
+                        }
+                        setCitySheetOpen(false);
+                        setCitySearchQuery('');
+                        showToast(`City set to ${c.name}`);
+                      }}
+                      className={`w-full flex items-center justify-between py-3 px-2 text-left hover:bg-slate-50 transition cursor-pointer font-semibold text-[15px] rounded-lg ${
+                        isSelected ? 'bg-emerald-50 text-[#0B6B4F] font-bold' : 'text-[#101828]'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <MapPin className={`w-4 h-4 ${isSelected ? 'text-[#0B6B4F]' : 'text-slate-400'}`} />
+                        <span>{c.name}</span>
+                      </span>
+                      {isSelected && <Check className="w-5 h-5 text-[#0B6B4F] stroke-[2.6]" />}
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CITY TO CITY PICKER SUB-SHEET */}
+      {c2cPickerSheetOpen && (
+        <div className="fixed inset-0 z-[1000005] bg-black/60 backdrop-blur-xs flex flex-col justify-end">
+          <div
+            className="flex-1"
+            onClick={() => setC2cPickerSheetOpen(null)}
+            aria-label="Close"
+          />
+          <div className="bg-white rounded-t-[26px] p-4 pb-8 max-h-[85vh] overflow-y-auto flex flex-col gap-2.5 shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
+            <div className="w-10 h-1.5 rounded-full bg-[#D0D5DD] mx-auto mb-1 shrink-0" />
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setC2cPickerSheetOpen(null)}
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+                  aria-label="Back to filter options"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 stroke-[2.4]" />
+                  <span>Back</span>
+                </button>
+                <h3 className="font-heading font-extrabold text-[19px] text-[#101828]">
+                  {c2cPickerSheetOpen === 'from' ? 'Select Departure City' : 'Select Destination City'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setC2cPickerSheetOpen(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer hover:bg-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={c2cSearchQuery}
+                onChange={(e) => setC2cSearchQuery(e.target.value)}
+                placeholder="Search city hub or terminal..."
+                className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0B6B4F]"
+              />
+              {c2cSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setC2cSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="divide-y divide-slate-100 py-1">
+              {MAJOR_HUBS
+                .filter((hub) => !c2cSearchQuery || hub.toLowerCase().includes(c2cSearchQuery.toLowerCase()))
+                .map((hub) => {
+                  const isSelected = (c2cPickerSheetOpen === 'from' ? c2cFromCity : c2cToCity) === hub;
+                  return (
+                    <button
+                      key={hub}
+                      type="button"
+                      onClick={() => {
+                        if (c2cPickerSheetOpen === 'from') setC2cFromCity(hub);
+                        else setC2cToCity(hub);
+                        setC2cPickerSheetOpen(null);
+                        setC2cSearchQuery('');
+                        showToast(`${c2cPickerSheetOpen === 'from' ? 'Departure' : 'Destination'} set to ${hub}`);
+                      }}
+                      className={`w-full flex items-center justify-between py-3 px-2 text-left hover:bg-slate-50 transition cursor-pointer font-semibold text-[15px] rounded-lg ${
+                        isSelected ? 'bg-emerald-50 text-[#0B6B4F] font-bold' : 'text-[#101828]'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <MapPin className={`w-4 h-4 ${isSelected ? 'text-[#0B6B4F]' : 'text-slate-400'}`} />
+                        <span>{hub}</span>
+                      </span>
+                      {isSelected && <Check className="w-5 h-5 text-[#0B6B4F] stroke-[2.6]" />}
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SHUTTLE AREA PICKER SUB-SHEET */}
+      {shuttleAreaSheetOpen && (
+        <div className="fixed inset-0 z-[1000005] bg-black/60 backdrop-blur-xs flex flex-col justify-end">
+          <div
+            className="flex-1"
+            onClick={() => setShuttleAreaSheetOpen(null)}
+            aria-label="Close"
+          />
+          <div className="bg-white rounded-t-[26px] p-4 pb-8 max-h-[85vh] overflow-y-auto flex flex-col gap-2.5 shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
+            <div className="w-10 h-1.5 rounded-full bg-[#D0D5DD] mx-auto mb-1 shrink-0" />
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShuttleAreaSheetOpen(null)}
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+                  aria-label="Back to filter options"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 stroke-[2.4]" />
+                  <span>Back</span>
+                </button>
+                <h3 className="font-heading font-extrabold text-[19px] text-[#101828]">
+                  {shuttleAreaSheetOpen === 'pickup' ? 'Select Pick-up Stop' : 'Select Drop-off Stop'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShuttleAreaSheetOpen(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer hover:bg-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={shuttleAreaSearchQuery}
+                onChange={(e) => setShuttleAreaSearchQuery(e.target.value)}
+                placeholder={`Search corridor stops in ${shuttleCity || city}...`}
+                className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0B6B4F]"
+              />
+              {shuttleAreaSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setShuttleAreaSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="divide-y divide-slate-100 py-1">
+              {((CITY_COMMUTE_AREAS as any)[shuttleCity || city] || CITY_COMMUTE_AREAS['Karachi'] || [])
+                .filter((area: string) => !shuttleAreaSearchQuery || area.toLowerCase().includes(shuttleAreaSearchQuery.toLowerCase()))
+                .map((area: string) => {
+                  const isSelected = (shuttleAreaSheetOpen === 'pickup' ? shuttlePickupArea : shuttleDropArea) === area;
+                  return (
+                    <button
+                      key={area}
+                      type="button"
+                      onClick={() => {
+                        if (shuttleAreaSheetOpen === 'pickup') setShuttlePickupArea(area);
+                        else setShuttleDropArea(area);
+                        setShuttleAreaSheetOpen(null);
+                        setShuttleAreaSearchQuery('');
+                        showToast(`${shuttleAreaSheetOpen === 'pickup' ? 'Pick-up' : 'Drop-off'} stop set to ${area}`);
+                      }}
+                      className={`w-full flex items-center justify-between py-3 px-2 text-left hover:bg-slate-50 transition cursor-pointer font-semibold text-[15px] rounded-lg ${
+                        isSelected ? 'bg-emerald-50 text-[#0B6B4F] font-bold' : 'text-[#101828]'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <Navigation className={`w-4 h-4 ${isSelected ? 'text-[#0B6B4F]' : 'text-slate-400'}`} />
+                        <span>{area}</span>
+                      </span>
+                      {isSelected && <Check className="w-5 h-5 text-[#0B6B4F] stroke-[2.6]" />}
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MOVER AREA PICKER SUB-SHEET */}
+      {moverAreaSheetOpen && (
+        <div className="fixed inset-0 z-[1000005] bg-black/60 backdrop-blur-xs flex flex-col justify-end">
+          <div
+            className="flex-1"
+            onClick={() => setMoverAreaSheetOpen(null)}
+            aria-label="Close"
+          />
+          <div className="bg-white rounded-t-[26px] p-4 pb-8 max-h-[85vh] overflow-y-auto flex flex-col gap-2.5 shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
+            <div className="w-10 h-1.5 rounded-full bg-[#D0D5DD] mx-auto mb-1 shrink-0" />
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMoverAreaSheetOpen(null)}
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+                  aria-label="Back to filter options"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 stroke-[2.4]" />
+                  <span>Back</span>
+                </button>
+                <h3 className="font-heading font-extrabold text-[19px] text-[#101828]">
+                  {moverAreaSheetOpen === 'from' ? 'Select Moving From Area' : 'Select Destination Area'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMoverAreaSheetOpen(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer hover:bg-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={moverAreaSearchQuery}
+                onChange={(e) => setMoverAreaSearchQuery(e.target.value)}
+                placeholder="Search area..."
+                className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0B6B4F]"
+              />
+              {moverAreaSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setMoverAreaSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="divide-y divide-slate-100 py-1">
+              {((CITY_COMMUTE_AREAS as any)[searchWhere || city] || CITY_COMMUTE_AREAS['Lahore'] || [])
+                .filter((area: string) => !moverAreaSearchQuery || area.toLowerCase().includes(moverAreaSearchQuery.toLowerCase()))
+                .map((area: string) => {
+                  const isSelected = (moverAreaSheetOpen === 'from' ? moverFromArea : moverToArea) === area;
+                  return (
+                    <button
+                      key={area}
+                      type="button"
+                      onClick={() => {
+                        if (moverAreaSheetOpen === 'from') setMoverFromArea(area);
+                        else setMoverToArea(area);
+                        setMoverAreaSheetOpen(null);
+                        setMoverAreaSearchQuery('');
+                        showToast(`${moverAreaSheetOpen === 'from' ? 'Moving from' : 'Moving to'} area set to ${area}`);
+                      }}
+                      className={`w-full flex items-center justify-between py-3 px-2 text-left hover:bg-slate-50 transition cursor-pointer font-semibold text-[15px] rounded-lg ${
+                        isSelected ? 'bg-emerald-50 text-[#0B6B4F] font-bold' : 'text-[#101828]'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <Truck className={`w-4 h-4 ${isSelected ? 'text-[#0B6B4F]' : 'text-slate-400'}`} />
+                        <span>{area}</span>
+                      </span>
+                      {isSelected && <Check className="w-5 h-5 text-[#0B6B4F] stroke-[2.6]" />}
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TRANSMISSION SUB-SHEET */}
+      {transmissionSheetOpen && (
+        <div className="fixed inset-0 z-[1000005] bg-black/60 backdrop-blur-xs flex flex-col justify-end">
+          <div
+            className="flex-1"
+            onClick={() => setTransmissionSheetOpen(false)}
+            aria-label="Close"
+          />
+          <div className="bg-white rounded-t-[26px] p-4 pb-8 max-h-[85vh] overflow-y-auto flex flex-col gap-2.5 shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
+            <div className="w-10 h-1.5 rounded-full bg-[#D0D5DD] mx-auto mb-1 shrink-0" />
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTransmissionSheetOpen(false)}
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+                  aria-label="Back to filter options"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 stroke-[2.4]" />
+                  <span>Back</span>
+                </button>
+                <h3 className="font-heading font-extrabold text-[19px] text-[#101828]">Select Transmission</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTransmissionSheetOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer hover:bg-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="divide-y divide-slate-100 py-1">
+              {[
+                { label: 'All transmissions', val: 'All' },
+                { label: 'Automatic transmission', val: 'Automatic' },
+                { label: 'Manual transmission', val: 'Manual' },
+              ].map((opt) => {
+                const isSelected = selectedTransmission === opt.val;
+                return (
+                  <button
+                    key={opt.val}
+                    type="button"
+                    onClick={() => {
+                      setSelectedTransmission(opt.val as any);
+                      setTransmissionSheetOpen(false);
+                      showToast(`Transmission set to ${opt.label}`);
+                    }}
+                    className={`w-full flex items-center justify-between py-3.5 px-3 text-left hover:bg-slate-50 transition cursor-pointer font-semibold text-[15px] rounded-lg ${
+                      isSelected ? 'bg-emerald-50 text-[#0B6B4F] font-bold' : 'text-[#101828]'
+                    }`}
+                  >
+                    <span>{opt.label}</span>
+                    {isSelected && <Check className="w-5 h-5 text-[#0B6B4F] stroke-[2.6]" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VEHICLE CATEGORY SUB-SHEET */}
+      {carCategorySheetOpen && (
+        <div className="fixed inset-0 z-[1000005] bg-black/60 backdrop-blur-xs flex flex-col justify-end">
+          <div
+            className="flex-1"
+            onClick={() => setCarCategorySheetOpen(false)}
+            aria-label="Close"
+          />
+          <div className="bg-white rounded-t-[26px] p-4 pb-8 max-h-[85vh] overflow-y-auto flex flex-col gap-2.5 shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
+            <div className="w-10 h-1.5 rounded-full bg-[#D0D5DD] mx-auto mb-1 shrink-0" />
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCarCategorySheetOpen(false)}
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+                  aria-label="Back to filter options"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 stroke-[2.4]" />
+                  <span>Back</span>
+                </button>
+                <h3 className="font-heading font-extrabold text-[19px] text-[#101828]">Select Vehicle Type</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCarCategorySheetOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer hover:bg-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="divide-y divide-slate-100 py-1">
+              {CAR_CATEGORIES.map((catLabel, idx) => {
+                const isSelected = selectedCarCategory === idx;
+                return (
+                  <button
+                    key={catLabel}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCarCategory(idx);
+                      setCarCategorySheetOpen(false);
+                      showToast(`Vehicle category set to ${catLabel}`);
+                    }}
+                    className={`w-full flex items-center justify-between py-3.5 px-3 text-left hover:bg-slate-50 transition cursor-pointer font-semibold text-[15px] rounded-lg ${
+                      isSelected ? 'bg-emerald-50 text-[#0B6B4F] font-bold' : 'text-[#101828]'
+                    }`}
+                  >
+                    <span>{catLabel}</span>
+                    {isSelected && <Check className="w-5 h-5 text-[#0B6B4F] stroke-[2.6]" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DAILY BUDGET SUB-SHEET */}
+      {priceSheetOpen && (
+        <div className="fixed inset-0 z-[1000005] bg-black/60 backdrop-blur-xs flex flex-col justify-end">
+          <div
+            className="flex-1"
+            onClick={() => setPriceSheetOpen(false)}
+            aria-label="Close"
+          />
+          <div className="bg-white rounded-t-[26px] p-4 pb-8 max-h-[85vh] overflow-y-auto flex flex-col gap-2.5 shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
+            <div className="w-10 h-1.5 rounded-full bg-[#D0D5DD] mx-auto mb-1 shrink-0" />
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPriceSheetOpen(false)}
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+                  aria-label="Back to filter options"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 stroke-[2.4]" />
+                  <span>Back</span>
+                </button>
+                <h3 className="font-heading font-extrabold text-[19px] text-[#101828]">Maximum Daily Budget</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPriceSheetOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer hover:bg-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="divide-y divide-slate-100 py-1">
+              {[
+                { label: 'Any price', val: null },
+                { label: 'Under PKR 10,000 / day', val: 10000 },
+                { label: 'Under PKR 20,000 / day', val: 20000 },
+                { label: 'Under PKR 35,000 / day', val: 35000 },
+                { label: 'Under PKR 50,000 / day', val: 50000 },
+              ].map((opt) => {
+                const isSelected = selectedPriceMax === opt.val;
+                return (
+                  <button
+                    key={opt.label}
+                    type="button"
+                    onClick={() => {
+                      setSelectedPriceMax(opt.val);
+                      setPriceSheetOpen(false);
+                      showToast(`Budget set to ${opt.label}`);
+                    }}
+                    className={`w-full flex items-center justify-between py-3.5 px-3 text-left hover:bg-slate-50 transition cursor-pointer font-semibold text-[15px] rounded-lg ${
+                      isSelected ? 'bg-emerald-50 text-[#0B6B4F] font-bold' : 'text-[#101828]'
+                    }`}
+                  >
+                    <span>{opt.label}</span>
+                    {isSelected && <Check className="w-5 h-5 text-[#0B6B4F] stroke-[2.6]" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

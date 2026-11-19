@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/AppHeader';
@@ -24,6 +24,7 @@ import {
   CheckCircle2,
   AlertCircle,
   ChevronDown,
+  Heart,
 } from 'lucide-react';
 
 export default function ShuttleDetailPage() {
@@ -66,6 +67,48 @@ export default function ShuttleDetailPage() {
   const [stopsOpen, setStopsOpen] = useState(false);
   const [featuresOpen, setFeaturesOpen] = useState(false);
   const [policiesOpen, setPoliciesOpen] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  useEffect(() => {
+    if (!shuttle) return;
+    try {
+      const raw = localStorage.getItem('safarpk_saved_items');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.some((it: any) => it.id === shuttle.id || it.name.includes(shuttle.op))) {
+          setIsSaved(true);
+        }
+      }
+    } catch {}
+  }, [shuttle]);
+
+  const handleToggleSaveShuttle = () => {
+    if (!shuttle) return;
+    try {
+      const raw = localStorage.getItem('safarpk_saved_items');
+      let list = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(list)) list = [];
+      const already = list.some((it: any) => it.id === shuttle.id || it.name.includes(shuttle.op));
+      if (already) {
+        list = list.filter((it: any) => it.id !== shuttle.id && !it.name.includes(shuttle.op));
+        setIsSaved(false);
+      } else {
+        list.unshift({
+          id: shuttle.id,
+          category: 'shuttle',
+          name: `${shuttle.op} (${shuttle.from} ➔ ${shuttle.to})`,
+          sub: `${shuttle.seatsLeft} seats left · ${shuttle.city}`,
+          price: `${shuttle.fare} / month`,
+          href: `/shuttles/${shuttle.id}`,
+          savedAt: new Date().toISOString(),
+        });
+        setIsSaved(true);
+      }
+      localStorage.setItem('safarpk_saved_items', JSON.stringify(list));
+      window.dispatchEvent(new Event('safarpk_saved_updated'));
+      window.dispatchEvent(new Event('safarpk_favorites_updated'));
+    } catch {}
+  };
 
   const scrollToBooking = () => {
     if (typeof window !== 'undefined') {
@@ -166,23 +209,39 @@ export default function ShuttleDetailPage() {
             </span>
           </nav>
 
-          <button
-            type="button"
-            onClick={handleCopyShare}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
-          >
-            {copiedLink ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Link Copied</span>
-              </>
-            ) : (
-              <>
-                <Share2 className="w-3.5 h-3.5 text-slate-500" />
-                <span>Share Route</span>
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCopyShare}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+            >
+              {copiedLink ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Link Copied</span>
+                </>
+              ) : (
+                <>
+                  <Share2 className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Share Route</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleToggleSaveShuttle}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition cursor-pointer shadow-2xs ${
+                isSaved
+                  ? 'border-rose-200 bg-rose-50 text-rose-700'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+              aria-label={isSaved ? 'Remove from wishlist' : 'Save to wishlist'}
+            >
+              <Heart className={`w-3.5 h-3.5 ${isSaved ? 'text-rose-600 fill-rose-600' : 'text-slate-500'}`} />
+              <span>{isSaved ? 'Saved' : 'Save'}</span>
+            </button>
+          </div>
         </div>
 
         {/* Route Hero Card */}

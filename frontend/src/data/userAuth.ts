@@ -50,6 +50,10 @@ export interface UserSubscription {
   quota: number; // Max listings allowed
   usedQuota: number;
   renewsOn?: string;
+  validUntil?: string;
+  endDate?: string;
+  startDate?: string;
+  amount?: number;
   rejectionReason?: string;
 }
 
@@ -917,6 +921,72 @@ export function rejectSubscriptionByAdmin(
     type: 'SUBSCRIPTION_REQUESTED',
     title: 'Subscription Rejected by Admin',
     description: `Subscription rejected: ${reason}`,
+  });
+
+  saveAllRegisteredUsers(all);
+
+  const active = getActiveUser();
+  if (active && active.id === userId) {
+    setActiveUser(user);
+  }
+
+  return user;
+}
+
+/**
+ * Super Admin or Agent extends a lister's subscription
+ * If current subscription has expired, new time starts from today.
+ */
+export function extendUserSubscription(
+  userId: string,
+  addedDays: number,
+  reason: string = 'Administrative Plan Extension',
+  by: string = 'Super Admin'
+): RegisteredUser | null {
+  const all = getAllRegisteredUsers();
+  const user = all.find((u) => u.id === userId);
+  if (!user) return null;
+
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0, 10);
+
+  let baseDate = now;
+  const currentEndStr = user.subscription?.validUntil || user.subscription?.endDate || user.subscription?.renewsOn;
+  if (currentEndStr) {
+    const existingEnd = new Date(currentEndStr.includes('T') ? currentEndStr : currentEndStr + 'T00:00:00');
+    if (!isNaN(existingEnd.getTime()) && existingEnd > now) {
+      baseDate = existingEnd;
+    }
+  }
+
+  const newEnd = new Date(baseDate);
+  newEnd.setDate(newEnd.getDate() + addedDays);
+  const newEndStr = newEnd.toISOString().slice(0, 10);
+
+  if (!user.subscription) {
+    user.subscription = {
+      planId: 'pro',
+      planName: 'Professional Fleet Hub',
+      status: 'ACTIVE',
+      startDate: todayStr,
+      endDate: newEndStr,
+      validUntil: newEndStr,
+      renewsOn: newEndStr,
+      quota: 10,
+      usedQuota: 0,
+      amountPaid: 12000,
+    };
+  } else {
+    user.subscription.status = 'ACTIVE';
+    user.subscription.endDate = newEndStr;
+    user.subscription.validUntil = newEndStr;
+    user.subscription.renewsOn = newEndStr;
+  }
+
+  logUserActivity(userId, {
+    type: 'SUBSCRIPTION_REQUESTED',
+    title: `Plan Extended by ${addedDays} Days`,
+    description: `Plan extended until ${newEndStr}. Reason: ${reason} (by ${by})`,
   });
 
   saveAllRegisteredUsers(all);

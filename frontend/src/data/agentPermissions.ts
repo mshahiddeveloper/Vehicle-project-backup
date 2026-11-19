@@ -297,3 +297,78 @@ export const PREDEFINED_AGENT_TEMPLATES: Record<string, AgentRoleTemplate> = {
   },
 };
 
+/**
+ * Persisted Agent Permissions Map for Super Admin Hub
+ */
+export type AgentPermissions = Record<string, boolean>;
+
+export const DEFAULT_AGENT_PERMISSIONS: Record<string, AgentPermissions> = {
+  'AG-101': {
+    view: true,
+    contact: true,
+    approve: true,
+    verify: true,
+    edit: false,
+    del: false,
+    analytics: true,
+    export: false,
+    promo: false,
+  },
+  'AG-102': {
+    view: true,
+    contact: true,
+    approve: true,
+    verify: true,
+    edit: true,
+    del: false,
+    analytics: true,
+    export: true,
+    promo: false,
+  },
+  'AG-103': {
+    view: true,
+    contact: true,
+    approve: false,
+    verify: false,
+    edit: false,
+    del: false,
+    analytics: false,
+    export: false,
+    promo: false,
+  },
+};
+
+export function getAllAgentsPermissionsMap(): Record<string, AgentPermissions> {
+  if (typeof window === 'undefined') return { ...DEFAULT_AGENT_PERMISSIONS };
+  try {
+    const raw = localStorage.getItem('safarpk_agent_permissions');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        return { ...DEFAULT_AGENT_PERMISSIONS, ...parsed };
+      }
+    }
+  } catch {}
+  return { ...DEFAULT_AGENT_PERMISSIONS };
+}
+
+export function saveAllAgentsPermissionsMap(map: Record<string, AgentPermissions>): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem('safarpk_agent_permissions', JSON.stringify(map));
+    window.dispatchEvent(new Event('safarpk_agent_permissions_updated'));
+  } catch {}
+}
+
+export function getAgentPermissions(agentId: string): AgentPermissions {
+  const map = getAllAgentsPermissionsMap();
+  return map[agentId] || DEFAULT_AGENT_PERMISSIONS[agentId] || {};
+}
+
+export function saveAgentPermissions(agentId: string, perms: AgentPermissions): void {
+  const map = getAllAgentsPermissionsMap();
+  map[agentId] = perms;
+  saveAllAgentsPermissionsMap(map);
+}
+
+

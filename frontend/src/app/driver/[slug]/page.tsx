@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/AppHeader';
@@ -32,6 +32,7 @@ import {
   AlertCircle,
   FileCheck,
   Lock,
+  Heart,
 } from 'lucide-react';
 
 export default function PublicDriverProfilePage() {
@@ -53,6 +54,48 @@ export default function PublicDriverProfilePage() {
   const [licenceOpen, setLicenceOpen] = useState(false);
   const [fleetOpen, setFleetOpen] = useState(false);
   const [servicesOpen, setServicesOpen] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  useEffect(() => {
+    if (!driver) return;
+    try {
+      const raw = localStorage.getItem('safarpk_saved_items');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.some((it: any) => it.id === driver.id || it.name === driver.name)) {
+          setIsSaved(true);
+        }
+      }
+    } catch {}
+  }, [driver]);
+
+  const handleToggleSaveDriver = () => {
+    if (!driver) return;
+    try {
+      const raw = localStorage.getItem('safarpk_saved_items');
+      let list = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(list)) list = [];
+      const already = list.some((it: any) => it.id === driver.id || it.name === driver.name);
+      if (already) {
+        list = list.filter((it: any) => it.id !== driver.id && it.name !== driver.name);
+        setIsSaved(false);
+      } else {
+        list.unshift({
+          id: driver.id,
+          category: 'driver',
+          name: `${driver.name} (Professional Chauffeur)`,
+          sub: `${driver.experience} · ${driver.city}`,
+          price: formatPrice(driver.dailyRate12h) + ' / 12h',
+          href: `/driver/${driver.slug}`,
+          savedAt: new Date().toISOString(),
+        });
+        setIsSaved(true);
+      }
+      localStorage.setItem('safarpk_saved_items', JSON.stringify(list));
+      window.dispatchEvent(new Event('safarpk_saved_updated'));
+      window.dispatchEvent(new Event('safarpk_favorites_updated'));
+    } catch {}
+  };
 
   const scrollToBooking = () => {
     if (typeof window !== 'undefined') {
@@ -231,6 +274,20 @@ export default function PublicDriverProfilePage() {
             >
               <Share2 className="w-3.5 h-3.5 text-emerald-600" />
               <span>Share</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleToggleSaveDriver}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition cursor-pointer shadow-2xs ${
+                isSaved
+                  ? 'border-rose-200 bg-rose-50 text-rose-700'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+              aria-label={isSaved ? 'Remove from wishlist' : 'Save to wishlist'}
+            >
+              <Heart className={`w-3.5 h-3.5 ${isSaved ? 'text-rose-600 fill-rose-600' : 'text-slate-500'}`} />
+              <span>{isSaved ? 'Saved' : 'Save'}</span>
             </button>
           </div>
         </div>
