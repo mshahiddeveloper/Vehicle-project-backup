@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   User,
   UserCheck,
@@ -67,12 +68,61 @@ import {
 } from '@/data/chatEngine';
 import { useCountry } from '@/app/context/CountryContext';
 
-export default function DriverDashboardPage() {
+function DriverDashboardContent() {
   const { country } = useCountry();
+  const searchParams = useSearchParams();
   const isPakistan = !country || country.code === 'PK';
   const [activeTab, setActiveTab] = useState<
     'overview' | 'analytics' | 'availability' | 'rates' | 'requests' | 'chats' | 'documents' | 'reviews' | 'subscription'
   >('overview');
+
+  const handleTabChange = (
+    newTab: 'overview' | 'analytics' | 'availability' | 'rates' | 'requests' | 'chats' | 'documents' | 'reviews' | 'subscription'
+  ) => {
+    setActiveTab(newTab);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', newTab);
+      window.history.replaceState(null, '', url.pathname + url.search);
+      window.dispatchEvent(new CustomEvent('safarpk_active_tab_changed', { detail: { tab: newTab } }));
+    }
+  };
+
+  // Sync tab with URL search parameter
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (
+      tab &&
+      ['overview', 'analytics', 'availability', 'rates', 'requests', 'chats', 'documents', 'reviews', 'subscription'].includes(
+        tab
+      )
+    ) {
+      setActiveTab(tab as any);
+      window.dispatchEvent(new CustomEvent('safarpk_active_tab_changed', { detail: { tab } }));
+    }
+  }, [searchParams]);
+
+  // Listen for direct tab switch events (from MobileNavBar or shortcuts)
+  useEffect(() => {
+    const handleTabSwitch = (e: any) => {
+      const target = e.detail?.tab;
+      if (
+        target &&
+        ['overview', 'analytics', 'availability', 'rates', 'requests', 'chats', 'documents', 'reviews', 'subscription'].includes(
+          target
+        )
+      ) {
+        setActiveTab(target as any);
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.set('tab', target);
+          window.history.replaceState(null, '', url.pathname + url.search);
+        }
+      }
+    };
+    window.addEventListener('safarpk_driver_switch_tab', handleTabSwitch);
+    return () => window.removeEventListener('safarpk_driver_switch_tab', handleTabSwitch);
+  }, []);
 
   // Active Driver User Session
   const [currentUser, setCurrentUser] = useState<RegisteredUser | null>(null);
@@ -603,7 +653,7 @@ export default function DriverDashboardPage() {
             {/* Quick Passenger Chats Button in Top Navbar */}
             <button
               type="button"
-              onClick={() => setActiveTab('chats')}
+              onClick={() => handleTabChange('chats')}
               className={`h-9 px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
                 activeTab === 'chats'
                   ? 'bg-sky-600 text-white border-sky-600 shadow-sm'
@@ -660,7 +710,7 @@ export default function DriverDashboardPage() {
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id as any)}
+                onClick={() => handleTabChange(item.id as any)}
                 className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition shrink-0 cursor-pointer ${
                   active
                     ? 'bg-sky-600 text-white shadow-xs'
@@ -745,7 +795,7 @@ export default function DriverDashboardPage() {
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveTab(item.id as any)}
+                  onClick={() => handleTabChange(item.id as any)}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer ${
                     active
                       ? 'bg-sky-600 text-white shadow-sm font-bold'
@@ -2130,5 +2180,19 @@ export default function DriverDashboardPage() {
       {/* Persistent Mobile Bottom Navigation Bar */}
       <MobileNavBar />
     </div>
+  );
+}
+
+export default function DriverDashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-4 text-xs font-bold">
+          Loading Driver Cockpit...
+        </div>
+      }
+    >
+      <DriverDashboardContent />
+    </Suspense>
   );
 }
