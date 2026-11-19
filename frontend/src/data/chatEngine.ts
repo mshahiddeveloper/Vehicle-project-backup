@@ -131,6 +131,45 @@ export function getWhatsAppTargetUrl(phone: string, text: string): string {
  */
 export function generateCustomerFollowUpWhatsAppText(meta: BookingMetadata): string {
   const provider = meta.providerManager || meta.providerName || 'Owner';
+  const cat = meta.category || 'rent_a_car';
+
+  if (cat === 'driver') {
+    return [
+      `Assalam-o-Alaikum ${provider}!`,
+      `My name is ${meta.customerName} (${meta.customerPhone}).`,
+      `I am contacting you from SafarPK regarding your chauffeur service (Ref: ${meta.bookingRef}):`,
+      `• Service: ${meta.itemName}`,
+      meta.pickupDate ? `• Scheduled: ${meta.pickupDate} ${meta.duration ? `(${meta.duration})` : ''}` : '',
+      meta.customerCity ? `• City: ${meta.customerCity}` : '',
+      meta.totalEstimate ? `• Estimated Rate: ${meta.totalEstimate}` : '',
+      `I sent a message on SafarPK chat earlier. Following up directly here on WhatsApp. Are you available for this duty?`,
+    ].filter(Boolean).join('\n');
+  }
+
+  if (cat === 'shuttle') {
+    return [
+      `Assalam-o-Alaikum ${provider}!`,
+      `My name is ${meta.customerName} (${meta.customerPhone}).`,
+      `I am inquiring from SafarPK regarding a commuter seat (Ref: ${meta.bookingRef}):`,
+      `• Route: ${meta.itemName}`,
+      meta.customerCity ? `• City: ${meta.customerCity}` : '',
+      `Could you please confirm seat availability and pickup timing?`,
+    ].filter(Boolean).join('\n');
+  }
+
+  if (cat === 'mover') {
+    return [
+      `Assalam-o-Alaikum ${provider}!`,
+      `My name is ${meta.customerName} (${meta.customerPhone}).`,
+      `I am contacting you from SafarPK regarding cargo & house shifting (Ref: ${meta.bookingRef}):`,
+      `• Vehicle/Service: ${meta.itemName}`,
+      meta.pickupDate ? `• Moving Date: ${meta.pickupDate}` : '',
+      meta.customerCity ? `• City: ${meta.customerCity}` : '',
+      `Please confirm truck availability and estimate. Thanks!`,
+    ].filter(Boolean).join('\n');
+  }
+
+  // rent_a_car or general
   const lines = [
     `Assalam-o-Alaikum ${provider}!`,
     `My name is ${meta.customerName} (${meta.customerPhone}).`,
@@ -849,17 +888,36 @@ export const STORAGE_KEY_AUTO_REPLY = 'safarpk_chat_auto_reply_enabled';
 
 /**
  * Check if automated simulated host responses are enabled (default: true).
- * When toggled OFF, chat runs in 100% manual real-time mode without any bot or canned replies.
+ * Strictly for Listers/Drivers/Providers. When toggled OFF, chat runs in 100% manual real-time mode.
  */
-export function isAutoReplyEnabled(): boolean {
+export function isListerAutoReplyEnabled(listerId?: string): boolean {
   if (typeof window === 'undefined') return true;
-  const val = localStorage.getItem(STORAGE_KEY_AUTO_REPLY);
-  return val !== 'false';
+  if (listerId) {
+    const specificVal = localStorage.getItem(`safarpk_lister_autoreply_${listerId}`);
+    if (specificVal !== null) return specificVal !== 'false';
+  }
+  const globalVal = localStorage.getItem(STORAGE_KEY_AUTO_REPLY);
+  return globalVal !== 'false';
+}
+
+export function isAutoReplyEnabled(listerId?: string): boolean {
+  return isListerAutoReplyEnabled(listerId);
 }
 
 /**
- * Toggle automated simulated replies ON or OFF
+ * Toggle automated simulated replies ON or OFF for a lister
  */
+export function setListerAutoReplyEnabled(listerId: string, enabled: boolean): void {
+  if (typeof window === 'undefined') return;
+  if (listerId) {
+    localStorage.setItem(`safarpk_lister_autoreply_${listerId}`, enabled ? 'true' : 'false');
+  }
+  localStorage.setItem(STORAGE_KEY_AUTO_REPLY, enabled ? 'true' : 'false');
+  window.dispatchEvent(
+    new CustomEvent('safarpk_autoreply_toggle', { detail: { listerId, enabled } })
+  );
+}
+
 export function setAutoReplyEnabled(enabled: boolean): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(STORAGE_KEY_AUTO_REPLY, enabled ? 'true' : 'false');
@@ -869,10 +927,11 @@ export function setAutoReplyEnabled(enabled: boolean): void {
 }
 
 /**
- * Intelligent Multi-Turn Conversational Dialogue Engine:
- * Generates dynamic, context-linked, anti-repetitive host replies.
- * Analyzes conversation history, previous turns, explicit location/city mentions,
- * dates, testing requests, and avoids canned repetitive greetings.
+ * Intelligent Host / Lister Auto-Reply Engine:
+ * Strictly for Listers / Providers / Drivers responding to Customer inquiries.
+ * - If Lister turned OFF auto-reply: No response is sent (100% manual).
+ * - On Customer's 1st message: Sends polite greeting acknowledging the listing and provides direct phone & WhatsApp contact.
+ * - On subsequent Customer messages: Sends polite short busy message advising direct call/WhatsApp.
  */
 export function triggerSmartHostReply({
   conversationId,
@@ -891,295 +950,39 @@ export function triggerSmartHostReply({
 }) {
   if (typeof window === 'undefined') return;
 
-  // 1. Check if user turned off simulated auto-replies for 100% manual chatting
-  if (!isAutoReplyEnabled()) return;
+  // 1. Check if recipient (Lister / Driver / Provider) has turned OFF auto-reply
+  if (!isListerAutoReplyEnabled(receiverId)) return;
 
-  // 2. Do not auto-reply if sender is not CUSTOMER (e.g. host or driver replying directly)
+  // 2. Do not auto-reply if sender is not CUSTOMER (only customers get auto-replies from listers)
   if (senderUser.role !== 'CUSTOMER') return;
   if (senderUser.id === receiverId) return;
 
   // 3. Conversation History & Context
   const convMessages = getConversationMessages(conversationId);
-  const hostMessages = convMessages.filter((m) => m.senderId === receiverId);
+  const customerMsgs = convMessages.filter((m) => m.senderId === senderUser.id);
   const allConvs = getAllConversations();
   const conv = allConvs.find((c) => c.id === conversationId);
 
-  const hostSentTexts = new Set(hostMessages.map((m) => m.text.trim()));
-  const hasHostGreeted = hostMessages.some((m) =>
-    /assalam|salam|welcome|thank you for contacting|hello|hi/i.test(m.text)
-  );
-
-  const lastHostMsg = hostMessages.length > 0 ? hostMessages[hostMessages.length - 1].text : '';
-  const lastHostLow = lastHostMsg.toLowerCase();
-
-  const hostAskedLocation =
-    /location|pickup location|address|where|area|city|showroom|branch|hub/i.test(lastHostLow);
-  const hostAskedTiming =
-    /time|timing|schedule|when|hour|dates|departure|arrival/i.test(lastHostLow);
-
-  const lowText = userMessage.toLowerCase().trim();
-  const firstName = senderUser.name ? senderUser.name.split(' ')[0] : 'there';
   const roleName = conv?.participantRoles?.[receiverId] || 'LISTER';
-  const isDriver = roleName === 'DRIVER';
-  const isMover = roleName === 'PROVIDER' || conv?.bookingMetadata?.category === 'mover';
+  const firstName = senderUser.name ? senderUser.name.split(' ')[0] : 'there';
+  const listingName = conv?.bookingMetadata?.itemName || conv?.about || 'this listing';
+  const hostPhone = conv?.bookingMetadata?.providerPhone || conv?.participantPhones?.[receiverId] || '+92 300 1234567';
 
   let replyText = '';
 
-  // INTENT 1: Live Chat Test / Connection Verification
-  if (
-    /^(okay |ok )?(test|testing|check|mic test|test msg|system test)$/i.test(lowText) ||
-    lowText === 'test' ||
-    lowText === 'okay test' ||
-    lowText === 'ok test' ||
-    lowText.includes('test test')
-  ) {
-    if (hostMessages.some((m) => m.text.includes('Loud and clear'))) {
-      replyText =
-        'Connection is 100% active and messages are syncing in real time! Feel free to ask about vehicle specs, doorstep delivery, or pickup timing.';
-    } else {
-      replyText =
-        'Loud and clear! Our direct chat line is live, connected, and syncing in real time. Let us know your preferred pickup location or any questions about the booking.';
-    }
+  // Turn 1: First message from customer
+  if (customerMsgs.length <= 1) {
+    replyText = `Hello ${firstName}! Thank you for your inquiry regarding ${listingName}. We have received your message. If you do not get an immediate response here, you can also reach us directly at our Phone and WhatsApp: ${hostPhone} for urgent booking confirmation. Thanks!`;
+  } else {
+    // Turn 2+: Customer messages again when lister is busy / not online
+    replyText = `Sorry, we are busy at the moment. Please call or WhatsApp us directly at ${hostPhone} for urgent booking.`;
   }
 
-  // INTENT 2: City / Location / Area Mentions (Pakistani Cities & Neighborhoods)
-  if (!replyText) {
-    const cityMatches = [
-      { key: 'karachi', name: 'Karachi', hubs: 'DHA, Clifton, Gulshan, and Jinnah International Airport' },
-      { key: 'lahore', name: 'Lahore', hubs: 'Gulberg, DHA Phase 5, and Allama Iqbal International Airport' },
-      { key: 'islamabad', name: 'Islamabad', hubs: 'Blue Area, F-sectors, and Islamabad International Airport' },
-      { key: 'rawalpindi', name: 'Rawalpindi', hubs: 'Saddar, Bahria Town, and Peshawar Road' },
-      { key: 'peshawar', name: 'Peshawar', hubs: 'University Road, Cantt, and Hayatabad' },
-      { key: 'multan', name: 'Multan', hubs: 'Cantt, Bosan Road, and Multan Airport' },
-      { key: 'faisalabad', name: 'Faisalabad', hubs: 'D-Ground, Canal Road, and Kohinoor City' },
-      { key: 'sialkot', name: 'Sialkot', hubs: 'Cantt and Sialkot International Airport' },
-      { key: 'gujranwala', name: 'Gujranwala', hubs: 'GT Road and Model Town' },
-      { key: 'quetta', name: 'Quetta', hubs: 'Cantt and Zarghoon Road' },
-      { key: 'abbottabad', name: 'Abbottabad', hubs: 'Supply Road and Mandian' },
-      { key: 'murree', name: 'Murree', hubs: 'Mall Road and Expressway' },
-    ];
-
-    const matchedCity = cityMatches.find((c) => lowText.includes(c.key));
-
-    if (matchedCity) {
-      if (hostAskedLocation) {
-        replyText = `Got it, ${matchedCity.name}! We can arrange convenient doorstep delivery to your exact address in ${matchedCity.name} (coverage includes ${matchedCity.hubs}) or you can collect it directly from our hub. What time works best for you?`;
-      } else {
-        replyText = `${matchedCity.name} noted! We have verified vehicles and drivers stationed locally across ${matchedCity.name}. Would you like doorstep delivery or showroom collection?`;
-      }
-    }
-  }
-
-  // INTENT 3: Specific Areas (Airport, DHA, Clifton, Bahria, Gulberg, etc.)
-  if (!replyText) {
-    const areaKeywords = [
-      'airport',
-      'dha',
-      'clifton',
-      'gulshan',
-      'johar',
-      'gulberg',
-      'bahria',
-      'cantt',
-      'blue area',
-      'saddar',
-      'model town',
-    ];
-    const matchedArea = areaKeywords.find((a) => lowText.includes(a));
-    if (matchedArea) {
-      if (matchedArea === 'airport') {
-        replyText =
-          'Airport terminal pickup can be scheduled seamlessly! Our representative will meet you at the arrivals gate with keys and documents ready. Please share your flight timing.';
-      } else {
-        const areaUpper = matchedArea.toUpperCase();
-        replyText = `Noted, ${areaUpper}! We have an active fleet presence nearby. We can deliver the vehicle right to your doorstep or hotel in ${areaUpper}. What time suits you?`;
-      }
-    }
-  }
-
-  // INTENT 4: Dates & Times (Morning, Evening, Tomorrow, 10 AM, etc.)
-  if (!replyText) {
-    const timeMatch = lowText.match(
-      /\b(morning|afternoon|evening|night|today|tomorrow|tonight|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{1,2}\s*(am|pm)|\d{1,2}:\d{2})\b/i
-    );
-    if (timeMatch) {
-      replyText = `Handover time (${timeMatch[0]}) noted! Our team will ensure the vehicle undergoes complete pre-trip wash, AC check, and fuel inspection 30 minutes before your departure.`;
-    }
-  }
-
-  // INTENT 5: Greetings (Salam, Hi, Hello, AOA)
-  if (!replyText) {
-    const isGreeting =
-      /^(hi|hello|hey|salam|assalam|aoa|slaam|assalam-o-alaikum)[!. ]*$/i.test(lowText) ||
-      /\b(hi|hello|salam|aoa)\b/i.test(lowText);
-
-    if (isGreeting) {
-      if (hasHostGreeted) {
-        // Anti-repetition: host already greeted in this conversation, respond naturally
-        const followUps = [
-          'Walaikum Assalam! Yes, I am right here. How can I assist you with your booking?',
-          'Hello again! Yes, our team is active. Do you have any specific preferences or questions?',
-          'Walaikum Assalam! We are on standby. Feel free to ask about vehicle specs, fuel rules, or schedule.',
-          'Hello! Let me know if you would like us to reserve specific dates or if you need any adjustments.',
-        ];
-        replyText = followUps.find((g) => !hostSentTexts.has(g)) || followUps[0];
-      } else {
-        replyText = `Assalam-o-Alaikum ${firstName}! Thank you for contacting ${receiverName}. Your booking inquiry (${ref || 'SF-Booking'
-          }) is noted. Let us know your preferred pickup location and timing.`;
-      }
-    }
-  }
-
-  // INTENT 6: Agreements / Affirmations (Ok, Done, Great, Theek hai, Shukriya)
-  if (!replyText) {
-    const isAck =
-      /^(ok|okay|theek|theek hai|done|great|perfect|sure|deal|noted|bilkul|acha|accha|shukriya|thanks|thank you)[!. ]*$/i.test(
-        lowText
-      );
-    if (isAck) {
-      const ackReplies = [
-        'Perfect! Everything is noted on our dispatch schedule. If you have any sudden changes or need urgent dispatch, feel free to tap Call or WhatsApp above anytime.',
-        'Great! We will have everything prepared and inspected. Safe travels in advance!',
-        'Excellent, looking forward to serving you! Our representative will be ready at handover.',
-        'Thank you! Your inquiry is locked in. Let us know if anything else comes up.',
-      ];
-      replyText = ackReplies.find((a) => !hostSentTexts.has(a)) || ackReplies[0];
-    }
-  }
-
-  // INTENT 7: Price / Rates / Discount / Payment
-  if (!replyText) {
-    if (
-      lowText.includes('price') ||
-      lowText.includes('rate') ||
-      lowText.includes('rent') ||
-      lowText.includes('discount') ||
-      lowText.includes('pkr') ||
-      lowText.includes('rs') ||
-      lowText.includes('cost') ||
-      lowText.includes('advance') ||
-      lowText.includes('deposit') ||
-      lowText.includes('pay')
-    ) {
-      replyText =
-        'Our rates on SafarPK are 100% upfront with zero hidden fees. Payment is made directly upon vehicle inspection and key handover (Cash or Raast / bank transfer). No advance deposit needed!';
-    }
-  }
-
-  // INTENT 8: Documents / Licence / CNIC
-  if (!replyText) {
-    if (
-      lowText.includes('licence') ||
-      lowText.includes('license') ||
-      lowText.includes('cnic') ||
-      lowText.includes('id card') ||
-      lowText.includes('document') ||
-      lowText.includes('papers')
-    ) {
-      replyText =
-        'Please keep your original valid Driving Licence and original CNIC handy at the time of key handover. We perform a quick 1-minute digital verification and return your physical cards immediately.';
-    }
-  }
-
-  // INTENT 9: Availability & Booking Confirmation
-  if (!replyText) {
-    if (
-      lowText.includes('available') ||
-      lowText.includes('confirm') ||
-      lowText.includes('ready') ||
-      lowText.includes('book')
-    ) {
-      replyText = `Yes! The vehicle is completely reserved and scheduled for your inquiry (${ref || 'Reference'
-        }). Looking forward to meeting you at pickup!`;
-    }
-  }
-
-  // INTENT 10: Chauffeur / Driver Specific
-  if (!replyText) {
-    if (lowText.includes('driver') || lowText.includes('chauffeur')) {
-      if (isDriver) {
-        replyText =
-          'Assalam-o-Alaikum! I am your verified chauffeur. I have over 10+ years of motorway driving experience, uniform-clad, non-smoker, and maintain strict punctuality. Where shall I pick you up?';
-      } else {
-        replyText =
-          'We offer both self-drive and experienced chauffeurs. Chauffeur services include professional route navigation and 12-hour duty per day.';
-      }
-    }
-  }
-
-  // INTENT 11: Mover / Cargo / Shifting
-  if (!replyText && isMover) {
-    if (
-      lowText.includes('truck') ||
-      lowText.includes('mover') ||
-      lowText.includes('shifting') ||
-      lowText.includes('cargo') ||
-      lowText.includes('furniture')
-    ) {
-      replyText =
-        'For shifting & cargo logistics, our team includes loading helpers and protective blankets. Please share the pickup floor and destination address so we allocate the optimal vehicle size.';
-    }
-  }
-
-  // INTENT 12: Vehicle Condition / AC / Fuel / Cleanliness
-  if (!replyText) {
-    if (
-      lowText.includes('condition') ||
-      lowText.includes('ac') ||
-      lowText.includes('chilled') ||
-      lowText.includes('fuel') ||
-      lowText.includes('clean') ||
-      lowText.includes('petrol') ||
-      lowText.includes('diesel')
-    ) {
-      replyText =
-        'The vehicle is in prime condition: chill dual AC, clean spotless interior, serviced engine, and good tires. Fuel policy is return-as-received.';
-    }
-  }
-
-  // INTENT 13: Luggage & Boot Space
-  if (!replyText) {
-    if (
-      lowText.includes('luggage') ||
-      lowText.includes('bag') ||
-      lowText.includes('suitcase') ||
-      lowText.includes('boot') ||
-      lowText.includes('trunk')
-    ) {
-      replyText =
-        'The trunk has spacious capacity for 3-4 large suitcases plus hand carry. If you require extra capacity, we can also provide a rooftop carrier upon request.';
-    }
-  }
-
-  // INTENT 14: Dynamic Context-Echoing Fallback (Never repeat a static message!)
-  if (!replyText) {
-    const cleanSnippet =
-      userMessage.trim().length > 35
-        ? `"${userMessage.trim().slice(0, 35)}..."`
-        : `"${userMessage.trim()}"`;
-
-    const dynamicFallbacks = [
-      `Understood regarding ${cleanSnippet}! We have recorded this note on your booking inquiry (${ref || 'SF-Booking'
-      }). Let us know if you need anything else arranged.`,
-      `Received: ${cleanSnippet}. Our fleet supervisor has updated your dispatch notes. Do you have any preference for the vehicle delivery spot or route?`,
-      `Noted! We have updated your reservation preferences. We look forward to handing over the keys. Feel free to ask if you have any other questions.`,
-      `Got it! Thank you for the update. All your requirements are logged in our system. Looking forward to serving you!`,
-    ];
-
-    replyText = dynamicFallbacks.find((fb) => !hostSentTexts.has(fb)) || dynamicFallbacks[0];
-  }
-
-  // Strict Anti-Repetition Guarantee: If candidate reply was already sent in this thread, vary it
-  if (hostSentTexts.has(replyText)) {
-    replyText = `Understood! We have updated your booking notes (${ref || 'SF-Booking'
-      }). Our fleet coordinator is ready for your handover. Let us know if you have any other questions.`;
-  }
-
-  const delayMs = 1200 + Math.random() * 800;
+  const delayMs = 1200 + Math.random() * 600;
 
   setTimeout(() => {
     // Re-verify auto-reply is still enabled at execution time
-    if (!isAutoReplyEnabled()) return;
+    if (!isListerAutoReplyEnabled(receiverId)) return;
 
     const replyNow = Date.now();
     const replyMsg: ChatMessage = {

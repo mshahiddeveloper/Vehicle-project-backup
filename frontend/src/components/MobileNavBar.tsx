@@ -268,10 +268,9 @@ function MobileNavBarContent() {
         },
         {
           label: 'Inbox',
-          href: '/driver?tab=chats',
+          href: '/inbox',
           icon: MessageSquare,
-          isActive: isChats,
-          tabKey: 'chats',
+          isActive: pathname === '/inbox' || (isDriver && currentTab === 'chats'),
         },
       ];
     }
