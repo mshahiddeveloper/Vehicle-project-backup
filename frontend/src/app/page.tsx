@@ -175,6 +175,19 @@ export default function HomePage() {
   const c2cDateRef = useRef<HTMLInputElement>(null);
   const c2cTypeRef = useRef<HTMLDivElement>(null);
   const [customCityRides, setCustomCityRides] = useState<CityRideItem[]>([]);
+  const [devicePlatform, setDevicePlatform] = useState<'Android' | 'iOS' | 'Desktop'>('Android');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const ua = navigator.userAgent || '';
+    const isIos =
+      (/iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isAndroid = /Android/i.test(ua);
+    if (isAndroid) setDevicePlatform('Android');
+    else if (isIos) setDevicePlatform('iOS');
+    else setDevicePlatform('Desktop');
+  }, []);
 
   useEffect(() => {
     setCustomCityRides(getCustomCityRides());
@@ -3234,10 +3247,16 @@ export default function HomePage() {
                     window.dispatchEvent(new Event('safarpk_trigger_pwa_install'));
                   }
                 }}
-                className="h-10 sm:h-11 px-4 sm:px-5 rounded-xl bg-[#101828] text-white font-bold text-xs flex items-center gap-2 hover:bg-slate-800 transition cursor-pointer active:scale-95"
+                className="h-10 sm:h-11 px-4 sm:px-5 rounded-xl bg-[#101828] text-white font-bold text-xs flex items-center gap-2 hover:bg-slate-800 transition cursor-pointer active:scale-95 shadow-md"
               >
                 <Smartphone className="w-4 h-4 text-[#F5B547]" />
-                <span>Install App on Phone</span>
+                <span>
+                  {devicePlatform === 'Android'
+                    ? 'Install Android App'
+                    : devicePlatform === 'iOS'
+                    ? 'Install for iPhone'
+                    : 'Install Desktop App'}
+                </span>
               </button>
             </div>
           </div>

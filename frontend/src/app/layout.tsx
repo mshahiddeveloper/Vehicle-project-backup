@@ -25,6 +25,16 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "Safar — Worldwide Vehicle Rental & Mobility Marketplace",
   description: "Enterprise multi-vendor vehicle rental, commuter pick & drop, city-to-city rides, and cargo moving worldwide.",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "SafarPK",
+  },
 };
 
 export default function RootLayout({

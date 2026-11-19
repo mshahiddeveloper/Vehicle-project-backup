@@ -3,7 +3,17 @@
   "short_name": "SafarPK",
   "description": "Vehicle Rentals, Pick & Drop, City to City Rides & Home Shifting Marketplace",
   "start_url": "/",
-  "display": "browser",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#ffffff",
-  "theme_color": "#0B6B4F"
+  "theme_color": "#0B6B4F",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }
