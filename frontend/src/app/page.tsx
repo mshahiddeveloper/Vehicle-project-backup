@@ -3208,65 +3208,29 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 7. Become a Partner & Get App Dual Banners */}
+      {/* 7. Become a Partner Banner */}
       <section className="py-8 md:py-16">
-        <div className="max-w-[1240px] mx-auto px-4 sm:px-8 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+        <div className="max-w-[1240px] mx-auto px-4 sm:px-8">
           {/* For Partners */}
-          <div className="bg-[#101828] text-white rounded-3xl p-5 sm:p-8 md:p-10 flex flex-col gap-3 sm:gap-4 justify-between shadow-md">
-            <div className="space-y-1.5 sm:space-y-3">
+          <div className="bg-[#101828] text-white rounded-3xl p-5 sm:p-8 md:p-10 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 justify-between shadow-md">
+            <div className="space-y-1.5 sm:space-y-3 max-w-2xl">
               <span className="text-[10px] sm:text-xs font-bold text-[#F5B547] tracking-wider uppercase">
                 For owners, drivers & movers
               </span>
               <h3 className="font-heading font-extrabold text-base sm:text-xl md:text-2xl leading-snug">
                 List your vehicle or service. Connect directly with customers.
               </h3>
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-md hidden sm:block">
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed hidden sm:block">
                 Create your profile, set your own rates and receive inquiries directly on WhatsApp or in-app chat.
               </p>
             </div>
 
             <Link
               href="/register?role=LISTER"
-              className="self-start h-10 sm:h-12 px-5 sm:px-6 rounded-full bg-white text-[#101828] font-extrabold text-xs sm:text-sm flex items-center justify-center hover:bg-slate-100 transition shadow-sm mt-1 sm:mt-3"
+              className="self-start sm:self-center shrink-0 h-10 sm:h-12 px-5 sm:px-6 rounded-full bg-white text-[#101828] font-extrabold text-xs sm:text-sm flex items-center justify-center hover:bg-slate-100 transition shadow-sm"
             >
               Become a partner
             </Link>
-          </div>
-
-          {/* Get App */}
-          <div className="bg-[#E9F3EE] rounded-3xl p-5 sm:p-8 md:p-10 flex flex-col gap-3 sm:gap-4 justify-between border border-[#DCE7E1]">
-            <div className="space-y-1.5 sm:space-y-3">
-              <span className="text-[10px] sm:text-xs font-bold text-[#0B6B4F] tracking-wider uppercase">
-                Get the app
-              </span>
-              <h3 className="font-heading font-extrabold text-base sm:text-xl md:text-2xl leading-snug text-[#101828]">
-                Your trips, chats and bookings in your pocket.
-              </h3>
-              <p className="text-xs sm:text-sm text-[#344054] leading-relaxed max-w-md hidden sm:block">
-                Instant booking updates, live chat with owners and saved vehicles on iOS and Android.
-              </p>
-            </div>
-
-            <div className="flex gap-2 flex-wrap mt-1 sm:mt-3">
-              <button
-                type="button"
-                onClick={() => {
-                  if (typeof window !== 'undefined') {
-                    window.dispatchEvent(new Event('safarpk_trigger_pwa_install'));
-                  }
-                }}
-                className="h-10 sm:h-11 px-4 sm:px-5 rounded-xl bg-[#101828] text-white font-bold text-xs flex items-center gap-2 hover:bg-slate-800 transition cursor-pointer active:scale-95 shadow-md"
-              >
-                <Smartphone className="w-4 h-4 text-[#F5B547]" />
-                <span>
-                  {devicePlatform === 'Android'
-                    ? 'Install Android App'
-                    : devicePlatform === 'iOS'
-                    ? 'Install for iPhone'
-                    : 'Install Desktop App'}
-                </span>
-              </button>
-            </div>
           </div>
         </div>
       </section>

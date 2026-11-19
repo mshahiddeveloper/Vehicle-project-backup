@@ -12,6 +12,7 @@ export interface VehicleCardItem {
   contacted?: string;
   phone: string;
   whatsapp: string;
+  rating: number;
 }
 
 export interface DriverCardItem {
@@ -35,6 +36,7 @@ export interface DriverCardItem {
   contacted?: string;
   cnic?: string; // Verified NADRA CNIC: e.g. '35201-2123456-1'
   licenseNumber?: string; // Verified Driving Licence: e.g. 'LHR-DL-98210'
+  rating: number;
 }
 
 export interface CityRideItem {
@@ -63,6 +65,7 @@ export interface CityRideItem {
   departureTime?: string;
   pickupPoint?: string;
   dropPoint?: string;
+  rating: number;
 }
 
 export interface ShuttleItem {
@@ -85,6 +88,7 @@ export interface ShuttleItem {
   phone: string;
   whatsapp: string;
   contacted?: string;
+  rating: number;
 }
 
 export interface MoverItem {
@@ -101,6 +105,7 @@ export interface MoverItem {
   phone: string;
   whatsapp: string;
   contacted?: string;
+  rating: number;
 }
 
 export const SERVICE_CATEGORIES: Record<number, string[]> = {
@@ -118,6 +123,34 @@ export const SERVICE_CATEGORIES: Record<number, string[]> = {
   4: ['All movers', 'Suzuki Ravi (Mini)', 'Shehzore (2.5 Ton)', 'Mazda (14-17ft)', 'Office Relocation'],
 };
 
+export const MAJOR_HUBS = [
+  'Karachi',
+  'Lahore',
+  'Islamabad',
+  'Rawalpindi',
+  'Peshawar',
+  'Multan',
+  'Faisalabad',
+] as const;
+
+export const INTERCITY_CITIES = [
+  'Karachi',
+  'Lahore',
+  'Islamabad',
+  'Rawalpindi',
+  'Peshawar',
+  'Multan',
+  'Faisalabad',
+  'Hyderabad',
+  'Sukkur',
+  'Bahawalpur',
+  'Sialkot',
+  'Gujranwala',
+  'Quetta',
+  'Abbottabad',
+  'Murree',
+];
+
 // 1. CAR RENTAL FLEET
 export const CARS_DATA: VehicleCardItem[] = [
   {
@@ -134,6 +167,7 @@ export const CARS_DATA: VehicleCardItem[] = [
     contacted: '✓ You sent a request · today',
     phone: '+92 300 1234567',
     whatsapp: '923001234567',
+    rating: 4.9,
   },
   {
     id: 'l-2',
@@ -148,6 +182,7 @@ export const CARS_DATA: VehicleCardItem[] = [
     category: 'Sedans',
     phone: '+92 300 8472910',
     whatsapp: '923008472910',
+    rating: 4.8,
   },
   {
     id: 'l-3',
@@ -162,6 +197,7 @@ export const CARS_DATA: VehicleCardItem[] = [
     category: 'Economy',
     phone: '+92 321 4455667',
     whatsapp: '923214455667',
+    rating: 4.7,
   },
   {
     id: 'l-4',
@@ -176,6 +212,7 @@ export const CARS_DATA: VehicleCardItem[] = [
     category: 'SUVs & 4x4',
     phone: '+92 333 5599182',
     whatsapp: '923335599182',
+    rating: 4.9,
   },
   {
     id: 'l-5',
@@ -190,6 +227,7 @@ export const CARS_DATA: VehicleCardItem[] = [
     category: 'Luxury',
     phone: '+92 301 9821045',
     whatsapp: '923019821045',
+    rating: 5.0,
   },
   {
     id: 'l-6',
@@ -204,6 +242,7 @@ export const CARS_DATA: VehicleCardItem[] = [
     category: 'Vans & Hiace',
     phone: '+92 300 8472910',
     whatsapp: '923008472910',
+    rating: 4.8,
   },
   {
     id: 'l-7',
@@ -218,6 +257,7 @@ export const CARS_DATA: VehicleCardItem[] = [
     category: 'SUVs & 4x4',
     phone: '+92 300 1234567',
     whatsapp: '923001234567',
+    rating: 4.8,
   },
   {
     id: 'l-8',
@@ -232,6 +272,7 @@ export const CARS_DATA: VehicleCardItem[] = [
     category: 'Luxury',
     phone: '+92 321 4455667',
     whatsapp: '923214455667',
+    rating: 4.9,
   },
   {
     id: 'l-9',
@@ -246,6 +287,7 @@ export const CARS_DATA: VehicleCardItem[] = [
     category: 'Sedans',
     phone: '+92 345 8899201',
     whatsapp: '923458899201',
+    rating: 4.7,
   },
   {
     id: 'l-10',
@@ -260,6 +302,7 @@ export const CARS_DATA: VehicleCardItem[] = [
     category: 'SUVs & 4x4',
     phone: '+92 333 9988776',
     whatsapp: '923339988776',
+    rating: 4.8,
   },
   {
     id: 'l-11',
@@ -274,6 +317,7 @@ export const CARS_DATA: VehicleCardItem[] = [
     category: 'Economy',
     phone: '+92 300 7766554',
     whatsapp: '923007766554',
+    rating: 4.6,
   },
   {
     id: 'l-12',
@@ -288,6 +332,7 @@ export const CARS_DATA: VehicleCardItem[] = [
     category: 'Luxury',
     phone: '+92 312 3344556',
     whatsapp: '923123344556',
+    rating: 5.0,
   },
 ];
 
@@ -314,6 +359,7 @@ export const DRIVERS_DATA: DriverCardItem[] = [
     contacted: '✓ You sent a request · 10 Nov',
     cnic: '35201-2123456-1',
     licenseNumber: 'LHR-DL-98210',
+    rating: 4.9,
   },
   {
     id: 'drv-2',
@@ -335,6 +381,7 @@ export const DRIVERS_DATA: DriverCardItem[] = [
     whatsapp: '923214455667',
     cnic: '35201-8912045-7',
     licenseNumber: 'LHR-LTV-44120',
+    rating: 4.8,
   },
   {
     id: 'drv-3',
@@ -356,6 +403,7 @@ export const DRIVERS_DATA: DriverCardItem[] = [
     whatsapp: '923335599182',
     cnic: '35202-3312098-3',
     licenseNumber: 'LHR-HTV-81204',
+    rating: 4.9,
   },
   {
     id: 'drv-4',
@@ -377,6 +425,7 @@ export const DRIVERS_DATA: DriverCardItem[] = [
     whatsapp: '923019821045',
     cnic: '35201-4412098-5',
     licenseNumber: 'ISB-DL-49201',
+    rating: 4.8,
   },
   {
     id: 'drv-5',
@@ -398,6 +447,7 @@ export const DRIVERS_DATA: DriverCardItem[] = [
     whatsapp: '923451122334',
     cnic: '42101-5129841-3',
     licenseNumber: 'KHI-DL-12345',
+    rating: 4.7,
   },
   {
     id: 'drv-6',
@@ -419,6 +469,7 @@ export const DRIVERS_DATA: DriverCardItem[] = [
     whatsapp: '923339988776',
     cnic: '17301-3819024-9',
     licenseNumber: 'PWR-DL-84729',
+    rating: 4.9,
   },
   {
     id: 'drv-7',
@@ -438,6 +489,7 @@ export const DRIVERS_DATA: DriverCardItem[] = [
     category: 'Monthly',
     phone: '+92 300 5544332',
     whatsapp: '923005544332',
+    rating: 4.8,
   },
   {
     id: 'drv-8',
@@ -457,6 +509,7 @@ export const DRIVERS_DATA: DriverCardItem[] = [
     category: 'Daily City',
     phone: '+92 302 7788990',
     whatsapp: '923027788990',
+    rating: 4.7,
   },
   {
     id: 'drv-9',
@@ -476,6 +529,7 @@ export const DRIVERS_DATA: DriverCardItem[] = [
     category: 'VIP Executive',
     phone: '+92 300 4433221',
     whatsapp: '923004433221',
+    rating: 4.9,
   },
 ];
 
@@ -506,6 +560,7 @@ export const CITY_RIDES_DATA: CityRideItem[] = [
     departureDate: 'Daily',
     pickupPoint: 'Thokar Niaz Baig / Babu Sabu M-2',
     dropPoint: 'Faizabad / Zero Point Islamabad',
+    rating: 4.9,
   },
   {
     id: 'c2c-khi-hyd-share',
@@ -531,6 +586,7 @@ export const CITY_RIDES_DATA: CityRideItem[] = [
     departureDate: 'Today & Tomorrow',
     pickupPoint: 'Maskan Chowrangi, Gulshan / Sohrab Goth M-9',
     dropPoint: 'Latifabad Unit 7 / Hyderabad By-Pass',
+    rating: 4.8,
   },
   {
     id: 'c2c-5',
@@ -555,6 +611,7 @@ export const CITY_RIDES_DATA: CityRideItem[] = [
     departureDate: 'Daily Available',
     pickupPoint: 'Anywhere in Karachi (Doorstep)',
     dropPoint: 'Anywhere in Hyderabad City / Qasim Chowk',
+    rating: 4.8,
   },
   {
     id: 'c2c-2',
@@ -579,6 +636,7 @@ export const CITY_RIDES_DATA: CityRideItem[] = [
     departureDate: 'Daily',
     pickupPoint: 'DHA Phase 5 / Gulberg Lahore',
     dropPoint: 'F-10 / Blue Area Islamabad',
+    rating: 4.9,
   },
   {
     id: 'c2c-lhr-isb-share',
@@ -604,6 +662,7 @@ export const CITY_RIDES_DATA: CityRideItem[] = [
     departureDate: 'Weekends & Daily',
     pickupPoint: 'Kalma Chowk / Thokar M-2 Entry',
     dropPoint: 'Zero Point / I-8 Markaz Islamabad',
+    rating: 4.8,
   },
   {
     id: 'c2c-3',
@@ -629,6 +688,7 @@ export const CITY_RIDES_DATA: CityRideItem[] = [
     departureDate: 'Daily',
     pickupPoint: 'Faizabad Terminal / Pirwadhai',
     dropPoint: 'Badami Bagh / Thokar Niaz Baig Lahore',
+    rating: 4.7,
   },
   {
     id: 'c2c-4',
@@ -653,6 +713,7 @@ export const CITY_RIDES_DATA: CityRideItem[] = [
     departureDate: 'Daily Available',
     pickupPoint: 'Islamabad Club / Serena Hotel',
     dropPoint: 'Pearl Continental / University Town Peshawar',
+    rating: 4.9,
   },
   {
     id: 'c2c-isb-pesh-share',
@@ -678,6 +739,7 @@ export const CITY_RIDES_DATA: CityRideItem[] = [
     departureDate: 'Daily',
     pickupPoint: 'G-9 Karachi Company / Toll Plaza',
     dropPoint: 'Hayatabad Phase 3 / Karkhano Market',
+    rating: 4.8,
   },
   {
     id: 'c2c-6',
@@ -703,6 +765,7 @@ export const CITY_RIDES_DATA: CityRideItem[] = [
     departureDate: 'Daily',
     pickupPoint: 'Gatwala Toll Plaza M-3',
     dropPoint: 'Thokar Niaz Baig / Canal Road Lahore',
+    rating: 4.7,
   },
   {
     id: 'c2c-7',
@@ -728,6 +791,7 @@ export const CITY_RIDES_DATA: CityRideItem[] = [
     departureDate: 'Daily',
     pickupPoint: 'Chungi No 9 / M-4 Interchange',
     dropPoint: 'Thokar Niaz Baig, Lahore',
+    rating: 4.8,
   },
   {
     id: 'c2c-8',
@@ -752,6 +816,7 @@ export const CITY_RIDES_DATA: CityRideItem[] = [
     departureDate: 'Daily',
     pickupPoint: 'Peshawar Cantt / Saddar',
     dropPoint: 'Islamabad F-6 / Blue Area',
+    rating: 5.0,
   },
 ];
 
@@ -770,7 +835,11 @@ export function saveCustomCityRide(ride: CityRideItem): void {
   if (typeof window === 'undefined') return;
   try {
     const existing = getCustomCityRides();
-    const updated = [ride, ...existing.filter((r) => r.id !== ride.id)];
+    const sanitizedRide: CityRideItem = {
+      ...ride,
+      rating: typeof ride.rating === 'number' ? ride.rating : 4.8,
+    };
+    const updated = [sanitizedRide, ...existing.filter((r) => r.id !== ride.id)];
     localStorage.setItem('safarpk_custom_city_rides', JSON.stringify(updated));
     window.dispatchEvent(new Event('safarpk_city_rides_updated'));
   } catch (e) {}
@@ -893,7 +962,9 @@ export function matchesShuttleRoute(
     shuttle.from,
     ...(shuttle.stops || []),
     shuttle.to,
-  ].map((s) => s.toLowerCase());
+  ]
+    .filter((s): s is string => typeof s === 'string' && s.length > 0)
+    .map((s) => s.toLowerCase());
 
   const findStopIndex = (query: string): number => {
     return stopsSequence.findIndex(
@@ -943,6 +1014,7 @@ export const SHUTTLES_DATA: ShuttleItem[] = [
     category: 'Corporate Office',
     phone: '+92 345 8899201',
     whatsapp: '923458899201',
+    rating: 4.8,
   },
   {
     id: 'sht-khi-2',
@@ -963,6 +1035,7 @@ export const SHUTTLES_DATA: ShuttleItem[] = [
     category: 'Girls Only',
     phone: '+92 321 4455667',
     whatsapp: '923214455667',
+    rating: 4.9,
   },
   {
     id: 'sht-khi-3',
@@ -983,6 +1056,7 @@ export const SHUTTLES_DATA: ShuttleItem[] = [
     category: 'Corporate Office',
     phone: '+92 333 1122334',
     whatsapp: '923331122334',
+    rating: 4.7,
   },
   {
     id: 'sht-khi-4',
@@ -1003,6 +1077,7 @@ export const SHUTTLES_DATA: ShuttleItem[] = [
     category: 'Executive Vanpool',
     phone: '+92 300 8877665',
     whatsapp: '923008877665',
+    rating: 4.8,
   },
   {
     id: 'sht-khi-5',
@@ -1023,6 +1098,7 @@ export const SHUTTLES_DATA: ShuttleItem[] = [
     category: 'Corporate Office',
     phone: '+92 302 9988776',
     whatsapp: '923029988776',
+    rating: 4.9,
   },
   {
     id: 'sht-khi-6',
@@ -1043,6 +1119,7 @@ export const SHUTTLES_DATA: ShuttleItem[] = [
     category: 'School & College',
     phone: '+92 313 5544332',
     whatsapp: '923135544332',
+    rating: 4.7,
   },
 
   // --- LAHORE ROUTES ---
@@ -1066,6 +1143,7 @@ export const SHUTTLES_DATA: ShuttleItem[] = [
     phone: '+92 300 9876543',
     whatsapp: '923009876543',
     contacted: '✓ You sent a request · 9 Nov',
+    rating: 4.9,
   },
   {
     id: 'sht-2',
@@ -1086,6 +1164,7 @@ export const SHUTTLES_DATA: ShuttleItem[] = [
     category: 'Corporate Office',
     phone: '+92 321 8877665',
     whatsapp: '923218877665',
+    rating: 4.8,
   },
   {
     id: 'sht-3',
@@ -1106,6 +1185,7 @@ export const SHUTTLES_DATA: ShuttleItem[] = [
     category: 'School & College',
     phone: '+92 333 4455667',
     whatsapp: '923334455667',
+    rating: 4.8,
   },
 
   // --- ISLAMABAD / RAWALPINDI ROUTES ---
@@ -1128,6 +1208,7 @@ export const SHUTTLES_DATA: ShuttleItem[] = [
     category: 'Corporate Office',
     phone: '+92 301 9821045',
     whatsapp: '923019821045',
+    rating: 4.8,
   },
   {
     id: 'sht-5',
@@ -1148,6 +1229,7 @@ export const SHUTTLES_DATA: ShuttleItem[] = [
     category: 'Executive Vanpool',
     phone: '+92 300 5544332',
     whatsapp: '923005544332',
+    rating: 4.9,
   },
 
   // --- FAISALABAD & PESHAWAR ---
@@ -1170,6 +1252,7 @@ export const SHUTTLES_DATA: ShuttleItem[] = [
     category: 'Corporate Office',
     phone: '+92 300 7766554',
     whatsapp: '923007766554',
+    rating: 4.7,
   },
   {
     id: 'sht-8',
@@ -1190,6 +1273,7 @@ export const SHUTTLES_DATA: ShuttleItem[] = [
     category: 'School & College',
     phone: '+92 333 9988776',
     whatsapp: '923339988776',
+    rating: 4.8,
   },
 ];
 
@@ -1209,6 +1293,7 @@ export const MOVERS_DATA: MoverItem[] = [
     phone: '+92 333 5599182',
     whatsapp: '923335599182',
     contacted: '✓ You sent a request · 8 Nov',
+    rating: 4.9,
   },
   {
     id: 'mov-2',
@@ -1223,6 +1308,7 @@ export const MOVERS_DATA: MoverItem[] = [
     category: 'Suzuki Ravi (Mini)',
     phone: '+92 300 1234567',
     whatsapp: '923001234567',
+    rating: 4.8,
   },
   {
     id: 'mov-3',
@@ -1237,6 +1323,7 @@ export const MOVERS_DATA: MoverItem[] = [
     category: 'Mazda (14-17ft)',
     phone: '+92 321 4455667',
     whatsapp: '923214455667',
+    rating: 4.9,
   },
   {
     id: 'mov-4',
@@ -1251,6 +1338,7 @@ export const MOVERS_DATA: MoverItem[] = [
     category: 'Suzuki Ravi (Mini)',
     phone: '+92 345 8899201',
     whatsapp: '923458899201',
+    rating: 4.7,
   },
   {
     id: 'mov-5',
@@ -1265,6 +1353,7 @@ export const MOVERS_DATA: MoverItem[] = [
     category: 'Shehzore (2.5 Ton)',
     phone: '+92 301 9821045',
     whatsapp: '923019821045',
+    rating: 4.8,
   },
   {
     id: 'mov-6',
@@ -1279,6 +1368,7 @@ export const MOVERS_DATA: MoverItem[] = [
     category: 'Suzuki Ravi (Mini)',
     phone: '+92 300 5544332',
     whatsapp: '923005544332',
+    rating: 4.8,
   },
   {
     id: 'mov-7',
@@ -1293,6 +1383,7 @@ export const MOVERS_DATA: MoverItem[] = [
     category: 'Office Relocation',
     phone: '+92 345 1122334',
     whatsapp: '923451122334',
+    rating: 4.9,
   },
   {
     id: 'mov-8',
@@ -1307,6 +1398,7 @@ export const MOVERS_DATA: MoverItem[] = [
     category: 'Shehzore (2.5 Ton)',
     phone: '+92 300 7766554',
     whatsapp: '923007766554',
+    rating: 4.7,
   },
   {
     id: 'mov-9',
@@ -1321,6 +1413,7 @@ export const MOVERS_DATA: MoverItem[] = [
     category: 'Shehzore (2.5 Ton)',
     phone: '+92 312 3344556',
     whatsapp: '923123344556',
+    rating: 4.8,
   },
   {
     id: 'mov-10',
@@ -1335,5 +1428,6 @@ export const MOVERS_DATA: MoverItem[] = [
     category: 'Mazda (14-17ft)',
     phone: '+92 333 9988776',
     whatsapp: '923339988776',
+    rating: 4.8,
   },
 ];

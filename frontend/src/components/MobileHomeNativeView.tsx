@@ -27,11 +27,31 @@ import {
   Navigation,
   ArrowRight,
   Users,
+  Menu,
+  ArrowUpDown,
+  Building2,
+  Star,
 } from 'lucide-react';
-import { CARS_DATA, VehicleCardItem } from '@/data/marketplaceData';
+import {
+  CARS_DATA,
+  DRIVERS_DATA,
+  CITY_RIDES_DATA,
+  SHUTTLES_DATA,
+  MOVERS_DATA,
+  MAJOR_HUBS,
+  INTERCITY_CITIES,
+  CITY_COMMUTE_AREAS,
+  matchesShuttleRoute,
+  VehicleCardItem,
+  DriverCardItem,
+  CityRideItem,
+  ShuttleItem,
+  MoverItem,
+} from '@/data/marketplaceData';
 import { getActiveUser, RegisteredUser } from '@/data/userAuth';
 import { formatPKR, maskPhone } from '@/lib/api';
 import { getStoreSlugForOwner } from '@/data/storefrontEngine';
+import { MobileNavigationDrawer } from '@/components/AppHeader';
 
 const PAKISTAN_CITIES = [
   { name: 'Lahore', tint: '#F3E6D3' },
@@ -59,6 +79,7 @@ export function MobileHomeNativeView() {
   const router = useRouter();
   const [activeUser, setActiveUser] = useState<RegisteredUser | null>(null);
   const [city, setCity] = useState<string>('Lahore');
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [citySheetOpen, setCitySheetOpen] = useState(false);
   const [searchSheetOpen, setSearchSheetOpen] = useState(false);
   const [activeServiceIdx, setActiveServiceIdx] = useState(0); // 0: Rent car, 1: Drivers, 2: City to City, 3: Pick & drop, 4: Movers
@@ -67,13 +88,25 @@ export function MobileHomeNativeView() {
   const [savedCarIds, setSavedCarIds] = useState<string[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Search Sheet Inputs
+  // Search Sheet Specific Inputs
   const [searchWhere, setSearchWhere] = useState('Lahore');
   const [pickupDate, setPickupDate] = useState('');
   const [returnDate, setReturnDate] = useState('');
+  const [c2cFromCity, setC2cFromCity] = useState('Lahore');
   const [c2cToCity, setC2cToCity] = useState('Islamabad');
+  const [c2cPickerSheetOpen, setC2cPickerSheetOpen] = useState<'from' | 'to' | null>(null);
+
+  // Shuttles corridor inputs
+  const [shuttleCity, setShuttleCity] = useState('Karachi');
+  const [shuttlePickupArea, setShuttlePickupArea] = useState('');
   const [shuttleDropArea, setShuttleDropArea] = useState('');
+  const [shuttleAreaSheetOpen, setShuttleAreaSheetOpen] = useState<'pickup' | 'drop' | null>(null);
+
+  // Movers inputs
+  const [moverFromArea, setMoverFromArea] = useState('');
   const [moverToArea, setMoverToArea] = useState('');
+  const [moverDate, setMoverDate] = useState('');
+  const [moverAreaSheetOpen, setMoverAreaSheetOpen] = useState<'from' | 'to' | null>(null);
 
   useEffect(() => {
     setActiveUser(getActiveUser());
@@ -90,6 +123,14 @@ export function MobileHomeNativeView() {
       window.removeEventListener('safarpk_auth_state_changed', onAuth);
     };
   }, []);
+
+  // Sync shuttleCity with selected main city if supported
+  useEffect(() => {
+    if (CITY_COMMUTE_AREAS[city]) {
+      setShuttleCity(city);
+    }
+    setC2cFromCity(city);
+  }, [city]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -112,7 +153,14 @@ export function MobileHomeNativeView() {
     } catch (e) {}
   };
 
-  // 5 Services Configuration (Note: intercity explicitly changed to "City to City")
+  const handleSwapC2cCities = () => {
+    const temp = c2cFromCity;
+    setC2cFromCity(c2cToCity);
+    setC2cToCity(temp);
+    showToast(`Swapped: ${c2cToCity} ⇄ ${temp}`);
+  };
+
+  // 5 Services Configuration
   const services = useMemo(
     () => [
       {
@@ -161,18 +209,11 @@ export function MobileHomeNativeView() {
 
   const curService = services[activeServiceIdx];
 
-  // Featured Cars (Prioritizing active city or top verified fleet)
-  const featuredCars = useMemo(() => {
-    const list = [...CARS_DATA];
-    const cityMatches = list.filter((c) => c.city.toLowerCase() === city.toLowerCase());
-    const pool = cityMatches.length >= 2 ? cityMatches : list;
-    return pool.slice(0, 3);
-  }, [city]);
-
-  // Filtered Nearby Cars
+  // Dynamic Service Datasets Filtered by Location
   const filteredCars = useMemo(() => {
     let list = [...CARS_DATA];
-    // Category filter
+    const cityMatches = list.filter((c) => c.city.toLowerCase() === city.toLowerCase());
+    if (cityMatches.length > 0) list = cityMatches;
     if (selectedCarCategory === 1) {
       list = list.filter((c) => c.category === 'Sedans');
     } else if (selectedCarCategory === 2) {
@@ -183,7 +224,44 @@ export function MobileHomeNativeView() {
       list = list.filter((c) => c.category === 'Vans & Hiace');
     }
     return list;
-  }, [selectedCarCategory]);
+  }, [city, selectedCarCategory]);
+
+  const filteredDrivers = useMemo(() => {
+    const list = [...DRIVERS_DATA];
+    const cityMatches = list.filter((d) => d.city.toLowerCase() === city.toLowerCase());
+    return cityMatches.length > 0 ? cityMatches : list;
+  }, [city]);
+
+  const filteredRides = useMemo(() => {
+    const list = [...CITY_RIDES_DATA];
+    const cityMatches = list.filter(
+      (r) =>
+        r.fromCity.toLowerCase() === city.toLowerCase() ||
+        r.toCity.toLowerCase() === city.toLowerCase()
+    );
+    return cityMatches.length > 0 ? cityMatches : list;
+  }, [city]);
+
+  const filteredShuttles = useMemo(() => {
+    let list = [...SHUTTLES_DATA];
+    if (shuttlePickupArea || shuttleDropArea) {
+      list = list.filter((s) =>
+        matchesShuttleRoute(s, shuttlePickupArea, shuttleDropArea, shuttleCity || city)
+      );
+    } else {
+      const cityMatches = list.filter(
+        (s) => s.city.toLowerCase() === (shuttleCity || city).toLowerCase()
+      );
+      if (cityMatches.length > 0) list = cityMatches;
+    }
+    return list.length > 0 ? list : SHUTTLES_DATA;
+  }, [city, shuttleCity, shuttlePickupArea, shuttleDropArea]);
+
+  const filteredMovers = useMemo(() => {
+    const list = [...MOVERS_DATA];
+    const cityMatches = list.filter((m) => m.city.toLowerCase() === city.toLowerCase());
+    return cityMatches.length > 0 ? cityMatches : list;
+  }, [city]);
 
   const userInitials = useMemo(() => {
     if (!activeUser || !activeUser.name) return 'HA';
@@ -202,82 +280,93 @@ export function MobileHomeNativeView() {
       )}
 
       {/* ========================================================================= */}
-      {/* 1. TOP APP BAR (Native iOS/Android Clean Header)                           */}
+      {/* 1. TOP APP BAR (Native Mobile Clean Header matching AppHeader)             */}
       {/* ========================================================================= */}
-      <header className="sticky top-0 z-40 bg-white border-b border-[#EEF0F2] px-4 pt-3 pb-3 flex flex-col gap-2.5 shadow-2xs">
-        {/* Row 1: City Selector + Notification Bell + User Profile Avatar */}
-        <div className="flex items-center justify-between gap-2.5">
-          {/* City Button */}
+      <header className="sticky top-0 z-40 bg-white border-b border-[#EEF0F2] px-3.5 pt-2.5 pb-2.5 flex flex-col gap-2 shadow-2xs">
+        {/* Row 1: Hamburger Menu (Left) + SafarPK Logo (Center) + Bell & Avatar (Right) */}
+        <div className="flex items-center justify-between gap-2 h-11">
+          {/* Hamburger Menu Icon */}
           <button
             type="button"
-            onClick={() => setCitySheetOpen(true)}
-            className="flex-1 min-w-0 flex items-center gap-2 h-11 p-0 border-0 bg-transparent cursor-pointer text-left"
+            onClick={() => setMobileDrawerOpen(true)}
+            className="w-9 h-9 rounded-xl flex items-center justify-center bg-slate-100/90 hover:bg-slate-200 active:scale-95 text-slate-800 transition cursor-pointer shrink-0 shadow-2xs border border-slate-200/60"
+            aria-label="Open Navigation Drawer"
           >
-            <span className="w-9 h-9 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-              <MapPin className="w-4 h-4 stroke-[2.2]" />
-            </span>
-            <span className="flex flex-col min-w-0">
-              <span className="text-[11px] font-semibold text-[#667085] leading-none mb-0.5">Your city</span>
-              <span className="flex items-center gap-1 font-heading font-black text-[17px] text-[#101828] leading-tight truncate">
-                <span>{city}</span>
-                <ChevronDown className="w-4 h-4 text-slate-500 stroke-[2.4]" />
-              </span>
-            </span>
+            <Menu className="w-5 h-5 text-slate-800" />
           </button>
 
-          {/* Right Action Buttons */}
+          {/* Centered SafarPK Brand Logo */}
+          <Link href="/" className="flex items-center justify-center group shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-xl bg-[#0B6B4F] text-white flex items-center justify-center font-extrabold text-sm shadow-xs shrink-0">
+                S
+              </span>
+              <span className="font-heading font-black text-lg tracking-tight text-[#101828] leading-none whitespace-nowrap">
+                SafarPK
+              </span>
+            </div>
+          </Link>
+
+          {/* Right Action Buttons: Notification Bell + User Profile Initials */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* Notification Bell */}
             <Link
               href="/inbox"
               aria-label="Notifications"
-              className="relative w-11 h-11 rounded-full bg-[#F2F4F7] text-[#101828] flex items-center justify-center transition active:scale-95"
+              className="relative w-9 h-9 rounded-full bg-[#F2F4F7] text-[#101828] flex items-center justify-center transition active:scale-95 hover:bg-slate-200"
             >
-              <Bell className="w-5 h-5 stroke-[2]" />
-              <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-[#D92D20] ring-2 ring-[#F2F4F7]" />
+              <Bell className="w-4.5 h-4.5 stroke-[2] text-slate-700" />
+              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#D92D20] ring-2 ring-[#F2F4F7]" />
             </Link>
 
-            {/* User Profile Avatar */}
             <Link
               href={activeUser ? '/customer' : '/login'}
               aria-label="My account"
-              className="w-11 h-11 rounded-full bg-[#0B6B4F] text-white font-bold text-sm flex items-center justify-center shadow-xs transition active:scale-95"
+              className="w-9 h-9 rounded-full bg-[#0B6B4F] text-white font-bold text-xs flex items-center justify-center shadow-xs transition active:scale-95 hover:ring-2 hover:ring-emerald-400"
             >
               {userInitials}
             </Link>
           </div>
         </div>
 
-        {/* Row 2: Universal Native Search Bar */}
-        <button
-          type="button"
-          onClick={() => setSearchSheetOpen(true)}
-          className="flex items-center gap-3 h-[54px] px-3.5 rounded-2xl border border-[#E4E7EC] bg-[#F7F8FA] cursor-pointer text-left transition active:scale-[0.99] shadow-2xs"
-        >
-          <Search className="w-5 h-5 text-[#101828] stroke-[2.2] shrink-0" />
-          <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
-            <span className="text-[14px] font-bold text-[#101828] leading-none truncate">
-              {curService.title} in {city}
+        {/* Row 2: Origin City Selector Pill + Universal Search Bar */}
+        <div className="flex items-center gap-2">
+          {/* Origin City Click-to-Change Selector (Prevents Soft Keyboard) */}
+          <button
+            type="button"
+            onClick={() => setCitySheetOpen(true)}
+            className="flex items-center gap-1.5 h-10 px-3 rounded-xl bg-[#E9F3EE] hover:bg-emerald-100/70 text-[#08513C] font-bold text-xs shrink-0 transition active:scale-95 cursor-pointer border border-[#D0E5DA]"
+          >
+            <MapPin className="w-3.5 h-3.5 text-[#0B6B4F] stroke-[2.2]" />
+            <span className="max-w-[75px] truncate">{city}</span>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+          </button>
+
+          {/* Universal Search Bar Opener */}
+          <button
+            type="button"
+            onClick={() => setSearchSheetOpen(true)}
+            className="flex-1 flex items-center gap-2 h-10 px-3 rounded-xl bg-[#F7F8FA] hover:bg-slate-100 border border-[#E4E7EC] text-left text-xs text-slate-500 truncate transition active:scale-[0.99] shadow-2xs cursor-pointer"
+          >
+            <Search className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+            <span className="truncate font-semibold text-slate-800">
+              {curService.title} in {city}...
             </span>
-            <span className="text-[12px] text-[#667085] leading-none truncate">
-              {activeServiceIdx === 0
-                ? `Any dates · ${isSelfDrive ? 'Self-drive' : 'With driver'} · pay at pick-up`
-                : activeServiceIdx === 2
-                ? 'City to city carpool or full car · M-9, M-2'
-                : 'Tap to add trip details'}
-            </span>
-          </div>
-          <span className="w-9 h-9 rounded-xl bg-white border border-[#E4E7EC] flex items-center justify-center shrink-0 shadow-2xs">
-            <SlidersHorizontal className="w-4 h-4 text-[#101828] stroke-[2]" />
-          </span>
-        </button>
+          </button>
+        </div>
       </header>
+
+      {/* Slide-out Sidebar Drawer with Accordions & Role Badge */}
+      <MobileNavigationDrawer
+        open={mobileDrawerOpen}
+        onClose={() => setMobileDrawerOpen(false)}
+        activeUser={activeUser}
+      />
 
       {/* ========================================================================= */}
       {/* 2. SCROLLING CONTENT                                                      */}
       {/* ========================================================================= */}
       <div className="flex flex-col gap-5 pt-3">
-        {/* SERVICES GRID (5 Equal Columns, Exactly matching reference artboard) */}
+        {/* SERVICES GRID (5 Equal Columns, fitting cleanly on-screen without cutoff) */}
         <div
           role="tablist"
           aria-label="Services"
@@ -294,21 +383,20 @@ export function MobileHomeNativeView() {
                 aria-selected={isSelected}
                 onClick={() => {
                   setActiveServiceIdx(idx);
-                  setSearchSheetOpen(true);
                 }}
-                className="flex flex-col items-center gap-1.5 py-1 px-0.5 border-0 bg-transparent cursor-pointer transition active:scale-95"
+                className="flex flex-col items-center gap-1 py-1 px-0.5 border-0 bg-transparent cursor-pointer transition active:scale-95"
               >
                 <span
-                  className={`w-14 h-14 rounded-[18px] flex items-center justify-center transition-all duration-200 ${
+                  className={`w-full max-w-[52px] aspect-square rounded-[18px] flex items-center justify-center transition-all duration-200 ${
                     isSelected
-                      ? 'bg-[#0B6B4F] text-white shadow-[0_6px_14px_rgba(11,107,79,0.28)]'
+                      ? 'bg-[#0B6B4F] text-white shadow-[0_6px_14px_rgba(11,107,79,0.28)] scale-105'
                       : 'bg-white text-[#101828] border border-[#E4E7EC]'
                   }`}
                 >
-                  <Icon className="w-6 h-6 stroke-[1.9]" />
+                  <Icon className="w-5 h-5 sm:w-6 sm:h-6 stroke-[1.9]" />
                 </span>
                 <span
-                  className={`text-[11px] leading-tight text-center tracking-tight truncate w-full ${
+                  className={`text-[10px] leading-[1.1] text-center tracking-tight w-full break-words ${
                     isSelected ? 'font-bold text-[#0B6B4F]' : 'font-semibold text-[#344054]'
                   }`}
                 >
@@ -319,7 +407,7 @@ export function MobileHomeNativeView() {
           })}
         </div>
 
-        {/* TRUST STRIP (Horizontal Scrolling Pills) */}
+        {/* TRUST STRIP (Horizontal Scrolling Badges) */}
         <div className="flex gap-2 overflow-x-auto px-4 no-scrollbar">
           {TRUST_TAGS.map((t) => {
             const Icon = t.icon;
@@ -335,261 +423,466 @@ export function MobileHomeNativeView() {
           })}
         </div>
 
-        {/* FEATURED CAROUSEL ("Featured in {city}") */}
-        <section className="flex flex-col gap-2.5">
-          <div className="flex justify-between items-baseline px-4">
-            <h2 className="font-heading font-black text-[19px] text-[#101828]">Featured in {city}</h2>
-            <Link href="/#listings-results" className="text-sm font-bold text-[#0B6B4F] hover:underline">
-              See all
-            </Link>
-          </div>
-
-          <div className="flex gap-3 overflow-x-auto px-4 no-scrollbar snap-x snap-mandatory">
-            {featuredCars.map((car, idx) => {
-              const rank = `#${idx + 1}`;
-              const cleanPhone = car.phone.replace(/[^0-9]/g, '');
-              const storeSlug = getStoreSlugForOwner(car.owner);
-
-              return (
-                <div
-                  key={car.id}
-                  className="shrink-0 w-[290px] snap-start bg-white rounded-[22px] overflow-hidden border-2 border-[#F5B547] flex flex-col shadow-xs"
-                >
-                  {/* Photo / Thumbnail Area */}
-                  <Link
-                    href={`/listing/${car.id}`}
-                    className="relative h-[164px] bg-[#EEF1F4] flex items-center justify-center overflow-hidden"
-                  >
-                    {car.image ? (
-                      <img
-                        src={car.image}
-                        alt={car.name}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-tr from-slate-100 to-slate-200">
-                        <Car className="w-20 h-20 text-slate-400 stroke-[1.5]" />
-                      </div>
-                    )}
-
-                    {/* Featured Rank Badge */}
-                    <span className="absolute top-2.5 left-2.5 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F5B547] text-[#101828] text-[11px] font-black tracking-wider uppercase shadow-xs">
-                      FEATURED · {rank}
-                    </span>
-
-                    {/* City Location Badge */}
-                    <span className="absolute left-2.5 bottom-2.5 flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/95 text-[#101828] text-xs font-semibold backdrop-blur-xs shadow-2xs">
-                      <MapPin className="w-3 h-3 text-[#0B6B4F] stroke-[2.6]" />
-                      <span>{car.city}</span>
-                    </span>
-
-                    {/* Photo Label */}
-                    <span className="absolute right-2.5 bottom-2.5 text-[10px] font-semibold text-[#667085] bg-white/90 px-2 py-0.5 rounded shadow-2xs">
-                      Vehicle photo
-                    </span>
-                  </Link>
-
-                  {/* Body & Specs */}
-                  <div className="p-3.5 flex flex-col gap-2.5">
-                    <Link href={`/listing/${car.id}`} className="flex justify-between items-start gap-2 text-[#101828]">
-                      <div className="flex flex-col gap-0.5 min-w-0">
-                        <span className="font-heading font-bold text-[16px] leading-tight truncate">
-                          {car.name}
-                        </span>
-                        <span className="text-xs text-[#667085] truncate">{car.specs}</span>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="font-heading font-extrabold text-[16px] text-[#101828] block">
-                          {car.price}
-                        </span>
-                        <span className="text-[11px] text-[#667085] block">per day</span>
-                      </div>
-                    </Link>
-
-                    {/* 3-Col Action Grid: Call + WhatsApp + Owner Chip */}
-                    <div className="grid grid-cols-[44px_44px_minmax(0,1fr)] gap-2">
-                      {/* Call Button */}
-                      <a
-                        href={`tel:${car.phone}`}
-                        aria-label={`Call ${car.owner}`}
-                        className="h-11 rounded-xl bg-[#F2F4F7] hover:bg-slate-200 text-[#101828] flex items-center justify-center transition active:scale-95"
-                      >
-                        <Phone className="w-4 h-4 stroke-[2]" />
-                      </a>
-
-                      {/* WhatsApp Button */}
-                      <a
-                        href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-                          `Assalam o Alaikum, inquiring about ${car.name} (${car.price}/day) in ${car.city} listed on SafarPK.`
-                        )}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={`WhatsApp ${car.owner}`}
-                        className="h-11 rounded-xl bg-[#E9F3EE] hover:bg-emerald-100 text-[#0B6B4F] flex items-center justify-center transition active:scale-95"
-                      >
-                        <MessageCircle className="w-5 h-5 stroke-[2]" />
-                      </a>
-
-                      {/* Verified Owner Chip */}
-                      <Link
-                        href={`/store/${storeSlug}`}
-                        className="h-11 px-3 rounded-xl border border-[#E4E7EC] bg-white text-[#101828] flex items-center gap-1.5 text-xs font-semibold min-w-0 hover:bg-slate-50 transition"
-                      >
-                        <span className="w-2 h-2 rounded-full bg-[#12B76A] shrink-0 animate-pulse" />
-                        <span className="flex-1 truncate">{car.owner}</span>
-                        <ChevronRight className="w-4 h-4 text-slate-400 stroke-[2.2] shrink-0" />
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* NEARBY CARS LIST (With Category Selector) */}
+        {/* ======================================================================= */}
+        {/* DYNAMIC SERVICE INVENTORY LISTINGS (Switches with Service Tab Selection) */}
+        {/* ======================================================================= */}
         <section className="flex flex-col gap-3">
           <div className="flex justify-between items-center px-4">
-            <h2 className="font-heading font-black text-[19px] text-[#101828]">Cars available</h2>
-            <span className="px-2.5 py-1 rounded-full bg-[#E9F3EE] text-[#08513C] text-xs font-bold">
-              {filteredCars.length} available
+            <div>
+              <h2 className="font-heading font-black text-[19px] text-[#101828]">
+                {activeServiceIdx === 0
+                  ? `Cars in ${city}`
+                  : activeServiceIdx === 1
+                  ? `Chauffeurs & Drivers in ${city}`
+                  : activeServiceIdx === 2
+                  ? `City to City Rides (${city})`
+                  : activeServiceIdx === 3
+                  ? `Pick & Drop Shuttles (${city})`
+                  : `Cargo & Home Movers in ${city}`}
+              </h2>
+              <span className="text-xs text-slate-500 font-medium">
+                Direct verified fleet with ratings & instant contact
+              </span>
+            </div>
+            <span className="px-2.5 py-1 rounded-full bg-[#E9F3EE] text-[#08513C] text-xs font-bold shrink-0">
+              {activeServiceIdx === 0
+                ? `${filteredCars.length} available`
+                : activeServiceIdx === 1
+                ? `${filteredDrivers.length} active`
+                : activeServiceIdx === 2
+                ? `${filteredRides.length} routes`
+                : activeServiceIdx === 3
+                ? `${filteredShuttles.length} corridors`
+                : `${filteredMovers.length} movers`}
             </span>
           </div>
 
-          {/* Category Chips */}
-          <div className="flex gap-2 overflow-x-auto px-4 no-scrollbar">
-            {CAR_CATEGORIES.map((catLabel, idx) => {
-              const active = selectedCarCategory === idx;
-              return (
-                <button
-                  key={catLabel}
-                  type="button"
-                  onClick={() => setSelectedCarCategory(idx)}
-                  className={`shrink-0 h-[38px] px-4 rounded-full font-semibold text-xs transition cursor-pointer ${
-                    active
-                      ? 'bg-[#101828] text-white border border-[#101828] shadow-xs'
-                      : 'bg-white text-[#344054] border border-[#E4E7EC] hover:bg-slate-50'
-                  }`}
-                >
-                  {catLabel}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Cars Vertical Stack Cards (Horizontal Layout inside card) */}
-          <div className="flex flex-col gap-2.5 px-4">
-            {filteredCars.slice(0, 8).map((car) => {
-              const isSaved = savedCarIds.includes(car.id);
-              const cleanPhone = car.phone.replace(/[^0-9]/g, '');
-
-              return (
-                <div
-                  key={car.id}
-                  className="bg-white rounded-[18px] p-2.5 flex gap-3 border border-[#EEF0F2] shadow-2xs transition hover:border-slate-300"
-                >
-                  {/* Thumbnail */}
-                  <Link
-                    href={`/listing/${car.id}`}
-                    className="relative w-28 h-28 shrink-0 rounded-2xl bg-[#F7F8FA] flex items-center justify-center overflow-hidden"
+          {/* Service 0: Car Rental Category Filters */}
+          {activeServiceIdx === 0 && (
+            <div className="flex gap-2 overflow-x-auto px-4 no-scrollbar">
+              {CAR_CATEGORIES.map((catLabel, idx) => {
+                const active = selectedCarCategory === idx;
+                return (
+                  <button
+                    key={catLabel}
+                    type="button"
+                    onClick={() => setSelectedCarCategory(idx)}
+                    className={`shrink-0 h-[36px] px-3.5 rounded-full font-semibold text-xs transition cursor-pointer ${
+                      active
+                        ? 'bg-[#101828] text-white border border-[#101828] shadow-xs'
+                        : 'bg-white text-[#344054] border border-[#E4E7EC] hover:bg-slate-50'
+                    }`}
                   >
-                    {car.image ? (
-                      <img
-                        src={car.image}
-                        alt={car.name}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <Car className="w-12 h-12 text-slate-300 stroke-[1.8]" />
-                    )}
-                    <span className="absolute left-1.5 bottom-1.5 px-2 py-0.5 rounded-full bg-white/95 text-[10px] font-bold text-[#101828] shadow-2xs">
-                      {car.city}
-                    </span>
-                  </Link>
+                    {catLabel}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
-                  {/* Info Column */}
-                  <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
-                    <div>
-                      <div className="flex items-start justify-between gap-1">
-                        <Link href={`/listing/${car.id}`} className="min-w-0 flex-1">
-                          <h3 className="font-heading font-bold text-[15px] text-[#101828] leading-snug truncate">
-                            {car.name}
-                          </h3>
-                          <p className="text-xs text-[#667085] truncate mt-0.5">{car.specs}</p>
-                        </Link>
+          {/* COMPACT LISTING FEED CARDS */}
+          <div className="flex flex-col gap-2.5 px-4">
+            {/* 1. CAR RENTAL CARDS */}
+            {activeServiceIdx === 0 &&
+              filteredCars.slice(0, 8).map((car) => {
+                const isSaved = savedCarIds.includes(car.id);
+                const cleanPhone = car.phone.replace(/[^0-9]/g, '');
 
-                        {/* Favorite Button */}
-                        <button
-                          type="button"
-                          onClick={() => toggleSaveCar(car.id, car.name)}
-                          className="w-8 h-8 -mr-1 -mt-1 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-600 cursor-pointer transition active:scale-90"
-                        >
-                          <Heart
-                            className={`w-4 h-4 ${
-                              isSaved ? 'text-[#D92D20] fill-[#D92D20]' : 'text-slate-400'
-                            }`}
-                          />
-                        </button>
-                      </div>
-
-                      {/* Verified Owner Row */}
-                      <div className="flex items-center gap-1.5 text-xs font-semibold text-[#0B6B4F] mt-1 truncate">
-                        <ShieldCheck className="w-3.5 h-3.5 text-[#0B6B4F] shrink-0 stroke-[2.4]" />
-                        <span className="truncate">{car.owner}</span>
-                      </div>
-
-                      {car.contacted && (
-                        <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-[#EEF4FF] text-[#1D3A8A] text-[10px] font-bold">
-                          {car.contacted}
-                        </span>
+                return (
+                  <div
+                    key={car.id}
+                    className="bg-white rounded-[18px] p-2.5 flex gap-3 border border-[#EEF0F2] shadow-2xs transition hover:border-slate-300"
+                  >
+                    {/* Thumbnail */}
+                    <Link
+                      href={`/listing/${car.id}`}
+                      className="relative w-28 h-28 shrink-0 rounded-2xl bg-[#F7F8FA] flex items-center justify-center overflow-hidden"
+                    >
+                      {car.image ? (
+                        <img
+                          src={car.image}
+                          alt={car.name}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <Car className="w-12 h-12 text-slate-300 stroke-[1.8]" />
                       )}
+                      <span className="absolute left-1.5 bottom-1.5 px-2 py-0.5 rounded-full bg-white/95 text-[10px] font-bold text-[#101828] shadow-2xs">
+                        {car.city}
+                      </span>
+                    </Link>
+
+                    {/* Info Column */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                      <div>
+                        <div className="flex items-start justify-between gap-1">
+                          <Link href={`/listing/${car.id}`} className="min-w-0 flex-1">
+                            <h3 className="font-heading font-bold text-[15px] text-[#101828] leading-snug truncate">
+                              {car.name}
+                            </h3>
+                            <p className="text-xs text-[#667085] truncate mt-0.5">{car.specs}</p>
+                          </Link>
+
+                          {/* Favorite Button */}
+                          <button
+                            type="button"
+                            onClick={() => toggleSaveCar(car.id, car.name)}
+                            className="w-8 h-8 -mr-1 -mt-1 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-600 cursor-pointer transition active:scale-90"
+                          >
+                            <Heart
+                              className={`w-4 h-4 ${
+                                isSaved ? 'text-[#D92D20] fill-[#D92D20]' : 'text-slate-400'
+                              }`}
+                            />
+                          </button>
+                        </div>
+
+                        {/* Rating & Verified Owner Row */}
+                        <div className="flex items-center gap-2 text-xs font-semibold mt-1">
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 text-[10px] font-extrabold border border-amber-200/80">
+                            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                            <span>{car.rating ? car.rating.toFixed(1) : '4.9'}</span>
+                          </span>
+                          <span className="text-[#0B6B4F] truncate text-[11px] font-bold">
+                            {car.owner}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Pricing & Call/WhatsApp Row */}
+                      <div className="flex items-center justify-between gap-2 mt-2 pt-1 border-t border-slate-50">
+                        <div>
+                          <span className="font-heading font-extrabold text-[15px] text-[#101828]">
+                            {car.price}
+                          </span>
+                          <span className="text-[11px] text-[#667085]"> /day</span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <a
+                            href={`tel:${car.phone}`}
+                            className="w-9 h-9 rounded-xl bg-[#F2F4F7] hover:bg-slate-200 text-[#101828] flex items-center justify-center transition active:scale-95"
+                            title="Call Owner"
+                          >
+                            <Phone className="w-3.5 h-3.5 stroke-[2]" />
+                          </a>
+                          <a
+                            href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
+                              `Assalam o Alaikum, inquiring about ${car.name} (${car.price}/day) in ${car.city} on SafarPK.`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-9 h-9 rounded-xl bg-[#E9F3EE] hover:bg-emerald-100 text-[#0B6B4F] flex items-center justify-center transition active:scale-95"
+                            title="WhatsApp Owner"
+                          >
+                            <MessageCircle className="w-4 h-4 stroke-[2]" />
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+            {/* 2. DRIVERS CARDS */}
+            {activeServiceIdx === 1 &&
+              filteredDrivers.map((driver) => {
+                const cleanPhone = driver.phone.replace(/[^0-9]/g, '');
+
+                return (
+                  <div
+                    key={driver.id}
+                    className="bg-white rounded-[18px] p-3 flex gap-3 border border-[#EEF0F2] shadow-2xs transition hover:border-slate-300"
+                  >
+                    {/* Driver Avatar */}
+                    <Link
+                      href={`/drivers/${driver.id}`}
+                      className="w-20 h-20 shrink-0 rounded-2xl flex flex-col items-center justify-center shadow-xs font-black text-xl text-slate-800"
+                      style={{ backgroundColor: driver.tint }}
+                    >
+                      <span>{driver.initials}</span>
+                      <span className="text-[9px] font-bold text-slate-600 mt-0.5">{driver.city}</span>
+                    </Link>
+
+                    {/* Driver Info */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                      <div>
+                        <div className="flex items-start justify-between gap-1">
+                          <Link href={`/drivers/${driver.id}`} className="min-w-0 flex-1">
+                            <h3 className="font-heading font-bold text-[15px] text-[#101828] leading-snug truncate">
+                              {driver.name}
+                            </h3>
+                            <p className="text-xs text-[#667085] truncate mt-0.5">{driver.exp}</p>
+                          </Link>
+
+                          {/* Star Rating Badge */}
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 text-[10px] font-extrabold border border-amber-200/80 shrink-0">
+                            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                            <span>{driver.rating ? driver.rating.toFixed(1) : '4.9'}</span>
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-xs text-[#0B6B4F] mt-1 font-bold">
+                          <ShieldCheck className="w-3.5 h-3.5 stroke-[2.4]" />
+                          <span>Police Verified & NADRA CNIC</span>
+                        </div>
+                      </div>
+
+                      {/* Pricing & Call/WhatsApp Row */}
+                      <div className="flex items-center justify-between gap-2 mt-2 pt-1 border-t border-slate-50">
+                        <div>
+                          <span className="font-heading font-extrabold text-[15px] text-[#101828]">
+                            {driver.city12}
+                          </span>
+                          <span className="text-[11px] text-[#667085]"> /12h</span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <a
+                            href={`tel:${driver.phone}`}
+                            className="w-9 h-9 rounded-xl bg-[#F2F4F7] hover:bg-slate-200 text-[#101828] flex items-center justify-center transition active:scale-95"
+                            title="Call Driver"
+                          >
+                            <Phone className="w-3.5 h-3.5 stroke-[2]" />
+                          </a>
+                          <a
+                            href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
+                              `Assalam o Alaikum, inquiring about driver duty (${driver.city12}/12h) in ${driver.city} on SafarPK.`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-9 h-9 rounded-xl bg-[#E9F3EE] hover:bg-emerald-100 text-[#0B6B4F] flex items-center justify-center transition active:scale-95"
+                            title="WhatsApp Driver"
+                          >
+                            <MessageCircle className="w-4 h-4 stroke-[2]" />
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+            {/* 3. CITY TO CITY RIDES */}
+            {activeServiceIdx === 2 &&
+              filteredRides.map((ride) => {
+                const cleanPhone = ride.phone.replace(/[^0-9]/g, '');
+
+                return (
+                  <div
+                    key={ride.id}
+                    className="bg-white rounded-[18px] p-3 flex flex-col gap-2.5 border border-[#EEF0F2] shadow-2xs transition hover:border-slate-300"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <Link href={`/city-to-city/${ride.id}`} className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 font-heading font-extrabold text-[15px] text-[#101828]">
+                          <span>{ride.fromCity}</span>
+                          <ArrowRight className="w-3.5 h-3.5 text-[#0B6B4F]" />
+                          <span>{ride.toCity}</span>
+                        </div>
+                        <p className="text-xs text-[#667085] truncate mt-0.5">{ride.car}</p>
+                      </Link>
+
+                      {/* Rating Badge */}
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 text-[10px] font-extrabold border border-amber-200/80 shrink-0">
+                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                        <span>{ride.rating ? ride.rating.toFixed(1) : '4.8'}</span>
+                      </span>
                     </div>
 
-                    {/* Bottom Pricing & Call/WhatsApp Row */}
-                    <div className="flex items-center justify-between gap-2 mt-2 pt-1 border-t border-slate-50">
+                    <div className="flex items-center justify-between text-xs text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded-xl">
+                      <span>{ride.duration}</span>
+                      <span>{ride.time}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-50">
                       <div>
-                        <span className="font-heading font-extrabold text-[15px] text-[#101828]">
-                          {car.price}
-                        </span>
-                        <span className="text-[11px] text-[#667085]"> /day</span>
+                        {ride.pricePerSeat ? (
+                          <>
+                            <span className="font-heading font-extrabold text-[15px] text-[#0B6B4F]">
+                              Rs. {ride.pricePerSeat.toLocaleString()}
+                            </span>
+                            <span className="text-[11px] text-[#667085]"> /seat</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="font-heading font-extrabold text-[15px] text-[#101828]">
+                              Rs. {ride.one.toLocaleString()}
+                            </span>
+                            <span className="text-[11px] text-[#667085]"> /car</span>
+                          </>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-1.5">
                         <a
-                          href={`tel:${car.phone}`}
+                          href={`tel:${ride.phone}`}
                           className="w-9 h-9 rounded-xl bg-[#F2F4F7] hover:bg-slate-200 text-[#101828] flex items-center justify-center transition active:scale-95"
-                          title="Call Owner"
+                          title="Call Operator"
                         >
                           <Phone className="w-3.5 h-3.5 stroke-[2]" />
                         </a>
                         <a
                           href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-                            `Assalam o Alaikum, inquiring about ${car.name} (${car.price}/day) in ${car.city} on SafarPK.`
+                            `Assalam o Alaikum, inquiring about City-to-City ride from ${ride.fromCity} to ${ride.toCity} on SafarPK.`
                           )}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="w-9 h-9 rounded-xl bg-[#E9F3EE] hover:bg-emerald-100 text-[#0B6B4F] flex items-center justify-center transition active:scale-95"
-                          title="WhatsApp Owner"
+                          title="WhatsApp Operator"
                         >
                           <MessageCircle className="w-4 h-4 stroke-[2]" />
                         </a>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+
+            {/* 4. PICK & DROP SHUTTLES */}
+            {activeServiceIdx === 3 &&
+              filteredShuttles.map((shuttle) => {
+                const cleanPhone = shuttle.phone.replace(/[^0-9]/g, '');
+
+                return (
+                  <div
+                    key={shuttle.id}
+                    className="bg-white rounded-[18px] p-3 flex flex-col gap-2.5 border border-[#EEF0F2] shadow-2xs transition hover:border-slate-300"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <Link href={`/shuttles/${shuttle.id}`} className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 font-heading font-extrabold text-[14px] text-[#101828]">
+                          <span className="truncate">{shuttle.from}</span>
+                          <ArrowRight className="w-3.5 h-3.5 text-[#0B6B4F] shrink-0" />
+                          <span className="truncate">{shuttle.to}</span>
+                        </div>
+                        <p className="text-xs text-[#667085] truncate mt-0.5">{shuttle.op} · {shuttle.van}</p>
+                      </Link>
+
+                      {/* Rating Badge */}
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 text-[10px] font-extrabold border border-amber-200/80 shrink-0">
+                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                        <span>{shuttle.rating ? shuttle.rating.toFixed(1) : '4.8'}</span>
+                      </span>
+                    </div>
+
+                    {shuttle.stops && shuttle.stops.length > 0 && (
+                      <p className="text-[11px] text-slate-500 line-clamp-1">
+                        <span className="font-semibold text-slate-700">Via stops: </span>
+                        {shuttle.stops.slice(0, 4).join(', ')}...
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-between text-xs text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded-xl">
+                      <span>Pick: {shuttle.pick} · Return: {shuttle.back}</span>
+                      <span className="font-semibold text-emerald-800">{shuttle.seats} seats open</span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-50">
+                      <div>
+                        <span className="font-heading font-extrabold text-[15px] text-[#0B6B4F]">
+                          {shuttle.fare}
+                        </span>
+                        <span className="text-[11px] text-[#667085]"> /month</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <a
+                          href={`tel:${shuttle.phone}`}
+                          className="w-9 h-9 rounded-xl bg-[#F2F4F7] hover:bg-slate-200 text-[#101828] flex items-center justify-center transition active:scale-95"
+                          title="Call Shuttle Service"
+                        >
+                          <Phone className="w-3.5 h-3.5 stroke-[2]" />
+                        </a>
+                        <a
+                          href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
+                            `Assalam o Alaikum, inquiring about Shuttle Route (${shuttle.from} to ${shuttle.to}) on SafarPK.`
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-9 h-9 rounded-xl bg-[#E9F3EE] hover:bg-emerald-100 text-[#0B6B4F] flex items-center justify-center transition active:scale-95"
+                          title="WhatsApp Shuttle Service"
+                        >
+                          <MessageCircle className="w-4 h-4 stroke-[2]" />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+            {/* 5. MOVERS */}
+            {activeServiceIdx === 4 &&
+              filteredMovers.map((mover) => {
+                const cleanPhone = mover.phone.replace(/[^0-9]/g, '');
+
+                return (
+                  <div
+                    key={mover.id}
+                    className="bg-white rounded-[18px] p-3 flex flex-col gap-2.5 border border-[#EEF0F2] shadow-2xs transition hover:border-slate-300"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <Link href={`/movers/${mover.id}`} className="flex-1 min-w-0">
+                        <h3 className="font-heading font-bold text-[15px] text-[#101828] leading-snug truncate">
+                          {mover.name}
+                        </h3>
+                        <p className="text-xs text-[#667085] truncate mt-0.5">{mover.trucks}</p>
+                      </Link>
+
+                      {/* Rating Badge */}
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 text-[10px] font-extrabold border border-amber-200/80 shrink-0">
+                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                        <span>{mover.rating ? mover.rating.toFixed(1) : '4.9'}</span>
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-slate-600 bg-slate-50 px-2.5 py-1.5 rounded-xl">
+                      <span>Rate: {mover.km}</span>
+                      <span>Labor: {mover.helper}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-50">
+                      <div>
+                        <span className="font-heading font-extrabold text-[15px] text-[#101828]">
+                          {mover.base}
+                        </span>
+                        <span className="text-[11px] text-[#667085]"> base fare</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <a
+                          href={`tel:${mover.phone}`}
+                          className="w-9 h-9 rounded-xl bg-[#F2F4F7] hover:bg-slate-200 text-[#101828] flex items-center justify-center transition active:scale-95"
+                          title="Call Mover"
+                        >
+                          <Phone className="w-3.5 h-3.5 stroke-[2]" />
+                        </a>
+                        <a
+                          href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
+                            `Assalam o Alaikum, inquiring about shifting/moving service (${mover.name}) in ${mover.city} on SafarPK.`
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-9 h-9 rounded-xl bg-[#E9F3EE] hover:bg-emerald-100 text-[#0B6B4F] flex items-center justify-center transition active:scale-95"
+                          title="WhatsApp Mover"
+                        >
+                          <MessageCircle className="w-4 h-4 stroke-[2]" />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
           </div>
 
-          {/* View All Button */}
+          {/* View All Button linking to respective portal */}
           <div className="px-4 pt-1">
             <Link
-              href="/#listings-results"
+              href={curService.href}
               className="w-full h-12 rounded-2xl border border-[#D0D5DD] bg-white text-[#101828] font-bold text-[15px] flex items-center justify-center gap-2 hover:bg-slate-50 transition active:scale-[0.99] shadow-2xs"
             >
-              <span>View all vehicles</span>
+              <span>{curService.goText}</span>
               <ArrowRight className="w-4 h-4 stroke-[2.4]" />
             </Link>
           </div>
@@ -604,8 +897,8 @@ export function MobileHomeNativeView() {
                 1
               </span>
               <div className="flex flex-col">
-                <span className="font-bold text-sm text-[#101828]">Search</span>
-                <span className="text-xs text-[#667085]">Filter by city, dates and car type</span>
+                <span className="font-bold text-sm text-[#101828]">Select Service</span>
+                <span className="text-xs text-[#667085]">Cars, Chauffeurs, City rides, Shuttles, or Movers</span>
               </div>
             </div>
             <div className="flex gap-3 items-center p-3.5 border-b border-slate-100">
@@ -614,7 +907,7 @@ export function MobileHomeNativeView() {
               </span>
               <div className="flex flex-col">
                 <span className="font-bold text-sm text-[#101828]">Request on WhatsApp</span>
-                <span className="text-xs text-[#667085]">Your trip details go straight to the owner</span>
+                <span className="text-xs text-[#667085]">Direct communication with verified fleet hosts</span>
               </div>
             </div>
             <div className="flex gap-3 items-center p-3.5">
@@ -623,13 +916,13 @@ export function MobileHomeNativeView() {
               </span>
               <div className="flex flex-col">
                 <span className="font-bold text-sm text-[#101828]">Pay on trip</span>
-                <span className="text-xs text-[#667085]">Meet, check the car and pay the owner</span>
+                <span className="text-xs text-[#667085]">Zero advance deposit, inspect and pay directly</span>
               </div>
             </div>
           </div>
         </section>
 
-        {/* POPULAR CITIES */}
+        {/* POPULAR CITIES (Clean city badges, blank color boxes removed) */}
         <section className="flex flex-col gap-2.5">
           <div className="flex justify-between items-baseline px-4">
             <h2 className="font-heading font-black text-[19px] text-[#101828]">Popular cities</h2>
@@ -638,12 +931,12 @@ export function MobileHomeNativeView() {
               onClick={() => setCitySheetOpen(true)}
               className="text-sm font-bold text-[#0B6B4F] hover:underline cursor-pointer"
             >
-              Explore hubs
+              Explore all hubs
             </button>
           </div>
 
           <div className="flex gap-2.5 overflow-x-auto px-4 no-scrollbar">
-            {PAKISTAN_CITIES.slice(0, 5).map((c) => {
+            {PAKISTAN_CITIES.map((c) => {
               const active = c.name === city;
               return (
                 <button
@@ -652,48 +945,30 @@ export function MobileHomeNativeView() {
                   onClick={() => {
                     setCity(c.name);
                     setSearchWhere(c.name);
+                    showToast(`Switched city to ${c.name}`);
                   }}
-                  className={`shrink-0 w-32 p-0 rounded-2xl bg-white overflow-hidden text-left cursor-pointer transition shadow-2xs ${
-                    active ? 'border-2 border-[#0B6B4F]' : 'border border-[#EEF0F2]'
+                  className={`shrink-0 flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-white text-left cursor-pointer transition shadow-2xs ${
+                    active
+                      ? 'border-2 border-[#0B6B4F] bg-emerald-50/40'
+                      : 'border border-[#EEF0F2] hover:border-slate-300'
                   }`}
                 >
-                  <span className="block h-16 w-full" style={{ backgroundColor: c.tint }} />
-                  <div className="p-2.5 flex flex-col gap-0.5">
+                  <div className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0 font-bold text-xs">
+                    <Building2 className="w-4 h-4 stroke-[2.2]" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
                     <span className="font-bold text-sm text-[#101828] truncate">{c.name}</span>
-                    <span className="text-[11px] text-[#667085]">Cars · Drivers</span>
+                    <span className="text-[10px] text-[#667085]">Hub · Active Fleet</span>
                   </div>
                 </button>
               );
             })}
           </div>
         </section>
-
-        {/* PARTNER BANNER */}
-        <div className="px-4">
-          <div className="p-4.5 rounded-3xl bg-[#101828] text-white flex flex-col gap-3.5 shadow-lg">
-            <div className="space-y-1">
-              <span className="text-[11px] font-black tracking-wider uppercase text-[#F5B547] block">
-                FOR OWNERS, DRIVERS &amp; MOVERS
-              </span>
-              <h3 className="font-heading font-bold text-[16px] leading-snug">
-                List your vehicle or service. Customers contact you directly.
-              </h3>
-            </div>
-            <Link
-              href="/post-ad"
-              className="self-start h-10 px-4 rounded-full bg-white text-[#101828] font-bold text-xs flex items-center justify-center hover:bg-slate-100 transition"
-            >
-              Become a partner
-            </Link>
-          </div>
-          <p className="text-center text-xs text-[#98A2B3] leading-relaxed mt-4 px-2">
-            SafarPK connects you directly with verified owners, drivers and movers. Zero middleman fees.
-          </p>
-        </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* 3. CITY PICKER BOTTOM SHEET (Native Modal)                                 */}
+      {/* 3. CITY PICKER BOTTOM SHEET (Native Modal, No Soft Keyboard)               */}
       {/* ========================================================================= */}
       {citySheetOpen && (
         <div className="fixed inset-0 z-[999999] bg-black/50 backdrop-blur-xs flex flex-col justify-end">
@@ -726,7 +1001,7 @@ export function MobileHomeNativeView() {
                       setCity(c.name);
                       setSearchWhere(c.name);
                       setCitySheetOpen(false);
-                      showToast(`City changed to ${c.name}`);
+                      showToast(`City set to ${c.name}`);
                     }}
                     className="w-full flex items-center justify-between py-3.5 px-2 text-left hover:bg-slate-50 transition cursor-pointer font-semibold text-[16px]"
                   >
@@ -743,7 +1018,130 @@ export function MobileHomeNativeView() {
       )}
 
       {/* ========================================================================= */}
-      {/* 4. SEARCH BOTTOM SHEET (Native Modal with 5 Service Switcher Chips)       */}
+      {/* 4. CITY TO CITY MAJOR HUBS PICKER SHEET                                   */}
+      {/* ========================================================================= */}
+      {c2cPickerSheetOpen && (
+        <div className="fixed inset-0 z-[999999] bg-black/50 backdrop-blur-xs flex flex-col justify-end">
+          <div
+            className="flex-1"
+            onClick={() => setC2cPickerSheetOpen(null)}
+            aria-label="Close"
+          />
+          <div className="bg-white rounded-t-[26px] p-4 pb-8 max-h-[82vh] overflow-y-auto flex flex-col gap-2 shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
+            <div className="w-10 h-1.5 rounded-full bg-[#D0D5DD] mx-auto mb-2 shrink-0" />
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h3 className="font-heading font-extrabold text-[18px] text-[#101828]">
+                {c2cPickerSheetOpen === 'from' ? 'Select Departure City' : 'Select Destination City'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setC2cPickerSheetOpen(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="py-2">
+              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block mb-2 px-1">
+                Major Hubs
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                {MAJOR_HUBS.map((hub) => (
+                  <button
+                    key={hub}
+                    type="button"
+                    onClick={() => {
+                      if (c2cPickerSheetOpen === 'from') setC2cFromCity(hub);
+                      else setC2cToCity(hub);
+                      setC2cPickerSheetOpen(null);
+                    }}
+                    className={`py-2.5 px-3 rounded-xl border text-left font-bold text-xs transition cursor-pointer ${
+                      (c2cPickerSheetOpen === 'from' ? c2cFromCity : c2cToCity) === hub
+                        ? 'border-[#0B6B4F] bg-[#E9F3EE] text-[#08513C]'
+                        : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50'
+                    }`}
+                  >
+                    {hub}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="divide-y divide-slate-100 py-1">
+              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block mb-2 px-1">
+                Other Connected Cities
+              </span>
+              {INTERCITY_CITIES.filter((c) => !MAJOR_HUBS.includes(c as any)).map((hub) => (
+                <button
+                  key={hub}
+                  type="button"
+                  onClick={() => {
+                    if (c2cPickerSheetOpen === 'from') setC2cFromCity(hub);
+                    else setC2cToCity(hub);
+                    setC2cPickerSheetOpen(null);
+                  }}
+                  className="w-full flex items-center justify-between py-2.5 px-2 text-left font-semibold text-xs text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  <span>{hub}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 5. SHUTTLES CORRIDOR AREA PICKER SHEET                                     */}
+      {/* ========================================================================= */}
+      {shuttleAreaSheetOpen && (
+        <div className="fixed inset-0 z-[999999] bg-black/50 backdrop-blur-xs flex flex-col justify-end">
+          <div
+            className="flex-1"
+            onClick={() => setShuttleAreaSheetOpen(null)}
+            aria-label="Close"
+          />
+          <div className="bg-white rounded-t-[26px] p-4 pb-8 max-h-[82vh] overflow-y-auto flex flex-col gap-2 shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
+            <div className="w-10 h-1.5 rounded-full bg-[#D0D5DD] mx-auto mb-2 shrink-0" />
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div>
+                <h3 className="font-heading font-extrabold text-[18px] text-[#101828]">
+                  {shuttleAreaSheetOpen === 'pickup' ? 'Select Pick-up Stop' : 'Select Drop-off Stop'}
+                </h3>
+                <span className="text-xs text-slate-500">Corridor stops in {shuttleCity}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShuttleAreaSheetOpen(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="divide-y divide-slate-100 py-1">
+              {(CITY_COMMUTE_AREAS[shuttleCity] || CITY_COMMUTE_AREAS['Karachi']).map((area) => (
+                <button
+                  key={area}
+                  type="button"
+                  onClick={() => {
+                    if (shuttleAreaSheetOpen === 'pickup') setShuttlePickupArea(area);
+                    else setShuttleDropArea(area);
+                    setShuttleAreaSheetOpen(null);
+                  }}
+                  className="w-full flex items-center justify-between py-3 px-2 text-left font-semibold text-xs text-slate-800 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  <span>{area}</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 6. SEARCH BOTTOM SHEET (Segmented 5-Col Grid & Non-Keyboard Pickers)      */}
       {/* ========================================================================= */}
       {searchSheetOpen && (
         <div className="fixed inset-0 z-[999999] bg-black/50 backdrop-blur-xs flex flex-col justify-end">
@@ -756,7 +1154,9 @@ export function MobileHomeNativeView() {
             <div className="w-10 h-1.5 rounded-full bg-[#D0D5DD] mx-auto mb-1 shrink-0" />
 
             <div className="flex items-center justify-between pb-1">
-              <h3 className="font-heading font-extrabold text-[20px] text-[#101828]">{curService.title}</h3>
+              <h3 className="font-heading font-extrabold text-[20px] text-[#101828]">
+                {curService.title}
+              </h3>
               <button
                 type="button"
                 onClick={() => setSearchSheetOpen(false)}
@@ -766,22 +1166,26 @@ export function MobileHomeNativeView() {
               </button>
             </div>
 
-            {/* Service Chips Switcher (Note: City to City) */}
-            <div className="flex gap-2 overflow-x-auto no-scrollbar py-0.5">
+            {/* 5-Column Segmented Grid Switcher (100% visible, no horizontal scroll, Movers never cut off) */}
+            <div className="grid grid-cols-5 gap-1 p-1 bg-[#F4F6F8] rounded-2xl border border-[#EEF0F2]">
               {services.map((s, idx) => {
+                const Icon = s.icon;
                 const isSelected = activeServiceIdx === idx;
                 return (
                   <button
                     key={s.id}
                     type="button"
                     onClick={() => setActiveServiceIdx(idx)}
-                    className={`shrink-0 h-9 px-3.5 rounded-full text-xs font-semibold transition cursor-pointer ${
+                    className={`flex flex-col items-center justify-center py-2 px-0.5 rounded-xl transition cursor-pointer select-none ${
                       isSelected
-                        ? 'border border-[#0B6B4F] bg-[#E9F3EE] text-[#08513C] font-bold'
-                        : 'border border-[#E4E7EC] bg-white text-[#344054]'
+                        ? 'bg-white text-[#0B6B4F] shadow-2xs font-extrabold border border-[#DCE7E1]'
+                        : 'text-[#667085] hover:text-[#101828] font-semibold'
                     }`}
                   >
-                    {s.label}
+                    <Icon className={`w-4 h-4 mb-1 shrink-0 ${isSelected ? 'text-[#0B6B4F]' : 'text-slate-400'}`} />
+                    <span className="text-[10px] leading-[1.15] text-center tracking-tight">
+                      {s.label}
+                    </span>
                   </button>
                 );
               })}
@@ -789,87 +1193,229 @@ export function MobileHomeNativeView() {
 
             {/* Form Fields Card */}
             <div className="border border-[#E4E7EC] rounded-2xl overflow-hidden bg-white divide-y divide-[#EEF0F2]">
-              {/* Field 1: Where / Pick-up */}
-              <label className="flex items-center gap-3 min-h-[58px] px-3.5">
-                <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                  <MapPin className="w-4 h-4 stroke-[2.2]" />
-                </span>
-                <span className="flex-1 flex flex-col justify-center">
-                  <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
-                    {activeServiceIdx === 2
-                      ? 'Leaving from'
-                      : activeServiceIdx === 3
-                      ? 'Pick-up area (Home)'
-                      : activeServiceIdx === 4
-                      ? 'Moving from (Current Area)'
-                      : 'Where'}
+              {/* SERVICE 0: CAR RENTAL & SERVICE 1: DRIVERS (City Selector without soft keyboard) */}
+              {(activeServiceIdx === 0 || activeServiceIdx === 1) && (
+                <div className="flex items-center gap-3 min-h-[58px] px-3.5">
+                  <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                    <MapPin className="w-4 h-4 stroke-[2.2]" />
                   </span>
-                  <input
-                    type="text"
-                    value={searchWhere}
-                    onChange={(e) => setSearchWhere(e.target.value)}
-                    placeholder="City or area, e.g. Lahore"
-                    className="border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent placeholder:text-slate-400"
-                  />
-                </span>
-              </label>
+                  <button
+                    type="button"
+                    onClick={() => setCitySheetOpen(true)}
+                    className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
+                  >
+                    <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
+                      {activeServiceIdx === 1 ? 'Duty City' : 'Where / Pick-up City'}
+                    </span>
+                    <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
+                      <span>{searchWhere || city || 'Select City'}</span>
+                      <ChevronDown className="w-4 h-4 text-slate-400" />
+                    </span>
+                  </button>
+                </div>
+              )}
 
-              {/* Field 2: Date or Destination */}
-              {activeServiceIdx === 2 ? (
-                <label className="flex items-center gap-3 min-h-[58px] px-3.5">
-                  <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                    <Flag className="w-4 h-4 stroke-[2.2]" />
-                  </span>
-                  <span className="flex-1 flex flex-col justify-center">
-                    <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">Going to (Destination City)</span>
-                    <input
-                      type="text"
-                      value={c2cToCity}
-                      onChange={(e) => setC2cToCity(e.target.value)}
-                      placeholder="e.g. Islamabad, Hyderabad"
-                      className="border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent"
-                    />
-                  </span>
-                </label>
-              ) : activeServiceIdx === 3 ? (
-                <label className="flex items-center gap-3 min-h-[58px] px-3.5">
-                  <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                    <Flag className="w-4 h-4 stroke-[2.2]" />
-                  </span>
-                  <span className="flex-1 flex flex-col justify-center">
-                    <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">Drop-off (Office or School)</span>
-                    <input
-                      type="text"
-                      value={shuttleDropArea}
-                      onChange={(e) => setShuttleDropArea(e.target.value)}
-                      placeholder="e.g. Blue Area, I.I. Chundrigar"
-                      className="border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent"
-                    />
-                  </span>
-                </label>
-              ) : activeServiceIdx === 4 ? (
-                <label className="flex items-center gap-3 min-h-[58px] px-3.5">
-                  <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                    <Flag className="w-4 h-4 stroke-[2.2]" />
-                  </span>
-                  <span className="flex-1 flex flex-col justify-center">
-                    <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">Moving to (New Area)</span>
-                    <input
-                      type="text"
-                      value={moverToArea}
-                      onChange={(e) => setMoverToArea(e.target.value)}
-                      placeholder="e.g. DHA, Bahria Town"
-                      className="border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent"
-                    />
-                  </span>
-                </label>
-              ) : (
+              {/* SERVICE 2: CITY TO CITY (Leaving from & Going to major hubs + swap button) */}
+              {activeServiceIdx === 2 && (
+                <>
+                  <div className="flex items-center gap-3 min-h-[58px] px-3.5">
+                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <MapPin className="w-4 h-4 stroke-[2.2]" />
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setC2cPickerSheetOpen('from')}
+                      className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
+                    >
+                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
+                        Leaving from
+                      </span>
+                      <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
+                        <span>{c2cFromCity || city}</span>
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSwapC2cCities}
+                      className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
+                      title="Swap routes"
+                      aria-label="Swap cities"
+                    >
+                      <ArrowUpDown className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-3 min-h-[58px] px-3.5">
+                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <Flag className="w-4 h-4 stroke-[2.2]" />
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setC2cPickerSheetOpen('to')}
+                      className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
+                    >
+                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
+                        Going to (Destination City)
+                      </span>
+                      <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
+                        <span>{c2cToCity}</span>
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                      </span>
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* SERVICE 3: PICK & DROP SHUTTLES (Corridor pickup & drop stops, no single date picker) */}
+              {activeServiceIdx === 3 && (
+                <>
+                  <div className="flex items-center gap-3 min-h-[58px] px-3.5">
+                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <MapPin className="w-4 h-4 stroke-[2.2]" />
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCitySheetOpen(true)}
+                      className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
+                    >
+                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
+                        Commute City
+                      </span>
+                      <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
+                        <span>{shuttleCity || city}</span>
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                      </span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-3 min-h-[58px] px-3.5">
+                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <Navigation className="w-4 h-4 stroke-[2.2]" />
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShuttleAreaSheetOpen('pickup')}
+                      className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
+                    >
+                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
+                        Pick-up area (Home Stop)
+                      </span>
+                      <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
+                        <span>{shuttlePickupArea || 'Select pickup corridor stop'}</span>
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                      </span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-3 min-h-[58px] px-3.5">
+                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <Flag className="w-4 h-4 stroke-[2.2]" />
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShuttleAreaSheetOpen('drop')}
+                      className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
+                    >
+                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
+                        Drop-off (Office or School Stop)
+                      </span>
+                      <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
+                        <span>{shuttleDropArea || 'Select drop-off corridor stop'}</span>
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                      </span>
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* SERVICE 4: MOVERS (Current area, destination area, and shifting date picker) */}
+              {activeServiceIdx === 4 && (
+                <>
+                  <div className="flex items-center gap-3 min-h-[58px] px-3.5">
+                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <MapPin className="w-4 h-4 stroke-[2.2]" />
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCitySheetOpen(true)}
+                      className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
+                    >
+                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
+                        Moving City
+                      </span>
+                      <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
+                        <span>{searchWhere || city}</span>
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                      </span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-3 min-h-[58px] px-3.5">
+                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <Navigation className="w-4 h-4 stroke-[2.2]" />
+                    </span>
+                    <span className="flex-1 flex flex-col justify-center">
+                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
+                        Moving from (Current Area)
+                      </span>
+                      <input
+                        type="text"
+                        value={moverFromArea}
+                        onChange={(e) => setMoverFromArea(e.target.value)}
+                        placeholder="e.g. Gulberg, Johar Town"
+                        className="border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent"
+                      />
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3 min-h-[58px] px-3.5">
+                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <Flag className="w-4 h-4 stroke-[2.2]" />
+                    </span>
+                    <span className="flex-1 flex flex-col justify-center">
+                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
+                        Moving to (Destination Area)
+                      </span>
+                      <input
+                        type="text"
+                        value={moverToArea}
+                        onChange={(e) => setMoverToArea(e.target.value)}
+                        placeholder="e.g. DHA Phase 6, Bahria Town"
+                        className="border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent"
+                      />
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3 min-h-[58px] px-3.5">
+                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <Calendar className="w-4 h-4 stroke-[2.2]" />
+                    </span>
+                    <span className="flex-1 flex flex-col justify-center">
+                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
+                        Shifting Date
+                      </span>
+                      <input
+                        type="date"
+                        value={moverDate}
+                        onChange={(e) => setMoverDate(e.target.value)}
+                        className="border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent"
+                      />
+                    </span>
+                  </div>
+                </>
+              )}
+
+              {/* DATE PICKERS: Cars (Pick-up & Return), Drivers (Duty Date Only) */}
+              {(activeServiceIdx === 0 || activeServiceIdx === 1) && (
                 <label className="flex items-center gap-3 min-h-[58px] px-3.5">
                   <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
                     <Calendar className="w-4 h-4 stroke-[2.2]" />
                   </span>
                   <span className="flex-1 flex flex-col justify-center">
-                    <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">Pick-up date</span>
+                    <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
+                      {activeServiceIdx === 1 ? 'Duty Date' : 'Pick-up date'}
+                    </span>
                     <input
                       type="date"
                       value={pickupDate}
@@ -880,14 +1426,16 @@ export function MobileHomeNativeView() {
                 </label>
               )}
 
-              {/* Field 3: Return Date (For Car Rental) */}
+              {/* Return Date for Cars Only */}
               {activeServiceIdx === 0 && (
                 <label className="flex items-center gap-3 min-h-[58px] px-3.5">
                   <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
                     <Calendar className="w-4 h-4 stroke-[2.2]" />
                   </span>
                   <span className="flex-1 flex flex-col justify-center">
-                    <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">Return date</span>
+                    <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
+                      Return date
+                    </span>
                     <input
                       type="date"
                       value={returnDate}
@@ -899,7 +1447,7 @@ export function MobileHomeNativeView() {
               )}
             </div>
 
-            {/* Self-drive vs With Driver Toggle (For Car Rental) */}
+            {/* Self-drive vs With Driver Toggle (Car Rental Only) */}
             {activeServiceIdx === 0 && (
               <div className="grid grid-cols-2 gap-1.5 bg-[#F2F4F7] p-1 rounded-2xl">
                 <button
@@ -932,12 +1480,7 @@ export function MobileHomeNativeView() {
               type="button"
               onClick={() => {
                 setSearchSheetOpen(false);
-                if (curService.href.startsWith('/#')) {
-                  const el = document.getElementById('listings-results');
-                  if (el) el.scrollIntoView({ behavior: 'smooth' });
-                } else {
-                  router.push(curService.href);
-                }
+                showToast(`Filtered listings for ${curService.label}`);
               }}
               className="h-[54px] rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] active:scale-[0.99] text-white font-bold text-base flex items-center justify-center gap-2.5 transition shadow-md cursor-pointer"
             >
@@ -946,7 +1489,7 @@ export function MobileHomeNativeView() {
             </button>
 
             <span className="text-center text-xs text-[#667085]">
-              Pay the owner at pick-up · nothing paid online
+              Pay the owner at pick-up · zero advance deposit
             </span>
           </div>
         </div>
@@ -954,4 +1497,3 @@ export function MobileHomeNativeView() {
     </div>
   );
 }
-

@@ -17,7 +17,6 @@ type DevicePlatform = 'android' | 'ios' | 'desktop';
 export function MobilePWAExperience() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [platform, setPlatform] = useState<DevicePlatform>('android');
-  const [showPrompt, setShowPrompt] = useState(false);
   const [showIosGuide, setShowIosGuide] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
 
@@ -53,15 +52,11 @@ export function MobilePWAExperience() {
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      checkAndShowPrompt(detectedPlatform);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
-    // If iOS or if prompt hasn't fired yet, check session dismissal and display prompt
-    checkAndShowPrompt(detectedPlatform);
-
-    // 5. Listen for manual trigger from "Install App" buttons across the website
+    // 5. Listen for manual trigger from "Install App" button in sidebar menu
     const handleManualInstallTrigger = () => {
       triggerInstallAction(detectedPlatform);
     };
@@ -73,38 +68,15 @@ export function MobilePWAExperience() {
     };
   }, []);
 
-  const checkAndShowPrompt = (devPlatform: DevicePlatform) => {
-    try {
-      if (devPlatform === 'desktop') {
-        const desktopDismissed = sessionStorage.getItem('safarpk_desktop_install_dismissed');
-        if (!desktopDismissed) {
-          setTimeout(() => setShowPrompt(true), 3500);
-        }
-      } else {
-        // Mobile (Android / iOS): show on every new visit/session, dismissable per session
-        const mobileDismissed = sessionStorage.getItem('safarpk_mobile_install_dismissed');
-        if (!mobileDismissed) {
-          setTimeout(() => setShowPrompt(true), 2500);
-        }
-      }
-    } catch (e) {
-      setTimeout(() => setShowPrompt(true), 3000);
-    }
-  };
-
   const triggerInstallAction = async (currentPlatform: DevicePlatform) => {
     if (deferredPrompt) {
       try {
         deferredPrompt.prompt();
-        const choice = await deferredPrompt.userChoice;
-        if (choice && choice.outcome === 'accepted') {
-          setShowPrompt(false);
-        }
+        await deferredPrompt.userChoice;
       } catch (err) {}
       setDeferredPrompt(null);
     } else if (currentPlatform === 'ios') {
       setShowIosGuide(true);
-      setShowPrompt(false);
     } else if (currentPlatform === 'android') {
       // Guide for Android if prompt was already consumed
       alert(
@@ -118,96 +90,11 @@ export function MobilePWAExperience() {
     }
   };
 
-  const dismissPrompt = () => {
-    setShowPrompt(false);
-    try {
-      if (platform === 'desktop') {
-        sessionStorage.setItem('safarpk_desktop_install_dismissed', 'true');
-      } else {
-        sessionStorage.setItem('safarpk_mobile_install_dismissed', 'true');
-      }
-    } catch (e) {}
-  };
-
   if (isStandalone) return null;
-
-  const appName =
-    platform === 'android' ? 'Android App' : platform === 'ios' ? 'iOS App' : 'Desktop App';
-
-  const installButtonText =
-    platform === 'android'
-      ? 'Install Android App'
-      : platform === 'ios'
-      ? 'Install for iPhone'
-      : 'Install Desktop App';
 
   return (
     <>
-      {/* ========================================================================= */}
-      {/* 1. INSTALL APP POPUP (DESKTOP: BOTTOM-LEFT, MOBILE: CENTER-TOP)           */}
-      {/* ========================================================================= */}
-      {showPrompt && (
-        <div
-          className={`fixed z-[99999] transition-all duration-300 ease-out ${
-            platform === 'desktop'
-              ? 'bottom-5 left-5 max-w-sm w-full animate-in slide-in-from-bottom-4'
-              : 'top-14 left-1/2 -translate-x-1/2 w-[92%] max-w-sm animate-in slide-in-from-top-3'
-          }`}
-        >
-          <div className="bg-slate-900/95 text-white p-3.5 rounded-2xl shadow-2xl border border-slate-700/80 backdrop-blur-xl">
-            <div className="flex items-start justify-between gap-2.5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center font-black text-xl shrink-0 shadow-md">
-                  S
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <h4 className="font-extrabold text-xs text-white">Safar {appName}</h4>
-                    <span className="text-[9px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded-full uppercase">
-                      Official
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-300 mt-0.5 leading-snug">
-                    {platform === 'desktop'
-                      ? 'Install on your computer for fast access and instant vehicle search.'
-                      : 'Install on your phone for 1-tap bookings, WhatsApp calls, and offline access.'}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={dismissPrompt}
-                className="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer transition"
-                aria-label="Dismiss"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-slate-800">
-              <button
-                type="button"
-                onClick={() => triggerInstallAction(platform)}
-                className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>{installButtonText}</span>
-              </button>
-              <button
-                type="button"
-                onClick={dismissPrompt}
-                className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition cursor-pointer"
-              >
-                Later
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* 2. iOS INSTALL GUIDE MODAL                                                */}
-      {/* ========================================================================= */}
+      {/* 1. iOS INSTALL GUIDE MODAL (User-triggered only) */}
       {showIosGuide && (
         <div className="fixed inset-0 z-[999999] bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-sm w-full p-6 text-slate-900 shadow-2xl space-y-4 animate-in slide-in-from-bottom-6">

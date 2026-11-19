@@ -27,6 +27,10 @@ import {
   Check,
   WifiOff,
   Wifi,
+  Compass,
+  Briefcase,
+  HelpCircle,
+  Download,
 } from 'lucide-react';
 import { COUNTRIES, CountryInfo, SUPPORTED_CURRENCIES, CurrencyInfo } from '@/data/countries';
 import { getActiveUser, RegisteredUser, logoutActiveUser } from '@/data/userAuth';
@@ -623,115 +627,29 @@ export function AppHeader({
           )}
         </Link>
 
-        {/* Right: Account or Sign In (Equal width w-9 to keep logo strictly centered) */}
-        <div className="relative w-9 h-9 flex items-center justify-end shrink-0" ref={mobileUserMenuRef}>
-          {activeUser ? (
-            <>
-              <button
-                type="button"
-                onClick={() => setShowMobileUserMenu(!showMobileUserMenu)}
-                className="w-8 h-8 rounded-full text-white text-xs font-black flex items-center justify-center shadow-xs shrink-0 hover:ring-2 hover:ring-emerald-400 transition cursor-pointer"
-                style={{ backgroundColor: accentColor }}
-                title="My Account"
-                aria-label="Toggle user account menu"
-              >
-                {activeUser.name.slice(0, 2).toUpperCase()}
-              </button>
+        {/* Right: Notification Bell + User Profile Avatar / Initials */}
+        <div className="flex items-center gap-2 shrink-0">
+          <Link
+            href="/inbox"
+            aria-label="Notifications"
+            className="relative w-9 h-9 rounded-full bg-[#F2F4F7] text-[#101828] flex items-center justify-center transition active:scale-95 hover:bg-slate-200"
+          >
+            <Bell className="w-4.5 h-4.5 stroke-[2] text-slate-700" />
+            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#D92D20] ring-2 ring-[#F2F4F7]" />
+          </Link>
 
-              {showMobileUserMenu && (
-                <div className="absolute top-full mt-2 right-0 w-60 bg-white border border-slate-200 rounded-2xl shadow-2xl py-2 z-[99999] animate-in fade-in slide-in-from-top-2 duration-150 text-left">
-                  {/* User Profile Header */}
-                  <div className="px-3.5 py-2 border-b border-slate-100">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span
-                        className="w-7 h-7 rounded-full text-white text-[11px] font-black flex items-center justify-center shrink-0 shadow-2xs"
-                        style={{ backgroundColor: accentColor }}
-                      >
-                        {activeUser.name.slice(0, 2).toUpperCase()}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-[#101828] truncate leading-tight">
-                          {activeUser.name}
-                        </p>
-                        <p className="text-[10px] text-slate-400 truncate">
-                          {activeUser.phone || activeUser.email || 'Verified Member'}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#E9F3EE] text-[#0B6B4F]">
-                      {activeUser.role === 'LISTER'
-                        ? 'Car Rental Partner'
-                        : activeUser.role === 'DRIVER'
-                        ? 'Verified Driver'
-                        : activeUser.role === 'PROVIDER'
-                        ? 'Logistics & Shuttles'
-                        : activeUser.role}
-                    </span>
-                  </div>
-
-                  {/* Dashboard link with Icon */}
-                  <Link
-                    href={getDashboardHref(activeUser.role)}
-                    onClick={() => setShowMobileUserMenu(false)}
-                    className="flex items-center justify-between px-3.5 py-2.5 text-xs text-[#101828] hover:bg-[#F7F8FA] font-bold transition"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                        <Car className="w-3.5 h-3.5" />
-                      </div>
-                      <span>Go to Dashboard</span>
-                    </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
-                  </Link>
-
-                  {/* Messages link */}
-                  <Link
-                    href="/inbox"
-                    onClick={() => setShowMobileUserMenu(false)}
-                    className="flex items-center gap-2.5 px-3.5 py-2 text-xs text-[#344054] hover:bg-[#F7F8FA] transition font-medium"
-                  >
-                    <MessageSquare className="w-4 h-4 text-slate-400" />
-                    <span>Inbox & Chats</span>
-                  </Link>
-
-                  {/* Settings link */}
-                  <Link
-                    href="/settings"
-                    onClick={() => setShowMobileUserMenu(false)}
-                    className="flex items-center gap-2.5 px-3.5 py-2 text-xs text-[#344054] hover:bg-[#F7F8FA] transition font-medium"
-                  >
-                    <Sparkles className="w-4 h-4 text-slate-400" />
-                    <span>Settings & Profile</span>
-                  </Link>
-
-                  <div className="border-t border-slate-100 my-1" />
-
-                  {/* Sign Out / Logout button with Icon */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      logoutActiveUser();
-                      setActiveUserState(null);
-                      setShowMobileUserMenu(false);
-                      window.location.href = '/';
-                    }}
-                    className="w-full text-left flex items-center gap-2.5 px-3.5 py-2 text-xs text-rose-600 hover:bg-rose-50 transition font-bold cursor-pointer"
-                  >
-                    <LogOut className="w-4 h-4 text-rose-500" />
-                    <span>Sign Out / Log Out</span>
-                  </button>
-                </div>
-              )}
-            </>
-          ) : (
-            <Link
-              href="/login"
-              className="w-8 h-8 rounded-full bg-[#101828] text-white flex items-center justify-center shadow-xs hover:bg-slate-800 transition shrink-0"
-              title="Sign in"
-            >
-              <User className="w-4 h-4" />
-            </Link>
-          )}
+          <Link
+            href={activeUser ? getDashboardHref(activeUser.role, activeUser?.providerSubtype) : '/login'}
+            aria-label="My account"
+            className="w-9 h-9 rounded-full text-white font-black text-xs flex items-center justify-center shadow-xs transition active:scale-95 hover:ring-2 hover:ring-emerald-400"
+            style={{ backgroundColor: accentColor }}
+          >
+            {activeUser ? (
+              activeUser.name.slice(0, 2).toUpperCase()
+            ) : (
+              <User className="w-4 h-4 text-white" />
+            )}
+          </Link>
         </div>
       </div>
 
@@ -756,31 +674,164 @@ export function AppHeader({
     {/* ========================================================================= */}
     {/* 3. MOBILE SLIDING DRAWER (Portal to document.body, Full Viewport, Solid) */}
     {/* ========================================================================= */}
-    {mounted && createPortal(
-      <div className={`md:hidden ${mobileDrawerOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
-        {/* Dark Backdrop Overlay */}
-        <div
-          className={`fixed inset-0 bg-black/60 backdrop-blur-xs z-[99998] transition-opacity duration-300 ease-in-out ${
-            mobileDrawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-          }`}
-          onClick={() => setMobileDrawerOpen(false)}
-          aria-hidden="true"
-        />
+    <MobileNavigationDrawer
+      open={mobileDrawerOpen}
+      onClose={() => setMobileDrawerOpen(false)}
+      activeUser={activeUser}
+      branding={branding}
+      selectedCountry={selectedCountry}
+      onCountryChange={onCountryChange}
+      accentColor={accentColor}
+    />
+  </>
+  );
+}
 
-        {/* Solid White Sliding Drawer Panel */}
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Navigation Menu"
-          className={`fixed inset-y-0 left-0 w-[86vw] max-w-[340px] z-[99999] bg-white border-r border-slate-200 shadow-2xl flex flex-col transition-transform duration-300 ease-out transform ${
-            mobileDrawerOpen ? 'translate-x-0' : '-translate-x-full'
-          }`}
-        >
-          {/* Drawer Header with Logo & Close Button */}
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/80">
+export interface MobileNavigationDrawerProps {
+  open: boolean;
+  onClose: () => void;
+  activeUser?: RegisteredUser | null;
+  branding?: SiteBranding;
+  selectedCountry?: CountryInfo;
+  onCountryChange?: (c: CountryInfo) => void;
+  accentColor?: string;
+}
+
+export function MobileNavigationDrawer({
+  open,
+  onClose,
+  activeUser: propActiveUser,
+  branding: propBranding,
+  selectedCountry: propSelectedCountry,
+  onCountryChange,
+  accentColor = '#0B6B4F',
+}: MobileNavigationDrawerProps) {
+  const pathname = usePathname();
+  const {
+    country: ctxCountry,
+    setCountry: ctxSetCountry,
+    currency: ctxCurrency,
+    setCurrency: ctxSetCurrency,
+  } = useCountry();
+  const [mounted, setMounted] = useState(false);
+  const [activeUser, setActiveUserState] = useState<RegisteredUser | null>(propActiveUser ?? null);
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [branding, setBranding] = useState<SiteBranding>(propBranding || getSiteBranding());
+
+  const [openAccordions, setOpenAccordions] = useState({
+    services: true,
+    portals: false,
+    preferences: false,
+    support: false,
+  });
+
+  const toggleAccordion = (sec: 'services' | 'portals' | 'preferences' | 'support') => {
+    setOpenAccordions((prev) => ({ ...prev, [sec]: !prev[sec] }));
+  };
+
+  useEffect(() => {
+    setMounted(true);
+    if (typeof window !== 'undefined') {
+      const standalone =
+        window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as any).standalone === true;
+      setIsStandalone(standalone);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (propActiveUser !== undefined) {
+      setActiveUserState(propActiveUser);
+    } else {
+      setActiveUserState(getActiveUser());
+    }
+    const handleAuthChange = () => {
+      setActiveUserState(getActiveUser());
+    };
+    window.addEventListener('safarpk_auth_state_changed', handleAuthChange);
+    return () => {
+      window.removeEventListener('safarpk_auth_state_changed', handleAuthChange);
+    };
+  }, [propActiveUser]);
+
+  useEffect(() => {
+    if (propBranding) {
+      setBranding(propBranding);
+    } else {
+      setBranding(getSiteBranding());
+    }
+    const handleBrandingChange = (e: any) => {
+      setBranding(e.detail || getSiteBranding());
+    };
+    window.addEventListener('safarpk_branding_changed', handleBrandingChange);
+    return () => {
+      window.removeEventListener('safarpk_branding_changed', handleBrandingChange);
+    };
+  }, [propBranding]);
+
+  // Close mobile drawer on route change
+  useEffect(() => {
+    onClose();
+  }, [pathname]);
+
+  // Prevent background scroll when mobile drawer is open
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [open]);
+
+  if (!mounted) return null;
+
+  const currentCountry = propSelectedCountry || ctxCountry || COUNTRIES[0];
+  const isPakistan = currentCountry?.code === 'PK';
+
+  const navLinks = [
+    { label: 'Rent a car', href: '/', icon: Car },
+    { label: 'Drivers', href: '/drivers', icon: UserCheck },
+    { label: 'City to city', href: '/city-to-city', icon: Car },
+    { label: 'Pick & drop', href: '/shuttles', icon: Bus },
+    { label: isPakistan ? 'Home shifting' : 'Moving & cargo', href: '/movers', icon: Truck },
+  ];
+
+  const firstName = activeUser?.name ? activeUser.name.trim().split(/\s+/)[0] : '';
+  const getRoleBadge = (role?: string) => {
+    if (role === 'CUSTOMER') return 'Customer Account';
+    if (role === 'LISTER' || role === 'PROVIDER') return 'Professional Fleet Host / Business Partner';
+    if (role === 'DRIVER') return 'Verified Chauffeur / Driver';
+    return 'Customer Account';
+  };
+
+  return createPortal(
+    <div className={`md:hidden ${open ? 'pointer-events-auto' : 'pointer-events-none'}`}>
+      {/* Dark Backdrop Overlay */}
+      <div
+        className={`fixed inset-0 bg-black/60 backdrop-blur-xs z-[99998] transition-opacity duration-300 ease-in-out ${
+          open ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* Solid White Sliding Drawer Panel */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navigation Menu"
+        className={`fixed inset-y-0 left-0 w-[86vw] max-w-[340px] z-[99999] bg-white border-r border-slate-200 shadow-2xl flex flex-col transition-transform duration-300 ease-out transform ${
+          open ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        {/* Drawer Header with Logo & Close Button */}
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/80">
           <Link
             href="/"
-            onClick={() => setMobileDrawerOpen(false)}
+            onClick={onClose}
             className="flex items-center gap-2 group"
           >
             {branding.mobileLogoUrl ? (
@@ -812,7 +863,7 @@ export function AppHeader({
 
           <button
             type="button"
-            onClick={() => setMobileDrawerOpen(false)}
+            onClick={onClose}
             className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-600 flex items-center justify-center transition cursor-pointer"
             aria-label="Close menu"
           >
@@ -820,34 +871,29 @@ export function AppHeader({
           </button>
         </div>
 
-        {/* Scrollable Drawer Body */}
+        {/* Scrollable Drawer Body with Collapsible Accordions */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
-          {/* User Status Card */}
+          {/* User Status Card & Auth Action Area */}
           {activeUser ? (
             <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-50/80 to-slate-50 border border-emerald-100 shadow-2xs space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-9 h-9 rounded-full text-white text-xs font-black flex items-center justify-center shrink-0 shadow-xs bg-[#0B6B4F]">
-                    {activeUser.name.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-extrabold text-sm text-[#101828] truncate">
-                      {activeUser.name}
-                    </p>
-                    <p className="text-[11px] text-slate-500 font-mono">
-                      {activeUser.phone}
-                    </p>
-                  </div>
+              <div className="space-y-1">
+                <span className="text-[11px] font-semibold text-slate-500 block leading-tight">Welcome back,</span>
+                <h4 className="font-heading font-black text-base text-[#101828] leading-tight">
+                  {firstName}
+                </h4>
+                {/* Account role badge directly beneath first name */}
+                <div>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-[#E9F3EE] text-[#08513C] border border-[#CDE3D7]">
+                    <ShieldCheck className="w-3 h-3 text-[#0B6B4F]" />
+                    <span>{getRoleBadge(activeUser.role)}</span>
+                  </span>
                 </div>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 shrink-0">
-                  {activeUser.role}
-                </span>
               </div>
 
               <div className="grid grid-cols-2 gap-1.5 pt-1">
                 <Link
-                  href={getDashboardHref(activeUser.role)}
-                  onClick={() => setMobileDrawerOpen(false)}
+                  href={getDashboardHref(activeUser.role, activeUser?.providerSubtype)}
+                  onClick={onClose}
                   className="p-2 rounded-xl bg-white border border-slate-200 text-center font-bold text-slate-700 hover:bg-slate-50 transition flex items-center justify-center gap-1.5"
                 >
                   <User className="w-3.5 h-3.5 text-[#0B6B4F]" />
@@ -855,7 +901,7 @@ export function AppHeader({
                 </Link>
                 <Link
                   href="/inbox"
-                  onClick={() => setMobileDrawerOpen(false)}
+                  onClick={onClose}
                   className="p-2 rounded-xl bg-white border border-slate-200 text-center font-bold text-slate-700 hover:bg-slate-50 transition flex items-center justify-center gap-1.5"
                 >
                   <MessageSquare className="w-3.5 h-3.5 text-slate-500" />
@@ -866,7 +912,7 @@ export function AppHeader({
               <div className="flex items-center justify-between pt-1 text-[11px]">
                 <Link
                   href="/settings"
-                  onClick={() => setMobileDrawerOpen(false)}
+                  onClick={onClose}
                   className="text-slate-500 hover:text-slate-800 font-medium"
                 >
                   Settings & Profile
@@ -876,7 +922,7 @@ export function AppHeader({
                   onClick={() => {
                     logoutActiveUser();
                     setActiveUserState(null);
-                    setMobileDrawerOpen(false);
+                    onClose();
                     window.location.href = '/';
                   }}
                   className="text-rose-600 font-bold hover:underline cursor-pointer flex items-center gap-1"
@@ -895,14 +941,14 @@ export function AppHeader({
               <div className="grid grid-cols-2 gap-2">
                 <Link
                   href="/login"
-                  onClick={() => setMobileDrawerOpen(false)}
+                  onClick={onClose}
                   className="py-2 px-3 rounded-xl bg-white text-[#101828] text-center font-extrabold text-xs shadow-xs hover:bg-slate-100 transition"
                 >
                   Sign in
                 </Link>
                 <Link
                   href="/register"
-                  onClick={() => setMobileDrawerOpen(false)}
+                  onClick={onClose}
                   className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-center font-extrabold text-xs transition"
                 >
                   Register
@@ -911,168 +957,276 @@ export function AppHeader({
             </div>
           )}
 
-          {/* In-Menu Country Selector */}
-          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="font-extrabold text-slate-800 text-xs flex items-center gap-1.5">
-                <Globe className="w-3.5 h-3.5 text-[#0B6B4F]" />
-                <span>Operating Country</span>
+          {/* ACCORDION SECTION 1: SERVICES (Collapsible, Open by default) */}
+          <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-slate-50/50">
+            <button
+              type="button"
+              onClick={() => toggleAccordion('services')}
+              className="w-full flex items-center justify-between p-3 text-slate-800 font-bold text-xs bg-slate-50 hover:bg-slate-100 transition cursor-pointer select-none"
+            >
+              <span className="flex items-center gap-2 uppercase tracking-wider text-[11px] text-slate-600 font-extrabold">
+                <Compass className="w-3.5 h-3.5 text-[#0B6B4F]" />
+                <span>Services</span>
               </span>
-              <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-bold">
-                {selectedCountry.code}
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-1.5">
-              {COUNTRIES.map((c) => {
-                const isSelected = c.code === selectedCountry.code;
-                return (
-                  <button
-                    key={c.code}
-                    type="button"
-                    onClick={() => {
-                      if (typeof window !== 'undefined') {
-                        localStorage.removeItem('safarpk_return_to_country');
-                      }
-                      if (onCountryChange) onCountryChange(c);
-                      else ctxSetCountry(c);
-                    }}
-                    className={`py-1.5 px-2.5 rounded-xl text-left flex items-center justify-between text-xs transition cursor-pointer border ${
-                      isSelected
-                        ? 'bg-emerald-600 text-white border-emerald-600 font-bold shadow-xs'
-                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    <span className="flex items-center gap-1.5 truncate">
-                      <span>{c.flag}</span>
-                      <span className="truncate">{c.name}</span>
-                    </span>
-                    {isSelected && <Check className="w-3.5 h-3.5 shrink-0" />}
-                  </button>
-                );
-              })}
-            </div>
+              <ChevronDown
+                className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
+                  openAccordions.services ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+            {openAccordions.services && (
+              <div className="p-2 pt-0 space-y-0.5 border-t border-slate-100">
+                {navLinks.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={onClose}
+                      className={`flex items-center justify-between px-2.5 py-2 rounded-xl font-bold transition ${
+                        isActive
+                          ? 'bg-emerald-50 text-[#0B6B4F] border border-emerald-200/80'
+                          : 'text-slate-700 hover:bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[#0B6B4F]' : 'text-slate-400'}`} />
+                        <span>{item.label}</span>
+                      </div>
+                      <ArrowRight className="w-3 h-3 text-slate-400" />
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* In-Menu Currency Selector */}
-          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="font-extrabold text-slate-800 text-xs flex items-center gap-1.5">
-                <Coins className="w-3.5 h-3.5 text-amber-600" />
-                <span>Display Currency</span>
+          {/* ACCORDION SECTION 2: PARTNER & HOST PORTALS (Collapsible, Closed by default) */}
+          <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-slate-50/50">
+            <button
+              type="button"
+              onClick={() => toggleAccordion('portals')}
+              className="w-full flex items-center justify-between p-3 text-slate-800 font-bold text-xs bg-slate-50 hover:bg-slate-100 transition cursor-pointer select-none"
+            >
+              <span className="flex items-center gap-2 uppercase tracking-wider text-[11px] text-slate-600 font-extrabold">
+                <Briefcase className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Partner & Host Portals</span>
               </span>
-              <span className="text-[10px] font-mono font-bold text-slate-600 bg-white px-1.5 py-0.5 rounded border border-slate-200">
-                {ctxCurrency.symbol} {ctxCurrency.code}
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-1.5">
-              {SUPPORTED_CURRENCIES.map((curr) => {
-                const active = curr.code === ctxCurrency.code;
-                return (
-                  <button
-                    key={curr.code}
-                    type="button"
-                    onClick={() => ctxSetCurrency(curr)}
-                    className={`py-1.5 px-2 rounded-xl text-center text-xs font-bold transition cursor-pointer border ${
-                      active
-                        ? 'bg-[#101828] text-white border-[#101828] shadow-xs'
-                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    <span className="block font-mono text-[11px]">{curr.code}</span>
-                    <span className="text-[9px] opacity-75 font-normal">{curr.symbol}</span>
-                  </button>
-                );
-              })}
-            </div>
+              <ChevronDown
+                className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
+                  openAccordions.portals ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+            {openAccordions.portals && (
+              <div className="p-2 pt-0 space-y-1.5 border-t border-slate-100">
+                <Link
+                  href="/lister?tab=add_vehicle&step=1"
+                  onClick={onClose}
+                  className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200 text-[#0B6B4F] font-bold hover:bg-emerald-50 transition"
+                >
+                  <div className="flex items-center gap-2">
+                    <Car className="w-3.5 h-3.5 text-[#0B6B4F]" />
+                    <span>List Vehicle / Car Fleet</span>
+                  </div>
+                  <span className="text-[10px] bg-[#0B6B4F] text-white px-2 py-0.5 rounded-full font-bold">
+                    Host
+                  </span>
+                </Link>
+
+                <Link
+                  href="/driver?tab=availability"
+                  onClick={onClose}
+                  className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200 text-sky-800 font-bold hover:bg-sky-50 transition"
+                >
+                  <div className="flex items-center gap-2">
+                    <UserCheck className="w-3.5 h-3.5 text-sky-700" />
+                    <span>Chauffeur & Driver Portal</span>
+                  </div>
+                  <span className="text-[10px] bg-sky-700 text-white px-2 py-0.5 rounded-full font-bold">
+                    Driver
+                  </span>
+                </Link>
+
+                <Link
+                  href="/provider?mode=commercial_cargo&tab=pricing"
+                  onClick={onClose}
+                  className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200 text-amber-900 font-bold hover:bg-amber-50 transition"
+                >
+                  <div className="flex items-center gap-2">
+                    <Truck className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Shuttle & Cargo Operators</span>
+                  </div>
+                  <span className="text-[10px] bg-amber-700 text-white px-2 py-0.5 rounded-full font-bold">
+                    Fleet
+                  </span>
+                </Link>
+              </div>
+            )}
           </div>
 
-          {/* Portal Services Links */}
-          <div className="space-y-1">
-            <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider px-1">
-              Explore Services
-            </p>
-            <div className="space-y-0.5">
-              {navLinks.map((item) => {
-                const Icon = item.icon;
-                const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMobileDrawerOpen(false)}
-                    className={`flex items-center justify-between px-3 py-2.5 rounded-xl font-bold transition ${
-                      isActive
-                        ? 'bg-emerald-50 text-[#0B6B4F] border border-emerald-200/80'
-                        : 'text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-[#0B6B4F]' : 'text-slate-400'}`} />
-                      <span>{item.label}</span>
-                    </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Partner & Lister Portals */}
-          <div className="space-y-1 pt-2 border-t border-slate-100">
-            <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider px-1">
-              Earn on {branding.portalName || 'SafarPK'}
-            </p>
-            <div className="space-y-1">
-              <Link
-                href="/lister?tab=add_vehicle&step=1"
-                onClick={() => setMobileDrawerOpen(false)}
-                className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200/80 text-[#0B6B4F] font-bold"
-              >
-                <div className="flex items-center gap-2">
-                  <Car className="w-4 h-4 text-[#0B6B4F]" />
-                  <span>List Vehicle / Car Fleet</span>
-                </div>
-                <span className="text-[10px] bg-[#0B6B4F] text-white px-2 py-0.5 rounded-full font-bold">
-                  Host
+          {/* ACCORDION SECTION 3: PREFERENCES (Country & Currency, Closed by default) */}
+          <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-slate-50/50">
+            <button
+              type="button"
+              onClick={() => toggleAccordion('preferences')}
+              className="w-full flex items-center justify-between p-3 text-slate-800 font-bold text-xs bg-slate-50 hover:bg-slate-100 transition cursor-pointer select-none"
+            >
+              <span className="flex items-center gap-2 uppercase tracking-wider text-[11px] text-slate-600 font-extrabold">
+                <Globe className="w-3.5 h-3.5 text-blue-600" />
+                <span>Preferences</span>
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-emerald-700 font-mono font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
+                  {currentCountry.code} · {ctxCurrency.code}
                 </span>
-              </Link>
-
-              <Link
-                href="/driver?tab=availability"
-                onClick={() => setMobileDrawerOpen(false)}
-                className="flex items-center justify-between p-2.5 rounded-xl bg-sky-50/70 border border-sky-200/80 text-sky-800 font-bold"
-              >
-                <div className="flex items-center gap-2">
-                  <UserCheck className="w-4 h-4 text-sky-700" />
-                  <span>Chauffeur & Driver Portal</span>
+                <ChevronDown
+                  className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
+                    openAccordions.preferences ? 'rotate-180' : ''
+                  }`}
+                />
+              </div>
+            </button>
+            {openAccordions.preferences && (
+              <div className="p-3 pt-1 space-y-3 border-t border-slate-100">
+                {/* Operating Country */}
+                <div className="space-y-1.5">
+                  <span className="font-extrabold text-slate-700 text-[11px] block">Operating Country</span>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {COUNTRIES.map((c) => {
+                      const isSelected = c.code === currentCountry.code;
+                      return (
+                        <button
+                          key={c.code}
+                          type="button"
+                          onClick={() => {
+                            if (typeof window !== 'undefined') {
+                              localStorage.removeItem('safarpk_return_to_country');
+                            }
+                            if (onCountryChange) onCountryChange(c);
+                            else ctxSetCountry(c);
+                          }}
+                          className={`py-1.5 px-2 rounded-xl text-left flex items-center justify-between text-xs transition cursor-pointer border ${
+                            isSelected
+                              ? 'bg-emerald-600 text-white border-emerald-600 font-bold shadow-xs'
+                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          <span className="flex items-center gap-1.5 truncate">
+                            <span>{c.flag}</span>
+                            <span className="truncate">{c.name}</span>
+                          </span>
+                          {isSelected && <Check className="w-3.5 h-3.5 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <span className="text-[10px] bg-sky-700 text-white px-2 py-0.5 rounded-full font-bold">
-                  Driver
-                </span>
-              </Link>
 
-              <Link
-                href="/provider?mode=commercial_cargo&tab=pricing"
-                onClick={() => setMobileDrawerOpen(false)}
-                className="flex items-center justify-between p-2.5 rounded-xl bg-amber-50/70 border border-amber-200/80 text-amber-900 font-bold"
-              >
-                <div className="flex items-center gap-2">
-                  <Truck className="w-4 h-4 text-amber-700" />
-                  <span>Shuttle & Cargo Operators</span>
+                {/* Display Currency */}
+                <div className="space-y-1.5">
+                  <span className="font-extrabold text-slate-700 text-[11px] block">Display Currency</span>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {SUPPORTED_CURRENCIES.map((curr) => {
+                      const active = curr.code === ctxCurrency.code;
+                      return (
+                        <button
+                          key={curr.code}
+                          type="button"
+                          onClick={() => ctxSetCurrency(curr)}
+                          className={`py-1.5 px-2 rounded-xl text-center text-xs font-bold transition cursor-pointer border ${
+                            active
+                              ? 'bg-[#101828] text-white border-[#101828] shadow-xs'
+                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          <span className="block font-mono text-[11px]">{curr.code}</span>
+                          <span className="text-[9px] opacity-75 font-normal">{curr.symbol}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <span className="text-[10px] bg-amber-700 text-white px-2 py-0.5 rounded-full font-bold">
-                  Fleet
-                </span>
-              </Link>
-            </div>
+              </div>
+            )}
           </div>
+
+          {/* ACCORDION SECTION 4: SUPPORT & LEGAL (Closed by default) */}
+          <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-slate-50/50">
+            <button
+              type="button"
+              onClick={() => toggleAccordion('support')}
+              className="w-full flex items-center justify-between p-3 text-slate-800 font-bold text-xs bg-slate-50 hover:bg-slate-100 transition cursor-pointer select-none"
+            >
+              <span className="flex items-center gap-2 uppercase tracking-wider text-[11px] text-slate-600 font-extrabold">
+                <HelpCircle className="w-3.5 h-3.5 text-amber-600" />
+                <span>Support & Legal</span>
+              </span>
+              <ChevronDown
+                className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
+                  openAccordions.support ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+            {openAccordions.support && (
+              <div className="p-2 pt-0 space-y-0.5 border-t border-slate-100">
+                <Link
+                  href="/help"
+                  onClick={onClose}
+                  className="flex items-center justify-between px-2.5 py-2 rounded-xl text-slate-700 font-semibold hover:bg-white transition"
+                >
+                  <span>Help & Safety Center</span>
+                  <ArrowRight className="w-3 h-3 text-slate-400" />
+                </Link>
+                <Link
+                  href="/terms"
+                  onClick={onClose}
+                  className="flex items-center justify-between px-2.5 py-2 rounded-xl text-slate-700 font-semibold hover:bg-white transition"
+                >
+                  <span>Terms & Privacy Policy</span>
+                  <ArrowRight className="w-3 h-3 text-slate-400" />
+                </Link>
+                <a
+                  href="https://wa.me/923001234567"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-between px-2.5 py-2 rounded-xl text-emerald-700 font-bold hover:bg-white transition"
+                >
+                  <span className="flex items-center gap-2">
+                    <Phone className="w-3 h-3" />
+                    <span>WhatsApp Support Desk</span>
+                  </span>
+                  <ArrowRight className="w-3 h-3 text-slate-400" />
+                </a>
+              </div>
+            )}
+          </div>
+
+          {/* SUBTLE "INSTALL APP" BUTTON (Hidden in standalone mode) */}
+          {!isStandalone && (
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new Event('safarpk_trigger_pwa_install'));
+                  }
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 text-xs font-semibold transition cursor-pointer border border-slate-200/80 shadow-2xs"
+              >
+                <Download className="w-3.5 h-3.5 text-[#0B6B4F]" />
+                <span>Install App</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Drawer Footer */}
         <div className="p-3.5 border-t border-slate-100 bg-slate-50/60 shrink-0 text-slate-500 text-[11px] flex items-center justify-between">
           <Link
             href="/help"
-            onClick={() => setMobileDrawerOpen(false)}
+            onClick={onClose}
             className="hover:text-slate-800 font-semibold"
           >
             Help & Safety
@@ -1090,7 +1244,5 @@ export function AppHeader({
       </div>
     </div>,
     document.body
-  )}
-</>
-);
+  );
 }
