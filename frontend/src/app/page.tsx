@@ -35,6 +35,7 @@ import {
 import { AppHeader } from '@/components/AppHeader';
 import { AppFooter } from '@/components/AppFooter';
 import { MobileNavBar } from '@/components/MobileNavBar';
+import { MobileHomeNativeView } from '@/components/MobileHomeNativeView';
 import { recordClickEvent, recordLead } from '@/data/activityTracker';
 import { useCountry } from '@/app/context/CountryContext';
 import { COUNTRIES, resolveAnyCountry } from '@/data/countries';
@@ -902,11 +903,18 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-white font-sans text-[#101828] flex flex-col antialiased">
-      {/* 1. Global Navigation Header */}
-      <AppHeader currentCountry={country} onCountryChange={setCountry} />
+      {/* Mobile App View: Authentic Native iOS/Android experience as requested */}
+      <div className="md:hidden flex-1 flex flex-col">
+        <MobileHomeNativeView />
+      </div>
 
-      {/* 2. Hero Section - Sleek Minimal, Compact on Mobile */}
-      <section className="bg-gradient-to-b from-[#F9FBFA] via-[#F4F7F5] to-white border-b border-[#EEF0F2]">
+      {/* Desktop Web Experience */}
+      <div className="hidden md:flex md:flex-col md:flex-1">
+        {/* 1. Global Navigation Header */}
+        <AppHeader currentCountry={country} onCountryChange={setCountry} />
+
+        {/* 2. Hero Section - Sleek Minimal, Compact on Mobile */}
+        <section className="bg-gradient-to-b from-[#F9FBFA] via-[#F4F7F5] to-white border-b border-[#EEF0F2]">
         <div className="max-w-[1240px] mx-auto px-3 sm:px-8 pt-2 sm:pt-4 md:pt-6 pb-2 sm:pb-5 flex flex-col gap-2 sm:gap-3.5">
           {/* Minimal Animated Header Copy */}
           <div className="flex flex-col gap-1 sm:gap-2 max-w-[820px]">
@@ -3263,8 +3271,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 8. Global Footer */}
-      <AppFooter />
+        {/* 8. Global Footer (Hidden on mobile app view) */}
+        <AppFooter />
+      </div>
 
       {/* 9. Mobile Bottom Navigation */}
       <MobileNavBar />

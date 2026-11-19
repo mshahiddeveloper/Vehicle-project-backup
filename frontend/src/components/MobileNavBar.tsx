@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import {
+  Home,
   Compass,
   Search,
   Users,
@@ -68,34 +69,33 @@ function MobileNavBarContent() {
     if (!activeUser) {
       return [
         {
-          label: 'Explore',
+          label: 'Home',
           href: '/',
-          icon: Search,
+          icon: Home,
           isActive: pathname === '/' || pathname.startsWith('/listing'),
         },
         {
-          label: 'Drivers',
-          href: '/drivers',
-          icon: Users,
-          isActive: pathname.startsWith('/drivers'),
+          label: 'Saved',
+          href: '/saved',
+          icon: Heart,
+          isActive: pathname === '/saved',
         },
         {
-          label: 'List Car',
-          href: '/post-ad',
-          icon: PlusCircle,
-          isAction: true,
-          isActive: pathname === '/post-ad' || pathname === '/register',
-        },
-        {
-          label: 'Help',
-          href: '/help',
-          icon: HelpCircle,
-          isActive: pathname === '/help',
-        },
-        {
-          label: 'Sign In',
+          label: 'Bookings',
           href: '/login',
-          icon: LogIn,
+          icon: CalendarCheck,
+          isActive: pathname === '/customer',
+        },
+        {
+          label: 'Inbox',
+          href: '/inbox',
+          icon: MessageSquare,
+          isActive: pathname === '/inbox',
+        },
+        {
+          label: 'Account',
+          href: '/login',
+          icon: User,
           isActive: pathname === '/login',
         },
       ];
@@ -357,22 +357,22 @@ function MobileNavBarContent() {
     // 8. DEFAULT: LOGGED IN CUSTOMER / RENTER
     return [
       {
-        label: 'Explore',
+        label: 'Home',
         href: '/',
-        icon: Search,
+        icon: Home,
         isActive: pathname === '/' || pathname.startsWith('/listing'),
-      },
-      {
-        label: 'Bookings',
-        href: '/customer',
-        icon: CalendarCheck,
-        isActive: pathname === '/customer',
       },
       {
         label: 'Saved',
         href: '/saved',
         icon: Heart,
         isActive: pathname === '/saved',
+      },
+      {
+        label: 'Bookings',
+        href: '/customer',
+        icon: CalendarCheck,
+        isActive: pathname === '/customer',
       },
       {
         label: 'Inbox',
