@@ -177,7 +177,7 @@ export function AppHeader({
   const isPakistan = selectedCountry?.code === 'PK';
 
   const navLinks = [
-    { label: 'Rent a car', href: '/', icon: Car },
+    { label: 'Rent a car', href: '/cars', icon: Car },
     { label: isPakistan ? 'Hire a driver' : 'Hire a chauffeur', href: '/drivers', icon: UserCheck },
     { label: 'City to city', href: '/city-to-city', icon: Car },
     { label: 'Pick & drop', href: '/shuttles', icon: Bus },
@@ -805,7 +805,7 @@ export function MobileNavigationDrawer({
   const isPakistan = currentCountry?.code === 'PK';
 
   const navLinks = [
-    { label: 'Rent a car', href: '/', icon: Car },
+    { label: 'Rent a car', href: '/cars', icon: Car },
     { label: 'Drivers', href: '/drivers', icon: UserCheck },
     { label: 'City to city', href: '/city-to-city', icon: Car },
     { label: 'Pick & drop', href: '/shuttles', icon: Bus },

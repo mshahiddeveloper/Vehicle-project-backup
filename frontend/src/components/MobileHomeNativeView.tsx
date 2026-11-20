@@ -252,7 +252,7 @@ export function MobileHomeNativeView() {
         icon: Car,
         title: 'Rent a car',
         goText: 'Search cars',
-        href: '/#listings-results',
+        href: '/cars',
       },
       {
         id: 'drivers',
@@ -1383,10 +1383,24 @@ export function MobileHomeNativeView() {
           {/* View All Button linking to respective portal */}
           <div className="px-4 pt-1">
             <Link
-              href={curService?.href || '/#listings-results'}
-              className="w-full h-12 rounded-2xl border border-[#D0D5DD] bg-white text-[#101828] font-bold text-[15px] flex items-center justify-center gap-2 hover:bg-slate-50 transition active:scale-[0.99] shadow-2xs"
+              href={
+                curService.id === 'rent_car'
+                  ? `/cars?city=${encodeURIComponent(city)}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`
+                  : curService.id === 'drivers'
+                  ? `/drivers?city=${encodeURIComponent(city)}`
+                  : curService.id === 'pick_and_drop'
+                  ? `/shuttles?city=${encodeURIComponent(city)}`
+                  : curService.id === 'movers'
+                  ? `/movers?city=${encodeURIComponent(city)}`
+                  : curService.href
+              }
+              className="w-full h-12 rounded-2xl border border-[#D0D5DD] bg-white text-[#101828] font-bold text-[15px] flex items-center justify-center gap-2 hover:bg-slate-50 transition active:scale-[0.99] shadow-2xs cursor-pointer"
             >
-              <span>{curService?.goText || 'Show listings'}</span>
+              <span>
+                {activeServiceIdx === 0
+                  ? `Search all cars in ${city}`
+                  : curService?.goText || 'Show listings'}
+              </span>
               <ArrowRight className="w-4 h-4 stroke-[2.4]" />
             </Link>
           </div>
@@ -1396,29 +1410,45 @@ export function MobileHomeNativeView() {
         <section className="flex flex-col gap-2.5 px-4">
           <h2 className="font-heading font-black text-[19px] text-[#101828]">Book in three steps</h2>
           <div className="bg-white rounded-2xl border border-[#EEF0F2] flex flex-col shadow-2xs overflow-hidden">
-            <div className="flex gap-3 items-center p-3.5 border-b border-slate-100">
+            <button
+              type="button"
+              onClick={() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                setSearchSheetOpen(true);
+              }}
+              className="w-full text-left flex gap-3 items-center p-3.5 border-b border-slate-100 hover:bg-slate-50 transition cursor-pointer"
+            >
               <span className="w-8 h-8 rounded-full bg-[#0B6B4F] text-white font-heading font-black text-xs flex items-center justify-center shrink-0">
                 1
               </span>
-              <div className="flex flex-col">
+              <div className="flex flex-col flex-1 min-w-0">
                 <span className="font-bold text-sm text-[#101828]">Select Service</span>
-                <span className="text-xs text-[#667085]">Cars, Chauffeurs, City rides, Shuttles, or Movers</span>
+                <span className="text-xs text-[#667085] truncate">Cars, Chauffeurs, City rides, Shuttles, or Movers</span>
               </div>
-            </div>
-            <div className="flex gap-3 items-center p-3.5 border-b border-slate-100">
+              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+            </button>
+
+            <a
+              href="https://wa.me/923001234567?text=Hello%20SafarPK,%20I%20want%20to%20inquire%20about%20vehicle%20bookings"
+              target="_blank"
+              rel="noreferrer"
+              className="w-full text-left flex gap-3 items-center p-3.5 border-b border-slate-100 hover:bg-slate-50 transition cursor-pointer"
+            >
               <span className="w-8 h-8 rounded-full bg-[#0B6B4F] text-white font-heading font-black text-xs flex items-center justify-center shrink-0">
                 2
               </span>
-              <div className="flex flex-col">
+              <div className="flex flex-col flex-1 min-w-0">
                 <span className="font-bold text-sm text-[#101828]">Request on WhatsApp</span>
-                <span className="text-xs text-[#667085]">Direct communication with verified fleet hosts</span>
+                <span className="text-xs text-[#667085] truncate">Direct communication with verified fleet hosts</span>
               </div>
-            </div>
+              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+            </a>
+
             <div className="flex gap-3 items-center p-3.5">
               <span className="w-8 h-8 rounded-full bg-[#0B6B4F] text-white font-heading font-black text-xs flex items-center justify-center shrink-0">
                 3
               </span>
-              <div className="flex flex-col">
+              <div className="flex flex-col flex-1 min-w-0">
                 <span className="font-bold text-sm text-[#101828]">Pay on trip</span>
                 <span className="text-xs text-[#667085]">Zero advance deposit, inspect and pay directly</span>
               </div>
