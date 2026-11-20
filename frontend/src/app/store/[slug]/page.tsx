@@ -28,6 +28,7 @@ import {
   Truck,
   Bus,
   ArrowRight,
+  ChevronLeft,
   ExternalLink,
   ShieldCheck,
   Star,
@@ -282,9 +283,55 @@ export default function StorefrontPage() {
     <div className="min-h-screen bg-slate-50 flex flex-col justify-between font-sans text-slate-800">
       <AppHeader />
 
-      <main className="flex-1 pb-16">
+      {/* Mobile App Navigation Top Bar */}
+      <div className="md:hidden sticky top-0 z-40 bg-white border-b border-slate-200 px-3.5 py-2.5 flex items-center justify-between gap-2 shadow-2xs">
+        <button
+          type="button"
+          onClick={() => {
+            if (typeof window !== 'undefined' && window.history.length > 1) {
+              router.back();
+            } else {
+              router.push('/');
+            }
+          }}
+          className="w-10 h-10 rounded-2xl flex items-center justify-center bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-800 transition cursor-pointer shrink-0 shadow-2xs border border-slate-200/80"
+          aria-label="Back"
+        >
+          <ChevronLeft className="w-5 h-5 text-slate-800 stroke-[2.5]" />
+        </button>
+
+        <div className="flex-1 min-w-0 text-center px-1">
+          <span className="font-heading font-black text-sm text-slate-900 truncate block">
+            {store.name}
+          </span>
+          <span className="text-[10px] text-[#0B6B4F] font-bold block truncate">
+            {store.city} · Official Fleet Store
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={handleDirectWhatsApp}
+            className="w-10 h-10 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center transition active:scale-95 shadow-2xs"
+            aria-label="WhatsApp Store"
+          >
+            <WhatsAppIcon className="w-4 h-4 text-white" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowShareModal(true)}
+            className="w-10 h-10 rounded-2xl border border-slate-200/80 bg-white text-slate-700 flex items-center justify-center hover:bg-slate-50 transition active:scale-95 shadow-2xs"
+            aria-label="Share Store"
+          >
+            <Share2 className="w-4 h-4 text-slate-700" />
+          </button>
+        </div>
+      </div>
+
+      <main className="flex-1 pb-32 lg:pb-16">
         {/* Store Banner */}
-        <div className="relative h-48 sm:h-64 bg-slate-900 overflow-hidden">
+        <div className="relative h-32 sm:h-64 bg-slate-900 overflow-hidden">
           <img
             src={store.bannerImage}
             alt={store.name}
@@ -294,8 +341,8 @@ export default function StorefrontPage() {
         </div>
 
         {/* Store Profile Card Header */}
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 -mt-16 sm:-mt-20 relative z-10">
-          <div className="bg-white rounded-3xl p-5 sm:p-7 shadow-xl border border-slate-200/90 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 -mt-10 sm:-mt-20 relative z-10">
+          <div className="bg-white rounded-3xl p-4 sm:p-7 shadow-xl border border-slate-200/90 flex flex-col md:flex-row md:items-center justify-between gap-5 sm:gap-6">
             <div className="flex items-start sm:items-center gap-4 sm:gap-5">
               <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-emerald-800 text-white flex items-center justify-center font-heading font-black text-2xl sm:text-3xl shadow-md shrink-0 border-2 border-white">
                 {store.logoText}
@@ -868,7 +915,9 @@ export default function StorefrontPage() {
         </div>
       )}
 
-      <AppFooter />
+      <div className="hidden md:block">
+        <AppFooter />
+      </div>
       <MobileNavBar />
     </div>
   );

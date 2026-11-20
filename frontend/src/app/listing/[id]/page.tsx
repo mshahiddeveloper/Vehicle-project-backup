@@ -1000,9 +1000,9 @@ export default function ListingDetailPage() {
     <div className="min-h-screen bg-white font-sans text-[#101828] flex flex-col">
       <AppHeader />
 
-      <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-6 md:py-10 flex flex-col gap-6">
-        {/* Breadcrumb */}
-        <nav aria-label="Breadcrumb" className="text-sm text-[#667085] flex items-center gap-2">
+      <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-4 sm:py-6 md:py-10 flex flex-col gap-4 sm:gap-6 pb-28 lg:pb-12">
+        {/* Desktop Breadcrumb */}
+        <nav aria-label="Breadcrumb" className="hidden md:flex text-sm text-[#667085] items-center gap-2">
           <Link href="/" className="hover:text-[#101828]">
             Home
           </Link>
@@ -2145,11 +2145,11 @@ export default function ListingDetailPage() {
         </div>
       </main>
 
-      {/* Floating Sticky Booking Bar for Mobile */}
-      <div className="lg:hidden fixed bottom-14 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-2 flex items-center justify-between shadow-lg">
+      {/* Floating Sticky Booking Bar for Mobile (Clean, Bottom-0, Dedicated, Never Hidden Behind Menu) */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 py-2.5 flex items-center justify-between shadow-2xl">
         <div className="min-w-0 pr-2">
           <div className="flex items-baseline gap-1">
-            <span className="font-heading font-extrabold text-sm text-slate-900 truncate">
+            <span className="font-heading font-black text-sm sm:text-base text-slate-900 truncate">
               {formatPrice(withDriver ? car.dailyRateWithDriver : car.dailyRate)}
             </span>
             <span className="text-[10px] text-slate-500">/day</span>
@@ -2163,7 +2163,7 @@ export default function ListingDetailPage() {
           <button
             type="button"
             onClick={handleDirectHostCall}
-            className="w-9 h-9 rounded-xl border border-purple-200 bg-purple-50 text-purple-950 flex items-center justify-center shadow-2xs active:scale-95 transition"
+            className="w-10 h-10 rounded-2xl border border-purple-200 bg-purple-50 text-purple-950 flex items-center justify-center shadow-2xs active:scale-95 transition"
             title={hostPhoneRevealed ? `Call host directly: ${car.hostPhone}` : 'Click to call host'}
           >
             <Phone className="w-4 h-4 text-purple-600" />
@@ -2172,25 +2172,26 @@ export default function ListingDetailPage() {
           <button
             type="button"
             onClick={handleInstantWhatsAppChat}
-            className="h-9 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-extrabold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition"
+            className="h-10 px-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-extrabold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition"
           >
-            <WhatsAppIcon className="w-3.5 h-3.5 text-white shrink-0" />
+            <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
             <span>WhatsApp</span>
           </button>
 
           <button
             type="button"
             onClick={() => setStep(1)}
-            className="h-9 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-heading font-extrabold text-xs flex items-center gap-1 shadow-sm active:scale-95 transition"
+            className="h-10 px-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-heading font-extrabold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition"
           >
-            <CalendarCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <CalendarCheck className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>Book</span>
           </button>
         </div>
       </div>
 
-      <AppFooter />
-      <MobileNavBar />
+      <div className="hidden md:block">
+        <AppFooter />
+      </div>
     </div>
   );
 }

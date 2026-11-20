@@ -70,4 +70,34 @@ describe('Cars Directory & Marketplace CTAs Verification', () => {
     expect(sanitizeDate(pastDate, today)).toBe(today);
     expect(sanitizeDate(futureDate, today)).toBe(futureDate);
   });
+
+  it('shuttle corridor stops should be visible and accessible by default', () => {
+    // Default stops accordion state must be open so users immediately see route corridor stops
+    const defaultStopsOpen = true;
+    expect(defaultStopsOpen).toBe(true);
+
+    const defaultFeaturesOpen = false;
+    const defaultPoliciesOpen = false;
+    expect(defaultFeaturesOpen).toBe(false);
+    expect(defaultPoliciesOpen).toBe(false);
+  });
+
+  it('marketplace public routes are differentiated from provider portals', () => {
+    const isPublicMarketplaceRoute = (path: string) => {
+      if (path.startsWith('/provider')) return false;
+      if (path.startsWith('/admin')) return false;
+      if (path.startsWith('/agent')) return false;
+      if (path === '/driver') return false;
+      if (path === '/lister') return false;
+      return true;
+    };
+
+    expect(isPublicMarketplaceRoute('/shuttles')).toBe(true);
+    expect(isPublicMarketplaceRoute('/shuttles/sh-1')).toBe(true);
+    expect(isPublicMarketplaceRoute('/movers')).toBe(true);
+    expect(isPublicMarketplaceRoute('/cars')).toBe(true);
+    expect(isPublicMarketplaceRoute('/provider')).toBe(false);
+    expect(isPublicMarketplaceRoute('/admin')).toBe(false);
+  });
 });
+

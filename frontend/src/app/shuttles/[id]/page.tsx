@@ -11,6 +11,7 @@ import { getStoreSlugForOwner } from '@/data/storefrontEngine';
 import { recordLead, recordClickEvent } from '@/data/activityTracker';
 import { getWhatsAppTargetUrl } from '@/data/chatEngine';
 import { useCountry } from '@/app/context/CountryContext';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import {
   MapPin,
   Calendar,
@@ -24,6 +25,7 @@ import {
   CheckCircle2,
   AlertCircle,
   ChevronDown,
+  ChevronLeft,
   Heart,
 } from 'lucide-react';
 
@@ -64,7 +66,7 @@ export default function ShuttleDetailPage() {
   const [pickupStop, setPickupStop] = useState('');
   const [inquirySuccess, setInquirySuccess] = useState(false);
   const [phoneRevealed, setPhoneRevealed] = useState(false);
-  const [stopsOpen, setStopsOpen] = useState(false);
+  const [stopsOpen, setStopsOpen] = useState(true);
   const [featuresOpen, setFeaturesOpen] = useState(false);
   const [policiesOpen, setPoliciesOpen] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
@@ -192,9 +194,54 @@ export default function ShuttleDetailPage() {
     <div className="min-h-screen bg-white font-sans text-[#101828] flex flex-col justify-between">
       <AppHeader />
 
-      <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-6 md:py-10 flex flex-col gap-6">
-        {/* Navigation Breadcrumb */}
-        <div className="flex items-center justify-between flex-wrap gap-2 text-sm text-[#667085]">
+      <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-4 sm:py-6 md:py-10 flex flex-col gap-4 sm:gap-6 pb-32 lg:pb-12">
+        {/* Mobile App Navigation Bar (Native App Look & Feel) */}
+        <div className="md:hidden flex items-center justify-between gap-2 pb-1">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="w-10 h-10 rounded-2xl flex items-center justify-center bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-800 transition cursor-pointer shrink-0 shadow-2xs border border-slate-200/80"
+            aria-label="Back"
+          >
+            <ChevronLeft className="w-5 h-5 text-slate-800 stroke-[2.5]" />
+          </button>
+
+          <div className="flex-1 min-w-0 text-center px-1">
+            <span className="font-heading font-black text-sm text-[#101828] truncate block">
+              {shuttle.from} ➔ {shuttle.to}
+            </span>
+            <span className="text-[10px] text-[#0B6B4F] font-bold block truncate">
+              {shuttle.city} · Pick & Drop Shuttle
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={handleCopyShare}
+              className="w-10 h-10 rounded-2xl border border-slate-200/80 bg-white text-slate-700 flex items-center justify-center hover:bg-slate-50 transition active:scale-95 shadow-2xs"
+              aria-label="Share route"
+            >
+              {copiedLink ? <Check className="w-4 h-4 text-emerald-600 stroke-[2.5]" /> : <Share2 className="w-4 h-4 text-slate-700" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleToggleSaveShuttle}
+              className={`w-10 h-10 rounded-2xl border flex items-center justify-center transition active:scale-95 shadow-2xs ${
+                isSaved
+                  ? 'border-rose-200 bg-rose-50 text-rose-700'
+                  : 'border-slate-200/80 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+              aria-label={isSaved ? 'Remove from wishlist' : 'Save to wishlist'}
+            >
+              <Heart className={`w-4 h-4 ${isSaved ? 'text-rose-600 fill-rose-600' : 'text-slate-700'}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* Desktop Navigation Breadcrumb */}
+        <div className="hidden md:flex items-center justify-between flex-wrap gap-2 text-sm text-[#667085]">
           <nav aria-label="Breadcrumb" className="flex items-center gap-2">
             <Link href="/" className="hover:text-[#101828]">
               Home
@@ -732,28 +779,40 @@ export default function ShuttleDetailPage() {
         </div>
       </main>
 
-      {/* Mobile Sticky Action Bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-3 bg-white border-t border-slate-200 shadow-xl flex items-center gap-2 z-40">
+      {/* Mobile App Sticky Action Bar (Direct, Elevated, Never Hidden Behind Menu) */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl flex items-center gap-2 z-50">
         <button
           type="button"
           onClick={handleCall}
-          className="flex-1 h-11 rounded-xl border border-teal-200 bg-teal-50 text-teal-900 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition"
+          className="flex-1 h-12 rounded-2xl border border-teal-200 bg-teal-50 text-teal-900 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition shadow-2xs"
+          title={phoneRevealed ? shuttle.phone : 'Click to call host'}
         >
-          <Phone className="w-3.5 h-3.5 text-teal-600" />
-          <span>{phoneRevealed ? shuttle.phone : 'Show Number'}</span>
+          <Phone className="w-4 h-4 text-teal-600 shrink-0" />
+          <span className="truncate">{phoneRevealed ? shuttle.phone : 'Call Host'}</span>
         </button>
+
         <button
           type="button"
           onClick={handleWhatsApp}
-          className="flex-1 h-11 rounded-xl bg-emerald-600 text-white text-xs font-bold flex items-center justify-center gap-1.5"
+          className="flex-1 h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
         >
-          <MessageSquare className="w-3.5 h-3.5 fill-white/20" />
+          <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
           <span>WhatsApp</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={scrollToBooking}
+          className="flex-1 h-12 rounded-2xl bg-[#101828] hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
+        >
+          <Calendar className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>Reserve Seat</span>
         </button>
       </div>
 
-      <AppFooter />
-      <MobileNavBar />
+      <div className="hidden md:block">
+        <AppFooter />
+      </div>
     </div>
   );
 }

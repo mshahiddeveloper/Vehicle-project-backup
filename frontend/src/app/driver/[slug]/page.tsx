@@ -14,6 +14,7 @@ import {
 import { recordLead, recordClickEvent } from '@/data/activityTracker';
 import { getWhatsAppTargetUrl } from '@/data/chatEngine';
 import { useCountry } from '@/app/context/CountryContext';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import {
   ShieldCheck,
   Phone,
@@ -232,28 +233,56 @@ export default function PublicDriverProfilePage() {
     <div className="min-h-screen bg-slate-50 font-sans text-[#101828] flex flex-col justify-between">
       <AppHeader />
 
-      <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-6 md:py-10 flex flex-col gap-6">
-        {/* Mobile Quick Back Bar */}
-        <div className="flex items-center justify-between gap-2 md:hidden">
+      <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-4 sm:py-6 md:py-10 flex flex-col gap-4 sm:gap-6 pb-32 lg:pb-12">
+        {/* Mobile Quick Back Bar (Native Mobile App Top Bar) */}
+        <div className="flex items-center justify-between gap-2 md:hidden pb-1">
           <button
             type="button"
             onClick={() => {
               if (typeof window !== 'undefined' && window.history.length > 1) {
                 router.back();
               } else {
-                router.push('/');
+                router.push('/drivers');
               }
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 active:scale-95 transition shadow-2xs cursor-pointer"
+            className="w-10 h-10 rounded-2xl flex items-center justify-center bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-800 transition cursor-pointer shrink-0 shadow-2xs border border-slate-200/80"
             aria-label="Back to drivers or home"
           >
-            <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
-            <span>Back</span>
+            <ChevronLeft className="w-5 h-5 text-slate-800 stroke-[2.5]" />
           </button>
-          <span className="text-xs font-bold text-slate-500 truncate">
-            {driver?.name || 'Driver Profile'}
-          </span>
-          <div className="w-12" />
+
+          <div className="flex-1 min-w-0 text-center px-1">
+            <span className="font-heading font-black text-sm text-[#101828] truncate block">
+              {driver?.name || 'Driver Profile'}
+            </span>
+            <span className="text-[10px] text-emerald-700 font-bold block truncate">
+              {driver?.city} · Verified Chauffeur
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={handleCopyShare}
+              className="w-10 h-10 rounded-2xl border border-slate-200/80 bg-white text-slate-700 flex items-center justify-center hover:bg-slate-50 transition active:scale-95 shadow-2xs"
+              aria-label="Share driver"
+            >
+              {copiedLink ? <Check className="w-4 h-4 text-emerald-600 stroke-[2.5]" /> : <Share2 className="w-4 h-4 text-slate-700" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleToggleSaveDriver}
+              className={`w-10 h-10 rounded-2xl border flex items-center justify-center transition active:scale-95 shadow-2xs ${
+                isSaved
+                  ? 'border-rose-200 bg-rose-50 text-rose-700'
+                  : 'border-slate-200/80 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+              aria-label={isSaved ? 'Remove from wishlist' : 'Save to wishlist'}
+            >
+              <Heart className={`w-4 h-4 ${isSaved ? 'text-rose-600 fill-rose-600' : 'text-slate-700'}`} />
+            </button>
+          </div>
         </div>
 
         {/* Navigation Breadcrumb */}
@@ -753,28 +782,40 @@ export default function PublicDriverProfilePage() {
         </div>
       </main>
 
-      {/* Mobile Sticky Action Bar (positioned cleanly above MobileNavBar) */}
-      <div className="lg:hidden fixed bottom-[58px] left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-lg flex items-center gap-2 z-40">
+      {/* Mobile App Sticky Action Bar (Direct, Elevated, Never Hidden Behind Menu) */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl flex items-center gap-2 z-50">
         <button
           type="button"
           onClick={handleCall}
-          className="flex-1 h-11 rounded-xl border border-purple-200 bg-purple-50 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer"
+          className="flex-1 h-12 rounded-2xl border border-purple-200 bg-purple-50 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer shadow-2xs"
+          title={phoneRevealed ? (driver?.phone || 'Available') : 'Show Number'}
         >
-          <Phone className="w-3.5 h-3.5 text-purple-600" />
-          <span>{phoneRevealed ? (driver?.phone || 'Available') : 'Show Number'}</span>
+          <Phone className="w-4 h-4 text-purple-600 shrink-0" />
+          <span className="truncate">{phoneRevealed ? (driver?.phone || 'Available') : 'Call Driver'}</span>
         </button>
+
         <button
           type="button"
           onClick={handleWhatsApp}
-          className="flex-1 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer"
+          className="flex-1 h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer shadow-md"
         >
-          <MessageSquare className="w-3.5 h-3.5 fill-white/20" />
+          <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
           <span>WhatsApp</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={scrollToBooking}
+          className="flex-1 h-12 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer shadow-md"
+        >
+          <Calendar className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>Hire Driver</span>
         </button>
       </div>
 
-      <AppFooter />
-      <MobileNavBar />
+      <div className="hidden md:block">
+        <AppFooter />
+      </div>
     </div>
   );
 }

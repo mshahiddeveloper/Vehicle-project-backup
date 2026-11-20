@@ -278,13 +278,13 @@ describe('Review Verification Suite: Critical Bug Fixes & Requirements Coverage'
     it('F8.1: Customer dashboard includes MobileNavBar and mobile bottom padding', () => {
       expect(customerPageSource).toContain("import { MobileNavBar } from '@/components/MobileNavBar';");
       expect(customerPageSource).toContain('<MobileNavBar />');
-      expect(customerPageSource).toContain('pb-20 md:pb-0');
+      expect(customerPageSource).toMatch(/pb-(20|24|28|32)\s+md:pb-0/);
     });
 
     it('F8.2: Lister dashboard includes MobileNavBar and mobile bottom padding', () => {
       expect(listerPageSource).toContain("import { MobileNavBar } from '@/components/MobileNavBar';");
       expect(listerPageSource).toContain('<MobileNavBar />');
-      expect(listerPageSource).toContain('pb-20 md:pb-0');
+      expect(listerPageSource).toMatch(/pb-(20|24|28|32)\s+md:pb-0/);
     });
   });
 

@@ -588,7 +588,7 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] font-sans text-[#101828] flex flex-col">
+    <div className="min-h-screen bg-[#F7F8FA] font-sans text-[#101828] flex flex-col pb-32 md:pb-0">
       <AppHeader />
 
       {/* MOBILE APP TOP BAR - Compact Native App Header (Visible strictly on mobile) */}
@@ -1854,7 +1854,9 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      <AppFooter />
+      <div className="hidden md:block">
+        <AppFooter />
+      </div>
       <MobileNavBar />
     </div>
   );

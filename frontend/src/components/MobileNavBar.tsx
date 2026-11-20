@@ -153,11 +153,8 @@ function MobileNavBarContent() {
 
     // 3. DRIVER DASHBOARD (/driver - Matching Page 24)
     // Only apply driver portal tabs when explicitly on /driver, not when browsing public driver profiles (/driver/[slug] or /drivers)
-    if (
-      pathname === '/driver' ||
-      (activeUser?.role === 'DRIVER' && !pathname.startsWith('/driver/') && !pathname.startsWith('/drivers'))
-    ) {
-      const isOverview = pathname === '/driver' && (currentTab === 'overview' || (!searchParams.get('tab') && !runtimeTab));
+    if (pathname === '/driver') {
+      const isOverview = currentTab === 'overview' || (!searchParams.get('tab') && !runtimeTab);
       const isRequests = currentTab === 'requests';
       const isDuty = currentTab === 'availability';
       const isInbox = pathname === '/inbox';
@@ -200,13 +197,14 @@ function MobileNavBarContent() {
       ];
     }
 
-    // 4. MOVERS / COMMERCIAL CARGO PROVIDER (Matching Page 26)
+    // 4. MOVERS / COMMERCIAL CARGO PROVIDER (/provider - Matching Page 26)
+    // Only apply provider portal tabs when on /provider with commercial cargo subtype
     if (
-      pathname.startsWith('/movers') ||
-      (pathname.startsWith('/provider') && activeUser?.providerSubtype === 'COMMERCIAL_CARGO')
+      pathname.startsWith('/provider') &&
+      activeUser?.providerSubtype === 'COMMERCIAL_CARGO'
     ) {
-      const isHome = pathname.startsWith('/provider') && (currentTab === 'overview' || (!searchParams.get('tab') && !runtimeTab));
-      const isTrucks = currentTab === 'fleet' || pathname === '/movers';
+      const isHome = currentTab === 'overview' || (!searchParams.get('tab') && !runtimeTab);
+      const isTrucks = currentTab === 'fleet';
       const isPricing = currentTab === 'pricing';
       const isInbox = pathname === '/inbox';
       const isAccount = pathname === '/settings';
@@ -248,14 +246,14 @@ function MobileNavBarContent() {
       ];
     }
 
-    // 5. PICK & DROP / SHUTTLE PROVIDER (Matching Page 25)
+    // 5. PICK & DROP / SHUTTLE PROVIDER (/provider - Matching Page 25)
+    // Only apply provider portal tabs when on /provider
     if (
-      pathname.startsWith('/shuttles') ||
-      (pathname.startsWith('/provider') && activeUser?.providerSubtype === 'PICK_AND_DROP') ||
-      (pathname.startsWith('/provider') && !activeUser?.providerSubtype)
+      pathname.startsWith('/provider') &&
+      (activeUser?.providerSubtype === 'PICK_AND_DROP' || !activeUser?.providerSubtype)
     ) {
-      const isHome = pathname.startsWith('/provider') && (currentTab === 'overview' || (!searchParams.get('tab') && !runtimeTab));
-      const isRoutes = currentTab === 'routes' || pathname === '/shuttles';
+      const isHome = currentTab === 'overview' || (!searchParams.get('tab') && !runtimeTab);
+      const isRoutes = currentTab === 'routes';
       const isTimings = currentTab === 'pricing';
       const isInbox = pathname === '/inbox';
       const isAccount = pathname === '/settings';
@@ -298,7 +296,7 @@ function MobileNavBarContent() {
     }
 
     // 6. OWNER / CAR RENTAL LISTER (/lister - Matching Page 14)
-    if (pathname.startsWith('/lister') || activeUser?.role === 'LISTER' || activeUser?.role === 'OWNER') {
+    if (pathname.startsWith('/lister')) {
       const isLister = pathname === '/lister';
       const isDashboard = isLister && (currentTab === 'overview' || (!searchParams.get('tab') && !runtimeTab));
       const isRequests = isLister && currentTab === 'requests';
