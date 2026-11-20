@@ -83,7 +83,8 @@ function DriverDashboardContent() {
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
       url.searchParams.set('tab', newTab);
-      window.history.replaceState(null, '', url.pathname + url.search);
+      const currentState = window.history.state;
+      window.history.replaceState(currentState, '', url.pathname + url.search);
       window.dispatchEvent(new CustomEvent('safarpk_active_tab_changed', { detail: { tab: newTab } }));
     }
   };
@@ -116,7 +117,8 @@ function DriverDashboardContent() {
         if (typeof window !== 'undefined') {
           const url = new URL(window.location.href);
           url.searchParams.set('tab', target);
-          window.history.replaceState(null, '', url.pathname + url.search);
+          const currentState = window.history.state;
+      window.history.replaceState(currentState, '', url.pathname + url.search);
         }
       }
     };

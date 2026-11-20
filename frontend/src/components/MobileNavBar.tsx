@@ -120,7 +120,11 @@ function MobileNavBarContent() {
     }
 
     // 3. DRIVER DASHBOARD (/driver - Matching Page 24)
-    if (pathname.startsWith('/driver') || activeUser?.role === 'DRIVER') {
+    // Only apply driver portal tabs when explicitly on /driver, not when browsing public driver profiles (/driver/[slug] or /drivers)
+    if (
+      pathname === '/driver' ||
+      (activeUser?.role === 'DRIVER' && !pathname.startsWith('/driver/') && !pathname.startsWith('/drivers'))
+    ) {
       const isOverview = pathname === '/driver' && (currentTab === 'overview' || (!searchParams.get('tab') && !runtimeTab));
       const isRequests = currentTab === 'requests';
       const isInbox = pathname === '/inbox';

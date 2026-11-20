@@ -378,11 +378,16 @@ export function getDriverProfileBySlug(slugOrId: string): DriverProfileData | nu
 
   // Build from registered user
   const u = matchedUser!;
+  const nameParts = (u.name || '').trim().split(/\s+/).filter(Boolean);
+  const initials = nameParts.length > 0
+    ? nameParts.map((n) => n[0] || '').join('').slice(0, 2).toUpperCase()
+    : 'DR';
+
   return {
     id: u.id,
-    slug: slugify(u.name),
-    name: u.name,
-    initials: u.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase(),
+    slug: slugify(u.name || 'driver'),
+    name: u.name || 'Professional Driver',
+    initials,
     tint: '#E9F3EE',
     phone: u.phone || '+92 300 8472910',
     whatsapp: u.phone ? u.phone.replace(/\D/g, '') : '923008472910',
@@ -408,14 +413,15 @@ export function getDriverProfileBySlug(slugOrId: string): DriverProfileData | nu
 }
 
 function buildDriverProfile(d: DriverCardItem, slug: string): DriverProfileData {
-  const yrsNum = parseInt(d.exp.replace(/\D/g, ''), 10) || 7;
+  const yrsNum = parseInt((d.exp || '').replace(/\D/g, ''), 10) || 7;
 
   // Infer licence categories
   const cats: string[] = ['Car / Sedan'];
-  if (d.category === 'Outstation' || d.tags.some((t) => t.includes('Motorway'))) {
+  const tags = Array.isArray(d.tags) ? d.tags : [];
+  if (d.category === 'Outstation' || tags.some((t) => t.includes('Motorway'))) {
     cats.push('LTV (Commercial)');
   }
-  if (yrsNum >= 12 || d.licenseNumber?.includes('HTV')) {
+  if (yrsNum >= 12 || (d.licenseNumber && d.licenseNumber.includes('HTV'))) {
     cats.push('HTV (Heavy Truck)');
   }
   if (d.category === 'VIP Executive') {
@@ -434,13 +440,13 @@ function buildDriverProfile(d: DriverCardItem, slug: string): DriverProfileData 
     id: d.id,
     slug: slugify(d.name),
     name: d.name,
-    initials: d.initials,
-    tint: d.tint,
+    initials: d.initials || 'DR',
+    tint: d.tint || '#E9F3EE',
     phone: d.phone,
     whatsapp: d.whatsapp,
     city: d.city,
-    avail: d.avail,
-    exp: d.exp,
+    avail: d.avail || 'Available',
+    exp: d.exp || '7 years',
     yearsExpNum: yrsNum,
     langs: d.langs ? d.langs.split(',').map((s) => s.trim()) : ['Urdu', 'English'],
     bio: `${d.name} is an experienced independent chauffeur based in ${d.city} with ${d.exp}. Specializes in smooth driving, motorway navigation, and corporate protocol.`,
@@ -456,10 +462,10 @@ function buildDriverProfile(d: DriverCardItem, slug: string): DriverProfileData 
     workPreference: 'Self-Employed & Direct Hire',
     driverOnlyService: true,
     dailyRate12h: d.city12Num || 2500,
-    outstationDailyRate: parseInt(d.out.replace(/\D/g, ''), 10) || 3500,
-    monthlySalaryEstimate: parseInt(d.monthly.replace(/\D/g, ''), 10) || 45000,
-    tags: d.tags || ['Punctual', 'Verified Licence', 'Family Safe'],
-    policeVerified: d.police || true,
+    outstationDailyRate: parseInt((d.out || '').replace(/\D/g, ''), 10) || 3500,
+    monthlySalaryEstimate: parseInt((d.monthly || '').replace(/\D/g, ''), 10) || 45000,
+    tags: tags.length > 0 ? tags : ['Punctual', 'Verified Licence', 'Family Safe'],
+    policeVerified: d.police !== undefined ? d.police : true,
     joinedDate: 'Joined March 2024',
   };
 }

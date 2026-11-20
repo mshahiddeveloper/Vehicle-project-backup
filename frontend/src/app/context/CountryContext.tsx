@@ -80,8 +80,14 @@ export const CountryProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem('safarpk_selected_country', JSON.stringify(newCountry));
       try {
         const url = new URL(window.location.href);
-        url.searchParams.set('country', newCountry.code);
-        window.history.replaceState({}, '', url.toString());
+        if (newCountry.code !== 'PK') {
+          url.searchParams.set('country', newCountry.code);
+        } else {
+          url.searchParams.delete('country');
+        }
+        // Preserve Next.js internal history.state to prevent client-side exception on back navigation
+        const currentState = window.history.state;
+        window.history.replaceState(currentState, '', url.pathname + url.search + url.hash);
       } catch (e) {}
       window.dispatchEvent(new CustomEvent('safarpk_country_changed', { detail: newCountry }));
     }

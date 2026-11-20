@@ -278,7 +278,7 @@ export function MobileHomeNativeView() {
     []
   );
 
-  const curService = services[activeServiceIdx];
+  const curService = services[activeServiceIdx] || services[0];
 
   // Dynamic Service Datasets Filtered by Location
   const filteredCars = useMemo(() => {
@@ -346,10 +346,13 @@ export function MobileHomeNativeView() {
   }, [city, searchWhere]);
 
   const userInitials = useMemo(() => {
-    if (!activeUser || !activeUser.name) return 'HA';
-    const parts = activeUser.name.trim().split(/\s+/);
+    if (!activeUser?.name?.trim()) return 'HA';
+    const parts = activeUser.name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'HA';
     if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    const first = parts[0][0] || 'U';
+    const last = parts[parts.length - 1][0] || '';
+    return (first + last).toUpperCase();
   }, [activeUser]);
 
   return (
@@ -427,7 +430,7 @@ export function MobileHomeNativeView() {
             >
               <Search className="w-3.5 h-3.5 text-slate-600 shrink-0" />
               <span className="truncate font-semibold text-slate-800">
-                {curService.title} in {city}...
+                {curService?.title || 'Rent a Car'} in {city}...
               </span>
             </button>
           </div>
@@ -649,7 +652,7 @@ export function MobileHomeNativeView() {
             {activeServiceIdx === 0 &&
               filteredCars.slice(0, 8).map((car) => {
                 const isSaved = savedCarIds.includes(car.id);
-                const cleanPhone = car.phone.replace(/[^0-9]/g, '');
+                const cleanPhone = (car.phone || '').replace(/[^0-9]/g, '');
 
                 return (
                   <div
@@ -751,7 +754,7 @@ export function MobileHomeNativeView() {
             {/* 2. DRIVERS CARDS */}
             {activeServiceIdx === 1 &&
               filteredDrivers.map((driver) => {
-                const cleanPhone = driver.phone.replace(/[^0-9]/g, '');
+                const cleanPhone = (driver.phone || '').replace(/[^0-9]/g, '');
 
                 return (
                   <div
@@ -796,14 +799,14 @@ export function MobileHomeNativeView() {
                       <div className="flex items-center justify-between gap-2 mt-2 pt-1 border-t border-slate-50">
                         <div>
                           <span className="font-heading font-extrabold text-[15px] text-[#101828]">
-                            {driver.city12}
+                            {driver.city12 || 'Rs. 2,500'}
                           </span>
                           <span className="text-[11px] text-[#667085]"> /12h</span>
                         </div>
 
                         <div className="flex items-center gap-1.5">
                           <a
-                            href={`tel:${driver.phone}`}
+                            href={`tel:${driver.phone || ''}`}
                             className="w-9 h-9 rounded-xl bg-[#F2F4F7] hover:bg-slate-200 text-[#101828] flex items-center justify-center transition active:scale-95"
                             title="Call Driver"
                           >
@@ -811,7 +814,7 @@ export function MobileHomeNativeView() {
                           </a>
                           <a
                             href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-                              `Assalam o Alaikum, inquiring about driver duty (${driver.city12}/12h) in ${driver.city} on SafarPK.`
+                              `Assalam o Alaikum, inquiring about driver duty (${driver.city12 || 'city duty'}/12h) in ${driver.city || 'Pakistan'} on SafarPK.`
                             )}`}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -830,7 +833,7 @@ export function MobileHomeNativeView() {
             {/* 3. CITY TO CITY RIDES */}
             {activeServiceIdx === 2 &&
               filteredRides.map((ride) => {
-                const cleanPhone = ride.phone.replace(/[^0-9]/g, '');
+                const cleanPhone = (ride.phone || '').replace(/[^0-9]/g, '');
 
                 return (
                   <div
@@ -880,7 +883,7 @@ export function MobileHomeNativeView() {
 
                       <div className="flex items-center gap-1.5">
                         <a
-                          href={`tel:${ride.phone}`}
+                          href={`tel:${ride.phone || ''}`}
                           className="w-9 h-9 rounded-xl bg-[#F2F4F7] hover:bg-slate-200 text-[#101828] flex items-center justify-center transition active:scale-95"
                           title="Call Operator"
                         >
@@ -906,7 +909,7 @@ export function MobileHomeNativeView() {
             {/* 4. PICK & DROP SHUTTLES */}
             {activeServiceIdx === 3 &&
               filteredShuttles.map((shuttle) => {
-                const cleanPhone = shuttle.phone.replace(/[^0-9]/g, '');
+                const cleanPhone = (shuttle.phone || '').replace(/[^0-9]/g, '');
 
                 return (
                   <div
@@ -952,7 +955,7 @@ export function MobileHomeNativeView() {
 
                       <div className="flex items-center gap-1.5">
                         <a
-                          href={`tel:${shuttle.phone}`}
+                          href={`tel:${shuttle.phone || ''}`}
                           className="w-9 h-9 rounded-xl bg-[#F2F4F7] hover:bg-slate-200 text-[#101828] flex items-center justify-center transition active:scale-95"
                           title="Call Shuttle Service"
                         >
@@ -978,7 +981,7 @@ export function MobileHomeNativeView() {
             {/* 5. MOVERS */}
             {activeServiceIdx === 4 &&
               filteredMovers.map((mover) => {
-                const cleanPhone = mover.phone.replace(/[^0-9]/g, '');
+                const cleanPhone = (mover.phone || '').replace(/[^0-9]/g, '');
 
                 return (
                   <div
@@ -1015,7 +1018,7 @@ export function MobileHomeNativeView() {
 
                       <div className="flex items-center gap-1.5">
                         <a
-                          href={`tel:${mover.phone}`}
+                          href={`tel:${mover.phone || ''}`}
                           className="w-9 h-9 rounded-xl bg-[#F2F4F7] hover:bg-slate-200 text-[#101828] flex items-center justify-center transition active:scale-95"
                           title="Call Mover"
                         >
@@ -1042,10 +1045,10 @@ export function MobileHomeNativeView() {
           {/* View All Button linking to respective portal */}
           <div className="px-4 pt-1">
             <Link
-              href={curService.href}
+              href={curService?.href || '/#listings-results'}
               className="w-full h-12 rounded-2xl border border-[#D0D5DD] bg-white text-[#101828] font-bold text-[15px] flex items-center justify-center gap-2 hover:bg-slate-50 transition active:scale-[0.99] shadow-2xs"
             >
-              <span>{curService.goText}</span>
+              <span>{curService?.goText || 'Show listings'}</span>
               <ArrowRight className="w-4 h-4 stroke-[2.4]" />
             </Link>
           </div>
@@ -1159,7 +1162,7 @@ export function MobileHomeNativeView() {
 
             <div className="flex items-center justify-between pb-1">
               <h3 className="font-heading font-extrabold text-[20px] text-[#101828]">
-                {curService.title}
+                {curService?.title || 'Rent a Car'}
               </h3>
               <button
                 type="button"

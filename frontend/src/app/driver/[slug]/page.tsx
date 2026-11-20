@@ -38,7 +38,7 @@ import {
 export default function PublicDriverProfilePage() {
   const params = useParams();
   const router = useRouter();
-  const slug = (params?.slug as string) || '';
+  const slug = (params?.slug as string) || (params?.id as string) || '';
   const { country, formatPrice } = useCountry();
   const isPakistan = !country || country.code === 'PK';
 
@@ -172,7 +172,7 @@ export default function PublicDriverProfilePage() {
       notes: `Direct call to chauffeur ${driver.name}`,
     });
     if (phoneRevealed) {
-      window.location.href = `tel:${driver.phone.replace(/[^0-9+]/g, '')}`;
+      window.location.href = `tel:${(driver?.phone || '').replace(/[^0-9+]/g, '')}`;
     }
   };
 
@@ -211,7 +211,7 @@ export default function PublicDriverProfilePage() {
         : 'Monthly Dedicated Chauffeur';
 
     const text = `Assalam-o-Alaikum ${driver.name},\n\nI want to hire you as a ${isPakistan ? 'verified driver' : 'professional chauffeur'} via SafarPK:\n• Duty Type: ${dutyLabel}\n• Starting Date: ${startDate}\n• Estimated Rate: ${currentRateDisplay}\n\nPlease let me know if you are available and confirm your rate.`;
-    const waUrl = getWhatsAppTargetUrl(driver.whatsapp || driver.phone, text);
+    const waUrl = getWhatsAppTargetUrl(driver?.whatsapp || driver?.phone || '', text);
     window.open(waUrl, '_blank');
   };
 
@@ -233,8 +233,31 @@ export default function PublicDriverProfilePage() {
       <AppHeader />
 
       <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-6 md:py-10 flex flex-col gap-6">
+        {/* Mobile Quick Back Bar */}
+        <div className="flex items-center justify-between gap-2 md:hidden">
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.history.length > 1) {
+                router.back();
+              } else {
+                router.push('/');
+              }
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 active:scale-95 transition shadow-2xs cursor-pointer"
+            aria-label="Back to drivers or home"
+          >
+            <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
+            <span>Back</span>
+          </button>
+          <span className="text-xs font-bold text-slate-500 truncate">
+            {driver?.name || 'Driver Profile'}
+          </span>
+          <div className="w-12" />
+        </div>
+
         {/* Navigation Breadcrumb */}
-        <div className="flex items-center justify-between flex-wrap gap-2 text-sm text-[#667085]">
+        <div className="hidden md:flex items-center justify-between flex-wrap gap-2 text-sm text-[#667085]">
           <nav aria-label="Breadcrumb" className="flex items-center gap-2">
             <Link href="/" className="hover:text-[#101828]">
               Home
@@ -341,7 +364,7 @@ export default function PublicDriverProfilePage() {
               </p>
 
               <p className="text-xs text-slate-500 pt-0.5">
-                Speaks: <span className="font-medium text-slate-700">{driver.langs.join(', ')}</span> · {driver.joinedDate}
+                Speaks: <span className="font-medium text-slate-700">{(driver.langs || []).join(', ')}</span> · {driver.joinedDate}
               </p>
             </div>
           </div>
@@ -714,7 +737,7 @@ export default function PublicDriverProfilePage() {
                   type="submit"
                   className="w-full h-9 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition cursor-pointer"
                 >
-                  Send Inquiry to {driver.name.split(' ')[0]}
+                  Send Inquiry to {(driver?.name || 'Driver').split(' ')[0]}
                 </button>
               </form>
             )}
@@ -722,20 +745,20 @@ export default function PublicDriverProfilePage() {
         </div>
       </main>
 
-      {/* Mobile Sticky Action Bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-3 bg-white border-t border-slate-200 shadow-xl flex items-center gap-2 z-40">
+      {/* Mobile Sticky Action Bar (positioned cleanly above MobileNavBar) */}
+      <div className="lg:hidden fixed bottom-[58px] left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-lg flex items-center gap-2 z-40">
         <button
           type="button"
           onClick={handleCall}
-          className="flex-1 h-11 rounded-xl border border-purple-200 bg-purple-50 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition"
+          className="flex-1 h-11 rounded-xl border border-purple-200 bg-purple-50 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer"
         >
           <Phone className="w-3.5 h-3.5 text-purple-600" />
-          <span>{phoneRevealed ? driver.phone : 'Show Number'}</span>
+          <span>{phoneRevealed ? (driver?.phone || 'Available') : 'Show Number'}</span>
         </button>
         <button
           type="button"
           onClick={handleWhatsApp}
-          className="flex-1 h-11 rounded-xl bg-emerald-600 text-white text-xs font-bold flex items-center justify-center gap-1.5"
+          className="flex-1 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer"
         >
           <MessageSquare className="w-3.5 h-3.5 fill-white/20" />
           <span>WhatsApp</span>
