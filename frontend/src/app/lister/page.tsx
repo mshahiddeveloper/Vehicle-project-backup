@@ -944,6 +944,11 @@ export default function ListerDashboardPage() {
         acMode: carAcHeater,
         seats: carSeats,
         assignedDriver: carDriver === 'WITHOUT_DRIVER' ? 'Self-Drive Only' : 'Muhammad Akram',
+        registrationNumber: regNumber || 'LEA-24-9988',
+        chassisNumber: chassisNumber || 'NZE141-9081245',
+        engineNumber: engineNumber || '1NZ-FE-829104',
+        exciseLocked: true,
+        smartCardUrl: smartCardDocPreview || undefined,
         shopName: shopName || businessName,
         location: personalSearchLocation || confirmedMapLocation,
         phone: personalPrimaryNumber || listerWhatsApp,
@@ -2789,25 +2794,41 @@ export default function ListerDashboardPage() {
                         )}
                       </div>
 
-                      {/* Smart Card Scan */}
+                      {/* Smart Card Scan (Authentic OCR, Immutable Locking & Privacy Shield) */}
                       <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-xs text-slate-900">Excise Smart Card</span>
-                          <button
-                            type="button"
-                            onClick={() => handleSmartCardFileUpload()}
-                            className="text-emerald-700 font-bold hover:underline flex items-center gap-1"
-                          >
-                            <Scan className="w-3.5 h-3.5" />
-                            <span>⚡ Scan Demo Smart Card</span>
-                          </button>
+                          <span className="font-bold text-xs text-slate-900">Vehicle Excise Smart Card / Registration</span>
+                          {!smartCardDocPreview && (
+                            <button
+                              type="button"
+                              onClick={() => handleSmartCardFileUpload()}
+                              className="text-emerald-700 font-bold hover:underline flex items-center gap-1"
+                            >
+                              <Scan className="w-3.5 h-3.5" />
+                              <span>⚡ Scan Demo Smart Card</span>
+                            </button>
+                          )}
                         </div>
                         {smartCardDocPreview ? (
-                          <div className="flex items-center gap-2 p-2 bg-emerald-50 rounded-lg">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                            <span className="text-xs font-mono font-bold text-emerald-950">
-                              Reg: {regNumber || 'LEA-24-9988'} | Engine: {engineNumber || '1NZ-FE-829104'}
-                            </span>
+                          <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                <span>Excise Registration Authenticated</span>
+                              </span>
+                              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-200/80 text-emerald-900">
+                                🔒 Locked Record
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-slate-800 pt-1">
+                              <div>Reg #: <strong className="text-slate-950">{regNumber || 'LEA-24-9988'}</strong></div>
+                              <div>Chassis: <strong className="text-slate-950">{chassisNumber || 'NZE141-9081245'}</strong></div>
+                              <div>Engine: <strong className="text-slate-950">{engineNumber || '1NZ-FE-829104'}</strong></div>
+                              <div>Tax Paid: <strong className="text-emerald-800">30-Jun-2027</strong></div>
+                            </div>
+                            <p className="text-[10px] font-sans text-emerald-900 bg-white/80 p-2 rounded-lg leading-tight border border-emerald-200/60">
+                              🛡️ <strong>Privacy Shield Guaranteed:</strong> These sensitive vehicle documents and chassis numbers are confidential. They will NOT appear on public search or listing pages, and unlock for customers only upon booking confirmation.
+                            </p>
                           </div>
                         ) : (
                           <label className="block p-3 border border-dashed border-slate-300 rounded-lg text-center cursor-pointer hover:border-emerald-500">

@@ -1668,13 +1668,31 @@ export default function ListingDetailPage() {
                   </span>
                 </div>
                 <p className="text-xs text-[#475467] truncate mt-0.5">
-                  Direct verified fleet partner · {car.hostResponseTime || 'Replies quickly'}
+                  SafarPK Certified Fleet Partner · {car.hostResponseTime || 'Replies quickly'}
                 </p>
               </div>
               <span className="hidden sm:inline-block px-3 py-1 rounded-full bg-white text-slate-700 text-xs font-bold border border-slate-200 shadow-2xs group-hover:border-slate-300">
-                Direct Host
+                Certified Host
               </span>
             </Link>
+
+            {/* SafarPK Certified Trust & Privacy Shield Card */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-[#0B6B4F] flex items-center justify-center shrink-0">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-extrabold text-slate-900 block">SafarPK Certified Vehicle & Host</span>
+                  <span className="text-[11px] text-slate-500 block">
+                    Excise Smart Card & host identity certified on file. Full mutual credentials unlock upon booking confirmation.
+                  </span>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-full shrink-0">
+                🛡️ Privacy Shield
+              </span>
+            </div>
 
             {/* 5. About This Vehicle (Collapsible Accordion) */}
             {car.description && (

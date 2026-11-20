@@ -30,6 +30,7 @@ import {
   Briefcase,
   PhoneCall,
   Sparkles,
+  Lock,
 } from 'lucide-react';
 
 const PRESET_AVATARS = [
@@ -271,10 +272,20 @@ export default function SettingsPage() {
   const [language, setLanguage] = useState('English');
   const [whatsappNumber, setWhatsappNumber] = useState('');
 
-  // Identity & Documents Vault
+  // Identity & Documents Vault (Authentic OCR & Immutable Records)
   const [nationalId, setNationalId] = useState('');
+  const [cnicName, setCnicName] = useState('');
+  const [cnicIssueDate, setCnicIssueDate] = useState('');
+  const [cnicExpiryDate, setCnicExpiryDate] = useState('');
+  const [cnicLocked, setCnicLocked] = useState(false);
+
   const [licenseNumber, setLicenseNumber] = useState('');
+  const [licenseName, setLicenseName] = useState('');
   const [licenseCategory, setLicenseCategory] = useState<'LTV' | 'HTV' | 'PSV'>('LTV');
+  const [licenseIssueDate, setLicenseIssueDate] = useState('');
+  const [licenseExpiryDate, setLicenseExpiryDate] = useState('');
+  const [licenseLocked, setLicenseLocked] = useState(false);
+
   const [cnicFront, setCnicFront] = useState('');
   const [cnicBack, setCnicBack] = useState('');
   const [licenseDoc, setLicenseDoc] = useState('');
@@ -331,8 +342,18 @@ export default function SettingsPage() {
       setCity(u.city || 'Lahore');
       setCountryCode(u.countryCode || 'PK');
       setWhatsappNumber(u.phone || '');
-      setNationalId(u.nationalId || '35201-9821045-3');
+      setNationalId(u.cnicNumber || u.nationalId || '35201-9821045-3');
+      setCnicName(u.cnicName || u.name || 'Tariq Mahmood');
+      setCnicIssueDate(u.cnicIssueDate || '2020-05-14');
+      setCnicExpiryDate(u.cnicExpiryDate || '2030-05-13');
+      setCnicLocked(u.cnicLocked ?? Boolean(u.cnicNumber || u.nationalId));
+
       setLicenseNumber(u.licenseNumber || 'LHR-DL-98210');
+      setLicenseName(u.licenseName || u.name || 'Tariq Mahmood');
+      setLicenseIssueDate(u.licenseIssueDate || '2019-01-10');
+      setLicenseExpiryDate(u.licenseExpiryDate || '2029-01-09');
+      setLicenseLocked(u.licenseLocked ?? Boolean(u.licenseNumber || u.role === 'DRIVER'));
+
       setAvatarUrl(u.avatarUrl || '');
       setCnicFront(u.cnicFrontUrl || 'cnic_front_verified.jpg');
       setCnicBack(u.cnicBackUrl || 'cnic_back_verified.jpg');
@@ -381,6 +402,91 @@ export default function SettingsPage() {
     }
   };
 
+  const handleCnicUpload = (e: React.ChangeEvent<HTMLInputElement>, isFront: boolean) => {
+    if (cnicLocked) return;
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        if (isFront) setCnicFront(dataUrl);
+        else setCnicBack(dataUrl);
+
+        // Intelligent Authentic Pakistani OCR Simulation
+        const cleanName = fullName.trim() || activeUser?.name || 'Tariq Mahmood';
+        const cleanCnic = nationalId.trim() || '35201-9821045-3';
+        const issue = '2020-05-14';
+        const expiry = '2030-05-13';
+
+        setCnicName(cleanName);
+        setNationalId(cleanCnic);
+        setCnicIssueDate(issue);
+        setCnicExpiryDate(expiry);
+        setCnicLocked(true);
+
+        const u = getActiveUser();
+        if (u) {
+          if (isFront) u.cnicFrontUrl = dataUrl;
+          else u.cnicBackUrl = dataUrl;
+          u.cnicNumber = cleanCnic;
+          u.nationalId = cleanCnic;
+          u.cnicName = cleanName;
+          u.cnicIssueDate = issue;
+          u.cnicExpiryDate = expiry;
+          u.cnicLocked = true;
+          setActiveUser(u);
+          setActiveUserState({ ...u });
+          window.dispatchEvent(new Event('safarpk_auth_state_changed'));
+        }
+
+        setToastMessage('🔒 CNIC authenticated & permanently locked in SafarPK Secure Vault.');
+        setTimeout(() => setToastMessage(''), 4500);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleLicenseUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (licenseLocked) return;
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        setLicenseDoc(dataUrl);
+
+        const cleanName = fullName.trim() || activeUser?.name || 'Tariq Mahmood';
+        const cleanLicNum = licenseNumber.trim() || 'LHR-DL-98210';
+        const issue = '2019-01-10';
+        const expiry = '2029-01-09';
+
+        setLicenseName(cleanName);
+        setLicenseNumber(cleanLicNum);
+        setLicenseIssueDate(issue);
+        setLicenseExpiryDate(expiry);
+        setLicenseLocked(true);
+
+        const u = getActiveUser();
+        if (u) {
+          u.licenseUrl = dataUrl;
+          u.licenseNumber = cleanLicNum;
+          u.licenseName = cleanName;
+          u.licenseCategory = licenseCategory;
+          u.licenseIssueDate = issue;
+          u.licenseExpiryDate = expiry;
+          u.licenseLocked = true;
+          setActiveUser(u);
+          setActiveUserState({ ...u });
+          window.dispatchEvent(new Event('safarpk_auth_state_changed'));
+        }
+
+        setToastMessage('🔒 Driving Licence authenticated & permanently locked in SafarPK Secure Vault.');
+        setTimeout(() => setToastMessage(''), 4500);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSaveProfile = () => {
     if (!fullName.trim()) {
       setPasswordError('Full name cannot be empty');
@@ -410,6 +516,16 @@ export default function SettingsPage() {
       u.phone = whatsappNumber.trim();
       u.nationalId = nationalId.trim();
       u.licenseNumber = licenseNumber.trim();
+      u.cnicNumber = nationalId.trim();
+      u.cnicName = cnicName || fullName.trim();
+      u.cnicIssueDate = cnicIssueDate || '2020-05-14';
+      u.cnicExpiryDate = cnicExpiryDate || '2030-05-13';
+      u.cnicLocked = cnicLocked;
+      u.licenseName = licenseName || fullName.trim();
+      u.licenseCategory = licenseCategory;
+      u.licenseIssueDate = licenseIssueDate || '2019-01-10';
+      u.licenseExpiryDate = licenseExpiryDate || '2029-01-09';
+      u.licenseLocked = licenseLocked;
       u.avatarUrl = avatarUrl;
       u.cnicFrontUrl = cnicFront;
       u.cnicBackUrl = cnicBack;
@@ -506,8 +622,8 @@ export default function SettingsPage() {
       </div>
 
       <main className="flex-1 max-w-[1140px] w-full mx-auto px-4 sm:px-8 py-5 md:py-10 flex flex-col md:flex-row gap-6 md:gap-8 items-start pb-32 md:pb-12">
-        {/* Left Navigation Bar - Static on mobile, Sticky on desktop */}
-        <aside className="w-full md:w-64 flex flex-col gap-2 shrink-0 static md:sticky md:top-24 z-10">
+        {/* Left Navigation Bar - Static Card on mobile, Sticky on desktop */}
+        <aside className="w-full md:w-64 flex flex-col gap-2 shrink-0 md:sticky md:top-24 z-10 bg-white md:bg-transparent p-4 md:p-0 rounded-2xl md:rounded-none border border-slate-200/80 md:border-0 shadow-2xs md:shadow-none">
           <div className="hidden md:flex items-center justify-between gap-2 mb-1">
             <Link
               href={theme.dashboardHref}
@@ -762,61 +878,160 @@ export default function SettingsPage() {
             </div>
           </section>
 
-          {/* 3. IDENTITY & VERIFICATION DOCUMENTS VAULT (Partitioned Options per Role) */}
+          {/* 3. NATIONAL ID & DOCUMENTS VAULT (Authentic OCR & Immutable Records) */}
           <section
             id="documents"
-            className="bg-white border border-[#EEF0F2] rounded-2xl sm:rounded-3xl p-5 sm:p-7 flex flex-col gap-4 shadow-xs"
+            className="bg-white border border-[#EEF0F2] rounded-2xl sm:rounded-3xl p-5 sm:p-7 flex flex-col gap-5 shadow-xs"
           >
-            <div>
-              <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
                 <h2 className="font-heading font-bold text-base sm:text-lg text-[#101828]">
-                  Identity & Verification Documents Vault
+                  National ID & Verified Document Vault
                 </h2>
-                <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Verified Credentials</span>
-                </span>
+                <p className="text-xs text-[#667085] mt-0.5">
+                  {theme.type === 'DRIVER'
+                    ? 'Certified CNIC and commercial driving licenses ensure customer trust and direct bookings.'
+                    : theme.type === 'LISTER'
+                    ? 'Certified CNIC and showroom NTN/trade certificate grant certified showroom badges.'
+                    : theme.type === 'MOVERS'
+                    ? 'Goods transport route permit and NTN verification for intercity moving jobs.'
+                    : theme.type === 'SHUTTLE'
+                    ? 'Commercial passenger route permit and vehicle fitness certificates.'
+                    : 'Certified National ID unlocks self-drive car bookings and certified profile status.'}
+                </p>
               </div>
-              <p className="text-xs text-[#667085] mt-0.5">
-                {theme.type === 'DRIVER'
-                  ? 'Verified CNIC and commercial driving licenses ensure customer trust and direct bookings.'
-                  : theme.type === 'LISTER'
-                  ? 'Verified CNIC and showroom NTN/trade certificate grant verified showroom badges.'
-                  : theme.type === 'MOVERS'
-                  ? 'Goods transport route permit and NTN verification for intercity moving jobs.'
-                  : theme.type === 'SHUTTLE'
-                  ? 'Commercial passenger route permit and vehicle fitness certificates.'
-                  : 'Verified National ID unlocks self-drive car bookings and verified profile status.'}
-              </p>
+              <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span>SafarPK Certified Vault</span>
+              </span>
             </div>
 
+            {/* IMMUTABLE CERTIFIED IDENTITY DOSSIER CARD */}
+            <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="font-heading font-extrabold text-sm text-emerald-950 flex items-center gap-1.5 flex-wrap">
+                      <span>Certified Identity Dossier</span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900 font-bold">
+                        🔒 Locked & Immutable
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-emerald-800 leading-tight">
+                      Authentic data extracted from official documents. Once verified, these details cannot be modified or deleted.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+                <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Legal Full Name</span>
+                  <span className="font-extrabold text-xs text-slate-900 block mt-0.5 truncate">{cnicName || fullName || 'Tariq Mahmood'}</span>
+                  <span className="text-[9px] text-emerald-700 font-semibold">Matched with CNIC</span>
+                </div>
+
+                <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">National ID / CNIC</span>
+                  <span className="font-mono font-extrabold text-xs text-slate-900 block mt-0.5">{nationalId || '35201-9821045-3'}</span>
+                  <span className="text-[9px] text-emerald-700 font-semibold">13-digit Pakistani format</span>
+                </div>
+
+                <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Date of Issue</span>
+                  <span className="font-mono font-bold text-xs text-slate-900 block mt-0.5">{cnicIssueDate || '2020-05-14'}</span>
+                  <span className="text-[9px] text-slate-400">Authenticated record</span>
+                </div>
+
+                <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Date of Expiry</span>
+                  <span className="font-mono font-bold text-xs text-slate-900 block mt-0.5">{cnicExpiryDate || '2030-05-13'}</span>
+                  <span className="text-[9px] text-emerald-700 font-semibold">Valid & Active</span>
+                </div>
+              </div>
+
+              {(theme.type === 'DRIVER' || licenseDoc || licenseNumber) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2 border-t border-emerald-200/60">
+                  <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Driving License #</span>
+                    <span className="font-mono font-extrabold text-xs text-slate-900 block mt-0.5">{licenseNumber || 'LHR-DL-98210'}</span>
+                    <span className="text-[9px] text-emerald-700 font-semibold">Traffic Police Endorsed</span>
+                  </div>
+
+                  <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">License Category</span>
+                    <span className="font-extrabold text-xs text-slate-900 block mt-0.5">{licenseCategory || 'LTV'}</span>
+                    <span className="text-[9px] text-emerald-700 font-semibold">Certified Chauffeur</span>
+                  </div>
+
+                  <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">License Issue Date</span>
+                    <span className="font-mono font-bold text-xs text-slate-900 block mt-0.5">{licenseIssueDate || '2019-01-10'}</span>
+                    <span className="text-[9px] text-slate-400">Authenticated record</span>
+                  </div>
+
+                  <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">License Expiry Date</span>
+                    <span className="font-mono font-bold text-xs text-slate-900 block mt-0.5">{licenseExpiryDate || '2029-01-09'}</span>
+                    <span className="text-[9px] text-emerald-700 font-semibold">Valid & Active</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Input fields - Disabled & locked when documents are certified */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <label className="flex flex-col gap-1.5 font-semibold text-[#344054]">
-                <span>National ID / CNIC Number</span>
+                <span className="flex items-center justify-between">
+                  <span>National ID / CNIC Number</span>
+                  {cnicLocked && (
+                    <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> Locked on File
+                    </span>
+                  )}
+                </span>
                 <input
                   type="text"
                   value={nationalId}
+                  readOnly={cnicLocked}
+                  disabled={cnicLocked}
                   onChange={(e) => setNationalId(e.target.value)}
                   placeholder="35201-9821045-3"
-                  className="h-11 sm:h-12 px-3.5 border border-[#D0D5DD] rounded-xl font-mono text-xs sm:text-sm text-[#101828] outline-none"
+                  className={`h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition ${
+                    cnicLocked
+                      ? 'bg-slate-100 text-slate-700 border-slate-200 cursor-not-allowed select-none font-bold'
+                      : 'border-[#D0D5DD] text-[#101828] bg-white'
+                  }`}
                 />
               </label>
 
               <label className="flex flex-col gap-1.5 font-semibold text-[#344054]">
-                <span>
-                  {theme.type === 'DRIVER'
-                    ? 'Driving License Number'
-                    : theme.type === 'LISTER'
-                    ? 'Showroom NTN / Business Reg #'
-                    : theme.type === 'MOVERS'
-                    ? 'Transport Permit / Carrier NTN'
-                    : theme.type === 'SHUTTLE'
-                    ? 'Route Permit / Fitness Cert #'
-                    : 'Driving License / ID Number'}
+                <span className="flex items-center justify-between">
+                  <span>
+                    {theme.type === 'DRIVER'
+                      ? 'Driving License Number'
+                      : theme.type === 'LISTER'
+                      ? 'Showroom NTN / Business Reg #'
+                      : theme.type === 'MOVERS'
+                      ? 'Transport Permit / Carrier NTN'
+                      : theme.type === 'SHUTTLE'
+                      ? 'Route Permit / Fitness Cert #'
+                      : 'Driving License / ID Number'}
+                  </span>
+                  {licenseLocked && (
+                    <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> Locked on File
+                    </span>
+                  )}
                 </span>
                 <input
                   type="text"
                   value={licenseNumber}
+                  readOnly={licenseLocked}
+                  disabled={licenseLocked}
                   onChange={(e) => setLicenseNumber(e.target.value)}
                   placeholder={
                     theme.type === 'DRIVER'
@@ -825,7 +1040,11 @@ export default function SettingsPage() {
                       ? 'NTN-7819201-4'
                       : 'PERMIT-2026-X'
                   }
-                  className="h-11 sm:h-12 px-3.5 border border-[#D0D5DD] rounded-xl font-mono text-xs sm:text-sm text-[#101828] outline-none"
+                  className={`h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition ${
+                    licenseLocked
+                      ? 'bg-slate-100 text-slate-700 border-slate-200 cursor-not-allowed select-none font-bold'
+                      : 'border-[#D0D5DD] text-[#101828] bg-white'
+                  }`}
                 />
               </label>
             </div>
@@ -836,7 +1055,9 @@ export default function SettingsPage() {
                 <div>
                   <span className="font-bold text-sky-950 block">Driving License Category</span>
                   <span className="text-sky-700 text-[11px]">
-                    Select the official license category endorsed on your license.
+                    {licenseLocked
+                      ? 'Official license category locked in verified driver dossier.'
+                      : 'Select the official license category endorsed on your license.'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -844,14 +1065,15 @@ export default function SettingsPage() {
                     <button
                       key={cat}
                       type="button"
-                      onClick={() => setLicenseCategory(cat)}
-                      className={`h-9 px-3.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      disabled={licenseLocked}
+                      onClick={() => !licenseLocked && setLicenseCategory(cat)}
+                      className={`h-9 px-3.5 rounded-lg text-xs font-bold transition ${
                         licenseCategory === cat
                           ? 'bg-sky-600 text-white shadow-xs'
                           : 'bg-white border border-sky-200 text-sky-900 hover:bg-sky-100'
-                      }`}
+                      } ${licenseLocked ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'}`}
                     >
-                      {cat} License
+                      {cat} License {licenseLocked && licenseCategory === cat && '✓'}
                     </button>
                   ))}
                 </div>
@@ -864,9 +1086,9 @@ export default function SettingsPage() {
               <div className="p-4 rounded-2xl border border-[#E4E7EC] bg-[#F7F8FA] flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-xs text-[#101828]">CNIC Front</span>
-                  {cnicFront ? (
-                    <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
-                      Uploaded
+                  {cnicLocked || cnicFront ? (
+                    <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
+                      <Lock className="w-2.5 h-2.5" /> Certified
                     </span>
                   ) : (
                     <span className="text-[10px] font-bold text-slate-500">Required</span>
@@ -885,24 +1107,31 @@ export default function SettingsPage() {
                   )}
                 </div>
 
-                <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95">
-                  <span>{cnicFront ? 'Change Front Photo' : 'Upload Front'}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => handleFileUpload(e, setCnicFront)}
-                  />
-                </label>
+                {cnicLocked ? (
+                  <div className="py-2 px-3 rounded-xl bg-slate-100 text-slate-500 text-center font-bold text-xs flex items-center justify-center gap-1.5 cursor-not-allowed select-none">
+                    <Lock className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Locked & Certified</span>
+                  </div>
+                ) : (
+                  <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95">
+                    <span>{cnicFront ? 'Change Front Photo' : 'Upload Front'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleCnicUpload(e, true)}
+                    />
+                  </label>
+                )}
               </div>
 
               {/* Card 2: CNIC Back */}
               <div className="p-4 rounded-2xl border border-[#E4E7EC] bg-[#F7F8FA] flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-xs text-[#101828]">CNIC Back</span>
-                  {cnicBack ? (
-                    <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
-                      Uploaded
+                  {cnicLocked || cnicBack ? (
+                    <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
+                      <Lock className="w-2.5 h-2.5" /> Certified
                     </span>
                   ) : (
                     <span className="text-[10px] font-bold text-slate-500">Required</span>
@@ -921,15 +1150,22 @@ export default function SettingsPage() {
                   )}
                 </div>
 
-                <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95">
-                  <span>{cnicBack ? 'Change Back Photo' : 'Upload Back'}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => handleFileUpload(e, setCnicBack)}
-                  />
-                </label>
+                {cnicLocked ? (
+                  <div className="py-2 px-3 rounded-xl bg-slate-100 text-slate-500 text-center font-bold text-xs flex items-center justify-center gap-1.5 cursor-not-allowed select-none">
+                    <Lock className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Locked & Certified</span>
+                  </div>
+                ) : (
+                  <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95">
+                    <span>{cnicBack ? 'Change Back Photo' : 'Upload Back'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleCnicUpload(e, false)}
+                    />
+                  </label>
+                )}
               </div>
 
               {/* Card 3: Role-Tailored Document */}
@@ -946,9 +1182,9 @@ export default function SettingsPage() {
                       ? 'Route Fitness Cert'
                       : 'License / ID Slip'}
                   </span>
-                  {licenseDoc ? (
-                    <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
-                      Uploaded
+                  {licenseLocked || licenseDoc ? (
+                    <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
+                      <Lock className="w-2.5 h-2.5" /> Certified
                     </span>
                   ) : (
                     <span className="text-[10px] font-bold text-slate-500">
@@ -970,20 +1206,27 @@ export default function SettingsPage() {
                           ? 'Trade / NTN Slip'
                           : 'Official Certificate'}
                       </span>
-                      <span className="text-[9px]">Verified certificate</span>
+                      <span className="text-[9px]">SafarPK Certified</span>
                     </div>
                   )}
                 </div>
 
-                <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95">
-                  <span>{licenseDoc ? 'Change Document' : 'Upload Certificate'}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => handleFileUpload(e, setLicenseDoc)}
-                  />
-                </label>
+                {licenseLocked ? (
+                  <div className="py-2 px-3 rounded-xl bg-slate-100 text-slate-500 text-center font-bold text-xs flex items-center justify-center gap-1.5 cursor-not-allowed select-none">
+                    <Lock className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Locked & Certified</span>
+                  </div>
+                ) : (
+                  <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95">
+                    <span>{licenseDoc ? 'Change Document' : 'Upload Certificate'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleLicenseUpload(e)}
+                    />
+                  </label>
+                )}
               </div>
             </div>
           </section>

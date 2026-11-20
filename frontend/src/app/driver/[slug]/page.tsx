@@ -342,7 +342,7 @@ export default function PublicDriverProfilePage() {
                 </h1>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>{isPakistan ? 'Verified Driver / Captain' : 'Experienced Chauffeur'}</span>
+                  <span>{isPakistan ? 'SafarPK Certified Chauffeur' : 'SafarPK Certified Chauffeur'}</span>
                 </span>
               </div>
 
@@ -726,8 +726,16 @@ export default function PublicDriverProfilePage() {
                   <label className="text-[11px] font-semibold text-slate-500">Duty Start Date</label>
                   <input
                     type="date"
+                    min={new Date().toISOString().split('T')[0]}
                     value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
+                    onChange={(e) => {
+                      const today = new Date().toISOString().split('T')[0];
+                      if (e.target.value && e.target.value < today) {
+                        setStartDate(today);
+                      } else {
+                        setStartDate(e.target.value);
+                      }
+                    }}
                     className="w-full h-9 px-2.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-900 outline-none focus:border-emerald-500"
                     required
                   />

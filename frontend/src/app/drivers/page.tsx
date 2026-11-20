@@ -499,7 +499,7 @@ export default function DriversPage() {
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#E9F3EE] text-[#0B6B4F] flex items-center gap-1">
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    {isPakistan ? 'Verified Driver / Captain' : 'Experienced Chauffeur'}
+                    <span>{isPakistan ? 'SafarPK Certified Chauffeur' : 'Certified Chauffeur'}</span>
                   </span>
                   {d.police && (
                     <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#EEF4FF] text-[#1D3A8A]">
@@ -679,8 +679,16 @@ export default function DriversPage() {
               Trip Date
               <input
                 type="date"
+                min={new Date().toISOString().split('T')[0]}
                 value={requestDate}
-                onChange={(e) => setRequestDate(e.target.value)}
+                onChange={(e) => {
+                  const today = new Date().toISOString().split('T')[0];
+                  if (e.target.value && e.target.value < today) {
+                    setRequestDate(today);
+                  } else {
+                    setRequestDate(e.target.value);
+                  }
+                }}
                 className="h-11 px-3 border border-[#E4E7EC] rounded-xl font-sans text-sm text-[#101828] outline-none"
               />
             </label>

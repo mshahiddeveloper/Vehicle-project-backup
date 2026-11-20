@@ -641,8 +641,16 @@ export function SubscriptionFollowUpDesk({
               <label className="text-xs font-bold text-slate-700 block">Next Follow-Up Date (Optional)</label>
               <input
                 type="date"
+                min={new Date().toISOString().split('T')[0]}
                 value={followUpDate}
-                onChange={(e) => setFollowUpDate(e.target.value)}
+                onChange={(e) => {
+                  const today = new Date().toISOString().split('T')[0];
+                  if (e.target.value && e.target.value < today) {
+                    setFollowUpDate(today);
+                  } else {
+                    setFollowUpDate(e.target.value);
+                  }
+                }}
                 className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold outline-none focus:border-purple-600"
               />
             </div>

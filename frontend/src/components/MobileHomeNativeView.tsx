@@ -76,6 +76,14 @@ const TRUST_TAGS = [
 
 const CAR_CATEGORIES = ['All cars', 'Sedans', 'SUVs & 4×4', 'Luxury', 'Vans & HiAce'];
 
+export const getTodayDateString = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export function MobileHomeNativeView() {
   const router = useRouter();
   const [activeUser, setActiveUser] = useState<RegisteredUser | null>(null);
@@ -96,6 +104,7 @@ export function MobileHomeNativeView() {
   const [transmissionSheetOpen, setTransmissionSheetOpen] = useState(false);
   const [carCategorySheetOpen, setCarCategorySheetOpen] = useState(false);
   const [priceSheetOpen, setPriceSheetOpen] = useState(false);
+  const todayDateStr = useMemo(() => getTodayDateString(), []);
 
   // Search Sheet Specific Inputs
   const [searchQuery, setSearchQuery] = useState('');
@@ -998,7 +1007,7 @@ export function MobileHomeNativeView() {
 
                         <div className="flex items-center gap-1.5 text-xs text-[#0B6B4F] mt-1 font-bold">
                           <ShieldCheck className="w-3.5 h-3.5 stroke-[2.4]" />
-                          <span>Police Verified & NADRA CNIC</span>
+                          <span>SafarPK Certified Chauffeur · Identity on File</span>
                         </div>
                       </div>
 
@@ -1525,7 +1534,75 @@ export function MobileHomeNativeView() {
                 {(activeServiceIdx === 0
                   ? ['Corolla', 'Civic', 'Yaris', 'Fortuner', 'HiAce', 'Prado', 'Karachi', 'Islamabad', 'Automatic']
                   : activeServiceIdx === 1
-                  ? ['Tariq', 'Executive', 'Highway', 'Monthly', 'Police Verified', 'Karachi']
+                  ? ['Tariq', 'Executive', 'Highway', 'Monthly', 'Certified Chauffeur', 'Karachi']
+                  : activeServiceIdx === 2
+                  ? ['Lahore', 'Islamabad', 'Karachi', 'Civic', 'Corolla']
+                  : activeServiceIdx === 3
+                  ? ['DHA Phase 5', 'Gulberg', 'Clifton', 'Fast NU', 'Blue Area']
+                  : ['Shehzore', 'Suzuki Ravi', 'Mazda Titan', 'Johar Town', 'DHA']
+                ).map((tag) => {
+                  const isTagActive = searchQuery.toLowerCase().includes(tag.toLowerCase());
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => setSearchQuery(tag)}
+                      className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-bold transition cursor-pointer active:scale-95 ${
+                        isTagActive
+                          ? 'bg-[#0B6B4F] text-white shadow-xs'
+                          : 'bg-[#F2F4F7] hover:bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Live Search & Model Keyword Input Box */}
+            <div className="flex flex-col gap-2">
+              <div className="relative flex items-center">
+                <Search className="absolute left-3.5 w-4.5 h-4.5 text-[#0B6B4F] stroke-[2.2]" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={
+                    activeServiceIdx === 0
+                      ? 'Type name, model or city (e.g. Corolla, Civic, Karachi...)'
+                      : activeServiceIdx === 1
+                      ? 'Type driver name, city, tag (e.g. Tariq, Executive...)'
+                      : activeServiceIdx === 2
+                      ? 'Type city or car (e.g. Lahore, Islamabad, Civic...)'
+                      : activeServiceIdx === 3
+                      ? 'Type area or corridor (e.g. DHA, Gulberg...)'
+                      : 'Type truck or area (e.g. Shehzore, Johar Town...)'
+                  }
+                  className="w-full h-12 pl-10 pr-10 rounded-2xl bg-[#F4F6F8] border border-[#D0D5DD] text-sm font-semibold text-[#101828] placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:border-[#0B6B4F] focus:bg-white focus:ring-2 focus:ring-[#0B6B4F]/20 shadow-2xs transition"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 w-6 h-6 rounded-full bg-slate-200/80 hover:bg-slate-300 text-slate-600 flex items-center justify-center transition active:scale-90"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Popular Quick Suggestions Chips */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 shrink-0">
+                  Quick:
+                </span>
+                {(activeServiceIdx === 0
+                  ? ['Corolla', 'Civic', 'Yaris', 'Fortuner', 'HiAce', 'Prado', 'Karachi', 'Islamabad', 'Automatic']
+                  : activeServiceIdx === 1
+                  ? ['Tariq', 'Executive', 'Highway', 'Monthly', 'Certified Chauffeur', 'Karachi']
                   : activeServiceIdx === 2
                   ? ['Lahore', 'Islamabad', 'Karachi', 'Civic', 'Corolla']
                   : activeServiceIdx === 3
@@ -1741,8 +1818,17 @@ export function MobileHomeNativeView() {
                       </span>
                       <input
                         type="date"
+                        min={todayDateStr}
                         value={moverDate}
-                        onChange={(e) => setMoverDate(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val && val < todayDateStr) {
+                            setMoverDate(todayDateStr);
+                            showToast('Past dates cannot be selected');
+                          } else {
+                            setMoverDate(val);
+                          }
+                        }}
                         className="border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent"
                       />
                     </span>
@@ -1762,8 +1848,20 @@ export function MobileHomeNativeView() {
                     </span>
                     <input
                       type="date"
+                      min={todayDateStr}
                       value={pickupDate}
-                      onChange={(e) => setPickupDate(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val && val < todayDateStr) {
+                          setPickupDate(todayDateStr);
+                          showToast('Past dates cannot be selected');
+                        } else {
+                          setPickupDate(val);
+                          if (returnDate && returnDate < val) {
+                            setReturnDate(val);
+                          }
+                        }
+                      }}
                       className="border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent"
                     />
                   </span>
@@ -1782,8 +1880,18 @@ export function MobileHomeNativeView() {
                     </span>
                     <input
                       type="date"
+                      min={pickupDate || todayDateStr}
                       value={returnDate}
-                      onChange={(e) => setReturnDate(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const minAllowed = pickupDate || todayDateStr;
+                        if (val && val < minAllowed) {
+                          setReturnDate(minAllowed);
+                          showToast('Return date cannot be before pickup date');
+                        } else {
+                          setReturnDate(val);
+                        }
+                      }}
                       className="border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent"
                     />
                   </span>

@@ -2388,8 +2388,16 @@ export default function SuperAdminDashboardPage() {
                         <span>Code ends on:</span>
                         <input
                           type="date"
+                          min={new Date().toISOString().split('T')[0]}
                           value={ncExpires}
-                          onChange={(e) => setNcExpires(e.target.value)}
+                          onChange={(e) => {
+                            const today = new Date().toISOString().split('T')[0];
+                            if (e.target.value && e.target.value < today) {
+                              setNcExpires(today);
+                            } else {
+                              setNcExpires(e.target.value);
+                            }
+                          }}
                           className="flex-1 h-9 border border-[#D0D5DD] rounded-lg px-2.5 text-xs font-medium"
                         />
                       </label>
@@ -7331,8 +7339,16 @@ export default function SuperAdminDashboardPage() {
                   <label className="font-bold text-slate-300 block mb-1">Expiry Date</label>
                   <input
                     type="date"
+                    min={new Date().toISOString().split('T')[0]}
                     value={newPromoForm.expiryDate}
-                    onChange={(e) => setNewPromoForm({ ...newPromoForm, expiryDate: e.target.value })}
+                    onChange={(e) => {
+                      const today = new Date().toISOString().split('T')[0];
+                      if (e.target.value && e.target.value < today) {
+                        setNewPromoForm({ ...newPromoForm, expiryDate: today });
+                      } else {
+                        setNewPromoForm({ ...newPromoForm, expiryDate: e.target.value });
+                      }
+                    }}
                     className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white"
                   />
                 </div>
@@ -7483,8 +7499,16 @@ export default function SuperAdminDashboardPage() {
                   <label className="font-bold text-slate-300 block mb-1">Expiry Date</label>
                   <input
                     type="date"
+                    min={new Date().toISOString().split('T')[0]}
                     value={editingPromo.expiryDate || ''}
-                    onChange={(e) => setEditingPromo({ ...editingPromo, expiryDate: e.target.value })}
+                    onChange={(e) => {
+                      const today = new Date().toISOString().split('T')[0];
+                      if (e.target.value && e.target.value < today) {
+                        setEditingPromo({ ...editingPromo, expiryDate: today });
+                      } else {
+                        setEditingPromo({ ...editingPromo, expiryDate: e.target.value });
+                      }
+                    }}
                     className="w-full p-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white"
                   />
                 </div>

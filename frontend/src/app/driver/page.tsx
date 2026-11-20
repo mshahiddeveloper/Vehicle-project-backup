@@ -1322,8 +1322,16 @@ function DriverDashboardContent() {
                 <div className="flex gap-2">
                   <input
                     type="date"
+                    min={new Date().toISOString().split('T')[0]}
                     value={newBlockDate}
-                    onChange={(e) => setNewBlockDate(e.target.value)}
+                    onChange={(e) => {
+                      const today = new Date().toISOString().split('T')[0];
+                      if (e.target.value && e.target.value < today) {
+                        setNewBlockDate(today);
+                      } else {
+                        setNewBlockDate(e.target.value);
+                      }
+                    }}
                     className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
                   />
                   <button

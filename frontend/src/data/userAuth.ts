@@ -114,6 +114,19 @@ export interface RegisteredUser {
   branch?: string;
   permissions?: string[];
   approvedServices?: SafarServiceType[];
+  // Authentic Extracted & Immutable Document Credentials
+  cnicNumber?: string;
+  cnicName?: string;
+  cnicIssueDate?: string;
+  cnicExpiryDate?: string;
+  cnicLocked?: boolean;
+  licenseName?: string;
+  licenseCategory?: string;
+  licenseIssueDate?: string;
+  licenseExpiryDate?: string;
+  licenseLocked?: boolean;
+  tradeLicenseNumber?: string;
+  tradeLicenseLocked?: boolean;
   metrics: UserMetrics;
   activities: UserActivityLog[];
 }
@@ -364,6 +377,18 @@ export const DEMO_USERS: RegisteredUser[] = [
     countryCode: 'PK',
     role: 'LISTER',
     registeredAt: '2026-01-15T10:00:00Z',
+    nationalId: '37405-1284910-1',
+    cnicNumber: '37405-1284910-1',
+    cnicName: 'Muhammad Salman',
+    cnicIssueDate: '2018-08-10',
+    cnicExpiryDate: '2028-08-09',
+    cnicLocked: true,
+    licenseNumber: 'ISB-DL-41029',
+    licenseName: 'Muhammad Salman',
+    licenseCategory: 'LTV / Motorcar',
+    licenseIssueDate: '2019-03-12',
+    licenseExpiryDate: '2029-03-11',
+    licenseLocked: true,
     assignedAgentId: 'ag-1',
     assignedAgentName: 'Kashif Raza',
     metrics: {
@@ -420,6 +445,16 @@ export const DEMO_USERS: RegisteredUser[] = [
     bio: '12+ years VIP chauffeur experience in Lahore, Islamabad, and Motorway travel.',
     licenseNumber: 'LHR-DL-98210',
     nationalId: '35201-9821045-3',
+    cnicNumber: '35201-9821045-3',
+    cnicName: 'Tariq Mahmood',
+    cnicIssueDate: '2020-05-14',
+    cnicExpiryDate: '2030-05-13',
+    cnicLocked: true,
+    licenseName: 'Tariq Mahmood',
+    licenseCategory: 'LTV / Motorcar',
+    licenseIssueDate: '2019-01-10',
+    licenseExpiryDate: '2029-01-09',
+    licenseLocked: true,
     assignedAgentId: 'ag-1',
     assignedAgentName: 'Kashif Raza',
     metrics: {

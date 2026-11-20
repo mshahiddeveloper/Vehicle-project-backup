@@ -506,8 +506,16 @@ export default function CityRideDetailPage() {
                   <label className="text-[11px] font-semibold text-slate-500">Travel Date</label>
                   <input
                     type="date"
+                    min={new Date().toISOString().split('T')[0]}
                     value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
+                    onChange={(e) => {
+                      const today = new Date().toISOString().split('T')[0];
+                      if (e.target.value && e.target.value < today) {
+                        setSelectedDate(today);
+                      } else {
+                        setSelectedDate(e.target.value);
+                      }
+                    }}
                     className="w-full h-9 px-2.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-900 outline-none focus:border-blue-500"
                     required
                   />

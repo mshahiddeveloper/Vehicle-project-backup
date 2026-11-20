@@ -253,7 +253,14 @@ export default function CityToCityPage() {
               <input
                 type="date"
                 value={leaveDate}
-                onChange={(e) => setLeaveDate(e.target.value)}
+                onChange={(e) => {
+                  const today = new Date().toISOString().split('T')[0];
+                  if (e.target.value && e.target.value < today) {
+                    setLeaveDate(today);
+                  } else {
+                    setLeaveDate(e.target.value);
+                  }
+                }}
                 min={new Date().toISOString().split('T')[0]}
                 className="w-full h-11 sm:h-12 px-3 border border-slate-200 rounded-xl bg-slate-50/60 font-bold text-xs sm:text-sm text-[#101828] outline-none focus:bg-white focus:border-[#0B6B4F] transition"
               />
