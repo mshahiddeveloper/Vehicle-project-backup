@@ -34,6 +34,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
+  // Ignore non-http/https schemes (such as chrome-extension://, moz-extension://) to prevent Cache API errors
+  if (!event.request.url.startsWith('http://') && !event.request.url.startsWith('https://')) {
+    return;
+  }
+
   const url = new URL(event.request.url);
 
   // 1. Navigation requests (HTML pages) - Network-first with App Shell cache fallback
@@ -43,7 +48,7 @@ self.addEventListener('fetch', (event) => {
         .then((response) => {
           if (response && response.status === 200) {
             const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy)).catch(() => {});
           }
           return response;
         })
@@ -73,7 +78,7 @@ self.addEventListener('fetch', (event) => {
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             const copy = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy)).catch(() => {});
           }
           return networkResponse;
         })

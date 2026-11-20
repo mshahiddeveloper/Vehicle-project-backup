@@ -45,6 +45,26 @@ interface AppHeaderProps {
   accentColor?: string;
 }
 
+export function getDashboardHref(role?: string, providerSubtype?: string): string {
+  switch (role) {
+    case 'LISTER':
+      return '/lister';
+    case 'DRIVER':
+      return '/driver';
+    case 'PROVIDER':
+      if (providerSubtype === 'COMMERCIAL_CARGO') {
+        return '/provider?mode=commercial_cargo';
+      }
+      if (providerSubtype === 'CITY_TO_CITY') {
+        return '/intercity';
+      }
+      return '/provider?mode=pick_and_drop';
+    case 'CUSTOMER':
+    default:
+      return '/customer';
+  }
+}
+
 export function AppHeader({
   currentCountry,
   onCountryChange,
@@ -150,26 +170,6 @@ export function AppHeader({
     { label: 'Pick & drop', href: '/shuttles', icon: Bus },
     { label: isPakistan ? 'Home shifting' : 'Moving & cargo', href: '/movers', icon: Truck },
   ];
-
-  const getDashboardHref = (role?: string) => {
-    switch (role) {
-      case 'LISTER':
-        return '/lister';
-      case 'DRIVER':
-        return '/driver';
-      case 'PROVIDER':
-        if (activeUser?.providerSubtype === 'COMMERCIAL_CARGO') {
-          return '/provider?mode=commercial_cargo';
-        }
-        if (activeUser?.providerSubtype === 'CITY_TO_CITY') {
-          return '/intercity';
-        }
-        return '/provider?mode=pick_and_drop';
-      case 'CUSTOMER':
-      default:
-        return '/customer';
-    }
-  };
 
   // Dynamic Role-Aware Listing Action Button Config
   const getListingButtonConfig = () => {
@@ -519,7 +519,7 @@ export function AppHeader({
                   </div>
 
                   <Link
-                    href={getDashboardHref(activeUser.role)}
+                    href={getDashboardHref(activeUser.role, activeUser?.providerSubtype)}
                     onClick={() => setShowUserMenu(false)}
                     className="flex items-center gap-2.5 px-4 py-2 text-sm text-[#344054] hover:bg-[#F7F8FA] transition font-semibold"
                   >
