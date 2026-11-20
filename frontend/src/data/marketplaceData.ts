@@ -334,6 +334,21 @@ export const CARS_DATA: VehicleCardItem[] = [
     whatsapp: '923123344556',
     rating: 5.0,
   },
+  {
+    id: 'l-13',
+    name: 'Toyota Corolla Altis 1.6',
+    price: 'PKR 7,000',
+    priceNum: 7000,
+    specs: '2024 · Automatic · Dual VVT-i',
+    owner: 'Karachi Premier Rentals',
+    city: 'Karachi',
+    tint: '#E8F5E9',
+    image: 'https://images.unsplash.com/photo-1590362891991-f776e747a588?w=800&auto=format&fit=crop&q=80',
+    category: 'Sedans',
+    phone: '+92 321 8899123',
+    whatsapp: '923218899123',
+    rating: 4.8,
+  },
 ];
 
 // 2. CHAUFFEURS & DRIVERS

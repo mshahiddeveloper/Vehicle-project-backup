@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -98,6 +98,8 @@ export function MobileHomeNativeView() {
   const [priceSheetOpen, setPriceSheetOpen] = useState(false);
 
   // Search Sheet Specific Inputs
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchWhere, setSearchWhere] = useState('Lahore');
   const [pickupDate, setPickupDate] = useState('');
   const [returnDate, setReturnDate] = useState('');
@@ -280,12 +282,63 @@ export function MobileHomeNativeView() {
 
   const curService = services[activeServiceIdx] || services[0];
 
-  // Dynamic Service Datasets Filtered by Location
+  const PAK_CITIES_LOWER = useMemo(
+    () => [
+      'lahore',
+      'karachi',
+      'islamabad',
+      'rawalpindi',
+      'faisalabad',
+      'multan',
+      'peshawar',
+      'quetta',
+      'sialkot',
+      'gujranwala',
+      'hyderabad',
+    ],
+    []
+  );
+
+  const searchTokens = useMemo(() => {
+    return searchQuery.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  }, [searchQuery]);
+
+  // Dynamic Service Datasets Filtered by Search Query & Location
   const filteredCars = useMemo(() => {
     let list = [...CARS_DATA];
-    const targetCity = searchWhere || city;
-    const cityMatches = list.filter((c) => c.city.toLowerCase() === targetCity.toLowerCase());
-    if (cityMatches.length > 0) list = cityMatches;
+
+    if (searchTokens.length > 0) {
+      // 1. Check if user typed a specific city in the query (e.g. "corolla karachi")
+      const explicitCity = searchTokens.find((t) => PAK_CITIES_LOWER.includes(t));
+      if (explicitCity) {
+        list = list.filter((c) => c.city.toLowerCase() === explicitCity);
+        const nonCityTokens = searchTokens.filter((t) => t !== explicitCity);
+        if (nonCityTokens.length > 0) {
+          list = list.filter((c) => {
+            const searchable = `${c.name} ${c.specs} ${c.owner} ${c.category}`.toLowerCase();
+            return nonCityTokens.every((tok) => searchable.includes(tok));
+          });
+        }
+      } else {
+        // Multi-token match across name, specs, owner, category, city
+        const tokenMatches = list.filter((c) => {
+          const searchable = `${c.name} ${c.specs} ${c.owner} ${c.category} ${c.city}`.toLowerCase();
+          return searchTokens.every((tok) => searchable.includes(tok));
+        });
+
+        // If local matches exist in targetCity, prioritize targetCity; else show cross-city matches
+        const targetCity = searchWhere || city;
+        const localMatches = tokenMatches.filter(
+          (c) => c.city.toLowerCase() === targetCity.toLowerCase()
+        );
+        list = localMatches.length > 0 ? localMatches : tokenMatches;
+      }
+    } else {
+      const targetCity = searchWhere || city;
+      const cityMatches = list.filter((c) => c.city.toLowerCase() === targetCity.toLowerCase());
+      if (cityMatches.length > 0) list = cityMatches;
+    }
+
     if (selectedCarCategory === 1) {
       list = list.filter((c) => c.category === 'Sedans');
     } else if (selectedCarCategory === 2) {
@@ -302,48 +355,94 @@ export function MobileHomeNativeView() {
       list = list.filter((c) => c.priceNum <= selectedPriceMax);
     }
     return list;
-  }, [city, searchWhere, selectedCarCategory, selectedTransmission, selectedPriceMax]);
+  }, [city, searchWhere, selectedCarCategory, selectedTransmission, selectedPriceMax, searchTokens, PAK_CITIES_LOWER]);
 
   const filteredDrivers = useMemo(() => {
-    const list = [...DRIVERS_DATA];
-    const targetCity = searchWhere || city;
-    const cityMatches = list.filter((d) => d.city.toLowerCase() === targetCity.toLowerCase());
-    return cityMatches.length > 0 ? cityMatches : list;
-  }, [city, searchWhere]);
+    let list = [...DRIVERS_DATA];
+    if (searchTokens.length > 0) {
+      const explicitCity = searchTokens.find((t) => PAK_CITIES_LOWER.includes(t));
+      if (explicitCity) {
+        list = list.filter((d) => d.city.toLowerCase() === explicitCity);
+        const nonCityTokens = searchTokens.filter((t) => t !== explicitCity);
+        if (nonCityTokens.length > 0) {
+          list = list.filter((d) => {
+            const searchable = `${d.name} ${d.exp} ${d.langs} ${d.category} ${(d.tags || []).join(' ')}`.toLowerCase();
+            return nonCityTokens.every((tok) => searchable.includes(tok));
+          });
+        }
+      } else {
+        const tokenMatches = list.filter((d) => {
+          const searchable = `${d.name} ${d.city} ${d.exp} ${d.langs} ${d.category} ${(d.tags || []).join(' ')}`.toLowerCase();
+          return searchTokens.every((tok) => searchable.includes(tok));
+        });
+        const targetCity = searchWhere || city;
+        const localMatches = tokenMatches.filter((d) => d.city.toLowerCase() === targetCity.toLowerCase());
+        list = localMatches.length > 0 ? localMatches : tokenMatches;
+      }
+    } else {
+      const targetCity = searchWhere || city;
+      const cityMatches = list.filter((d) => d.city.toLowerCase() === targetCity.toLowerCase());
+      if (cityMatches.length > 0) list = cityMatches;
+    }
+    return list;
+  }, [city, searchWhere, searchTokens, PAK_CITIES_LOWER]);
 
   const filteredRides = useMemo(() => {
-    const list = [...CITY_RIDES_DATA];
-    const targetCity = searchWhere || city;
-    const cityMatches = list.filter(
-      (r) =>
-        r.fromCity.toLowerCase() === targetCity.toLowerCase() ||
-        r.toCity.toLowerCase() === targetCity.toLowerCase()
-    );
-    return cityMatches.length > 0 ? cityMatches : list;
-  }, [city, searchWhere]);
-
-  const filteredShuttles = useMemo(() => {
-    let list = [...SHUTTLES_DATA];
-    const targetCity = shuttleCity || searchWhere || city;
-    if (shuttlePickupArea || shuttleDropArea) {
-      list = list.filter((s) =>
-        matchesShuttleRoute(s, shuttlePickupArea, shuttleDropArea, targetCity)
-      );
+    let list = [...CITY_RIDES_DATA];
+    if (searchTokens.length > 0) {
+      list = list.filter((r) => {
+        const searchable = `${r.fromCity} ${r.toCity} ${r.car} ${r.driver} ${(r.tags || []).join(' ')}`.toLowerCase();
+        return searchTokens.every((tok) => searchable.includes(tok));
+      });
     } else {
+      const targetCity = searchWhere || city;
       const cityMatches = list.filter(
-        (s) => s.city.toLowerCase() === targetCity.toLowerCase()
+        (r) =>
+          r.fromCity.toLowerCase() === targetCity.toLowerCase() ||
+          r.toCity.toLowerCase() === targetCity.toLowerCase()
       );
       if (cityMatches.length > 0) list = cityMatches;
     }
+    return list;
+  }, [city, searchWhere, searchTokens]);
+
+  const filteredShuttles = useMemo(() => {
+    let list = [...SHUTTLES_DATA];
+    if (searchTokens.length > 0) {
+      list = list.filter((s) => {
+        const searchable = `${s.name} ${s.city} ${s.from} ${s.to} ${(s.stops || []).join(' ')} ${s.vehicle}`.toLowerCase();
+        return searchTokens.every((tok) => searchable.includes(tok));
+      });
+    } else {
+      const targetCity = shuttleCity || searchWhere || city;
+      if (shuttlePickupArea || shuttleDropArea) {
+        list = list.filter((s) =>
+          matchesShuttleRoute(s, shuttlePickupArea, shuttleDropArea, targetCity)
+        );
+      } else {
+        const cityMatches = list.filter(
+          (s) => s.city.toLowerCase() === targetCity.toLowerCase()
+        );
+        if (cityMatches.length > 0) list = cityMatches;
+      }
+    }
     return list.length > 0 ? list : SHUTTLES_DATA;
-  }, [city, searchWhere, shuttleCity, shuttlePickupArea, shuttleDropArea]);
+  }, [city, searchWhere, shuttleCity, shuttlePickupArea, shuttleDropArea, searchTokens]);
 
   const filteredMovers = useMemo(() => {
-    const list = [...MOVERS_DATA];
-    const targetCity = searchWhere || city;
-    const cityMatches = list.filter((m) => m.city.toLowerCase() === targetCity.toLowerCase());
-    return cityMatches.length > 0 ? cityMatches : list;
-  }, [city, searchWhere]);
+    let list = [...MOVERS_DATA];
+    if (searchTokens.length > 0) {
+      list = list.filter((m) => {
+        const searchable = `${m.name} ${m.city} ${m.trucks} ${m.base} ${m.helper}`.toLowerCase();
+        return searchTokens.every((tok) => searchable.includes(tok));
+      });
+    } else {
+      const targetCity = searchWhere || city;
+      const cityMatches = list.filter((m) => m.city.toLowerCase() === targetCity.toLowerCase());
+      if (cityMatches.length > 0) list = cityMatches;
+    }
+    return list;
+  }, [city, searchWhere, searchTokens]);
 
   const userInitials = useMemo(() => {
     if (!activeUser?.name?.trim()) return '';
@@ -443,16 +542,42 @@ export function MobileHomeNativeView() {
               <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
             </button>
 
-            <button
-              type="button"
-              onClick={() => setSearchSheetOpen(true)}
-              className="flex-1 flex items-center gap-2 h-10 px-3 rounded-xl bg-[#F7F8FA] hover:bg-slate-100 border border-[#E4E7EC] text-left text-xs text-slate-500 truncate transition active:scale-[0.99] shadow-2xs cursor-pointer"
-            >
-              <Search className="w-3.5 h-3.5 text-slate-600 shrink-0" />
-              <span className="truncate font-semibold text-slate-800">
-                {curService?.title || 'Rent a Car'} in {city}...
-              </span>
-            </button>
+            {searchQuery ? (
+              <div className="flex-1 flex items-center justify-between h-10 px-3 rounded-xl bg-emerald-50/80 border border-emerald-300 text-xs shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setSearchSheetOpen(true)}
+                  className="flex items-center gap-1.5 flex-1 min-w-0 text-left cursor-pointer"
+                >
+                  <Search className="w-3.5 h-3.5 text-[#0B6B4F] shrink-0" />
+                  <span className="truncate font-bold text-emerald-950">
+                    &ldquo;{searchQuery}&rdquo; in {searchWhere || city}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearchQuery('');
+                  }}
+                  className="w-5 h-5 rounded-full bg-emerald-200/80 hover:bg-emerald-300 text-emerald-800 flex items-center justify-center shrink-0 ml-1 transition"
+                  title="Clear search"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setSearchSheetOpen(true)}
+                className="flex-1 flex items-center gap-2 h-10 px-3 rounded-xl bg-[#F7F8FA] hover:bg-slate-100 border border-[#E4E7EC] text-left text-xs text-slate-500 truncate transition active:scale-[0.99] shadow-2xs cursor-pointer"
+              >
+                <Search className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                <span className="truncate font-semibold text-slate-800">
+                  Search &ldquo;Corolla&rdquo;, &ldquo;Civic&rdquo; or {curService?.title || 'Rent a Car'}...
+                </span>
+              </button>
+            )}
           </div>
         </header>
       ) : (
@@ -469,16 +594,29 @@ export function MobileHomeNativeView() {
 
             <div
               onClick={() => setSearchSheetOpen(true)}
-              className="flex-1 flex items-center justify-center px-3 py-1.5 rounded-full border border-slate-200 bg-white shadow-2xs cursor-pointer active:scale-[0.99] transition text-center hover:bg-slate-50"
+              className="flex-1 flex items-center justify-between px-3 py-1.5 rounded-full border border-slate-200 bg-white shadow-2xs cursor-pointer active:scale-[0.99] transition text-center hover:bg-slate-50"
             >
-              <div className="flex flex-col items-center">
-                <span className="font-heading font-black text-xs text-[#101828]">
-                  {searchWhere || city}
+              <div className="flex flex-col items-center flex-1 min-w-0">
+                <span className="font-heading font-black text-xs text-[#101828] truncate">
+                  {searchQuery ? `"${searchQuery}" · ${searchWhere || city}` : (searchWhere || city)}
                 </span>
-                <span className="text-[10px] text-slate-500 font-medium">
+                <span className="text-[10px] text-slate-500 font-medium truncate">
                   {pickupDate && returnDate ? `${pickupDate} – ${returnDate}` : '14 – 16 Nov'} · {isSelfDrive ? 'Self-drive' : 'With driver'}
                 </span>
               </div>
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearchQuery('');
+                  }}
+                  className="p-1 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 ml-1 shrink-0"
+                  title="Clear search"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
             </div>
 
             <button
@@ -666,11 +804,32 @@ export function MobileHomeNativeView() {
             </div>
           )}
 
+          {/* Active Search Filter Badge */}
+          {searchQuery && (
+            <div className="mx-4 flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Search className="w-3.5 h-3.5 text-[#0B6B4F] shrink-0" />
+                <span className="text-[#08513C] truncate">
+                  Searching: <strong>&ldquo;{searchQuery}&rdquo;</strong>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white text-emerald-800 text-[11px] font-bold border border-emerald-300 hover:bg-emerald-100 transition cursor-pointer shrink-0"
+              >
+                <span>Clear</span>
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+
           {/* COMPACT LISTING FEED CARDS */}
           <div className="flex flex-col gap-2.5 px-4">
             {/* 1. CAR RENTAL CARDS */}
             {activeServiceIdx === 0 &&
-              filteredCars.slice(0, 8).map((car) => {
+              (filteredCars.length > 0 ? (
+                filteredCars.slice(0, 8).map((car) => {
                 const isSaved = savedCarIds.includes(car.id);
                 const cleanPhone = (car.phone || '').replace(/[^0-9]/g, '');
 
@@ -769,11 +928,39 @@ export function MobileHomeNativeView() {
                     </div>
                   </div>
                 );
-              })}
+              })
+            ) : (
+              <div className="p-6 rounded-2xl bg-white border border-slate-200 text-center flex flex-col items-center gap-3 shadow-2xs">
+                <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
+                  <Search className="w-6 h-6 stroke-[1.8]" />
+                </div>
+                <div>
+                  <h3 className="font-heading font-extrabold text-base text-[#101828]">
+                    No cars found matching &ldquo;{searchQuery || searchWhere || city}&rdquo;
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1 max-w-[280px]">
+                    Try searching by popular models like Corolla, Civic, Yaris, or change your city.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSelectedCarCategory(0);
+                    setSelectedTransmission('All');
+                    setSelectedPriceMax(null);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-[#0B6B4F] text-white font-bold text-xs shadow-xs hover:bg-[#08513C] transition cursor-pointer"
+                >
+                  Reset Search & View All Cars
+                </button>
+              </div>
+            ))}
 
             {/* 2. DRIVERS CARDS */}
             {activeServiceIdx === 1 &&
-              filteredDrivers.map((driver) => {
+              (filteredDrivers.length > 0 ? (
+                filteredDrivers.map((driver) => {
                 const cleanPhone = (driver.phone || '').replace(/[^0-9]/g, '');
 
                 return (
@@ -848,11 +1035,34 @@ export function MobileHomeNativeView() {
                     </div>
                   </div>
                 );
-              })}
+              })
+            ) : (
+              <div className="p-6 rounded-2xl bg-white border border-slate-200 text-center flex flex-col items-center gap-3 shadow-2xs">
+                <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
+                  <Search className="w-6 h-6 stroke-[1.8]" />
+                </div>
+                <div>
+                  <h3 className="font-heading font-extrabold text-base text-[#101828]">
+                    No chauffeurs found matching &ldquo;{searchQuery || searchWhere || city}&rdquo;
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1 max-w-[280px]">
+                    Try searching by chauffeur name, language or experience tag.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="px-4 py-2 rounded-xl bg-[#0B6B4F] text-white font-bold text-xs shadow-xs hover:bg-[#08513C] transition cursor-pointer"
+                >
+                  Reset Search & View All Drivers
+                </button>
+              </div>
+            ))}
 
             {/* 3. CITY TO CITY RIDES */}
             {activeServiceIdx === 2 &&
-              filteredRides.map((ride) => {
+              (filteredRides.length > 0 ? (
+                filteredRides.map((ride) => {
                 const cleanPhone = (ride.phone || '').replace(/[^0-9]/g, '');
 
                 return (
@@ -924,11 +1134,34 @@ export function MobileHomeNativeView() {
                     </div>
                   </div>
                 );
-              })}
+              })
+            ) : (
+              <div className="p-6 rounded-2xl bg-white border border-slate-200 text-center flex flex-col items-center gap-3 shadow-2xs">
+                <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
+                  <Search className="w-6 h-6 stroke-[1.8]" />
+                </div>
+                <div>
+                  <h3 className="font-heading font-extrabold text-base text-[#101828]">
+                    No intercity rides found matching &ldquo;{searchQuery || searchWhere || city}&rdquo;
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1 max-w-[280px]">
+                    Try searching for major corridors like Lahore to Islamabad or Karachi to Hyderabad.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="px-4 py-2 rounded-xl bg-[#0B6B4F] text-white font-bold text-xs shadow-xs hover:bg-[#08513C] transition cursor-pointer"
+                >
+                  Reset Search & View All Rides
+                </button>
+              </div>
+            ))}
 
             {/* 4. PICK & DROP SHUTTLES */}
             {activeServiceIdx === 3 &&
-              filteredShuttles.map((shuttle) => {
+              (filteredShuttles.length > 0 ? (
+                filteredShuttles.map((shuttle) => {
                 const cleanPhone = (shuttle.phone || '').replace(/[^0-9]/g, '');
 
                 return (
@@ -996,11 +1229,34 @@ export function MobileHomeNativeView() {
                     </div>
                   </div>
                 );
-              })}
+              })
+            ) : (
+              <div className="p-6 rounded-2xl bg-white border border-slate-200 text-center flex flex-col items-center gap-3 shadow-2xs">
+                <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
+                  <Search className="w-6 h-6 stroke-[1.8]" />
+                </div>
+                <div>
+                  <h3 className="font-heading font-extrabold text-base text-[#101828]">
+                    No shuttle routes found matching &ldquo;{searchQuery || searchWhere || city}&rdquo;
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1 max-w-[280px]">
+                    Try searching by area like DHA, Gulberg, Clifton, or Blue Area.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="px-4 py-2 rounded-xl bg-[#0B6B4F] text-white font-bold text-xs shadow-xs hover:bg-[#08513C] transition cursor-pointer"
+                >
+                  Reset Search & View All Shuttles
+                </button>
+              </div>
+            ))}
 
             {/* 5. MOVERS */}
             {activeServiceIdx === 4 &&
-              filteredMovers.map((mover) => {
+              (filteredMovers.length > 0 ? (
+                filteredMovers.map((mover) => {
                 const cleanPhone = (mover.phone || '').replace(/[^0-9]/g, '');
 
                 return (
@@ -1059,7 +1315,29 @@ export function MobileHomeNativeView() {
                     </div>
                   </div>
                 );
-              })}
+              })
+            ) : (
+              <div className="p-6 rounded-2xl bg-white border border-slate-200 text-center flex flex-col items-center gap-3 shadow-2xs">
+                <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
+                  <Search className="w-6 h-6 stroke-[1.8]" />
+                </div>
+                <div>
+                  <h3 className="font-heading font-extrabold text-base text-[#101828]">
+                    No movers found matching &ldquo;{searchQuery || searchWhere || city}&rdquo;
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1 max-w-[280px]">
+                    Try searching for Shehzore, Suzuki Ravi, or Mazda.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="px-4 py-2 rounded-xl bg-[#0B6B4F] text-white font-bold text-xs shadow-xs hover:bg-[#08513C] transition cursor-pointer"
+                >
+                  Reset Search & View All Movers
+                </button>
+              </div>
+            ))}
           </div>
 
           {/* View All Button linking to respective portal */}
@@ -1203,6 +1481,74 @@ export function MobileHomeNativeView() {
                   </button>
                 );
               })}
+            </div>
+
+            {/* Live Search & Model Keyword Input Box */}
+            <div className="flex flex-col gap-2">
+              <div className="relative flex items-center">
+                <Search className="absolute left-3.5 w-4.5 h-4.5 text-[#0B6B4F] stroke-[2.2]" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={
+                    activeServiceIdx === 0
+                      ? 'Type name, model or city (e.g. Corolla, Civic, Karachi...)'
+                      : activeServiceIdx === 1
+                      ? 'Type driver name, city, tag (e.g. Tariq, Executive...)'
+                      : activeServiceIdx === 2
+                      ? 'Type city or car (e.g. Lahore, Islamabad, Civic...)'
+                      : activeServiceIdx === 3
+                      ? 'Type area or corridor (e.g. DHA, Gulberg...)'
+                      : 'Type truck or area (e.g. Shehzore, Johar Town...)'
+                  }
+                  className="w-full h-12 pl-10 pr-10 rounded-2xl bg-[#F4F6F8] border border-[#D0D5DD] text-sm font-semibold text-[#101828] placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:border-[#0B6B4F] focus:bg-white focus:ring-2 focus:ring-[#0B6B4F]/20 shadow-2xs transition"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 w-6 h-6 rounded-full bg-slate-200/80 hover:bg-slate-300 text-slate-600 flex items-center justify-center transition active:scale-90"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Popular Quick Suggestions Chips */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 shrink-0">
+                  Quick:
+                </span>
+                {(activeServiceIdx === 0
+                  ? ['Corolla', 'Civic', 'Yaris', 'Fortuner', 'HiAce', 'Prado', 'Karachi', 'Islamabad', 'Automatic']
+                  : activeServiceIdx === 1
+                  ? ['Tariq', 'Executive', 'Highway', 'Monthly', 'Police Verified', 'Karachi']
+                  : activeServiceIdx === 2
+                  ? ['Lahore', 'Islamabad', 'Karachi', 'Civic', 'Corolla']
+                  : activeServiceIdx === 3
+                  ? ['DHA Phase 5', 'Gulberg', 'Clifton', 'Fast NU', 'Blue Area']
+                  : ['Shehzore', 'Suzuki Ravi', 'Mazda Titan', 'Johar Town', 'DHA']
+                ).map((tag) => {
+                  const isTagActive = searchQuery.toLowerCase().includes(tag.toLowerCase());
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => setSearchQuery(tag)}
+                      className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-bold transition cursor-pointer active:scale-95 ${
+                        isTagActive
+                          ? 'bg-[#0B6B4F] text-white shadow-xs'
+                          : 'bg-[#F2F4F7] hover:bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Form Fields Card */}
@@ -1540,13 +1886,14 @@ export function MobileHomeNativeView() {
               <button
                 type="button"
                 onClick={() => {
+                  setSearchQuery('');
                   setSelectedCarCategory(0);
                   setSelectedTransmission('All');
                   setSelectedPriceMax(null);
                   setPickupDate('');
                   setReturnDate('');
                   setIsSelfDrive(true);
-                  showToast('Filters reset to default');
+                  showToast('Search & filters reset');
                 }}
                 className="h-[52px] px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 active:scale-[0.99] text-slate-700 font-bold text-xs transition cursor-pointer shrink-0"
               >
@@ -1558,12 +1905,50 @@ export function MobileHomeNativeView() {
                 onClick={() => {
                   setSearchSheetOpen(false);
                   setIsFilteredResultsView(true);
-                  showToast(`Found ${filteredCars.length} listings in ${searchWhere || city}`);
+                  const count =
+                    activeServiceIdx === 0
+                      ? filteredCars.length
+                      : activeServiceIdx === 1
+                      ? filteredDrivers.length
+                      : activeServiceIdx === 2
+                      ? filteredRides.length
+                      : activeServiceIdx === 3
+                      ? filteredShuttles.length
+                      : filteredMovers.length;
+                  showToast(
+                    searchQuery
+                      ? `Found ${count} "${searchQuery}" listings`
+                      : `Found ${count} listings in ${searchWhere || city}`
+                  );
                 }}
-                className="flex-1 h-[52px] rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] active:scale-[0.99] text-white font-bold text-base flex items-center justify-center gap-2.5 transition shadow-md cursor-pointer"
+                className="flex-1 h-[52px] rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] active:scale-[0.99] text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2 transition shadow-md cursor-pointer"
               >
-                <Search className="w-5 h-5 stroke-[2.4]" />
-                <span>Show listings</span>
+                <Search className="w-4.5 h-4.5 stroke-[2.4]" />
+                <span className="truncate">
+                  {searchQuery
+                    ? `Show ${
+                        activeServiceIdx === 0
+                          ? filteredCars.length
+                          : activeServiceIdx === 1
+                          ? filteredDrivers.length
+                          : activeServiceIdx === 2
+                          ? filteredRides.length
+                          : activeServiceIdx === 3
+                          ? filteredShuttles.length
+                          : filteredMovers.length
+                      } "${searchQuery}" listings`
+                    : `Show listings (${
+                        activeServiceIdx === 0
+                          ? filteredCars.length
+                          : activeServiceIdx === 1
+                          ? filteredDrivers.length
+                          : activeServiceIdx === 2
+                          ? filteredRides.length
+                          : activeServiceIdx === 3
+                          ? filteredShuttles.length
+                          : filteredMovers.length
+                      })`}
+                </span>
               </button>
             </div>
 

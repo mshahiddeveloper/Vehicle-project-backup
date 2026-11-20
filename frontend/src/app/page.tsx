@@ -722,11 +722,9 @@ export default function HomePage() {
         }
       }
       if (searchWhere.trim()) {
-        const q = searchWhere.toLowerCase().trim();
-        const matchCity = car.city.toLowerCase().includes(q);
-        const matchName = car.name.toLowerCase().includes(q);
-        const matchOwner = car.owner.toLowerCase().includes(q);
-        if (!matchCity && !matchName && !matchOwner) return false;
+        const tokens = searchWhere.toLowerCase().trim().split(/\s+/).filter(Boolean);
+        const searchable = `${car.name} ${car.city} ${car.owner} ${car.specs} ${car.category}`.toLowerCase();
+        if (!tokens.every((tok) => searchable.includes(tok))) return false;
       }
       return true;
     }).sort((a, b) => sortByFeatured(a.id, b.id));
@@ -739,11 +737,9 @@ export default function HomePage() {
         if (driver.category !== selectedCategory) return false;
       }
       if (searchWhere.trim()) {
-        const q = searchWhere.toLowerCase().trim();
-        const matchCity = driver.city.toLowerCase().includes(q);
-        const matchName = driver.name.toLowerCase().includes(q);
-        const matchTags = driver.tags.some((t) => t.toLowerCase().includes(q));
-        if (!matchCity && !matchName && !matchTags) return false;
+        const tokens = searchWhere.toLowerCase().trim().split(/\s+/).filter(Boolean);
+        const searchable = `${driver.name} ${driver.city} ${driver.exp} ${driver.langs} ${(driver.tags || []).join(' ')} ${driver.category}`.toLowerCase();
+        if (!tokens.every((tok) => searchable.includes(tok))) return false;
       }
       return true;
     }).sort((a, b) => sortByFeatured(a.id, b.id));
