@@ -49,7 +49,7 @@ import {
   ShuttleItem,
   MoverItem,
 } from '@/data/marketplaceData';
-import { getActiveUser, RegisteredUser } from '@/data/userAuth';
+import { getActiveUser, RegisteredUser, getUserDashboardPath } from '@/data/userAuth';
 import { formatPKR, maskPhone } from '@/lib/api';
 import { getStoreSlugForOwner } from '@/data/storefrontEngine';
 import { MobileNavigationDrawer } from '@/components/AppHeader';
@@ -402,7 +402,7 @@ export function MobileHomeNativeView() {
               </Link>
 
               <Link
-                href={activeUser ? '/customer' : '/login'}
+                href={activeUser ? getUserDashboardPath(activeUser) : '/login'}
                 aria-label="My account"
                 className="w-9 h-9 rounded-full bg-[#0B6B4F] text-white font-bold text-xs flex items-center justify-center shadow-xs transition active:scale-95 hover:ring-2 hover:ring-emerald-400"
               >

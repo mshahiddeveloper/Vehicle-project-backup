@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Globe, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, UserCheck, AlertCircle } from 'lucide-react';
-import { authenticateUser } from '@/data/userAuth';
+import { authenticateUser, getUserDashboardPath } from '@/data/userAuth';
 
 type SupportedLang = 'en' | 'ur' | 'ar' | 'de';
 
@@ -51,39 +51,14 @@ export default function LoginPage() {
       return;
     }
 
-    // Role-based target portal routing
-    const role = res.user.role;
-    if (role === 'LISTER') {
-      router.push('/lister');
-    } else if (role === 'DRIVER') {
-      router.push('/driver');
-    } else if (role === 'PROVIDER') {
-      if (res.user.providerSubtype === 'COMMERCIAL_CARGO') {
-        router.push('/provider?mode=commercial_cargo');
-      } else if (res.user.providerSubtype === 'CITY_TO_CITY') {
-        router.push('/intercity');
-      } else {
-        router.push('/provider?mode=pick_and_drop');
-      }
-    } else {
-      router.push('/customer');
-    }
+    // Deterministic role-based target portal routing
+    router.push(getUserDashboardPath(res.user));
   };
 
   const quickSwitch = (demoId: string) => {
     const res = authenticateUser(demoId, 'password123');
     if (res.success && res.user) {
-      if (res.user.role === 'LISTER') router.push('/lister');
-      else if (res.user.role === 'DRIVER') router.push('/driver');
-      else if (res.user.role === 'PROVIDER') {
-        if (res.user.providerSubtype === 'COMMERCIAL_CARGO') {
-          router.push('/provider?mode=commercial_cargo');
-        } else if (res.user.providerSubtype === 'CITY_TO_CITY') {
-          router.push('/intercity');
-        } else {
-          router.push('/provider?mode=pick_and_drop');
-        }
-      } else router.push('/customer');
+      router.push(getUserDashboardPath(res.user));
     }
   };
 

@@ -25,7 +25,7 @@ import {
   Navigation,
   Clock,
 } from 'lucide-react';
-import { getActiveUser, RegisteredUser } from '@/data/userAuth';
+import { getActiveUser, RegisteredUser, getUserDashboardPath } from '@/data/userAuth';
 
 interface NavTabItem {
   label: string;
@@ -352,8 +352,8 @@ function MobileNavBarContent() {
         isActive: pathname === '/' || pathname.startsWith('/listing'),
       },
       {
-        label: 'Bookings',
-        href: activeUser ? '/customer' : '/login',
+        label: activeUser ? (activeUser.role === 'CUSTOMER' ? 'Bookings' : 'Dashboard') : 'Bookings',
+        href: activeUser ? getUserDashboardPath(activeUser) : '/login',
         icon: CalendarCheck,
         isActive: pathname === '/customer',
       },

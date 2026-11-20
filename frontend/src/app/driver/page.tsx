@@ -44,7 +44,7 @@ import { AnalyticsReportHub } from '@/components/AnalyticsReportHub';
 import { API_BASE, formatPKR, maskCnic, maskLicense, maskPhone } from '@/lib/api';
 import { SubscriptionPricingSection } from '@/components/SubscriptionPricingSection';
 import { BillingHistoryManager } from '@/components/BillingHistoryManager';
-import { getActiveUser, RegisteredUser, logoutActiveUser } from '@/data/userAuth';
+import { getActiveUser, RegisteredUser, logoutActiveUser, getUserDashboardPath } from '@/data/userAuth';
 import {
   getDriverBookings,
   confirmDriverBooking,
@@ -146,31 +146,37 @@ function DriverDashboardContent() {
 
   const [isCustomerBlocked, setIsCustomerBlocked] = useState(false);
 
-  // Sync with logged in driver profile
+  // Sync with logged in driver profile & enforce Driver role guard
   useEffect(() => {
     const user = getActiveUser();
-    if (user && user.role === 'CUSTOMER') {
-      setIsCustomerBlocked(true);
-      setCurrentUser(user);
+    if (!user) {
+      if (typeof window !== 'undefined') {
+        window.location.replace('/login?redirect=/driver');
+      }
       return;
     }
-    if (user && user.role === 'DRIVER') {
-      setCurrentUser(user);
-      if (user.name) {
-        setDriverName(user.name);
-        setEditDriverName(user.name);
+    if (user.role !== 'DRIVER') {
+      if (typeof window !== 'undefined') {
+        window.location.replace(getUserDashboardPath(user));
       }
-      if (user.phone) {
-        setDriverPhone(user.phone);
-        setEditDriverPhone(user.phone);
-      }
-      if (user.city) {
-        setDriverCity(user.city);
-      }
-      if (user.bio) {
-        setDriverBio(user.bio);
-        setEditDriverBio(user.bio);
-      }
+      return;
+    }
+
+    setCurrentUser(user);
+    if (user.name) {
+      setDriverName(user.name);
+      setEditDriverName(user.name);
+    }
+    if (user.phone) {
+      setDriverPhone(user.phone);
+      setEditDriverPhone(user.phone);
+    }
+    if (user.city) {
+      setDriverCity(user.city);
+    }
+    if (user.bio) {
+      setDriverBio(user.bio);
+      setEditDriverBio(user.bio);
     }
 
     // Sync bookings queue

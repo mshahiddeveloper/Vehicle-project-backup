@@ -94,6 +94,8 @@ import {
   RegisteredUser,
   getApprovedServicesForUser,
   updateUserApprovedServices,
+  getActiveUser,
+  getUserDashboardPath,
   SafarServiceType,
   ALL_SAFAR_SERVICES,
   getAllSubscriptionPayments,
@@ -125,8 +127,22 @@ export default function SuperAdminDashboardPage() {
     'overview' | 'services' | 'listings' | 'plans' | 'promocodes' | 'promotions' | 'featured' | 'doc_rules' | 'directory' | 'analytics' | 'leads' | 'subscription_leads' | 'agents' | 'stealthAudit' | 'legal' | 'countries' | 'branding'
   >('overview');
 
-  // Read URL search param (?tab=...) on mount
+  // Enforce Super Admin role guard & read URL search param (?tab=...) on mount
   useEffect(() => {
+    const user = getActiveUser();
+    if (!user) {
+      if (typeof window !== 'undefined') {
+        window.location.replace('/login?redirect=/admin');
+      }
+      return;
+    }
+    if (user.role !== 'SUPER_ADMIN') {
+      if (typeof window !== 'undefined') {
+        window.location.replace(getUserDashboardPath(user));
+      }
+      return;
+    }
+
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get('tab');

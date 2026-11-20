@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { MobileNavBar } from '@/components/MobileNavBar';
 import { API_BASE, formatPKR, maskCnic, maskLicense, maskPhone } from '@/lib/api';
-import { getActiveUser, setActiveUser, RegisteredUser } from '@/data/userAuth';
+import { getActiveUser, setActiveUser, RegisteredUser, getUserDashboardPath } from '@/data/userAuth';
 import {
   getDriverBookings,
   confirmDriverBooking,
@@ -147,18 +147,32 @@ export default function CustomerDashboardPage() {
     },
   ]);
 
-  // Load newly submitted bookings from localStorage
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // Load newly submitted bookings from localStorage & enforce Customer role guard
   useEffect(() => {
     // Sync active authenticated profile
     const user = getActiveUser();
-    if (user) {
-      if (user.name) setCustomerName(user.name);
-      if (user.phone) setCustomerPhone(user.phone);
-      if (user.email) setCustomerEmail(user.email);
-      if (user.city) setCustomerCity(user.city);
-      if (user.nationalId) setCustomerCnic(user.nationalId);
-      if (user.licenseNumber) setCustomerLicense(user.licenseNumber);
+    if (!user) {
+      if (typeof window !== 'undefined') {
+        window.location.replace('/login?redirect=/customer');
+      }
+      return;
     }
+    if (user.role !== 'CUSTOMER') {
+      if (typeof window !== 'undefined') {
+        window.location.replace(getUserDashboardPath(user));
+      }
+      return;
+    }
+    setAuthChecked(true);
+
+    if (user.name) setCustomerName(user.name);
+    if (user.phone) setCustomerPhone(user.phone);
+    if (user.email) setCustomerEmail(user.email);
+    if (user.city) setCustomerCity(user.city);
+    if (user.nationalId) setCustomerCnic(user.nationalId);
+    if (user.licenseNumber) setCustomerLicense(user.licenseNumber);
 
     try {
       const saved = localStorage.getItem('safarpk_customer_bookings');
@@ -230,6 +244,17 @@ export default function CustomerDashboardPage() {
     setComplaintDetails('');
     setTimeout(() => setComplaintSuccess(null), 6000);
   };
+
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs font-bold text-slate-600">Verifying customer portal credentials...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans pb-20 md:pb-0">

@@ -47,6 +47,7 @@ import {
   logoutActiveUser,
   getApprovedServicesForUser,
   isServiceApprovedForUser,
+  getUserDashboardPath,
   SafarServiceType,
 } from '@/data/userAuth';
 import { MobileNavBar } from '@/components/MobileNavBar';
@@ -421,26 +422,20 @@ export default function ServiceProviderDashboardPage() {
   const hasPickAndDrop = approvedServices.includes('PICK_AND_DROP');
   const hasHomeShifting = approvedServices.includes('HOME_SHIFTING');
 
-  // Sync with logged-in user profile
+  // Sync with logged-in user profile & enforce Provider role guard
   React.useEffect(() => {
-    let user = getActiveUser();
+    const user = getActiveUser();
     if (!user) {
-      const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-      const mode = params?.get('mode');
-      const all = getAllRegisteredUsers();
-      if (mode === 'commercial_cargo') {
-        user = all.find((u) => u.email === 'almakkah.cargo@safarpk.com') || null;
-      } else {
-        user = all.find((u) => u.email === 'subhan.shuttles@safarpk.com') || null;
+      if (typeof window !== 'undefined') {
+        window.location.replace('/login?redirect=/provider');
       }
-      if (user) {
-        setActiveUser(user);
-      }
+      return;
     }
 
-    if (user && user.role === 'CUSTOMER') {
-      setIsCustomerBlocked(true);
-      setCurrentUser(user);
+    if (user.role !== 'PROVIDER') {
+      if (typeof window !== 'undefined') {
+        window.location.replace(getUserDashboardPath(user));
+      }
       return;
     }
 
@@ -1172,17 +1167,33 @@ export default function ServiceProviderDashboardPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#C2410C] to-amber-500 text-white flex items-center justify-center font-black text-lg shadow-sm">
+              <div
+                className={`w-9 h-9 rounded-xl text-white flex items-center justify-center font-black text-lg shadow-sm ${
+                  providerMode === 'PICK_AND_DROP'
+                    ? 'bg-gradient-to-tr from-violet-600 to-indigo-600'
+                    : providerMode === 'CITY_TO_CITY'
+                    ? 'bg-gradient-to-tr from-cyan-600 to-blue-600'
+                    : 'bg-gradient-to-tr from-[#C2410C] to-amber-500'
+                }`}
+              >
                 S
               </div>
               <span className="font-extrabold text-xl text-slate-900 tracking-tight">SafarPK</span>
             </Link>
-            <span className="hidden sm:inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-orange-50 text-orange-900 border border-orange-200">
-              {hasHomeShifting && !hasPickAndDrop
-                ? '📦 Home Shifting & Cargo Movers'
-                : hasPickAndDrop && !hasHomeShifting
+            <span
+              className={`hidden sm:inline-block text-xs font-semibold px-2.5 py-1 rounded-full border ${
+                providerMode === 'PICK_AND_DROP'
+                  ? 'bg-violet-50 text-violet-900 border-violet-200'
+                  : providerMode === 'CITY_TO_CITY'
+                  ? 'bg-cyan-50 text-cyan-900 border-cyan-200'
+                  : 'bg-amber-50 text-amber-900 border-amber-200'
+              }`}
+            >
+              {providerMode === 'PICK_AND_DROP'
                 ? '🚌 Pick & Drop Commuter Transport'
-                : 'Commercial Logistics & Commuter Transport'}
+                : providerMode === 'CITY_TO_CITY'
+                ? '🛣️ City to City Express Intercity'
+                : '📦 Home Shifting & Cargo Movers'}
             </span>
           </div>
 

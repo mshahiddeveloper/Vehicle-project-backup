@@ -155,6 +155,203 @@ export function updateUserApprovedServices(userId: string, services: SafarServic
   }
 }
 
+/**
+ * Deterministic role-based portal routing.
+ * Ensures a logged-in user always lands on their own dedicated dashboard.
+ */
+export function getUserDashboardPath(user: RegisteredUser | null | undefined): string {
+  if (!user) return '/login';
+  switch (user.role) {
+    case 'DRIVER':
+      return '/driver';
+    case 'LISTER':
+      return '/lister';
+    case 'PROVIDER':
+      if (user.providerSubtype === 'COMMERCIAL_CARGO') {
+        return '/provider?mode=commercial_cargo';
+      }
+      if (user.providerSubtype === 'CITY_TO_CITY') {
+        return '/provider?mode=city_to_city';
+      }
+      return '/provider?mode=pick_and_drop';
+    case 'SUPER_ADMIN':
+      return '/admin';
+    case 'AGENT':
+      return '/agent';
+    case 'CUSTOMER':
+    default:
+      return '/customer';
+  }
+}
+
+export interface PortalTheme {
+  id: string;
+  name: string;
+  badge: string;
+  serviceType: SafarServiceType | 'CUSTOMER' | 'ADMIN' | 'AGENT';
+  primaryHex: string;
+  primaryBg: string;
+  primaryText: string;
+  accentBg: string;
+  accentBorder: string;
+  accentText: string;
+  ringClass: string;
+  gradientClass: string;
+  tagClass: string;
+  dashboardPath: string;
+}
+
+export const PORTAL_THEMES: Record<string, PortalTheme> = {
+  // 1. DRIVER PORTAL - Sky Blue / Teal
+  DRIVER: {
+    id: 'DRIVER',
+    name: 'Driver & Chauffeur Cockpit',
+    badge: '👨‍✈️ Driver Cockpit',
+    serviceType: 'HIRE_A_DRIVER',
+    primaryHex: '#0284c7', // Sky-600
+    primaryBg: 'bg-sky-600 hover:bg-sky-700',
+    primaryText: 'text-sky-600',
+    accentBg: 'bg-sky-50',
+    accentBorder: 'border-sky-200',
+    accentText: 'text-sky-800',
+    ringClass: 'ring-sky-500/20 border-sky-300',
+    gradientClass: 'from-sky-600 via-teal-600 to-slate-900',
+    tagClass: 'bg-sky-100 text-sky-800 border border-sky-300',
+    dashboardPath: '/driver',
+  },
+  // 2. RENTALS PORTAL - Forest Emerald Green
+  LISTER: {
+    id: 'LISTER',
+    name: 'Car Rental & Showroom Fleet Cockpit',
+    badge: '🚗 Rentals & Fleet Cockpit',
+    serviceType: 'RENT_A_CAR',
+    primaryHex: '#0B6B4F', // Forest Emerald
+    primaryBg: 'bg-[#0B6B4F] hover:bg-[#08513C]',
+    primaryText: 'text-[#0B6B4F]',
+    accentBg: 'bg-[#E9F3EE]',
+    accentBorder: 'border-[#0B6B4F]/20',
+    accentText: 'text-[#08513C]',
+    ringClass: 'ring-[#0B6B4F]/20 border-emerald-300',
+    gradientClass: 'from-emerald-700 via-teal-800 to-slate-900',
+    tagClass: 'bg-emerald-100 text-emerald-800 border border-emerald-300',
+    dashboardPath: '/lister',
+  },
+  // 3. PICK & DROP PORTAL - Violet / Purple
+  PROVIDER_PICK_AND_DROP: {
+    id: 'PROVIDER_PICK_AND_DROP',
+    name: 'Pick & Drop Commuter Shuttle Cockpit',
+    badge: '🚌 Pick & Drop Cockpit',
+    serviceType: 'PICK_AND_DROP',
+    primaryHex: '#7c3aed', // Violet-600
+    primaryBg: 'bg-violet-600 hover:bg-violet-700',
+    primaryText: 'text-violet-600',
+    accentBg: 'bg-violet-50',
+    accentBorder: 'border-violet-200',
+    accentText: 'text-violet-800',
+    ringClass: 'ring-violet-500/20 border-violet-300',
+    gradientClass: 'from-violet-600 via-indigo-600 to-slate-900',
+    tagClass: 'bg-violet-100 text-violet-800 border border-violet-300',
+    dashboardPath: '/provider?mode=pick_and_drop',
+  },
+  // 4. CITY TO CITY PORTAL - Cyan / Ocean Blue
+  PROVIDER_CITY_TO_CITY: {
+    id: 'PROVIDER_CITY_TO_CITY',
+    name: 'City to City Express Intercity Cockpit',
+    badge: '🛣️ City to City Cockpit',
+    serviceType: 'CITY_TO_CITY',
+    primaryHex: '#0891b2', // Cyan-600
+    primaryBg: 'bg-cyan-600 hover:bg-cyan-700',
+    primaryText: 'text-cyan-600',
+    accentBg: 'bg-cyan-50',
+    accentBorder: 'border-cyan-200',
+    accentText: 'text-cyan-800',
+    ringClass: 'ring-cyan-500/20 border-cyan-300',
+    gradientClass: 'from-cyan-600 via-blue-600 to-slate-900',
+    tagClass: 'bg-cyan-100 text-cyan-800 border border-cyan-300',
+    dashboardPath: '/provider?mode=city_to_city',
+  },
+  // 5. MOVERS PORTAL - Amber / Warm Orange
+  PROVIDER_COMMERCIAL_CARGO: {
+    id: 'PROVIDER_COMMERCIAL_CARGO',
+    name: 'Home Shifting & Cargo Freight Cockpit',
+    badge: '📦 Movers & Cargo Cockpit',
+    serviceType: 'HOME_SHIFTING',
+    primaryHex: '#d97706', // Amber-600
+    primaryBg: 'bg-amber-600 hover:bg-amber-700',
+    primaryText: 'text-amber-600',
+    accentBg: 'bg-amber-50',
+    accentBorder: 'border-amber-200',
+    accentText: 'text-amber-800',
+    ringClass: 'ring-amber-500/20 border-amber-300',
+    gradientClass: 'from-amber-600 via-orange-600 to-slate-900',
+    tagClass: 'bg-amber-100 text-amber-800 border border-amber-300',
+    dashboardPath: '/provider?mode=commercial_cargo',
+  },
+  // CUSTOMER PORTAL
+  CUSTOMER: {
+    id: 'CUSTOMER',
+    name: 'Customer & Verified Member Portal',
+    badge: '👤 Member Portal',
+    serviceType: 'CUSTOMER',
+    primaryHex: '#0B6B4F',
+    primaryBg: 'bg-[#0B6B4F] hover:bg-[#08513C]',
+    primaryText: 'text-[#0B6B4F]',
+    accentBg: 'bg-[#E9F3EE]',
+    accentBorder: 'border-[#0B6B4F]/20',
+    accentText: 'text-[#08513C]',
+    ringClass: 'ring-[#0B6B4F]/20 border-emerald-300',
+    gradientClass: 'from-[#0B6B4F] via-teal-700 to-slate-900',
+    tagClass: 'bg-emerald-100 text-emerald-800 border border-emerald-300',
+    dashboardPath: '/customer',
+  },
+  SUPER_ADMIN: {
+    id: 'SUPER_ADMIN',
+    name: 'Super Admin Root Console',
+    badge: '🛡️ Root Admin',
+    serviceType: 'ADMIN',
+    primaryHex: '#4f46e5',
+    primaryBg: 'bg-indigo-600 hover:bg-indigo-700',
+    primaryText: 'text-indigo-600',
+    accentBg: 'bg-indigo-50',
+    accentBorder: 'border-indigo-200',
+    accentText: 'text-indigo-800',
+    ringClass: 'ring-indigo-500/20 border-indigo-300',
+    gradientClass: 'from-indigo-700 via-purple-700 to-slate-900',
+    tagClass: 'bg-indigo-100 text-indigo-800 border border-indigo-300',
+    dashboardPath: '/admin',
+  },
+  AGENT: {
+    id: 'AGENT',
+    name: 'Support Agent Desk',
+    badge: '🎧 Support Agent',
+    serviceType: 'AGENT',
+    primaryHex: '#2563eb',
+    primaryBg: 'bg-blue-600 hover:bg-blue-700',
+    primaryText: 'text-blue-600',
+    accentBg: 'bg-blue-50',
+    accentBorder: 'border-blue-200',
+    accentText: 'text-blue-800',
+    ringClass: 'ring-blue-500/20 border-blue-300',
+    gradientClass: 'from-blue-600 via-sky-600 to-slate-900',
+    tagClass: 'bg-blue-100 text-blue-800 border border-blue-300',
+    dashboardPath: '/agent',
+  },
+};
+
+export function getPortalThemeForUser(user: RegisteredUser | null | undefined): PortalTheme {
+  if (!user) return PORTAL_THEMES.CUSTOMER;
+  if (user.role === 'DRIVER') return PORTAL_THEMES.DRIVER;
+  if (user.role === 'LISTER' || (user.role as string) === 'OWNER') return PORTAL_THEMES.LISTER;
+  if (user.role === 'PROVIDER') {
+    if (user.providerSubtype === 'COMMERCIAL_CARGO') return PORTAL_THEMES.PROVIDER_COMMERCIAL_CARGO;
+    if (user.providerSubtype === 'CITY_TO_CITY') return PORTAL_THEMES.PROVIDER_CITY_TO_CITY;
+    return PORTAL_THEMES.PROVIDER_PICK_AND_DROP;
+  }
+  if (user.role === 'SUPER_ADMIN') return PORTAL_THEMES.SUPER_ADMIN;
+  if (user.role === 'AGENT') return PORTAL_THEMES.AGENT;
+  return PORTAL_THEMES.CUSTOMER;
+}
+
 export const DEMO_USERS: RegisteredUser[] = [
   {
     id: 'usr-demo-lister',

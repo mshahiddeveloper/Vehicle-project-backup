@@ -44,7 +44,7 @@ import { MobileNavBar } from '@/components/MobileNavBar';
 import { API_BASE, formatPKR, maskCnic, maskLicense, maskPhone } from '@/lib/api';
 import { SubscriptionPricingSection } from '@/components/SubscriptionPricingSection';
 import { BillingHistoryManager } from '@/components/BillingHistoryManager';
-import { getActiveUser, RegisteredUser } from '@/data/userAuth';
+import { getActiveUser, RegisteredUser, getUserDashboardPath } from '@/data/userAuth';
 import { DashboardStoreWidget } from '@/components/DashboardStoreWidget';
 import { AnalyticsReportHub } from '@/components/AnalyticsReportHub';
 import { useCountry } from '@/app/context/CountryContext';
@@ -213,31 +213,42 @@ export default function ListerDashboardPage() {
   const [businessName, setBusinessName] = useState('Salman Rent a Car & Tours');
   const [operatingCity, setOperatingCity] = useState('Islamabad');
 
-  // Sync with active authenticated registered user
+  // Sync with active authenticated registered user & enforce Lister role guard
   useEffect(() => {
     const user = getActiveUser();
-    if (user && user.role === 'LISTER') {
-      setCurrentUser(user);
-      if (user.businessName) setBusinessName(user.businessName);
-      else if (user.name) setBusinessName(`${user.name} Fleet`);
-      if (user.city) setOperatingCity(user.city);
-      if (user.phone) {
-        setListerPhone(user.phone);
-        setListerWhatsApp(user.phone);
+    if (!user) {
+      if (typeof window !== 'undefined') {
+        window.location.replace('/login?redirect=/lister');
       }
-      if (user.name) setListerName(user.name);
+      return;
+    }
+    if (user.role !== 'LISTER' && (user.role as string) !== 'OWNER') {
+      if (typeof window !== 'undefined') {
+        window.location.replace(getUserDashboardPath(user));
+      }
+      return;
+    }
 
-      // Load user's personal fleet if registered non-demo
-      if (user.id !== 'usr-demo-lister') {
-        try {
-          const userFleet = localStorage.getItem(`safarpk_fleet_${user.id}`);
-          if (userFleet) {
-            setFleetList(JSON.parse(userFleet));
-          } else {
-            setFleetList([]);
-          }
-        } catch (e) {}
-      }
+    setCurrentUser(user);
+    if (user.businessName) setBusinessName(user.businessName);
+    else if (user.name) setBusinessName(`${user.name} Fleet`);
+    if (user.city) setOperatingCity(user.city);
+    if (user.phone) {
+      setListerPhone(user.phone);
+      setListerWhatsApp(user.phone);
+    }
+    if (user.name) setListerName(user.name);
+
+    // Load user's personal fleet if registered non-demo
+    if (user.id !== 'usr-demo-lister') {
+      try {
+        const userFleet = localStorage.getItem(`safarpk_fleet_${user.id}`);
+        if (userFleet) {
+          setFleetList(JSON.parse(userFleet));
+        } else {
+          setFleetList([]);
+        }
+      } catch (e) {}
     }
   }, []);
   const [operatingArea, setOperatingArea] = useState('F-10 Markaz');

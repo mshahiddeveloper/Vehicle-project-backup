@@ -33,7 +33,7 @@ import {
   Download,
 } from 'lucide-react';
 import { COUNTRIES, CountryInfo, SUPPORTED_CURRENCIES, CurrencyInfo } from '@/data/countries';
-import { getActiveUser, RegisteredUser, logoutActiveUser } from '@/data/userAuth';
+import { getActiveUser, RegisteredUser, logoutActiveUser, getUserDashboardPath } from '@/data/userAuth';
 import { useCountry } from '@/app/context/CountryContext';
 import { getSiteBranding, SiteBranding } from '@/data/branding';
 import { MobilePullToRefresh } from '@/components/MobilePullToRefresh';
@@ -45,20 +45,33 @@ interface AppHeaderProps {
   accentColor?: string;
 }
 
-export function getDashboardHref(role?: string, providerSubtype?: string): string {
+export function getDashboardHref(roleOrUser?: string | RegisteredUser | null, providerSubtype?: string): string {
+  if (roleOrUser && typeof roleOrUser === 'object') {
+    return getUserDashboardPath(roleOrUser);
+  }
+  const role = typeof roleOrUser === 'string' ? roleOrUser : undefined;
+  if (!role) {
+    const active = getActiveUser();
+    return getUserDashboardPath(active);
+  }
   switch (role) {
-    case 'LISTER':
-      return '/lister';
     case 'DRIVER':
       return '/driver';
+    case 'LISTER':
+    case 'OWNER':
+      return '/lister';
     case 'PROVIDER':
       if (providerSubtype === 'COMMERCIAL_CARGO') {
         return '/provider?mode=commercial_cargo';
       }
       if (providerSubtype === 'CITY_TO_CITY') {
-        return '/intercity';
+        return '/provider?mode=city_to_city';
       }
       return '/provider?mode=pick_and_drop';
+    case 'SUPER_ADMIN':
+      return '/admin';
+    case 'AGENT':
+      return '/agent';
     case 'CUSTOMER':
     default:
       return '/customer';

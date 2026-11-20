@@ -41,7 +41,7 @@ import {
   saveCustomCityRide,
   deleteCustomCityRide,
 } from '@/data/marketplaceData';
-import { getActiveUser, logoutActiveUser, RegisteredUser } from '@/data/userAuth';
+import { getActiveUser, logoutActiveUser, RegisteredUser, getUserDashboardPath } from '@/data/userAuth';
 import { formatPKR, maskPhone } from '@/lib/api';
 
 interface PassengerInquiry {
@@ -143,9 +143,27 @@ function IntercityPortalContent() {
   const [operatorPhone, setOperatorPhone] = useState('+92 312 9988776');
   const [operatorWhatsApp, setOperatorWhatsApp] = useState('923129988776');
 
-  // Load Active User & Routes
+  // Load Active User & Routes & enforce Operator guard
   useEffect(() => {
     const user = getActiveUser();
+    if (!user) {
+      if (typeof window !== 'undefined') {
+        window.location.replace('/login?redirect=/intercity');
+      }
+      return;
+    }
+    if (user.role === 'DRIVER') {
+      if (typeof window !== 'undefined') {
+        window.location.replace('/driver');
+      }
+      return;
+    }
+    if (user.role === 'CUSTOMER') {
+      if (typeof window !== 'undefined') {
+        window.location.replace('/customer');
+      }
+      return;
+    }
     setActiveUserState(user);
     setCustomRides(getCustomCityRides());
 

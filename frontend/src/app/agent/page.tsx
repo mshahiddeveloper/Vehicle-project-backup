@@ -48,6 +48,7 @@ import {
   getActiveUser,
   setActiveUser,
   logoutActiveUser,
+  getUserDashboardPath,
   getAllSubscriptionPayments,
   approveSubscriptionPayment,
   rejectSubscriptionPayment,
@@ -191,6 +192,12 @@ export default function AgentDashboardPage() {
 
   useEffect(() => {
     const user = getActiveUser();
+    if (user && user.role !== 'AGENT') {
+      if (typeof window !== 'undefined') {
+        window.location.replace(getUserDashboardPath(user));
+      }
+      return;
+    }
     if (user && user.role === 'AGENT') {
       setCurrentUser(user);
     }

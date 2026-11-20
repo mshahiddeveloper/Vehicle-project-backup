@@ -24,7 +24,7 @@ import {
   Boxes,
 } from 'lucide-react';
 import { RoleArt } from '@/components/RoleArt';
-import { registerNewUser, UserRole, ProviderSubtype } from '@/data/userAuth';
+import { registerNewUser, UserRole, ProviderSubtype, getUserDashboardPath } from '@/data/userAuth';
 
 type SupportedLang = 'en' | 'ur' | 'ar' | 'de';
 type OperationalRole = 'CUSTOMER' | 'LISTER' | 'DRIVER' | 'PICK_DROP' | 'SHIFTING';
@@ -252,18 +252,8 @@ function RegisterForm() {
       setNotice('Matching existing account found! Opening your dashboard directly...');
     }
 
-    // Direct routing to role portal
-    let dest = target;
-    if (res.alreadyExists && res.user) {
-      if (res.user.role === 'LISTER') dest = '/lister';
-      else if (res.user.role === 'DRIVER') dest = '/driver';
-      else if (res.user.role === 'PROVIDER') {
-        dest =
-          res.user.providerSubtype === 'COMMERCIAL_CARGO'
-            ? '/provider?mode=commercial_cargo'
-            : '/provider?mode=pick_and_drop';
-      } else dest = '/customer';
-    }
+    // Direct deterministic routing to user's dedicated role portal
+    const dest = getUserDashboardPath(res.user);
 
     setTimeout(() => {
       router.push(dest);
