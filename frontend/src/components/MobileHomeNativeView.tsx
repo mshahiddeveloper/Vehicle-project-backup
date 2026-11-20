@@ -42,6 +42,7 @@ import {
   MAJOR_HUBS,
   INTERCITY_CITIES,
   CITY_COMMUTE_AREAS,
+  CITY_MOVERS_AREAS,
   matchesShuttleRoute,
   VehicleCardItem,
   DriverCardItem,
@@ -438,20 +439,42 @@ export function MobileHomeNativeView() {
     return list.length > 0 ? list : SHUTTLES_DATA;
   }, [city, searchWhere, shuttleCity, shuttlePickupArea, shuttleDropArea, searchTokens]);
 
+  // Dynamic Residential & Commercial Areas for Movers (Strictly Partitioned)
+  const availableMoverAreas = useMemo(() => {
+    const targetCity = searchWhere || city || 'Karachi';
+    const base = CITY_MOVERS_AREAS[targetCity] || CITY_MOVERS_AREAS['Karachi'] || [];
+    const listingAreas: string[] = [];
+    MOVERS_DATA.filter((m) => m.city.toLowerCase() === targetCity.toLowerCase()).forEach((m) => {
+      if (m.name.includes('Port')) listingAreas.push('Karachi Port & Kemari');
+      if (m.name.includes('Capital')) listingAreas.push('Islamabad Capital Zone');
+      if (m.name.includes('Industrial')) listingAreas.push('Industrial Estate');
+    });
+    return Array.from(new Set([...base, ...listingAreas]));
+  }, [searchWhere, city]);
+
   const filteredMovers = useMemo(() => {
     let list = [...MOVERS_DATA];
+    const targetCity = searchWhere || city;
+    const cityMatches = list.filter((m) => m.city.toLowerCase() === targetCity.toLowerCase());
+    if (cityMatches.length > 0) list = cityMatches;
+
+    if (moverFromArea || moverToArea) {
+      const areaKeyword = (moverFromArea || moverToArea).toLowerCase();
+      const specificMatches = list.filter((m) => {
+        const fullText = `${m.name} ${m.trucks} ${(m.tags || []).join(' ')} ${m.category} ${m.city}`.toLowerCase();
+        return fullText.includes(areaKeyword);
+      });
+      if (specificMatches.length > 0) list = specificMatches;
+    }
+
     if (searchTokens.length > 0) {
       list = list.filter((m) => {
         const searchable = `${m.name} ${m.city} ${m.trucks} ${m.base} ${m.helper}`.toLowerCase();
         return searchTokens.every((tok) => searchable.includes(tok));
       });
-    } else {
-      const targetCity = searchWhere || city;
-      const cityMatches = list.filter((m) => m.city.toLowerCase() === targetCity.toLowerCase());
-      if (cityMatches.length > 0) list = cityMatches;
     }
     return list;
-  }, [city, searchWhere, searchTokens]);
+  }, [city, searchWhere, moverFromArea, moverToArea, searchTokens]);
 
   const userInitials = useMemo(() => {
     if (!activeUser?.name?.trim()) return '';
@@ -610,7 +633,15 @@ export function MobileHomeNativeView() {
                   {searchQuery ? `"${searchQuery}" · ${searchWhere || city}` : (searchWhere || city)}
                 </span>
                 <span className="text-[10px] text-slate-500 font-medium truncate">
-                  {pickupDate && returnDate ? `${pickupDate} – ${returnDate}` : '14 – 16 Nov'} · {isSelfDrive ? 'Self-drive' : 'With driver'}
+                  {activeServiceIdx === 0
+                    ? `${pickupDate && returnDate ? `${pickupDate} – ${returnDate}` : 'Flexible Dates'} · ${isSelfDrive ? 'Self-drive' : 'With driver'}`
+                    : activeServiceIdx === 1
+                    ? `${pickupDate ? `Starting ${pickupDate}` : 'Flexible Dates'} · Certified Drivers`
+                    : activeServiceIdx === 2
+                    ? `${pickupDate ? `Travel ${pickupDate}` : 'Intercity Rides'} · City to City`
+                    : activeServiceIdx === 3
+                    ? `${shuttlePickupArea ? `${shuttlePickupArea} → ${shuttleDropArea || 'Drop'}` : 'Daily Commute Shuttles'}`
+                    : `${moverDate ? `Moving on ${moverDate}` : 'Home & Office Shifting'}`}
                 </span>
               </div>
               {searchQuery && (
@@ -1642,7 +1673,7 @@ export function MobileHomeNativeView() {
                     className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
                   >
                     <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
-                      {activeServiceIdx === 1 ? 'Duty City' : 'Where / Pick-up City'}
+                      {activeServiceIdx === 1 ? 'City / Location (شہر)' : 'Where / Pick-up City'}
                     </span>
                     <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
                       <span>{searchWhere || city || 'Select City'}</span>
@@ -1766,7 +1797,7 @@ export function MobileHomeNativeView() {
                 </>
               )}
 
-              {/* SERVICE 4: MOVERS (Current area, destination area, and shifting date picker) */}
+              {/* SERVICE 4: MOVERS (Pickup area, drop-off area, and shifting date picker) */}
               {activeServiceIdx === 4 && (
                 <>
                   <div className="flex items-center gap-3 min-h-[58px] px-3.5">
@@ -1774,7 +1805,7 @@ export function MobileHomeNativeView() {
                       <MapPin className="w-4 h-4 stroke-[2.2]" />
                     </span>
                     <button type="button" onClick={() => setCitySheetOpen(true)} className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0">
-                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">Moving City</span>
+                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">City / Location (شہر)</span>
                       <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
                         <span>{searchWhere || city}</span>
                         <ChevronDown className="w-4 h-4 text-slate-400" />
@@ -1786,26 +1817,70 @@ export function MobileHomeNativeView() {
                     <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
                       <Navigation className="w-4 h-4 stroke-[2.2]" />
                     </span>
-                    <div className="flex-1 flex flex-col justify-center">
-                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">Moving from (Current Area)</span>
-                      <div className="flex items-center justify-between">
-                        <input type="text" value={moverFromArea} onChange={(e) => setMoverFromArea(e.target.value)} placeholder="e.g. Gulberg, Johar Town" className="flex-1 border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent" />
-                        <button type="button" onClick={() => setMoverAreaSheetOpen('from')} className="px-2 py-0.5 text-[11px] font-bold text-[#0B6B4F] bg-emerald-50 hover:bg-emerald-100 rounded-lg transition cursor-pointer shrink-0 ml-1">Pick area</button>
-                      </div>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMoverAreaSheetOpen('from')}
+                      className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
+                    >
+                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
+                        Pickup Location (کہاں سے)
+                      </span>
+                      <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
+                        <span className={moverFromArea ? 'text-[#0B6B4F] font-bold truncate pr-1' : 'text-slate-400 font-medium'}>
+                          {moverFromArea || 'Select pickup area / sector'}
+                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {moverFromArea && (
+                            <span
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMoverFromArea('');
+                              }}
+                              className="w-5 h-5 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 flex items-center justify-center text-[10px]"
+                              title="Clear pickup area"
+                            >
+                              ✕
+                            </span>
+                          )}
+                          <ChevronDown className="w-4 h-4 text-slate-400" />
+                        </div>
+                      </span>
+                    </button>
                   </div>
 
                   <div className="flex items-center gap-3 min-h-[58px] px-3.5">
                     <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
                       <Flag className="w-4 h-4 stroke-[2.2]" />
                     </span>
-                    <div className="flex-1 flex flex-col justify-center">
-                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">Moving to (Destination Area)</span>
-                      <div className="flex items-center justify-between">
-                        <input type="text" value={moverToArea} onChange={(e) => setMoverToArea(e.target.value)} placeholder="e.g. DHA Phase 6, Bahria Town" className="flex-1 border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent" />
-                        <button type="button" onClick={() => setMoverAreaSheetOpen('to')} className="px-2 py-0.5 text-[11px] font-bold text-[#0B6B4F] bg-emerald-50 hover:bg-emerald-100 rounded-lg transition cursor-pointer shrink-0 ml-1">Pick area</button>
-                      </div>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMoverAreaSheetOpen('to')}
+                      className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
+                    >
+                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
+                        Drop-off Location (کہاں تک)
+                      </span>
+                      <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
+                        <span className={moverToArea ? 'text-[#0B6B4F] font-bold truncate pr-1' : 'text-slate-400 font-medium'}>
+                          {moverToArea || 'Select drop-off area / sector'}
+                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {moverToArea && (
+                            <span
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMoverToArea('');
+                              }}
+                              className="w-5 h-5 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 flex items-center justify-center text-[10px]"
+                              title="Clear drop-off area"
+                            >
+                              ✕
+                            </span>
+                          )}
+                          <ChevronDown className="w-4 h-4 text-slate-400" />
+                        </div>
+                      </span>
+                    </button>
                   </div>
 
                   <div className="flex items-center gap-3 min-h-[58px] px-3.5">
@@ -1836,66 +1911,165 @@ export function MobileHomeNativeView() {
                 </>
               )}
 
-              {/* DATE PICKERS: Cars (Pick-up & Return), Drivers (Duty Date Only) */}
-              {(activeServiceIdx === 0 || activeServiceIdx === 1) && (
-                <label className="flex items-center gap-3 min-h-[58px] px-3.5">
-                  <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                    <Calendar className="w-4 h-4 stroke-[2.2]" />
-                  </span>
-                  <span className="flex-1 flex flex-col justify-center">
-                    <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
-                      {activeServiceIdx === 1 ? 'Duty Date' : 'Pick-up date'}
-                    </span>
-                    <input
-                      type="date"
-                      min={todayDateStr}
-                      value={pickupDate}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val && val < todayDateStr) {
-                          setPickupDate(todayDateStr);
-                          showToast('Past dates cannot be selected');
-                        } else {
-                          setPickupDate(val);
-                          if (returnDate && returnDate < val) {
-                            setReturnDate(val);
-                          }
-                        }
+              {/* SERVICE 1: DRIVERS - STARTING DATE / WHEN NEEDED (Flexible Free Browsing + Quick 1-Tap Chips) */}
+              {activeServiceIdx === 1 && (
+                <div className="flex flex-col gap-2.5 px-3.5 py-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                        <Calendar className="w-4 h-4 stroke-[2.2]" />
+                      </span>
+                      <div>
+                        <span className="text-[11px] font-bold text-[#667085] leading-none mb-1 block">
+                          When needed / Starting Date (کب سے چاہیے)
+                        </span>
+                        <span className="text-sm font-bold text-[#101828]">
+                          {pickupDate ? `Starting from ${pickupDate}` : 'Any Date · Flexible Availability (تمام دستیاب ڈرائیورز)'}
+                        </span>
+                      </div>
+                    </div>
+                    {pickupDate && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPickupDate('');
+                          showToast('Flexible date browsing enabled (all drivers)');
+                        }}
+                        className="text-[11px] font-bold text-[#0B6B4F] bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded-lg transition cursor-pointer shrink-0"
+                      >
+                        Reset / Any Date
+                      </button>
+                    )}
+                  </div>
+
+                  {/* 1-Tap Quick Action Date Selection */}
+                  <div className="flex items-center gap-2 pt-1 overflow-x-auto pb-0.5 scrollbar-none">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPickupDate('');
+                        showToast('Showing all available drivers (no date restriction)');
                       }}
-                      className="border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent"
-                    />
-                  </span>
-                </label>
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+                        !pickupDate
+                          ? 'bg-[#0B6B4F] text-white shadow-xs'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      Any Date (Flexible)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPickupDate(todayDateStr);
+                        showToast(`Date set to Today (${todayDateStr})`);
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+                        pickupDate === todayDateStr
+                          ? 'bg-[#0B6B4F] text-white shadow-xs'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      Today
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date();
+                        d.setDate(d.getDate() + 1);
+                        const tomStr = d.toISOString().split('T')[0];
+                        setPickupDate(tomStr);
+                        showToast(`Date set to Tomorrow (${tomStr})`);
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+                        pickupDate && pickupDate !== todayDateStr
+                          ? 'bg-[#0B6B4F] text-white shadow-xs'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      Tomorrow
+                    </button>
+                    <label className="relative flex items-center justify-center px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer transition whitespace-nowrap">
+                      <span>Pick Date</span>
+                      <input
+                        type="date"
+                        min={todayDateStr}
+                        value={pickupDate}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val && val < todayDateStr) {
+                            setPickupDate(todayDateStr);
+                            showToast('Past dates cannot be selected');
+                          } else {
+                            setPickupDate(val);
+                          }
+                        }}
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                      />
+                    </label>
+                  </div>
+                </div>
               )}
 
-              {/* Return Date for Cars Only */}
+              {/* SERVICE 0: CAR RENTALS - PICKUP & RETURN DATES */}
               {activeServiceIdx === 0 && (
-                <label className="flex items-center gap-3 min-h-[58px] px-3.5">
-                  <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                    <Calendar className="w-4 h-4 stroke-[2.2]" />
-                  </span>
-                  <span className="flex-1 flex flex-col justify-center">
-                    <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
-                      Return date
+                <>
+                  <label className="flex items-center gap-3 min-h-[58px] px-3.5">
+                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <Calendar className="w-4 h-4 stroke-[2.2]" />
                     </span>
-                    <input
-                      type="date"
-                      min={pickupDate || todayDateStr}
-                      value={returnDate}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        const minAllowed = pickupDate || todayDateStr;
-                        if (val && val < minAllowed) {
-                          setReturnDate(minAllowed);
-                          showToast('Return date cannot be before pickup date');
-                        } else {
-                          setReturnDate(val);
-                        }
-                      }}
-                      className="border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent"
-                    />
-                  </span>
-                </label>
+                    <span className="flex-1 flex flex-col justify-center">
+                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
+                        Pick-up date
+                      </span>
+                      <input
+                        type="date"
+                        min={todayDateStr}
+                        value={pickupDate}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val && val < todayDateStr) {
+                            setPickupDate(todayDateStr);
+                            showToast('Past dates cannot be selected');
+                          } else {
+                            setPickupDate(val);
+                            if (returnDate && returnDate < val) {
+                              setReturnDate(val);
+                            }
+                          }
+                        }}
+                        className="border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent"
+                      />
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-3 min-h-[58px] px-3.5">
+                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <Calendar className="w-4 h-4 stroke-[2.2]" />
+                    </span>
+                    <span className="flex-1 flex flex-col justify-center">
+                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
+                        Return date
+                      </span>
+                      <input
+                        type="date"
+                        min={pickupDate || todayDateStr}
+                        value={returnDate}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const minAllowed = pickupDate || todayDateStr;
+                          if (val && val < minAllowed) {
+                            setReturnDate(minAllowed);
+                            showToast('Return date cannot be before pickup date');
+                          } else {
+                            setReturnDate(val);
+                          }
+                        }}
+                        className="border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent"
+                      />
+                    </span>
+                  </label>
+                </>
               )}
 
               {/* SPECIFIC FILTER OPTIONS FOR CARS: Transmission, Category, Budget */}
@@ -2360,7 +2534,7 @@ export function MobileHomeNativeView() {
                   <span>Back</span>
                 </button>
                 <h3 className="font-heading font-extrabold text-[19px] text-[#101828]">
-                  {moverAreaSheetOpen === 'from' ? 'Select Moving From Area' : 'Select Destination Area'}
+                  {moverAreaSheetOpen === 'from' ? 'Select Pickup Location (کہاں سے)' : 'Select Drop-off Location (کہاں تک)'}
                 </h3>
               </div>
               <button
@@ -2378,7 +2552,7 @@ export function MobileHomeNativeView() {
                 type="text"
                 value={moverAreaSearchQuery}
                 onChange={(e) => setMoverAreaSearchQuery(e.target.value)}
-                placeholder="Search area..."
+                placeholder="Search area, sector, housing scheme..."
                 className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0B6B4F]"
               />
               {moverAreaSearchQuery && (
@@ -2392,8 +2566,32 @@ export function MobileHomeNativeView() {
               )}
             </div>
 
-            <div className="divide-y divide-slate-100 py-1">
-              {((CITY_COMMUTE_AREAS as any)[searchWhere || city] || CITY_COMMUTE_AREAS['Lahore'] || [])
+            {/* Custom Location Fallback Button when typing an unlisted area */}
+            {moverAreaSearchQuery.trim() && !availableMoverAreas.some((a) => a.toLowerCase() === moverAreaSearchQuery.trim().toLowerCase()) && (
+              <button
+                type="button"
+                onClick={() => {
+                  const custom = moverAreaSearchQuery.trim();
+                  if (moverAreaSheetOpen === 'from') setMoverFromArea(custom);
+                  else setMoverToArea(custom);
+                  setMoverAreaSheetOpen(null);
+                  setMoverAreaSearchQuery('');
+                  showToast(`${moverAreaSheetOpen === 'from' ? 'Pickup' : 'Drop-off'} location set to "${custom}"`);
+                }}
+                className="w-full flex items-center justify-between py-2.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#0B6B4F] text-left transition cursor-pointer font-bold text-xs border border-emerald-200 mt-1"
+              >
+                <span className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-[#0B6B4F] shrink-0" />
+                  <span>Use custom address: <strong>&ldquo;{moverAreaSearchQuery.trim()}&rdquo;</strong></span>
+                </span>
+                <span className="text-[11px] font-bold text-[#0B6B4F] bg-white px-2.5 py-0.5 rounded-md shadow-2xs shrink-0">
+                  Select
+                </span>
+              </button>
+            )}
+
+            <div className="divide-y divide-slate-100 py-1 max-h-[50vh] overflow-y-auto">
+              {availableMoverAreas
                 .filter((area: string) => !moverAreaSearchQuery || area.toLowerCase().includes(moverAreaSearchQuery.toLowerCase()))
                 .map((area: string) => {
                   const isSelected = (moverAreaSheetOpen === 'from' ? moverFromArea : moverToArea) === area;
@@ -2406,7 +2604,7 @@ export function MobileHomeNativeView() {
                         else setMoverToArea(area);
                         setMoverAreaSheetOpen(null);
                         setMoverAreaSearchQuery('');
-                        showToast(`${moverAreaSheetOpen === 'from' ? 'Moving from' : 'Moving to'} area set to ${area}`);
+                        showToast(`${moverAreaSheetOpen === 'from' ? 'Pickup' : 'Drop-off'} location set to ${area}`);
                       }}
                       className={`w-full flex items-center justify-between py-3 px-2 text-left hover:bg-slate-50 transition cursor-pointer font-semibold text-[15px] rounded-lg ${
                         isSelected ? 'bg-emerald-50 text-[#0B6B4F] font-bold' : 'text-[#101828]'

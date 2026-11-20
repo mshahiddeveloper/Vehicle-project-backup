@@ -254,24 +254,24 @@ describe('Milestone 1: UI Refactoring & Polish (Requirements R1 - R4)', () => {
       expect(shuttleSheetSlice).not.toContain('Single-Day Trip Date');
     });
 
-    it('R2.6: Movers search provides current area, destination area, and shifting date pickers', () => {
+    it('R2.6: Movers search provides pickup location, drop-off location, and shifting date pickers', () => {
       const moversSheetIdx = mobileHomeSource.indexOf('{activeServiceIdx === 4 && (');
       expect(moversSheetIdx).toBeGreaterThan(-1);
-      const moversSheetSlice = mobileHomeSource.slice(moversSheetIdx, moversSheetIdx + 4500);
+      const moversSheetSlice = mobileHomeSource.slice(moversSheetIdx, moversSheetIdx + 8000);
 
-      expect(moversSheetSlice).toContain('Moving from (Current Area)');
-      expect(moversSheetSlice).toContain('Moving to (Destination Area)');
+      expect(moversSheetSlice).toContain('Pickup Location');
+      expect(moversSheetSlice).toContain('Drop-off Location');
       expect(moversSheetSlice).toContain('Shifting Date');
     });
 
-    it('R2.7: Drivers search provides duty city and single date picker without return date', () => {
-      const driversSheetIdx = mobileHomeSource.indexOf('Duty City');
+    it('R2.7: Drivers search provides location and flexible starting date picker without return date', () => {
+      const driversSheetIdx = mobileHomeSource.indexOf('When needed / Starting Date');
       expect(driversSheetIdx).toBeGreaterThan(-1);
       const driversSheetSlice = mobileHomeSource.slice(driversSheetIdx - 200, driversSheetIdx + 1500);
 
-      expect(driversSheetSlice).toContain('Duty City');
-      expect(mobileHomeSource).toContain('Duty Date');
-      expect(driversSheetSlice).not.toContain('Return Date');
+      expect(driversSheetSlice).toContain('When needed / Starting Date');
+      expect(mobileHomeSource).toContain('Any Date (Flexible)');
+      expect(driversSheetSlice).not.toContain('Return date');
     });
   });
 

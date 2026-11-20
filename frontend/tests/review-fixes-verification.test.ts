@@ -235,7 +235,7 @@ describe('Review Verification Suite: Critical Bug Fixes & Requirements Coverage'
       expect(mobileHomeSource).toContain('moverAreaSheetOpen && (');
       expect(mobileHomeSource).toContain('setMoverAreaSheetOpen(null)');
       expect(mobileHomeSource).toContain('moverAreaSearchQuery');
-      expect(mobileHomeSource).toContain('Pick area');
+      expect(mobileHomeSource).toContain('availableMoverAreas');
     });
 
     it('F5.2: Dynamic datasets use searchWhere fallback and dependency arrays', () => {
