@@ -1,10 +1,12 @@
 'use client';
 
 import { SubscriptionPlan } from './promoCodes';
+import { saveAgentPermissions } from './agentPermissions';
+import { recordAuditAction } from './auditLog';
 
 export type UserRole = 'CUSTOMER' | 'LISTER' | 'DRIVER' | 'PROVIDER' | 'AGENT' | 'SUPER_ADMIN';
 export type ProviderSubtype = 'PICK_AND_DROP' | 'COMMERCIAL_CARGO' | 'CITY_TO_CITY';
-export type SubscriptionStatus = 'UNSUBSCRIBED' | 'PENDING_APPROVAL' | 'ACTIVE' | 'REJECTED';
+export type SubscriptionStatus = 'UNSUBSCRIBED' | 'PENDING_APPROVAL' | 'ACTIVE' | 'REJECTED' | 'PAUSED';
 export type KycStatus = 'UNVERIFIED' | 'PENDING_APPROVAL' | 'VERIFIED';
 
 /**
@@ -127,6 +129,11 @@ export interface RegisteredUser {
   licenseLocked?: boolean;
   tradeLicenseNumber?: string;
   tradeLicenseLocked?: boolean;
+  // Account Status Controls
+  isDeactivated?: boolean;
+  deactivatedReason?: string;
+  deactivatedAt?: string;
+  deactivatedBy?: string;
   metrics: UserMetrics;
   activities: UserActivityLog[];
 }
@@ -1678,4 +1685,333 @@ export function createManualVendorWithSubscription(params: {
 
   return { success: true, user: newUser, payment: paymentRecord };
 }
+
+/**
+ * Create a new Agent user (SUPER ADMIN EXCLUSIVE)
+ * Agents can only be created by Super Admin and cannot self-register.
+ */
+export function createAgentUser(data: {
+  name: string;
+  email: string;
+  phone: string;
+  password?: string;
+  city?: string;
+  branch?: string;
+  desk?: string;
+  staffId?: string;
+  employeeId?: string;
+  permissions?: string[];
+}): { success: boolean; agent?: RegisteredUser; error?: string } {
+  if (typeof window === 'undefined') {
+    return { success: false, error: 'Window is not defined' };
+  }
+
+  const cleanEmail = (data.email || '').trim().toLowerCase();
+  const cleanPhone = (data.phone || '').trim();
+  const cleanName = (data.name || '').trim();
+
+  if (!cleanName) return { success: false, error: 'Agent full name is required' };
+  if (!cleanEmail && !cleanPhone) return { success: false, error: 'Email or phone number is required' };
+
+  const all = getAllRegisteredUsers();
+  const exists = all.some(
+    (u) =>
+      (cleanEmail && u.email?.toLowerCase() === cleanEmail) ||
+      (cleanPhone && u.phone === cleanPhone)
+  );
+
+  if (exists) {
+    return { success: false, error: 'A staff member or user with this email/phone already exists' };
+  }
+
+  const agentStaffId = data.staffId || data.employeeId || `AG-${Math.floor(100 + Math.random() * 900)}`;
+  const nowIso = new Date().toISOString();
+
+  const newAgent: RegisteredUser = {
+    id: `ag-${Date.now()}`,
+    name: cleanName,
+    email: cleanEmail,
+    phone: cleanPhone || '+92 300 0000000',
+    password: data.password || 'password123',
+    city: data.city || 'Lahore',
+    countryCode: 'PK',
+    role: 'AGENT',
+    employeeId: agentStaffId,
+    staffId: agentStaffId,
+    branch: data.branch || 'Headquarters Desk',
+    desk: data.desk || data.branch || 'Headquarters Desk',
+    registeredAt: nowIso,
+    kycStatus: 'VERIFIED',
+    permissions: data.permissions || [
+      'customer.view',
+      'customer.search',
+      'customer.view_details',
+      'listing.view',
+      'listing.search',
+      'listing.approve',
+      'listing.reject',
+      'listing.activate',
+      'listing.suspend',
+      'driver.view',
+      'driver.search',
+      'driver.verify_docs',
+      'booking.view',
+      'booking.search',
+      'reports.view_dashboard',
+    ],
+    subscription: {
+      status: 'ACTIVE',
+      quota: 0,
+      usedQuota: 0,
+      planName: 'Enterprise Staff Clearance',
+    },
+    metrics: {
+      viewCount: 0,
+      leadsCount: 0,
+      clickCount: 0,
+      lastActive: nowIso,
+    },
+    activities: [
+      {
+        id: `act-${Date.now()}`,
+        type: 'REGISTER',
+        title: 'Agent Account Created by Super Admin',
+        description: `Official staff credentials issued: ${cleanName} (${agentStaffId})`,
+        timestamp: nowIso,
+      },
+    ],
+  };
+
+  all.unshift(newAgent);
+  saveAllRegisteredUsers(all);
+
+  // Save granular permissions map (Strict: Agents cannot delete records)
+  try {
+    saveAgentPermissions(newAgent.id, {
+      view: true,
+      contact: true,
+      approve: true,
+      verify: true,
+      edit: true,
+      del: false, // Strict: AGENTS CANNOT DELETE USERS
+      analytics: true,
+      export: true,
+      promo: false,
+    });
+    saveAgentPermissions(agentStaffId, {
+      view: true,
+      contact: true,
+      approve: true,
+      verify: true,
+      edit: true,
+      del: false, // Strict: AGENTS CANNOT DELETE USERS
+      analytics: true,
+      export: true,
+      promo: false,
+    });
+  } catch (e) {}
+
+  try {
+    recordAuditAction({
+      action: 'AGENT_CREATED',
+      staffId: 'SUPER_ADMIN',
+      staffName: 'Super Admin',
+      targetType: 'StaffAgent',
+      targetId: newAgent.id,
+      details: `Created new SafarPK Agent: ${cleanName} (${agentStaffId}) with official clearance`,
+    });
+  } catch (e) {}
+
+  window.dispatchEvent(new CustomEvent('safarpk_user_registered', { detail: newAgent }));
+  window.dispatchEvent(new Event('safarpk_agent_permissions_updated'));
+
+  return { success: true, agent: newAgent };
+}
+
+/**
+ * Pause / Resume a user's subscription (Available to SUPER_ADMIN and AGENT)
+ */
+export function toggleUserSubscriptionPause(
+  userId: string,
+  performedBy: string = 'Staff Admin'
+): { success: boolean; isPaused: boolean; message: string } {
+  if (typeof window === 'undefined') return { success: false, isPaused: false, message: 'Window not defined' };
+  try {
+    const all = getAllRegisteredUsers();
+    const user = all.find((u) => u.id === userId);
+    if (!user) return { success: false, isPaused: false, message: 'User not found' };
+
+    const wasActive = user.subscription?.status === 'ACTIVE';
+    const newStatus: SubscriptionStatus = wasActive ? 'PAUSED' : 'ACTIVE';
+    user.subscription = user.subscription || { quota: 0, usedQuota: 0, status: 'UNSUBSCRIBED' };
+    user.subscription.status = newStatus;
+
+    const actionText = newStatus === 'PAUSED' ? 'Paused' : 'Resumed / Activated';
+    user.activities = user.activities || [];
+    user.activities.unshift({
+      id: `act-${Date.now()}`,
+      type: 'PROFILE_UPDATED',
+      title: `Subscription ${actionText}`,
+      description: `Subscription was ${actionText.toLowerCase()} by ${performedBy}.`,
+      timestamp: new Date().toISOString(),
+    });
+
+    saveAllRegisteredUsers(all);
+
+    const active = getActiveUser();
+    if (active && (active.id === user.id || active.phone === user.phone)) {
+      active.subscription.status = newStatus;
+      setActiveUser(active);
+    }
+
+    try {
+      recordAuditAction({
+        action: 'SUBSCRIPTION_STATUS_CHANGE',
+        staffId: performedBy,
+        staffName: performedBy,
+        targetType: 'UserSubscription',
+        targetId: user.id,
+        details: `Subscription ${actionText} for ${user.name} (${user.phone})`,
+      });
+    } catch (e) {}
+
+    window.dispatchEvent(new CustomEvent('safarpk_user_subscription_updated', { detail: { userId, status: newStatus } }));
+    return {
+      success: true,
+      isPaused: newStatus === 'PAUSED',
+      message: `User subscription has been ${actionText.toLowerCase()}.`,
+    };
+  } catch (e: any) {
+    return { success: false, isPaused: false, message: e.message || 'Operation failed' };
+  }
+}
+
+/**
+ * Deactivate / Reactivate a user profile (Available to SUPER_ADMIN and AGENT)
+ * Note: Agents CANNOT delete users, they can only deactivate profiles!
+ */
+export function toggleUserProfileDeactivation(
+  userId: string,
+  reason?: string,
+  performedBy: string = 'Staff Admin'
+): { success: boolean; isDeactivated: boolean; message: string } {
+  if (typeof window === 'undefined') return { success: false, isDeactivated: false, message: 'Window not defined' };
+  try {
+    const all = getAllRegisteredUsers();
+    const user = all.find((u) => u.id === userId);
+    if (!user) return { success: false, isDeactivated: false, message: 'User not found' };
+
+    const willDeactivate = !user.isDeactivated;
+    user.isDeactivated = willDeactivate;
+    user.deactivatedReason = willDeactivate ? (reason || 'Deactivated by SafarPK Compliance') : undefined;
+    user.deactivatedAt = willDeactivate ? new Date().toISOString() : undefined;
+    user.deactivatedBy = willDeactivate ? performedBy : undefined;
+
+    const actionText = willDeactivate ? 'Deactivated' : 'Reactivated';
+    user.activities = user.activities || [];
+    user.activities.unshift({
+      id: `act-${Date.now()}`,
+      type: 'PROFILE_UPDATED',
+      title: `Profile ${actionText}`,
+      description: `User profile was ${actionText.toLowerCase()} by ${performedBy}${reason ? ` (${reason})` : ''}.`,
+      timestamp: new Date().toISOString(),
+    });
+
+    saveAllRegisteredUsers(all);
+
+    const active = getActiveUser();
+    if (active && (active.id === user.id || active.phone === user.phone)) {
+      active.isDeactivated = willDeactivate;
+      active.deactivatedReason = user.deactivatedReason;
+      active.deactivatedAt = user.deactivatedAt;
+      active.deactivatedBy = user.deactivatedBy;
+      setActiveUser(active);
+    }
+
+    try {
+      recordAuditAction({
+        action: 'USER_PROFILE_DEACTIVATION',
+        staffId: performedBy,
+        staffName: performedBy,
+        targetType: 'UserProfile',
+        targetId: user.id,
+        details: `Profile ${actionText} for ${user.name} (${user.phone})`,
+      });
+    } catch (e) {}
+
+    window.dispatchEvent(new CustomEvent('safarpk_user_profile_updated', { detail: { userId, isDeactivated: willDeactivate } }));
+    return {
+      success: true,
+      isDeactivated: willDeactivate,
+      message: `User profile has been ${actionText.toLowerCase()}.`,
+    };
+  } catch (e: any) {
+    return { success: false, isDeactivated: false, message: e.message || 'Operation failed' };
+  }
+}
+
+/**
+ * Listing Moderation (Pause / Resume) Controls
+ * Agents & Super Admins can pause/unpause listings.
+ * Note: Agents cannot delete listings; they can only pause them.
+ */
+export function getPausedListingIds(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('safarpk_paused_listings');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function isListingPaused(listingId: string): boolean {
+  return getPausedListingIds().includes(listingId);
+}
+
+export function toggleListingPause(
+  listingId: string,
+  performedBy: string = 'Staff Admin',
+  listingRef?: string
+): { success: boolean; isPaused: boolean; message: string } {
+  if (typeof window === 'undefined') return { success: false, isPaused: false, message: 'Window not defined' };
+  try {
+    const current = getPausedListingIds();
+    const isCurrentlyPaused = current.includes(listingId);
+    let next: string[];
+    if (isCurrentlyPaused) {
+      next = current.filter((id) => id !== listingId);
+    } else {
+      next = [...current, listingId];
+    }
+    localStorage.setItem('safarpk_paused_listings', JSON.stringify(next));
+
+    try {
+      recordAuditAction({
+        action: isCurrentlyPaused ? 'LISTING_STATUS_CHANGE' : 'LISTING_SUSPENDED',
+        staffId: performedBy,
+        staffName: performedBy,
+        targetType: 'MarketplaceListing',
+        targetId: listingId,
+        details: `Listing ${listingRef || listingId} was ${isCurrentlyPaused ? 'resumed (unpaused)' : 'paused'} by ${performedBy}`,
+      });
+    } catch {}
+
+    window.dispatchEvent(
+      new CustomEvent('safarpk_listing_pause_updated', {
+        detail: { listingId, isPaused: !isCurrentlyPaused },
+      })
+    );
+
+    return {
+      success: true,
+      isPaused: !isCurrentlyPaused,
+      message: `Listing has been ${!isCurrentlyPaused ? 'paused' : 'resumed and unpaused'}.`,
+    };
+  } catch (e: any) {
+    return { success: false, isPaused: false, message: e.message || 'Operation failed' };
+  }
+}
+
+
 

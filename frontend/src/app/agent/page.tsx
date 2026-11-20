@@ -53,6 +53,11 @@ import {
   approveSubscriptionPayment,
   rejectSubscriptionPayment,
   SubscriptionPaymentRecord,
+  toggleUserSubscriptionPause,
+  toggleUserProfileDeactivation,
+  getPausedListingIds,
+  isListingPaused,
+  toggleListingPause,
 } from '@/data/userAuth';
 import { hasAgentPermission, ENTERPRISE_PERMISSION_TREE } from '@/data/agentPermissions';
 import {
@@ -266,6 +271,28 @@ export default function AgentDashboardPage() {
   const [leadNoteInputs, setLeadNoteInputs] = useState<{ [leadId: string]: string }>({});
   const [userNoteInputs, setUserNoteInputs] = useState<{ [userId: string]: string }>({});
 
+  // Moderation & Listing Pause State
+  const [pausedListingIds, setPausedListingIds] = useState<string[]>([]);
+  const [moderationSearch, setModerationSearch] = useState('');
+  const [moderationStatusFilter, setModerationStatusFilter] = useState<'ALL' | 'LIVE' | 'PAUSED'>('ALL');
+
+  const handleToggleListingPause = (listingId: string, listingRef?: string) => {
+    const res = toggleListingPause(listingId, agentStaffId, listingRef);
+    setPausedListingIds(getPausedListingIds());
+    setAgentNotice(res.message);
+    setTimeout(() => setAgentNotice(null), 3500);
+  };
+
+  // Staff Agents list combining dynamic registered agents with seed catalogue
+  const allStaffAgents = useMemo(() => {
+    const dynAgents = registeredUsers.filter((u) => u.role === 'AGENT');
+    const seen = new Set(dynAgents.map((u) => u.email?.toLowerCase() || u.phone || u.id));
+    const seeds = REGISTERED_AGENTS_CATALOG.filter(
+      (s) => !seen.has(s.email?.toLowerCase() || s.phone || s.id)
+    );
+    return [...dynAgents, ...seeds];
+  }, [registeredUsers]);
+
   // Featured Ads State for Agent
   const [featuredIds, setFeaturedIds] = useState<string[]>([]);
   const [featuredFilter, setFeaturedFilter] = useState<string>('ALL');
@@ -430,9 +457,10 @@ export default function AgentDashboardPage() {
   }, [allMarketplaceListings, featuredFilter, featuredSearch, featuredIds]);
 
   useEffect(() => {
-    // Load initial users & leads
+    // Load initial users, leads, and paused listings
     setRegisteredUsers(getAllRegisteredUsers());
     setMarketplaceLeads(getAllLeads());
+    setPausedListingIds(getPausedListingIds());
 
     const handleUsersUpdate = () => {
       setRegisteredUsers(getAllRegisteredUsers());
@@ -440,12 +468,27 @@ export default function AgentDashboardPage() {
     const handleLeadsUpdate = () => {
       setMarketplaceLeads(getAllLeads());
     };
+    const handlePauseUpdate = () => {
+      setPausedListingIds(getPausedListingIds());
+    };
 
     window.addEventListener('safarpk_users_updated', handleUsersUpdate);
+    window.addEventListener('safarpk_user_registered', handleUsersUpdate);
+    window.addEventListener('safarpk_user_subscription_updated', handleUsersUpdate);
+    window.addEventListener('safarpk_user_profile_updated', handleUsersUpdate);
+    window.addEventListener('safarpk_listing_pause_updated', handlePauseUpdate);
     window.addEventListener('safarpk_leads_updated', handleLeadsUpdate);
+    window.addEventListener('storage', handleUsersUpdate);
+    window.addEventListener('storage', handlePauseUpdate);
     return () => {
       window.removeEventListener('safarpk_users_updated', handleUsersUpdate);
+      window.removeEventListener('safarpk_user_registered', handleUsersUpdate);
+      window.removeEventListener('safarpk_user_subscription_updated', handleUsersUpdate);
+      window.removeEventListener('safarpk_user_profile_updated', handleUsersUpdate);
+      window.removeEventListener('safarpk_listing_pause_updated', handlePauseUpdate);
       window.removeEventListener('safarpk_leads_updated', handleLeadsUpdate);
+      window.removeEventListener('storage', handleUsersUpdate);
+      window.removeEventListener('storage', handlePauseUpdate);
     };
   }, []);
 
@@ -863,7 +906,7 @@ export default function AgentDashboardPage() {
                 ⚡ Select Authorized Staff Identity:
               </span>
               <div className="flex flex-col gap-1.5">
-                {REGISTERED_AGENTS_CATALOG.map((ag) => (
+                {allStaffAgents.map((ag) => (
                   <button
                     key={ag.id}
                     type="button"
@@ -1609,86 +1652,218 @@ export default function AgentDashboardPage() {
             </div>
           )}
 
-          {/* TAB 1: LISTING APPROVALS */}
+          {/* TAB 1: LISTING APPROVALS & MODERATION */}
           {activeTab === 'listings' && (
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-5">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <div>
-                  <h3 className="font-extrabold text-base text-slate-900">
-                    Pending Vehicle Listings Queue ({pendingListings.length})
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Verify Registration Book / Smart Card, Chassis number, Engine number, and Owner NADRA CNIC before approving.
-                  </p>
+            <div className="space-y-6">
+              {/* SECTION A: PENDING VERIFICATION QUEUE */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-5">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div>
+                    <h3 className="font-extrabold text-base text-slate-900">
+                      Pending Vehicle Listings Queue ({pendingListings.length})
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Verify Registration Book / Smart Card, Chassis number, Engine number, and Owner NADRA CNIC before approving.
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              {pendingListings.length === 0 ? (
-                <div className="py-12 text-center text-slate-400 text-xs">
-                  ✓ All pending listings have been reviewed and audited.
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {pendingListings.map((l) => (
-                    <div key={l.id} className="p-4 rounded-2xl border border-slate-200 bg-slate-50 space-y-3">
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                        <div className="flex items-start gap-3">
-                          <img src={l.img} alt={l.vehicleTitle} className="w-24 h-16 object-cover rounded-xl border border-slate-200" />
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-xs font-bold text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                                {l.listingRef}
-                              </span>
-                              <h4 className="font-bold text-sm text-slate-900">{l.vehicleTitle}</h4>
+                {pendingListings.length === 0 ? (
+                  <div className="py-8 text-center text-slate-400 text-xs">
+                    ✓ All pending listings have been reviewed and audited.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {pendingListings.map((l) => (
+                      <div key={l.id} className="p-4 rounded-2xl border border-slate-200 bg-slate-50 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                          <div className="flex items-start gap-3">
+                            <img src={l.img} alt={l.vehicleTitle} className="w-24 h-16 object-cover rounded-xl border border-slate-200" />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-xs font-bold text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                  {l.listingRef}
+                                </span>
+                                <h4 className="font-bold text-sm text-slate-900">{l.vehicleTitle}</h4>
+                              </div>
+                              <p className="text-xs text-slate-500 mt-1">
+                                Lister: <strong>{l.listerName}</strong> ({l.listerPhone}) · City: {l.city}
+                              </p>
+                              <span className="text-xs font-black text-slate-900 mt-1 block">Daily Rent: PKR {formatPKR(l.dailyRate)}</span>
                             </div>
-                            <p className="text-xs text-slate-500 mt-1">
-                              Lister: <strong>{l.listerName}</strong> ({l.listerPhone}) · City: {l.city}
-                            </p>
-                            <span className="text-xs font-black text-slate-900 mt-1 block">Daily Rent: PKR {formatPKR(l.dailyRate)}</span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleApproveListing(l.id, l.listingRef)}
+                              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-xs transition cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Approve & Make LIVE</span>
+                            </button>
+                            <button
+                              onClick={() => setRejectingItem(l)}
+                              className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              <span>Reject with Notice</span>
+                            </button>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleApproveListing(l.id, l.listingRef)}
-                            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-xs transition cursor-pointer"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Approve & Make LIVE</span>
-                          </button>
-                          <button
-                            onClick={() => setRejectingItem(l)}
-                            className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer"
-                          >
-                            <XCircle className="w-3.5 h-3.5" />
-                            <span>Reject with Notice</span>
-                          </button>
+                        {/* Extracted OCR Verification Grid */}
+                        <div className="p-3 bg-white rounded-xl border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                          <div>
+                            <span className="text-[10px] text-slate-400 font-semibold block">Excise Reg #</span>
+                            <span className="font-mono font-bold text-slate-800">{l.regNumber}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-400 font-semibold block">Chassis #</span>
+                            <span className="font-mono font-bold text-slate-800">{l.chassisNumber}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-400 font-semibold block">Engine #</span>
+                            <span className="font-mono font-bold text-slate-800">{l.engineNumber}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-400 font-semibold block">Owner CNIC</span>
+                            <span className="font-mono font-bold text-slate-800">{maskCnic(l.ownerCnic)}</span>
+                          </div>
                         </div>
                       </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-                      {/* Extracted OCR Verification Grid */}
-                      <div className="p-3 bg-white rounded-xl border border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                        <div>
-                          <span className="text-[10px] text-slate-400 font-semibold block">Excise Reg #</span>
-                          <span className="font-mono font-bold text-slate-800">{l.regNumber}</span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-slate-400 font-semibold block">Chassis #</span>
-                          <span className="font-mono font-bold text-slate-800">{l.chassisNumber}</span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-slate-400 font-semibold block">Engine #</span>
-                          <span className="font-mono font-bold text-slate-800">{l.engineNumber}</span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-slate-400 font-semibold block">Owner CNIC</span>
-                          <span className="font-mono font-bold text-slate-800">{maskCnic(l.ownerCnic)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+              {/* SECTION B: ALL MARKETPLACE LISTINGS & PAUSE / RESUME MODERATION */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                  <div>
+                    <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
+                      <Car className="w-5 h-5 text-emerald-600" />
+                      <span>Live Marketplace Listings & Moderation Desk</span>
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Staff moderation desk: You can pause any reported or non-compliant vehicle listing. Notice: Agents cannot delete listings; deletion is restricted to Super Admin.
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold bg-emerald-50 text-emerald-800 px-3 py-1 rounded-full border border-emerald-200 self-start sm:self-auto">
+                    {allMarketplaceListings.length} Total Listings
+                  </span>
                 </div>
-              )}
+
+                {/* Search & Status Filters */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                  <div className="relative flex-1">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={moderationSearch}
+                      onChange={(e) => setModerationSearch(e.target.value)}
+                      placeholder="Search listings by title, city, host, or service..."
+                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    {(['ALL', 'LIVE', 'PAUSED'] as const).map((st) => (
+                      <button
+                        key={st}
+                        onClick={() => setModerationStatusFilter(st)}
+                        className={`px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+                          moderationStatusFilter === st
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {st}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Listings Grid / Table */}
+                <div className="space-y-3">
+                  {(() => {
+                    const filtered = allMarketplaceListings.filter((l) => {
+                      const isPaused = pausedListingIds.includes(l.id);
+                      if (moderationStatusFilter === 'LIVE' && isPaused) return false;
+                      if (moderationStatusFilter === 'PAUSED' && !isPaused) return false;
+                      if (!moderationSearch.trim()) return true;
+                      const q = moderationSearch.toLowerCase();
+                      return (
+                        l.title.toLowerCase().includes(q) ||
+                        l.city.toLowerCase().includes(q) ||
+                        l.owner.toLowerCase().includes(q) ||
+                        l.serviceLabel.toLowerCase().includes(q)
+                      );
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="py-8 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-slate-200">
+                          No marketplace listings match the selected filters.
+                        </div>
+                      );
+                    }
+
+                    return filtered.map((l) => {
+                      const isPaused = pausedListingIds.includes(l.id);
+                      return (
+                        <div
+                          key={l.id}
+                          className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="flex items-start gap-3">
+                            {l.image ? (
+                              <img
+                                src={l.image}
+                                alt={l.title}
+                                className="w-16 h-12 object-cover rounded-xl border border-slate-200 shrink-0"
+                              />
+                            ) : (
+                              <div className="w-16 h-12 rounded-xl bg-slate-200 flex items-center justify-center font-bold text-slate-500 shrink-0">
+                                🚗
+                              </div>
+                            )}
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold text-slate-900 text-sm">{l.title}</h4>
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                    isPaused
+                                      ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                      : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                  }`}
+                                >
+                                  {isPaused ? '⏸️ PAUSED BY AGENT' : '✅ LIVE ON MARKETPLACE'}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 mt-0.5">
+                                Service: <strong>{l.serviceLabel}</strong> · City: <strong>{l.city}</strong> · Host: <strong>{l.owner}</strong> · Rate: <strong className="text-emerald-700">{l.price}</strong>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleListingPause(l.id, l.title)}
+                              className={`px-3.5 py-2 rounded-xl font-bold text-xs transition cursor-pointer flex items-center gap-1.5 shadow-2xs ${
+                                isPaused
+                                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                  : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
+                              }`}
+                            >
+                              <span>{isPaused ? '▶️ Resume Listing (Make Live)' : '⏸️ Pause Listing'}</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
             </div>
           )}
 
@@ -1987,17 +2162,28 @@ export default function AgentDashboardPage() {
                         fbrNtn: undefined,
                         activeListingsCount: u.subscription?.usedQuota || 0,
                         subscriptionPlan: u.subscription?.planName || undefined,
+                        isSubPaused: u.subscription?.status === 'PAUSED',
+                        isDeactivated: !!u.isDeactivated,
                       };
                     }),
                     ...callerDirectory.map((c) => {
+                      const matchedUser = registeredUsers.find((u) => u.id === c.id || u.phone === c.phone);
+                      const isSubPaused = matchedUser?.subscription?.status === 'PAUSED';
+                      const isDeactivated = !!matchedUser?.isDeactivated;
                       if (resolvedCallerIds[c.id]) {
                         return {
                           ...c,
+                          isSubPaused,
+                          isDeactivated,
                           activeComplaint: null,
                           verificationStatus: 'VERIFIED (Agent Cleared)',
                         };
                       }
-                      return c;
+                      return {
+                        ...c,
+                        isSubPaused,
+                        isDeactivated,
+                      };
                     }),
                   ];
 
@@ -2092,7 +2278,7 @@ export default function AgentDashboardPage() {
                       className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 hover:bg-slate-50 transition space-y-3 text-xs"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200/80">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                             caller.role === 'CUSTOMER'
                               ? 'bg-purple-100 text-purple-800'
@@ -2107,6 +2293,16 @@ export default function AgentDashboardPage() {
                           <strong className="text-sm font-black text-slate-900">{caller.name}</strong>
                           <span className="text-slate-400">•</span>
                           <span className="text-slate-600 font-semibold">{caller.city}</span>
+                          {caller.isDeactivated && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                              🚫 DEACTIVATED
+                            </span>
+                          )}
+                          {caller.isSubPaused && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                              ⏸️ SUB PAUSED
+                            </span>
+                          )}
                         </div>
                         <span className="font-mono font-bold text-xs text-slate-800 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
                           {caller.phone}
@@ -2163,7 +2359,50 @@ export default function AgentDashboardPage() {
                           Assigned: <strong>{caller.assignedVehicle || caller.vehicle || caller.route || 'General Profile'}</strong>
                         </span>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {/* Pause / Resume Subscription (Available to Agent & Super Admin) */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const res = toggleUserSubscriptionPause(caller.id, agentStaffId);
+                              setRegisteredUsers(getAllRegisteredUsers());
+                              setCallerNotice(res.message);
+                              setTimeout(() => setCallerNotice(null), 3500);
+                            }}
+                            className={`px-2.5 py-1.5 rounded-lg font-bold text-xs border transition cursor-pointer flex items-center gap-1 ${
+                              caller.isSubPaused
+                                ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
+                                : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                            }`}
+                            title={caller.isSubPaused ? 'Resume user subscription' : 'Pause user subscription'}
+                          >
+                            <span>{caller.isSubPaused ? '▶️ Resume Sub' : '⏸️ Pause Sub'}</span>
+                          </button>
+
+                          {/* Deactivate / Reactivate Profile (Strict: No user deletion) */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const willDeact = !caller.isDeactivated;
+                              const reason = willDeact
+                                ? prompt('Reason for profile deactivation:', 'Violation of SafarPK Policy')
+                                : undefined;
+                              if (willDeact && reason === null) return;
+                              const res = toggleUserProfileDeactivation(caller.id, reason || undefined, agentStaffId);
+                              setRegisteredUsers(getAllRegisteredUsers());
+                              setCallerNotice(res.message);
+                              setTimeout(() => setCallerNotice(null), 3500);
+                            }}
+                            className={`px-2.5 py-1.5 rounded-lg font-bold text-xs border transition cursor-pointer flex items-center gap-1 ${
+                              caller.isDeactivated
+                                ? 'bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200'
+                                : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100'
+                            }`}
+                            title={caller.isDeactivated ? 'Reactivate profile' : 'Deactivate profile'}
+                          >
+                            <span>{caller.isDeactivated ? '✅ Reactivate' : '🚫 Deactivate'}</span>
+                          </button>
+
                           <button
                             type="button"
                             onClick={() => setSelectedCallerModal(caller)}
@@ -2984,6 +3223,59 @@ export default function AgentDashboardPage() {
               <p className="text-[11px] text-amber-900">
                 {selectedCallerModal.activeComplaint || 'No active complaints logged. Caller inquiring about booking confirmation and document verification.'}
               </p>
+            </div>
+
+            {/* Account Moderation Controls (Strict: No User Deletion) */}
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+              <span className="font-bold text-[11px] text-slate-800 block">Staff Moderation Controls:</span>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const res = toggleUserSubscriptionPause(selectedCallerModal.id, agentStaffId);
+                    setRegisteredUsers(getAllRegisteredUsers());
+                    setSelectedCallerModal({
+                      ...selectedCallerModal,
+                      isSubPaused: res.isPaused,
+                    });
+                    setCallerNotice(res.message);
+                    setTimeout(() => setCallerNotice(null), 3500);
+                  }}
+                  className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs border transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                    selectedCallerModal.isSubPaused
+                      ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
+                      : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-100'
+                  }`}
+                >
+                  <span>{selectedCallerModal.isSubPaused ? '▶️ Resume Subscription' : '⏸️ Pause Subscription'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const willDeact = !selectedCallerModal.isDeactivated;
+                    const reason = willDeact
+                      ? prompt('Reason for profile deactivation:', 'Violation of SafarPK Policy')
+                      : undefined;
+                    if (willDeact && reason === null) return;
+                    const res = toggleUserProfileDeactivation(selectedCallerModal.id, reason || undefined, agentStaffId);
+                    setRegisteredUsers(getAllRegisteredUsers());
+                    setSelectedCallerModal({
+                      ...selectedCallerModal,
+                      isDeactivated: res.isDeactivated,
+                    });
+                    setCallerNotice(res.message);
+                    setTimeout(() => setCallerNotice(null), 3500);
+                  }}
+                  className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs border transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                    selectedCallerModal.isDeactivated
+                      ? 'bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200'
+                      : 'bg-rose-50 text-rose-800 border-rose-300 hover:bg-rose-100'
+                  }`}
+                >
+                  <span>{selectedCallerModal.isDeactivated ? '✅ Reactivate Profile' : '🚫 Deactivate Profile'}</span>
+                </button>
+              </div>
             </div>
 
             {/* Agent Actions */}

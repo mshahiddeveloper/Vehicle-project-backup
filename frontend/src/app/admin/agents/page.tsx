@@ -51,6 +51,11 @@ import {
   AgentPermissions,
 } from '@/data/agentPermissions';
 import { getAuditLogs, recordAuditAction } from '@/data/auditLog';
+import {
+  getAllRegisteredUsers,
+  createAgentUser,
+  RegisteredUser,
+} from '@/data/userAuth';
 
 interface AgentProfile {
   id: string; // e.g. AG-101
@@ -74,6 +79,45 @@ interface AgentLogItem {
   after?: string;
 }
 
+const SEED_AGENTS: AgentProfile[] = [
+  {
+    id: 'AG-101',
+    name: 'Kashif Raza',
+    first: 'Kashif',
+    desk: 'Lahore Desk',
+    initials: 'KR',
+    tint: '#DCEBE3',
+    online: true,
+    actionsToday: 14,
+    callClicks: 8,
+    assignedUsers: 28,
+  },
+  {
+    id: 'AG-102',
+    name: 'Bilal Ahmed',
+    first: 'Bilal',
+    desk: 'Islamabad HQ',
+    initials: 'BA',
+    tint: '#DDE6F3',
+    online: true,
+    actionsToday: 22,
+    callClicks: 15,
+    assignedUsers: 41,
+  },
+  {
+    id: 'AG-103',
+    name: 'Ayesha Khan',
+    first: 'Ayesha',
+    desk: 'Karachi Desk',
+    initials: 'AK',
+    tint: '#F3E6D3',
+    online: false,
+    actionsToday: 6,
+    callClicks: 4,
+    assignedUsers: 33,
+  },
+];
+
 export default function AdminAgentsPage() {
   const [selectedAgentIdx, setSelectedAgentIdx] = useState(0);
   const [selectedDay, setSelectedDay] = useState<'today' | 'yesterday'>('today');
@@ -81,48 +125,65 @@ export default function AdminAgentsPage() {
   const [selectedActionType, setSelectedActionType] = useState<string>('All');
   const [saveToast, setSaveToast] = useState<string | null>(null);
 
-  const agents: AgentProfile[] = [
-    {
-      id: 'AG-101',
-      name: 'Kashif Raza',
-      first: 'Kashif',
-      desk: 'Lahore Desk',
-      initials: 'KR',
-      tint: '#DCEBE3',
-      online: true,
-      actionsToday: 14,
-      callClicks: 8,
-      assignedUsers: 28,
-    },
-    {
-      id: 'AG-102',
-      name: 'Bilal Ahmed',
-      first: 'Bilal',
-      desk: 'Islamabad HQ',
-      initials: 'BA',
-      tint: '#DDE6F3',
-      online: true,
-      actionsToday: 22,
-      callClicks: 15,
-      assignedUsers: 41,
-    },
-    {
-      id: 'AG-103',
-      name: 'Ayesha Khan',
-      first: 'Ayesha',
-      desk: 'Karachi Desk',
-      initials: 'AK',
-      tint: '#F3E6D3',
-      online: false,
-      actionsToday: 6,
-      callClicks: 4,
-      assignedUsers: 33,
-    },
-  ];
+  // Dynamic registered agents from DB/localStorage
+  const [registeredAgents, setRegisteredAgents] = useState<RegisteredUser[]>([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    city: 'Lahore',
+    desk: 'Lahore Verification Desk',
+    staffId: '',
+    password: 'password123',
+    canPauseListings: true,
+    canPauseSubscription: true,
+    canDeactivateProfile: true,
+  });
 
-  const curAgent = agents[selectedAgentIdx];
+  useEffect(() => {
+    const loadAgents = () => {
+      const all = getAllRegisteredUsers();
+      setRegisteredAgents(all.filter((u) => u.role === 'AGENT'));
+    };
+    loadAgents();
+    window.addEventListener('safarpk_user_registered', loadAgents);
+    window.addEventListener('storage', loadAgents);
+    return () => {
+      window.removeEventListener('safarpk_user_registered', loadAgents);
+      window.removeEventListener('storage', loadAgents);
+    };
+  }, []);
 
-  // Permissions state for the 3 agents loaded from localStorage
+  // Merge dynamic staff agents with seed profiles
+  const agents: AgentProfile[] = useMemo(() => {
+    const tints = ['#E0F2FE', '#F3E8FF', '#FEF3C7', '#DCFCE7', '#FFE4E6'];
+    const dynProfiles: AgentProfile[] = registeredAgents.map((u, i) => {
+      const parts = (u.name || 'Agent').trim().split(' ');
+      const first = parts[0] || 'Agent';
+      const initials = (parts[0]?.[0] || 'A') + (parts[1]?.[0] || 'G');
+      return {
+        id: u.employeeId || u.staffId || u.id || `AG-${200 + i}`,
+        name: u.name,
+        first,
+        desk: u.desk || u.branch || `${u.city || 'Regional'} Desk`,
+        initials: initials.toUpperCase(),
+        tint: tints[i % tints.length],
+        online: true,
+        actionsToday: u.metrics?.leadsCount || 10 + i * 2,
+        callClicks: u.metrics?.clickCount || 5 + i,
+        assignedUsers: 25 + i * 4,
+      };
+    });
+
+    const dynIds = new Set(dynProfiles.map((p) => p.id));
+    const remainingSeeds = SEED_AGENTS.filter((s) => !dynIds.has(s.id));
+    return [...dynProfiles, ...remainingSeeds];
+  }, [registeredAgents]);
+
+  const curAgent = agents[selectedAgentIdx] || agents[0] || SEED_AGENTS[0];
+
+  // Permissions state for the agents loaded from localStorage
   const [permissionsMap, setPermissionsMap] = useState<Record<string, Record<string, boolean>>>(DEFAULT_AGENT_PERMISSIONS);
 
   useEffect(() => {
@@ -142,13 +203,20 @@ export default function AdminAgentsPage() {
     approve: false,
     verify: false,
     edit: false,
-    del: false,
+    del: false, // Strict: AGENTS CANNOT DELETE USERS
+    pause: true, // Can pause/unpause listings, pause/resume subscriptions, deactivate profiles
     analytics: false,
     export: false,
     promo: false,
   };
 
   const handleTogglePerm = (key: string) => {
+    if (key === 'del') {
+      alert(
+        'Security Policy Enforced: Staff Agents are strictly prohibited from deleting users or records. Agents can only pause listings, pause subscriptions, or deactivate profiles.'
+      );
+      return;
+    }
     setPermissionsMap((prev) => ({
       ...prev,
       [curAgent.id]: {
@@ -156,6 +224,57 @@ export default function AdminAgentsPage() {
         [key]: !prev[curAgent.id]?.[key],
       },
     }));
+  };
+
+  const handleCreateAgentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const perms = [
+      'customer.view',
+      'customer.search',
+      'customer.view_details',
+      'listing.view',
+      'listing.search',
+      'listing.approve',
+      'listing.reject',
+      'driver.view',
+      'driver.verify_docs',
+      'booking.view',
+    ];
+    if (createForm.canPauseListings) perms.push('listing.suspend', 'listing.activate');
+    if (createForm.canPauseSubscription) perms.push('subscription.pause');
+
+    const res = createAgentUser({
+      name: createForm.name,
+      email: createForm.email,
+      phone: createForm.phone,
+      password: createForm.password,
+      city: createForm.city,
+      desk: createForm.desk,
+      staffId: createForm.staffId,
+      permissions: perms,
+    });
+
+    if (!res.success) {
+      alert(res.error || 'Failed to create agent');
+      return;
+    }
+
+    setRegisteredAgents(getAllRegisteredUsers().filter((u) => u.role === 'AGENT'));
+    setShowCreateModal(false);
+    setCreateForm({
+      name: '',
+      email: '',
+      phone: '',
+      city: 'Lahore',
+      desk: 'Lahore Verification Desk',
+      staffId: '',
+      password: 'password123',
+      canPauseListings: true,
+      canPauseSubscription: true,
+      canDeactivateProfile: true,
+    });
+    setSaveToast(`✓ Agent ${res.agent?.name} created successfully! Staff credentials active.`);
+    setTimeout(() => setSaveToast(null), 3500);
   };
 
   const handleSavePerms = () => {
@@ -231,7 +350,8 @@ export default function AdminAgentsPage() {
     { key: 'approve', label: 'Approve payments', sub: 'Can verify receipts and unlock plans' },
     { key: 'verify', label: 'Verify listings / documents', sub: 'Can verify CNIC, licence, and mark Verified' },
     { key: 'edit', label: 'Edit accounts & listings', sub: 'Can edit user info and listing details' },
-    { key: 'del', label: 'Delete records', sub: 'Can delete or archive records' },
+    { key: 'pause', label: 'Pause listings & subscriptions', sub: 'Can pause/resume listings, pause/resume subscriptions, and deactivate profiles' },
+    { key: 'del', label: 'Delete records (Super Admin ONLY)', sub: 'Strictly locked: Staff agents cannot delete users or listings' },
     { key: 'analytics', label: 'View analytics reports', sub: 'Can see lister leads, views, and download reports' },
     { key: 'export', label: 'Export data', sub: 'Can export customer, lead, and payment CSVs' },
     { key: 'promo', label: 'Manage promo codes', sub: 'Can create and edit platform discount codes' },
@@ -356,7 +476,7 @@ export default function AdminAgentsPage() {
 
           <button
             type="button"
-            onClick={() => alert('New agent onboarding modal: Enter agent name, email, phone, and desk location.')}
+            onClick={() => setShowCreateModal(true)}
             className="h-11 px-5 rounded-xl bg-[#0B6B4F] hover:bg-[#08513C] active:scale-[0.99] text-white font-bold text-sm flex items-center gap-2 transition shadow-xs cursor-pointer self-start md:self-auto"
           >
             <Plus className="w-4 h-4 stroke-[2.4]" />
@@ -558,11 +678,19 @@ export default function AdminAgentsPage() {
 
             <div className="divide-y divide-slate-100">
               {permissionSwitches.map((item) => {
-                const isOn = !!curPerms[item.key];
+                const isLockedDel = item.key === 'del';
+                const isOn = isLockedDel ? false : !!curPerms[item.key];
                 return (
                   <div key={item.key} className="py-3 flex items-center justify-between gap-3">
                     <div className="flex flex-col">
-                      <span className="font-bold text-sm text-[#101828]">{item.label}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-sm text-[#101828]">{item.label}</span>
+                        {isLockedDel && (
+                          <span className="text-[10px] bg-rose-100 text-rose-700 px-1.5 py-0.2 rounded font-bold">
+                            🔒 Locked
+                          </span>
+                        )}
+                      </div>
                       <span className="text-xs text-[#667085]">{item.sub}</span>
                     </div>
 
@@ -570,9 +698,19 @@ export default function AdminAgentsPage() {
                       type="button"
                       role="switch"
                       aria-checked={isOn}
+                      disabled={isLockedDel}
                       onClick={() => handleTogglePerm(item.key)}
-                      className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 ${
-                        isOn ? 'bg-[#0B6B4F]' : 'bg-slate-200'
+                      title={
+                        isLockedDel
+                          ? 'Security Policy: Staff Agents are strictly prohibited from deleting users or records.'
+                          : undefined
+                      }
+                      className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${
+                        isLockedDel
+                          ? 'bg-slate-200 opacity-60 cursor-not-allowed'
+                          : isOn
+                          ? 'bg-[#0B6B4F] cursor-pointer'
+                          : 'bg-slate-200 cursor-pointer'
                       }`}
                     >
                       <span
@@ -620,6 +758,194 @@ export default function AdminAgentsPage() {
           </section>
         </div>
       </main>
+
+      {/* CREATE AGENT MODAL (SUPER ADMIN EXCLUSIVE) */}
+      {showCreateModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto"
+          onClick={() => setShowCreateModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-slate-100 my-auto text-xs"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-100 text-[#0B6B4F] flex items-center justify-center font-bold">
+                  🛡️
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-slate-900">
+                    Create New Staff Agent Account
+                  </h3>
+                  <span className="text-[10px] text-[#0B6B4F] font-bold">
+                    Super Admin Exclusive • Direct Credential Issuance
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateAgentSubmit} className="space-y-3.5">
+              <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-900 leading-relaxed">
+                <strong>Platform Policy:</strong> Agents cannot register publicly. Only Super Admin can issue agent accounts.
+                Agents are strictly prohibited from deleting users or listings. They can only pause listings, pause subscriptions, or deactivate profiles.
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Farhan Saeed"
+                  value={createForm.name}
+                  onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Work Email *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="agent@safarpk.com"
+                    value={createForm.email}
+                    onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Phone (+92) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="+92 300 1234567"
+                    value={createForm.phone}
+                    onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Desk / Branch
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Lahore Verification Desk"
+                    value={createForm.desk}
+                    onChange={(e) => setCreateForm({ ...createForm, desk: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Staff ID
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="AGY-PK-105"
+                    value={createForm.staffId}
+                    onChange={(e) => setCreateForm({ ...createForm, staffId: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Default Password
+                </label>
+                <input
+                  type="password"
+                  value={createForm.password}
+                  onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:border-emerald-500 outline-none transition"
+                />
+              </div>
+
+              {/* Granular Permission Checklist */}
+              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                <span className="font-bold text-[11px] text-slate-900 block">Agent Operational Powers:</span>
+                <div className="space-y-1.5 text-[11px]">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={createForm.canPauseListings}
+                      onChange={(e) =>
+                        setCreateForm({ ...createForm, canPauseListings: e.target.checked })
+                      }
+                      className="rounded text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className="text-slate-800 font-semibold">Pause / Unpause Listings</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={createForm.canPauseSubscription}
+                      onChange={(e) =>
+                        setCreateForm({ ...createForm, canPauseSubscription: e.target.checked })
+                      }
+                      className="rounded text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className="text-slate-800 font-semibold">Pause / Resume User Subscriptions</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={createForm.canDeactivateProfile}
+                      onChange={(e) =>
+                        setCreateForm({ ...createForm, canDeactivateProfile: e.target.checked })
+                      }
+                      className="rounded text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className="text-slate-800 font-semibold">Deactivate User Profile</span>
+                  </label>
+                  <div className="flex items-center gap-2 text-slate-400 pt-1 border-t border-slate-200/60">
+                    <input type="checkbox" disabled checked={false} className="rounded opacity-40 cursor-not-allowed" />
+                    <span className="italic line-through">Delete Users / Records</span>
+                    <span className="text-[10px] text-rose-600 font-bold ml-auto">Super Admin Only</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-[#0B6B4F] hover:bg-[#08513C] text-white font-bold text-xs transition shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Create Agent & Issue Credentials</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

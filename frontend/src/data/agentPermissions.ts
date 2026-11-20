@@ -309,7 +309,8 @@ export const DEFAULT_AGENT_PERMISSIONS: Record<string, AgentPermissions> = {
     approve: true,
     verify: true,
     edit: false,
-    del: false,
+    del: false, // Strict: AGENTS CANNOT DELETE USERS OR LISTINGS
+    pause: true, // Can pause/unpause listings, pause/resume subscriptions, deactivate profiles
     analytics: true,
     export: false,
     promo: false,
@@ -320,7 +321,8 @@ export const DEFAULT_AGENT_PERMISSIONS: Record<string, AgentPermissions> = {
     approve: true,
     verify: true,
     edit: true,
-    del: false,
+    del: false, // Strict: AGENTS CANNOT DELETE USERS OR LISTINGS
+    pause: true,
     analytics: true,
     export: true,
     promo: false,
@@ -331,7 +333,8 @@ export const DEFAULT_AGENT_PERMISSIONS: Record<string, AgentPermissions> = {
     approve: false,
     verify: false,
     edit: false,
-    del: false,
+    del: false, // Strict: AGENTS CANNOT DELETE USERS OR LISTINGS
+    pause: true,
     analytics: false,
     export: false,
     promo: false,
