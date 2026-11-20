@@ -23,6 +23,7 @@ import {
   Wallet,
   ShieldCheck,
   Navigation,
+  Clock,
 } from 'lucide-react';
 import { getActiveUser, RegisteredUser } from '@/data/userAuth';
 
@@ -87,11 +88,23 @@ function MobileNavBarContent() {
           tabKey: 'plans',
         },
         {
+          label: 'Directory',
+          href: '/admin/console',
+          icon: Users,
+          isActive: pathname === '/admin/console',
+        },
+        {
           label: 'Modules',
           href: '/admin?tab=modules',
           icon: LayoutDashboard,
           isActive: isConsole,
           tabKey: 'modules',
+        },
+        {
+          label: 'Profile',
+          href: '/settings',
+          icon: User,
+          isActive: pathname === '/settings',
         },
       ];
     }
@@ -116,6 +129,25 @@ function MobileNavBarContent() {
           isActive: isCaller,
           tabKey: 'overview',
         },
+        {
+          label: 'Directory',
+          href: '/agent?tab=directory',
+          icon: Users,
+          isActive: currentTab === 'directory',
+          tabKey: 'directory',
+        },
+        {
+          label: 'Inbox',
+          href: '/inbox',
+          icon: MessageSquare,
+          isActive: pathname === '/inbox',
+        },
+        {
+          label: 'Profile',
+          href: '/settings',
+          icon: User,
+          isActive: pathname === '/settings',
+        },
       ];
     }
 
@@ -127,6 +159,7 @@ function MobileNavBarContent() {
     ) {
       const isOverview = pathname === '/driver' && (currentTab === 'overview' || (!searchParams.get('tab') && !runtimeTab));
       const isRequests = currentTab === 'requests';
+      const isDuty = currentTab === 'availability';
       const isInbox = pathname === '/inbox';
       const isProfile = pathname === '/settings' || currentTab === 'profile';
 
@@ -144,6 +177,13 @@ function MobileNavBarContent() {
           icon: CalendarCheck,
           isActive: isRequests,
           tabKey: 'requests',
+        },
+        {
+          label: 'Duty',
+          href: '/driver?tab=availability',
+          icon: Clock,
+          isActive: isDuty,
+          tabKey: 'availability',
         },
         {
           label: 'Inbox',
@@ -167,6 +207,7 @@ function MobileNavBarContent() {
     ) {
       const isHome = pathname.startsWith('/provider') && (currentTab === 'overview' || (!searchParams.get('tab') && !runtimeTab));
       const isTrucks = currentTab === 'fleet' || pathname === '/movers';
+      const isPricing = currentTab === 'pricing';
       const isInbox = pathname === '/inbox';
       const isAccount = pathname === '/settings';
 
@@ -186,13 +227,20 @@ function MobileNavBarContent() {
           tabKey: 'fleet',
         },
         {
+          label: 'Rates',
+          href: '/provider?tab=pricing',
+          icon: Wallet,
+          isActive: isPricing,
+          tabKey: 'pricing',
+        },
+        {
           label: 'Inbox',
           href: '/inbox',
           icon: MessageSquare,
           isActive: isInbox,
         },
         {
-          label: 'Account',
+          label: 'Profile',
           href: '/settings',
           icon: User,
           isActive: isAccount,
@@ -208,6 +256,7 @@ function MobileNavBarContent() {
     ) {
       const isHome = pathname.startsWith('/provider') && (currentTab === 'overview' || (!searchParams.get('tab') && !runtimeTab));
       const isRoutes = currentTab === 'routes' || pathname === '/shuttles';
+      const isTimings = currentTab === 'pricing';
       const isInbox = pathname === '/inbox';
       const isAccount = pathname === '/settings';
 
@@ -227,13 +276,20 @@ function MobileNavBarContent() {
           tabKey: 'routes',
         },
         {
+          label: 'Timings',
+          href: '/provider?tab=pricing',
+          icon: Clock,
+          isActive: isTimings,
+          tabKey: 'pricing',
+        },
+        {
           label: 'Inbox',
           href: '/inbox',
           icon: MessageSquare,
           isActive: isInbox,
         },
         {
-          label: 'Account',
+          label: 'Profile',
           href: '/settings',
           icon: User,
           isActive: isAccount,
@@ -327,7 +383,8 @@ function MobileNavBarContent() {
   return (
     <nav
       aria-label="Mobile Navigation"
-      className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-t border-slate-200/80 px-1 sm:px-2 pt-1.5 pb-safe shadow-[0_-8px_32px_rgba(15,23,42,0.08)] grid grid-cols-5 transition-all"
+      style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
+      className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-t border-slate-200/80 px-1 sm:px-2 pt-1.5 pb-safe shadow-[0_-8px_32px_rgba(15,23,42,0.08)] grid transition-all"
     >
       {tabs.map((tab) => {
         const Icon = tab.icon;

@@ -10,7 +10,7 @@ export function AppFooter() {
   const isPakistan = !country || country.code === 'PK';
 
   return (
-    <footer className="bg-white border-t border-[#EEF0F2] text-[#475467] font-sans pt-8 md:pt-12 pb-24 md:pb-12">
+    <footer className="hidden md:block bg-white border-t border-[#EEF0F2] text-[#475467] font-sans pt-8 md:pt-12 pb-24 md:pb-12">
       <div className="max-w-[1240px] mx-auto px-4 sm:px-8">
         {/* MOBILE FOOTER: Sleek, compact 2-column quick links instead of 800px stack */}
         <div className="md:hidden flex flex-col gap-6 mb-8">

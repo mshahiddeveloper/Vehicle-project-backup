@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { AppHeader } from '@/components/AppHeader';
 import { AppFooter } from '@/components/AppFooter';
 import { MobileNavBar } from '@/components/MobileNavBar';
-import { getActiveUser, setActiveUser, RegisteredUser } from '@/data/userAuth';
+import { getActiveUser, setActiveUser, logoutActiveUser, RegisteredUser } from '@/data/userAuth';
 import { COUNTRIES } from '@/data/countries';
 import {
   User,
@@ -27,6 +27,7 @@ import {
   CheckCircle2,
   ArrowRight,
   Zap,
+  LogOut,
 } from 'lucide-react';
 
 const PRESET_AVATARS = [
@@ -167,76 +168,99 @@ export default function SettingsPage() {
     return '/customer';
   };
 
+  const handleLogout = () => {
+    logoutActiveUser();
+    setActiveUserState(null);
+    window.location.href = '/login';
+  };
+
   return (
     <div className="min-h-screen bg-[#F7F8FA] font-sans text-[#101828] flex flex-col">
       <AppHeader />
 
-      <main className="flex-1 max-w-[1140px] w-full mx-auto px-4 sm:px-8 py-8 md:py-12 flex flex-col md:flex-row gap-8 items-start">
-        {/* Left Nav Menu */}
-        <aside className="w-full md:w-64 flex flex-col gap-1.5 shrink-0 sticky top-24">
-          <Link
-            href={getDashboardHref()}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0B6B4F] hover:underline mb-2"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back to Dashboard</span>
-          </Link>
+      <main className="flex-1 max-w-[1140px] w-full mx-auto px-4 sm:px-8 py-6 md:py-12 flex flex-col md:flex-row gap-6 md:gap-8 items-start pb-28 md:pb-12">
+        {/* Left Nav Menu - Static on mobile to prevent overlapping cards, Sticky on desktop */}
+        <aside className="w-full md:w-64 flex flex-col gap-1.5 shrink-0 static md:sticky md:top-24 z-10">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <Link
+              href={getDashboardHref()}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0B6B4F] hover:underline"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 stroke-[2.4]" />
+              <span>Back to Dashboard</span>
+            </Link>
 
-          <h1 className="font-heading font-extrabold text-2xl text-[#101828] mb-1">
+            {activeUser && (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 transition cursor-pointer active:scale-95"
+                title="Log out of account"
+              >
+                <LogOut className="w-3 h-3" />
+                <span>Log Out</span>
+              </button>
+            )}
+          </div>
+
+          <h1 className="font-heading font-extrabold text-2xl text-[#101828] mb-0.5">
             Account & Profile
           </h1>
-          <p className="text-xs text-[#667085] mb-3">
+          <p className="text-xs text-[#667085] mb-2.5">
             Manage your public profile, pictures, identity documents and subscription.
           </p>
 
-          <a
-            href="#avatar-studio"
-            className="h-10 px-3.5 rounded-xl bg-white border border-[#EEF0F2] text-xs font-bold text-[#101828] flex items-center shadow-2xs hover:bg-slate-50"
-          >
-            Profile Picture & Logo
-          </a>
-          <a
-            href="#profile"
-            className="h-10 px-3.5 rounded-xl text-xs font-semibold text-[#475467] hover:text-[#101828] flex items-center"
-          >
-            Business & Personal Info
-          </a>
-          <a
-            href="#documents"
-            className="h-10 px-3.5 rounded-xl text-xs font-semibold text-[#475467] hover:text-[#101828] flex items-center"
-          >
-            CNIC & Document Vault
-          </a>
-          <a
-            href="#showroom-map"
-            className="h-10 px-3.5 rounded-xl text-xs font-semibold text-[#475467] hover:text-[#101828] flex items-center"
-          >
-            Showroom & GPS Location
-          </a>
-          <a
-            href="#subscription"
-            className="h-10 px-3.5 rounded-xl text-xs font-semibold text-[#475467] hover:text-[#101828] flex items-center"
-          >
-            Subscription & Fleet Quota
-          </a>
-          <a
-            href="#region"
-            className="h-10 px-3.5 rounded-xl text-xs font-semibold text-[#475467] hover:text-[#101828] flex items-center"
-          >
-            Country & Currency
-          </a>
-          <a
-            href="#contact"
-            className="h-10 px-3.5 rounded-xl text-xs font-semibold text-[#475467] hover:text-[#101828] flex items-center"
-          >
-            WhatsApp & Contact
-          </a>
-          <a
-            href="#security"
-            className="h-10 px-3.5 rounded-xl text-xs font-semibold text-[#475467] hover:text-[#101828] flex items-center"
-          >
-            Password & Security
-          </a>
+          {/* Quick Section Tabs: Horizontal Scrollable on Mobile, Vertical Stack on Desktop */}
+          <div className="flex md:flex-col overflow-x-auto no-scrollbar gap-1.5 pb-2 md:pb-0 -mx-1 px-1">
+            <a
+              href="#avatar-studio"
+              className="h-9 md:h-10 px-3 md:px-3.5 rounded-xl bg-white border border-[#EEF0F2] text-xs font-bold text-[#101828] flex items-center shrink-0 shadow-2xs hover:bg-slate-50 transition"
+            >
+              Profile Picture & Logo
+            </a>
+            <a
+              href="#profile"
+              className="h-9 md:h-10 px-3 md:px-3.5 rounded-xl bg-white md:bg-transparent border border-slate-200/80 md:border-transparent text-xs font-semibold text-[#475467] hover:text-[#101828] hover:bg-white flex items-center shrink-0 transition"
+            >
+              Business & Personal Info
+            </a>
+            <a
+              href="#documents"
+              className="h-9 md:h-10 px-3 md:px-3.5 rounded-xl bg-white md:bg-transparent border border-slate-200/80 md:border-transparent text-xs font-semibold text-[#475467] hover:text-[#101828] hover:bg-white flex items-center shrink-0 transition"
+            >
+              CNIC & Document Vault
+            </a>
+            <a
+              href="#showroom-map"
+              className="h-9 md:h-10 px-3 md:px-3.5 rounded-xl bg-white md:bg-transparent border border-slate-200/80 md:border-transparent text-xs font-semibold text-[#475467] hover:text-[#101828] hover:bg-white flex items-center shrink-0 transition"
+            >
+              Showroom & GPS Location
+            </a>
+            <a
+              href="#subscription"
+              className="h-9 md:h-10 px-3 md:px-3.5 rounded-xl bg-white md:bg-transparent border border-slate-200/80 md:border-transparent text-xs font-semibold text-[#475467] hover:text-[#101828] hover:bg-white flex items-center shrink-0 transition"
+            >
+              Subscription & Fleet Quota
+            </a>
+            <a
+              href="#region"
+              className="h-9 md:h-10 px-3 md:px-3.5 rounded-xl bg-white md:bg-transparent border border-slate-200/80 md:border-transparent text-xs font-semibold text-[#475467] hover:text-[#101828] hover:bg-white flex items-center shrink-0 transition"
+            >
+              Country & Currency
+            </a>
+            <a
+              href="#contact"
+              className="h-9 md:h-10 px-3 md:px-3.5 rounded-xl bg-white md:bg-transparent border border-slate-200/80 md:border-transparent text-xs font-semibold text-[#475467] hover:text-[#101828] hover:bg-white flex items-center shrink-0 transition"
+            >
+              WhatsApp & Contact
+            </a>
+            <a
+              href="#security"
+              className="h-9 md:h-10 px-3 md:px-3.5 rounded-xl bg-white md:bg-transparent border border-slate-200/80 md:border-transparent text-xs font-semibold text-[#475467] hover:text-[#101828] hover:bg-white flex items-center shrink-0 transition"
+            >
+              Password & Security
+            </a>
+          </div>
         </aside>
 
         {/* Right Settings Sections */}
@@ -871,6 +895,30 @@ export default function SettingsPage() {
               <span>Save All Settings & Documents</span>
             </button>
           </section>
+
+          {/* SECTION 9: SESSION SIGN OUT */}
+          {activeUser && (
+            <section className="bg-white rounded-3xl p-6 sm:p-8 border border-rose-200/90 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <h3 className="font-heading font-extrabold text-base sm:text-lg text-slate-900 flex items-center gap-2">
+                  <LogOut className="w-5 h-5 text-rose-600" />
+                  <span>Log Out of SafarPK</span>
+                </h3>
+                <p className="text-xs text-slate-600">
+                  Signed in as <span className="font-bold text-slate-900">{activeUser.name}</span> ({activeUser.role} account). You can safely sign back in anytime.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="h-11 px-6 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-sm shrink-0"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Log Out</span>
+              </button>
+            </section>
+          )}
         </div>
       </main>
 
