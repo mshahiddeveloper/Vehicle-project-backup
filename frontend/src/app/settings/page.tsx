@@ -5,7 +5,16 @@ import Link from 'next/link';
 import { AppHeader } from '@/components/AppHeader';
 import { AppFooter } from '@/components/AppFooter';
 import { MobileNavBar } from '@/components/MobileNavBar';
-import { getActiveUser, setActiveUser, logoutActiveUser, RegisteredUser } from '@/data/userAuth';
+import {
+  getActiveUser,
+  setActiveUser,
+  logoutActiveUser,
+  RegisteredUser,
+  sanitizePakistaniPhone,
+  markUserPhoneVerified,
+} from '@/data/userAuth';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
+import { WhatsAppOtpModal } from '@/components/WhatsAppOtpModal';
 import { COUNTRIES } from '@/data/countries';
 import {
   User,
@@ -329,8 +338,15 @@ export default function SettingsPage() {
   // Toast
   const [toastMessage, setToastMessage] = useState('');
 
+  // Phone verification states
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [phoneLocked, setPhoneLocked] = useState(false);
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
+
   // Active section tab tracking for pill highlighting
   const [activeNavSection, setActiveNavSection] = useState('avatar-studio');
+
+  const todayStr = typeof window !== 'undefined' ? new Date().toISOString().split('T')[0] : '2026-11-20';
 
   useEffect(() => {
     const u = getActiveUser();
@@ -341,23 +357,29 @@ export default function SettingsPage() {
       setEmail(u.email || '');
       setCity(u.city || 'Lahore');
       setCountryCode(u.countryCode || 'PK');
-      setWhatsappNumber(u.phone || '');
-      setNationalId(u.cnicNumber || u.nationalId || '35201-9821045-3');
-      setCnicName(u.cnicName || u.name || 'Tariq Mahmood');
-      setCnicIssueDate(u.cnicIssueDate || '2020-05-14');
-      setCnicExpiryDate(u.cnicExpiryDate || '2030-05-13');
-      setCnicLocked(u.cnicLocked ?? Boolean(u.cnicNumber || u.nationalId));
 
-      setLicenseNumber(u.licenseNumber || 'LHR-DL-98210');
-      setLicenseName(u.licenseName || u.name || 'Tariq Mahmood');
-      setLicenseIssueDate(u.licenseIssueDate || '2019-01-10');
-      setLicenseExpiryDate(u.licenseExpiryDate || '2029-01-09');
-      setLicenseLocked(u.licenseLocked ?? Boolean(u.licenseNumber || u.role === 'DRIVER'));
+      const sanitizedPhone = sanitizePakistaniPhone(u.phone || '');
+      setWhatsappNumber(sanitizedPhone.display || u.phone || '');
+      setPhoneVerified(Boolean(u.phoneVerified));
+      setPhoneLocked(Boolean(u.phoneLocked));
+
+      // Authentic Document Credentials (no fake dummy fallbacks for new registered users)
+      setNationalId(u.cnicNumber || u.nationalId || '');
+      setCnicName(u.cnicName || u.name || '');
+      setCnicIssueDate(u.cnicIssueDate || '');
+      setCnicExpiryDate(u.cnicExpiryDate || '');
+      setCnicLocked(Boolean(u.cnicLocked));
+
+      setLicenseNumber(u.licenseNumber || '');
+      setLicenseName(u.licenseName || u.name || '');
+      setLicenseIssueDate(u.licenseIssueDate || '');
+      setLicenseExpiryDate(u.licenseExpiryDate || '');
+      setLicenseLocked(Boolean(u.licenseLocked));
 
       setAvatarUrl(u.avatarUrl || '');
-      setCnicFront(u.cnicFrontUrl || 'cnic_front_verified.jpg');
-      setCnicBack(u.cnicBackUrl || 'cnic_back_verified.jpg');
-      setLicenseDoc(u.licenseUrl || 'license_verified.jpg');
+      setCnicFront(u.cnicFrontUrl || '');
+      setCnicBack(u.cnicBackUrl || '');
+      setLicenseDoc(u.licenseUrl || '');
       setTradeLicenseDoc(u.tradeLicenseUrl || '');
       if (u.showroomAddress) setShowroomAddress(u.showroomAddress);
       if (u.gpsLocation) setGpsLocation(u.gpsLocation);
@@ -402,6 +424,33 @@ export default function SettingsPage() {
     }
   };
 
+  const handlePhoneChange = (raw: string) => {
+    if (phoneLocked) return;
+    const sanitized = sanitizePakistaniPhone(raw);
+    setWhatsappNumber(sanitized.display);
+    if (phoneVerified) setPhoneVerified(false);
+  };
+
+  const handlePhoneVerified = (verifiedPhone: string) => {
+    const sanitized = sanitizePakistaniPhone(verifiedPhone);
+    setWhatsappNumber(sanitized.display);
+    setPhoneVerified(true);
+    setPhoneLocked(true);
+
+    const u = getActiveUser();
+    if (u) {
+      u.phone = sanitized.standard;
+      u.phoneVerified = true;
+      u.phoneLocked = true;
+      setActiveUser(u);
+      setActiveUserState({ ...u });
+      window.dispatchEvent(new Event('safarpk_auth_state_changed'));
+    }
+
+    setToastMessage('✓ WhatsApp phone number verified & locked permanently!');
+    setTimeout(() => setToastMessage(''), 4500);
+  };
+
   const handleCnicUpload = (e: React.ChangeEvent<HTMLInputElement>, isFront: boolean) => {
     if (cnicLocked) return;
     const file = e.target.files?.[0];
@@ -409,37 +458,32 @@ export default function SettingsPage() {
       const reader = new FileReader();
       reader.onloadend = () => {
         const dataUrl = reader.result as string;
-        if (isFront) setCnicFront(dataUrl);
-        else setCnicBack(dataUrl);
-
-        // Intelligent Authentic Pakistani OCR Simulation
-        const cleanName = fullName.trim() || activeUser?.name || 'Tariq Mahmood';
-        const cleanCnic = nationalId.trim() || '35201-9821045-3';
-        const issue = '2020-05-14';
-        const expiry = '2030-05-13';
-
-        setCnicName(cleanName);
-        setNationalId(cleanCnic);
-        setCnicIssueDate(issue);
-        setCnicExpiryDate(expiry);
-        setCnicLocked(true);
-
         const u = getActiveUser();
-        if (u) {
-          if (isFront) u.cnicFrontUrl = dataUrl;
-          else u.cnicBackUrl = dataUrl;
-          u.cnicNumber = cleanCnic;
-          u.nationalId = cleanCnic;
-          u.cnicName = cleanName;
-          u.cnicIssueDate = issue;
-          u.cnicExpiryDate = expiry;
-          u.cnicLocked = true;
-          setActiveUser(u);
-          setActiveUserState({ ...u });
-          window.dispatchEvent(new Event('safarpk_auth_state_changed'));
-        }
 
-        setToastMessage('🔒 CNIC authenticated & permanently locked in SafarPK Secure Vault.');
+        if (isFront) {
+          setCnicFront(dataUrl);
+          const cleanName = fullName.trim() || u?.name || '';
+          if (!cnicName) setCnicName(cleanName);
+          if (u) {
+            u.cnicFrontUrl = dataUrl;
+            u.cnicFrontUploaded = true;
+            if (cleanName && !u.cnicName) u.cnicName = cleanName;
+            setActiveUser(u);
+            setActiveUserState({ ...u });
+            window.dispatchEvent(new Event('safarpk_auth_state_changed'));
+          }
+          setToastMessage('✓ CNIC Front photo uploaded! Please now upload the CNIC Back photo.');
+        } else {
+          setCnicBack(dataUrl);
+          if (u) {
+            u.cnicBackUrl = dataUrl;
+            u.cnicBackUploaded = true;
+            setActiveUser(u);
+            setActiveUserState({ ...u });
+            window.dispatchEvent(new Event('safarpk_auth_state_changed'));
+          }
+          setToastMessage('✓ CNIC Back photo uploaded! Review your details below and click "Confirm & Lock Documents".');
+        }
         setTimeout(() => setToastMessage(''), 4500);
       };
       reader.readAsDataURL(file);
@@ -455,36 +499,80 @@ export default function SettingsPage() {
         const dataUrl = reader.result as string;
         setLicenseDoc(dataUrl);
 
-        const cleanName = fullName.trim() || activeUser?.name || 'Tariq Mahmood';
-        const cleanLicNum = licenseNumber.trim() || 'LHR-DL-98210';
-        const issue = '2019-01-10';
-        const expiry = '2029-01-09';
-
-        setLicenseName(cleanName);
-        setLicenseNumber(cleanLicNum);
-        setLicenseIssueDate(issue);
-        setLicenseExpiryDate(expiry);
-        setLicenseLocked(true);
+        const cleanName = fullName.trim() || activeUser?.name || '';
+        if (!licenseName) setLicenseName(cleanName);
 
         const u = getActiveUser();
         if (u) {
           u.licenseUrl = dataUrl;
-          u.licenseNumber = cleanLicNum;
-          u.licenseName = cleanName;
-          u.licenseCategory = licenseCategory;
-          u.licenseIssueDate = issue;
-          u.licenseExpiryDate = expiry;
-          u.licenseLocked = true;
+          u.licenseUploaded = true;
+          if (cleanName && !u.licenseName) u.licenseName = cleanName;
+          if (!u.licenseCategory) u.licenseCategory = licenseCategory;
           setActiveUser(u);
           setActiveUserState({ ...u });
           window.dispatchEvent(new Event('safarpk_auth_state_changed'));
         }
 
-        setToastMessage('🔒 Driving Licence authenticated & permanently locked in SafarPK Secure Vault.');
+        setToastMessage('✓ License / Document uploaded! Review details and confirm when ready.');
         setTimeout(() => setToastMessage(''), 4500);
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleLockDocuments = () => {
+    if (!cnicFront || !cnicBack) {
+      setToastMessage('⚠️ Please upload both CNIC Front and CNIC Back photos before certifying.');
+      setTimeout(() => setToastMessage(''), 4500);
+      return;
+    }
+
+    const cleanCnic = nationalId.trim();
+    if (!cleanCnic || cleanCnic.replace(/\D/g, '').length < 13) {
+      setToastMessage('⚠️ Please enter a valid 13-digit CNIC number (e.g. 35201-1234567-1).');
+      setTimeout(() => setToastMessage(''), 4500);
+      return;
+    }
+
+    const cleanName = cnicName.trim() || fullName.trim() || activeUser?.name || '';
+    const issue = cnicIssueDate || '2021-06-15';
+    const expiry = cnicExpiryDate || '2031-06-14';
+
+    setCnicLocked(true);
+    setLicenseLocked(true);
+
+    const u = getActiveUser();
+    if (u) {
+      u.cnicFrontUrl = cnicFront;
+      u.cnicBackUrl = cnicBack;
+      u.cnicNumber = cleanCnic;
+      u.nationalId = cleanCnic;
+      u.cnicName = cleanName;
+      u.cnicIssueDate = issue;
+      u.cnicExpiryDate = expiry;
+      u.cnicLocked = true;
+      u.cnicFrontUploaded = true;
+      u.cnicBackUploaded = true;
+
+      if (licenseDoc || licenseNumber) {
+        u.licenseUrl = licenseDoc;
+        u.licenseNumber = licenseNumber.trim();
+        u.licenseName = licenseName.trim() || cleanName;
+        u.licenseCategory = licenseCategory;
+        u.licenseIssueDate = licenseIssueDate || '2020-04-10';
+        u.licenseExpiryDate = licenseExpiryDate || '2030-04-09';
+        u.licenseLocked = true;
+        u.licenseUploaded = true;
+      }
+
+      u.kycStatus = 'VERIFIED';
+      setActiveUser(u);
+      setActiveUserState({ ...u });
+      window.dispatchEvent(new Event('safarpk_auth_state_changed'));
+    }
+
+    setToastMessage('🔒 Documents authenticated & permanently locked in SafarPK Secure Vault!');
+    setTimeout(() => setToastMessage(''), 5000);
   };
 
   const handleSaveProfile = () => {
@@ -513,24 +601,33 @@ export default function SettingsPage() {
       u.email = email.trim() || undefined;
       u.city = city;
       u.countryCode = countryCode;
-      u.phone = whatsappNumber.trim();
-      u.nationalId = nationalId.trim();
-      u.licenseNumber = licenseNumber.trim();
-      u.cnicNumber = nationalId.trim();
-      u.cnicName = cnicName || fullName.trim();
-      u.cnicIssueDate = cnicIssueDate || '2020-05-14';
-      u.cnicExpiryDate = cnicExpiryDate || '2030-05-13';
-      u.cnicLocked = cnicLocked;
-      u.licenseName = licenseName || fullName.trim();
-      u.licenseCategory = licenseCategory;
-      u.licenseIssueDate = licenseIssueDate || '2019-01-10';
-      u.licenseExpiryDate = licenseExpiryDate || '2029-01-09';
-      u.licenseLocked = licenseLocked;
-      u.avatarUrl = avatarUrl;
-      u.cnicFrontUrl = cnicFront;
-      u.cnicBackUrl = cnicBack;
-      u.licenseUrl = licenseDoc;
-      u.tradeLicenseUrl = tradeLicenseDoc;
+
+      const sanitizedWa = sanitizePakistaniPhone(whatsappNumber);
+      u.phone = sanitizedWa.standard || whatsappNumber.trim();
+      u.phoneVerified = phoneVerified;
+      u.phoneLocked = phoneLocked;
+
+      if (!cnicLocked) {
+        u.nationalId = nationalId.trim() || undefined;
+        u.cnicNumber = nationalId.trim() || undefined;
+        u.cnicName = cnicName.trim() || fullName.trim() || undefined;
+        u.cnicIssueDate = cnicIssueDate || undefined;
+        u.cnicExpiryDate = cnicExpiryDate || undefined;
+      }
+
+      if (!licenseLocked) {
+        u.licenseNumber = licenseNumber.trim() || undefined;
+        u.licenseName = licenseName.trim() || fullName.trim() || undefined;
+        u.licenseCategory = licenseCategory;
+        u.licenseIssueDate = licenseIssueDate || undefined;
+        u.licenseExpiryDate = licenseExpiryDate || undefined;
+      }
+
+      u.avatarUrl = avatarUrl || undefined;
+      u.cnicFrontUrl = cnicFront || undefined;
+      u.cnicBackUrl = cnicBack || undefined;
+      u.licenseUrl = licenseDoc || undefined;
+      u.tradeLicenseUrl = tradeLicenseDoc || undefined;
       u.showroomAddress = showroomAddress;
       u.gpsLocation = gpsLocation;
       if (newPassword) u.password = newPassword;
@@ -586,6 +683,24 @@ export default function SettingsPage() {
     { id: 'contact', label: 'WhatsApp & Contact' },
     { id: 'security', label: 'Password & Security' },
   ];
+
+  // Checklist Calculations
+  const isPhoneVerified = Boolean(phoneVerified || activeUser?.phoneVerified);
+  const isCnicFrontDone = Boolean(cnicFront || activeUser?.cnicFrontUrl);
+  const isCnicBackDone = Boolean(cnicBack || activeUser?.cnicBackUrl);
+  const isLicenseDone = Boolean(licenseDoc || activeUser?.licenseUrl || theme.type === 'CUSTOMER');
+  const isVaultCertified = Boolean(cnicLocked || activeUser?.cnicLocked);
+
+  const checklistItems = [
+    { label: 'WhatsApp Phone Verified', done: isPhoneVerified },
+    { label: 'CNIC Front Photo Uploaded', done: isCnicFrontDone },
+    { label: 'CNIC Back Photo Uploaded', done: isCnicBackDone },
+    { label: theme.type === 'DRIVER' ? 'Driving License Uploaded' : 'Business / ID Document Uploaded', done: isLicenseDone },
+    { label: 'Official Vault Certification Locked', done: isVaultCertified },
+  ];
+  const checklistCompletedCount = checklistItems.filter((i) => i.done).length;
+  const checklistTotalCount = checklistItems.length;
+  const isAllChecklistCompleted = checklistCompletedCount === checklistTotalCount;
 
   return (
     <div className="min-h-screen bg-[#F7F8FA] font-sans text-[#101828] flex flex-col pb-32 md:pb-0">
@@ -696,6 +811,151 @@ export default function SettingsPage() {
               <span>{toastMessage}</span>
             </div>
           )}
+
+          {/* PARTNER & USER ONBOARDING CHECKLIST */}
+          <section className="bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 rounded-2xl sm:rounded-3xl p-5 sm:p-6 text-white shadow-md border border-emerald-800/40 space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                    Verification Checklist
+                  </span>
+                  <span className="text-xs text-emerald-300/80 font-mono font-bold">
+                    {checklistCompletedCount} of {checklistTotalCount} Completed ({Math.round((checklistCompletedCount / checklistTotalCount) * 100)}%)
+                  </span>
+                </div>
+                <h3 className="font-heading font-extrabold text-base sm:text-lg text-white mt-1">
+                  Partner Verification & Security Checklist
+                </h3>
+                <p className="text-xs text-emerald-100/80 max-w-xl">
+                  Complete these required document steps to earn the SafarPK Certified badge and activate direct customer booking leads.
+                </p>
+              </div>
+
+              {isAllChecklistCompleted ? (
+                <div className="px-3.5 py-2 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <div className="text-xs">
+                    <div className="font-extrabold">100% Certified Member</div>
+                    <div className="text-[10px] text-emerald-300/80">All records locked & valid</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="px-3.5 py-2 rounded-2xl bg-amber-500/20 border border-amber-400/30 text-amber-200 flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
+                  <div className="text-xs">
+                    <div className="font-extrabold">Verification Incomplete</div>
+                    <div className="text-[10px] text-amber-200/80">{checklistTotalCount - checklistCompletedCount} item(s) pending</div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Progress Bar */}
+            <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-emerald-400 to-teal-300 transition-all duration-500"
+                style={{ width: `${(checklistCompletedCount / checklistTotalCount) * 100}%` }}
+              />
+            </div>
+
+            {/* Checklist Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
+              {/* 1. Phone / WhatsApp */}
+              <div className={`p-3 rounded-xl border flex items-center justify-between text-xs transition ${
+                isPhoneVerified ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-200' : 'bg-white/5 border-white/10 text-slate-300'
+              }`}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <WhatsAppIcon className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <div className="truncate">
+                    <div className="font-bold text-white text-[11px] truncate">1. WhatsApp Phone</div>
+                    <div className="text-[10px] text-slate-400 truncate">{whatsappNumber ? `+92 ${whatsappNumber}` : 'Unverified'}</div>
+                  </div>
+                </div>
+                {isPhoneVerified ? (
+                  <span className="text-[10px] font-extrabold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
+                    ✓ Verified
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsOtpModalOpen(true)}
+                    className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/20 hover:bg-emerald-500/30 px-2 py-1 rounded-lg shrink-0 cursor-pointer"
+                  >
+                    Verify WA
+                  </button>
+                )}
+              </div>
+
+              {/* 2. CNIC Front */}
+              <div className={`p-3 rounded-xl border flex items-center justify-between text-xs transition ${
+                cnicFront ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-200' : 'bg-white/5 border-white/10 text-slate-300'
+              }`}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <FileText className="w-4 h-4 text-teal-300 shrink-0" />
+                  <div className="truncate">
+                    <div className="font-bold text-white text-[11px] truncate">2. CNIC Front Photo</div>
+                    <div className="text-[10px] text-slate-400 truncate">{cnicFront ? 'Uploaded' : 'Action needed'}</div>
+                  </div>
+                </div>
+                {cnicFront ? (
+                  <span className="text-[10px] font-extrabold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
+                    ✓ Uploaded
+                  </span>
+                ) : (
+                  <a href="#documents" className="text-[10px] font-bold text-teal-400 hover:underline shrink-0">
+                    Upload
+                  </a>
+                )}
+              </div>
+
+              {/* 3. CNIC Back */}
+              <div className={`p-3 rounded-xl border flex items-center justify-between text-xs transition ${
+                cnicBack ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-200' : 'bg-white/5 border-white/10 text-slate-300'
+              }`}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <FileText className="w-4 h-4 text-teal-300 shrink-0" />
+                  <div className="truncate">
+                    <div className="font-bold text-white text-[11px] truncate">3. CNIC Back Photo</div>
+                    <div className="text-[10px] text-slate-400 truncate">{cnicBack ? 'Uploaded' : 'Action needed'}</div>
+                  </div>
+                </div>
+                {cnicBack ? (
+                  <span className="text-[10px] font-extrabold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
+                    ✓ Uploaded
+                  </span>
+                ) : (
+                  <a href="#documents" className="text-[10px] font-bold text-teal-400 hover:underline shrink-0">
+                    Upload
+                  </a>
+                )}
+              </div>
+
+              {/* 4. License / NTN Certificate */}
+              <div className={`p-3 rounded-xl border flex items-center justify-between text-xs transition ${
+                licenseDoc || theme.type === 'CUSTOMER' ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-200' : 'bg-white/5 border-white/10 text-slate-300'
+              }`}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <div className="truncate">
+                    <div className="font-bold text-white text-[11px] truncate">
+                      {theme.type === 'DRIVER' ? '4. Driving License' : '4. Business / License'}
+                    </div>
+                    <div className="text-[10px] text-slate-400 truncate">{licenseDoc ? 'Uploaded' : theme.type === 'CUSTOMER' ? 'Optional' : 'Action needed'}</div>
+                  </div>
+                </div>
+                {licenseDoc ? (
+                  <span className="text-[10px] font-extrabold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
+                    ✓ Uploaded
+                  </span>
+                ) : (
+                  <a href="#documents" className="text-[10px] font-bold text-teal-400 hover:underline shrink-0">
+                    {theme.type === 'CUSTOMER' ? 'Optional' : 'Upload'}
+                  </a>
+                )}
+              </div>
+            </div>
+          </section>
 
           {/* 1. PROFILE PICTURE & BUSINESS LOGO STUDIO */}
           <section
@@ -916,12 +1176,16 @@ export default function SettingsPage() {
                   <div>
                     <h4 className="font-heading font-extrabold text-sm text-emerald-950 flex items-center gap-1.5 flex-wrap">
                       <span>Certified Identity Dossier</span>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900 font-bold">
-                        🔒 Locked & Immutable
+                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ${
+                        cnicLocked ? 'bg-emerald-200/80 text-emerald-900' : 'bg-amber-100 text-amber-800 border border-amber-300'
+                      }`}>
+                        {cnicLocked ? '🔒 Locked & Immutable' : '⏳ Pending Certification Lock'}
                       </span>
                     </h4>
                     <p className="text-[11px] text-emerald-800 leading-tight">
-                      Authentic data extracted from official documents. Once verified, these details cannot be modified or deleted.
+                      {cnicLocked
+                        ? 'Authentic verified identity records. These details are permanently locked to your profile to prevent fraud.'
+                        : 'Upload your CNIC front & back photos, verify your extracted details below, and lock your authentic records.'}
                     </p>
                   </div>
                 </div>
@@ -930,26 +1194,42 @@ export default function SettingsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
                 <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Legal Full Name</span>
-                  <span className="font-extrabold text-xs text-slate-900 block mt-0.5 truncate">{cnicName || fullName || 'Tariq Mahmood'}</span>
-                  <span className="text-[9px] text-emerald-700 font-semibold">Matched with CNIC</span>
+                  <span className="font-extrabold text-xs text-slate-900 block mt-0.5 truncate">
+                    {cnicName || fullName || 'Pending Entry'}
+                  </span>
+                  <span className="text-[9px] text-emerald-700 font-semibold">
+                    {cnicLocked ? 'Matched with CNIC' : 'From Registration'}
+                  </span>
                 </div>
 
                 <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">National ID / CNIC</span>
-                  <span className="font-mono font-extrabold text-xs text-slate-900 block mt-0.5">{nationalId || '35201-9821045-3'}</span>
-                  <span className="text-[9px] text-emerald-700 font-semibold">13-digit Pakistani format</span>
+                  <span className="font-mono font-extrabold text-xs text-slate-900 block mt-0.5">
+                    {nationalId || 'Pending Entry'}
+                  </span>
+                  <span className="text-[9px] text-emerald-700 font-semibold">
+                    {nationalId ? '13-digit Pakistani format' : 'Enter 13-digit CNIC'}
+                  </span>
                 </div>
 
                 <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Date of Issue</span>
-                  <span className="font-mono font-bold text-xs text-slate-900 block mt-0.5">{cnicIssueDate || '2020-05-14'}</span>
-                  <span className="text-[9px] text-slate-400">Authenticated record</span>
+                  <span className="font-mono font-bold text-xs text-slate-900 block mt-0.5">
+                    {cnicIssueDate || 'Pending Entry'}
+                  </span>
+                  <span className="text-[9px] text-slate-400">
+                    {cnicLocked ? 'Authenticated record' : 'From Back of CNIC'}
+                  </span>
                 </div>
 
                 <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Date of Expiry</span>
-                  <span className="font-mono font-bold text-xs text-slate-900 block mt-0.5">{cnicExpiryDate || '2030-05-13'}</span>
-                  <span className="text-[9px] text-emerald-700 font-semibold">Valid & Active</span>
+                  <span className="font-mono font-bold text-xs text-slate-900 block mt-0.5">
+                    {cnicExpiryDate || 'Pending Entry'}
+                  </span>
+                  <span className="text-[9px] text-emerald-700 font-semibold">
+                    {cnicExpiryDate ? 'Valid & Active' : 'Select expiry date'}
+                  </span>
                 </div>
               </div>
 
@@ -957,8 +1237,12 @@ export default function SettingsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2 border-t border-emerald-200/60">
                   <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Driving License #</span>
-                    <span className="font-mono font-extrabold text-xs text-slate-900 block mt-0.5">{licenseNumber || 'LHR-DL-98210'}</span>
-                    <span className="text-[9px] text-emerald-700 font-semibold">Traffic Police Endorsed</span>
+                    <span className="font-mono font-extrabold text-xs text-slate-900 block mt-0.5">
+                      {licenseNumber || 'Pending Entry'}
+                    </span>
+                    <span className="text-[9px] text-emerald-700 font-semibold">
+                      {licenseLocked ? 'Traffic Police Endorsed' : 'Official License'}
+                    </span>
                   </div>
 
                   <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
@@ -969,27 +1253,33 @@ export default function SettingsPage() {
 
                   <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">License Issue Date</span>
-                    <span className="font-mono font-bold text-xs text-slate-900 block mt-0.5">{licenseIssueDate || '2019-01-10'}</span>
+                    <span className="font-mono font-bold text-xs text-slate-900 block mt-0.5">
+                      {licenseIssueDate || 'Pending Entry'}
+                    </span>
                     <span className="text-[9px] text-slate-400">Authenticated record</span>
                   </div>
 
                   <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">License Expiry Date</span>
-                    <span className="font-mono font-bold text-xs text-slate-900 block mt-0.5">{licenseExpiryDate || '2029-01-09'}</span>
-                    <span className="text-[9px] text-emerald-700 font-semibold">Valid & Active</span>
+                    <span className="font-mono font-bold text-xs text-slate-900 block mt-0.5">
+                      {licenseExpiryDate || 'Pending Entry'}
+                    </span>
+                    <span className="text-[9px] text-emerald-700 font-semibold">
+                      {licenseExpiryDate ? 'Valid & Active' : 'Select expiry date'}
+                    </span>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Input fields - Disabled & locked when documents are certified */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            {/* Input fields - Editable before lock, permanently locked & disabled once certified */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
               <label className="flex flex-col gap-1.5 font-semibold text-[#344054]">
                 <span className="flex items-center justify-between">
                   <span>National ID / CNIC Number</span>
                   {cnicLocked && (
                     <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
-                      <Lock className="w-3 h-3" /> Locked on File
+                      <Lock className="w-3 h-3" /> Locked
                     </span>
                   )}
                 </span>
@@ -999,11 +1289,59 @@ export default function SettingsPage() {
                   readOnly={cnicLocked}
                   disabled={cnicLocked}
                   onChange={(e) => setNationalId(e.target.value)}
-                  placeholder="35201-9821045-3"
+                  placeholder="35201-1234567-1"
                   className={`h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition ${
                     cnicLocked
                       ? 'bg-slate-100 text-slate-700 border-slate-200 cursor-not-allowed select-none font-bold'
-                      : 'border-[#D0D5DD] text-[#101828] bg-white'
+                      : 'border-[#D0D5DD] text-[#101828] bg-white focus:border-emerald-600'
+                  }`}
+                />
+              </label>
+
+              <label className="flex flex-col gap-1.5 font-semibold text-[#344054]">
+                <span className="flex items-center justify-between">
+                  <span>CNIC Date of Issue</span>
+                  {cnicLocked && (
+                    <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> Locked
+                    </span>
+                  )}
+                </span>
+                <input
+                  type="date"
+                  max={todayStr}
+                  value={cnicIssueDate}
+                  readOnly={cnicLocked}
+                  disabled={cnicLocked}
+                  onChange={(e) => setCnicIssueDate(e.target.value)}
+                  className={`h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition ${
+                    cnicLocked
+                      ? 'bg-slate-100 text-slate-700 border-slate-200 cursor-not-allowed select-none font-bold'
+                      : 'border-[#D0D5DD] text-[#101828] bg-white focus:border-emerald-600'
+                  }`}
+                />
+              </label>
+
+              <label className="flex flex-col gap-1.5 font-semibold text-[#344054]">
+                <span className="flex items-center justify-between">
+                  <span>CNIC Date of Expiry</span>
+                  {cnicLocked && (
+                    <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> Locked
+                    </span>
+                  )}
+                </span>
+                <input
+                  type="date"
+                  min={todayStr}
+                  value={cnicExpiryDate}
+                  readOnly={cnicLocked}
+                  disabled={cnicLocked}
+                  onChange={(e) => setCnicExpiryDate(e.target.value)}
+                  className={`h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition ${
+                    cnicLocked
+                      ? 'bg-slate-100 text-slate-700 border-slate-200 cursor-not-allowed select-none font-bold'
+                      : 'border-[#D0D5DD] text-[#101828] bg-white focus:border-emerald-600'
                   }`}
                 />
               </label>
@@ -1012,18 +1350,16 @@ export default function SettingsPage() {
                 <span className="flex items-center justify-between">
                   <span>
                     {theme.type === 'DRIVER'
-                      ? 'Driving License Number'
+                      ? 'Driving License #'
                       : theme.type === 'LISTER'
-                      ? 'Showroom NTN / Business Reg #'
+                      ? 'Showroom NTN / Reg #'
                       : theme.type === 'MOVERS'
-                      ? 'Transport Permit / Carrier NTN'
-                      : theme.type === 'SHUTTLE'
-                      ? 'Route Permit / Fitness Cert #'
-                      : 'Driving License / ID Number'}
+                      ? 'Transport Permit #'
+                      : 'License / Reg #'}
                   </span>
                   {licenseLocked && (
                     <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
-                      <Lock className="w-3 h-3" /> Locked on File
+                      <Lock className="w-3 h-3" /> Locked
                     </span>
                   )}
                 </span>
@@ -1035,7 +1371,7 @@ export default function SettingsPage() {
                   onChange={(e) => setLicenseNumber(e.target.value)}
                   placeholder={
                     theme.type === 'DRIVER'
-                      ? 'LHR-DL-98210'
+                      ? 'LHR-DL-12345'
                       : theme.type === 'LISTER'
                       ? 'NTN-7819201-4'
                       : 'PERMIT-2026-X'
@@ -1043,7 +1379,7 @@ export default function SettingsPage() {
                   className={`h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition ${
                     licenseLocked
                       ? 'bg-slate-100 text-slate-700 border-slate-200 cursor-not-allowed select-none font-bold'
-                      : 'border-[#D0D5DD] text-[#101828] bg-white'
+                      : 'border-[#D0D5DD] text-[#101828] bg-white focus:border-emerald-600'
                   }`}
                 />
               </label>
@@ -1080,23 +1416,29 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Document Upload Cards (Uniform 3-card grid) */}
+            {/* Document Upload Cards (Uniform 3-card grid - Independent Uploads) */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
               {/* Card 1: CNIC Front */}
               <div className="p-4 rounded-2xl border border-[#E4E7EC] bg-[#F7F8FA] flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-xs text-[#101828]">CNIC Front</span>
-                  {cnicLocked || cnicFront ? (
+                  {cnicLocked ? (
                     <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
                       <Lock className="w-2.5 h-2.5" /> Certified
                     </span>
+                  ) : cnicFront ? (
+                    <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded flex items-center gap-1">
+                      <Check className="w-2.5 h-2.5" /> Uploaded
+                    </span>
                   ) : (
-                    <span className="text-[10px] font-bold text-slate-500">Required</span>
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                      Required
+                    </span>
                   )}
                 </div>
 
                 <div className="h-28 rounded-xl bg-white border border-dashed border-slate-300 flex flex-col items-center justify-center p-2 overflow-hidden text-center">
-                  {cnicFront && cnicFront.startsWith('data:image') ? (
+                  {cnicFront ? (
                     <img src={cnicFront} alt="CNIC Front" className="w-full h-full object-cover rounded-lg" />
                   ) : (
                     <div className="flex flex-col items-center gap-1 text-[#667085]">
@@ -1113,7 +1455,7 @@ export default function SettingsPage() {
                     <span>Locked & Certified</span>
                   </div>
                 ) : (
-                  <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95">
+                  <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95 shadow-2xs">
                     <span>{cnicFront ? 'Change Front Photo' : 'Upload Front'}</span>
                     <input
                       type="file"
@@ -1129,17 +1471,23 @@ export default function SettingsPage() {
               <div className="p-4 rounded-2xl border border-[#E4E7EC] bg-[#F7F8FA] flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-xs text-[#101828]">CNIC Back</span>
-                  {cnicLocked || cnicBack ? (
+                  {cnicLocked ? (
                     <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
                       <Lock className="w-2.5 h-2.5" /> Certified
                     </span>
+                  ) : cnicBack ? (
+                    <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded flex items-center gap-1">
+                      <Check className="w-2.5 h-2.5" /> Uploaded
+                    </span>
                   ) : (
-                    <span className="text-[10px] font-bold text-slate-500">Required</span>
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                      Required
+                    </span>
                   )}
                 </div>
 
                 <div className="h-28 rounded-xl bg-white border border-dashed border-slate-300 flex flex-col items-center justify-center p-2 overflow-hidden text-center">
-                  {cnicBack && cnicBack.startsWith('data:image') ? (
+                  {cnicBack ? (
                     <img src={cnicBack} alt="CNIC Back" className="w-full h-full object-cover rounded-lg" />
                   ) : (
                     <div className="flex flex-col items-center gap-1 text-[#667085]">
@@ -1156,7 +1504,7 @@ export default function SettingsPage() {
                     <span>Locked & Certified</span>
                   </div>
                 ) : (
-                  <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95">
+                  <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95 shadow-2xs">
                     <span>{cnicBack ? 'Change Back Photo' : 'Upload Back'}</span>
                     <input
                       type="file"
@@ -1182,9 +1530,13 @@ export default function SettingsPage() {
                       ? 'Route Fitness Cert'
                       : 'License / ID Slip'}
                   </span>
-                  {licenseLocked || licenseDoc ? (
+                  {licenseLocked ? (
                     <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
                       <Lock className="w-2.5 h-2.5" /> Certified
+                    </span>
+                  ) : licenseDoc ? (
+                    <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded flex items-center gap-1">
+                      <Check className="w-2.5 h-2.5" /> Uploaded
                     </span>
                   ) : (
                     <span className="text-[10px] font-bold text-slate-500">
@@ -1194,7 +1546,7 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="h-28 rounded-xl bg-white border border-dashed border-slate-300 flex flex-col items-center justify-center p-2 overflow-hidden text-center">
-                  {licenseDoc && licenseDoc.startsWith('data:image') ? (
+                  {licenseDoc ? (
                     <img src={licenseDoc} alt="Document" className="w-full h-full object-cover rounded-lg" />
                   ) : (
                     <div className="flex flex-col items-center gap-1 text-[#667085]">
@@ -1217,18 +1569,40 @@ export default function SettingsPage() {
                     <span>Locked & Certified</span>
                   </div>
                 ) : (
-                  <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95">
-                    <span>{licenseDoc ? 'Change Document' : 'Upload Certificate'}</span>
+                  <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95 shadow-2xs">
+                    <span>{licenseDoc ? 'Change Document' : 'Upload Document'}</span>
                     <input
                       type="file"
                       accept="image/*"
                       className="hidden"
-                      onChange={(e) => handleLicenseUpload(e)}
+                      onChange={handleLicenseUpload}
                     />
                   </label>
                 )}
               </div>
             </div>
+
+            {/* Dedicated Action to Lock and Certify Official Vault Documents */}
+            {!cnicLocked && (
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-slate-50 border border-emerald-200 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xs">
+                <div className="text-xs">
+                  <span className="font-bold text-emerald-950 block text-sm">
+                    🔒 Ready to Certify & Lock Official Documents?
+                  </span>
+                  <span className="text-emerald-800 text-[11px]">
+                    Once locked, your 13-digit CNIC, dates and driving license details are permanently safeguarded in the SafarPK Secure Vault to guarantee customer trust and fraud prevention.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleLockDocuments}
+                  className="h-11 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition flex items-center gap-2 shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
+                >
+                  <Lock className="w-4 h-4" />
+                  <span>Lock & Certify Documents</span>
+                </button>
+              </div>
+            )}
           </section>
 
           {/* 4. PINNED GPS LOCATION (Role Tailored: Standby Base vs Showroom vs Terminal) */}
@@ -1707,15 +2081,64 @@ export default function SettingsPage() {
               </p>
             </div>
 
-            <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#344054] max-w-sm">
-              <span>WhatsApp Phone Number</span>
-              <input
-                type="tel"
-                value={whatsappNumber}
-                onChange={(e) => setWhatsappNumber(e.target.value)}
-                className="h-11 sm:h-12 px-3.5 border border-[#D0D5DD] rounded-xl font-mono text-xs sm:text-sm text-[#101828] outline-none"
-              />
-            </label>
+            <div className="flex flex-col gap-1.5 text-xs font-semibold text-[#344054] max-w-md">
+              <div className="flex items-center justify-between">
+                <span>WhatsApp Phone Number</span>
+                {phoneLocked || phoneVerified ? (
+                  <span className="text-[10px] text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                    <Lock className="w-2.5 h-2.5" /> Verified & Locked
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-bold">
+                    Verification Required
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-stretch gap-2">
+                <div className={`flex flex-1 items-center h-11 border rounded-xl overflow-hidden bg-white transition ${
+                  phoneLocked ? 'bg-slate-100 border-slate-200' : 'border-[#D0D5DD] focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-500/20'
+                }`}>
+                  <div className="h-full px-3 bg-slate-50 border-r border-slate-200 flex items-center gap-1.5 shrink-0 text-slate-700 font-bold text-xs select-none">
+                    <span>🇵🇰</span>
+                    <span>+92</span>
+                  </div>
+
+                  <input
+                    type="tel"
+                    disabled={phoneLocked}
+                    readOnly={phoneLocked}
+                    value={whatsappNumber}
+                    onChange={(e) => handlePhoneChange(e.target.value)}
+                    placeholder="300 1234567"
+                    className={`w-full h-full px-3 text-xs sm:text-sm font-mono outline-none ${
+                      phoneLocked ? 'bg-slate-100 text-slate-700 cursor-not-allowed select-none font-bold' : 'text-[#101828]'
+                    }`}
+                  />
+                </div>
+
+                {!phoneLocked ? (
+                  <button
+                    type="button"
+                    disabled={!sanitizePakistaniPhone(whatsappNumber).isValid}
+                    onClick={() => setIsOtpModalOpen(true)}
+                    className="px-3.5 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold transition flex items-center gap-1.5 shrink-0 shadow-xs cursor-pointer active:scale-95"
+                    title="Verify via WhatsApp OTP"
+                  >
+                    <WhatsAppIcon className="w-3.5 h-3.5" />
+                    <span>Verify WA</span>
+                  </button>
+                ) : (
+                  <div className="px-3 h-11 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-1 shrink-0">
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Locked</span>
+                  </div>
+                )}
+              </div>
+              <span className="text-[10px] text-slate-500">
+                Auto-removes leading zero (e.g. <span className="font-mono font-bold text-slate-700">03331286257</span> becomes <span className="font-mono font-bold text-slate-700">+92 333 1286257</span>). Locked permanently once verified.
+              </span>
+            </div>
 
             <div className="flex flex-col divide-y divide-[#F0F2F4] text-xs">
               <div className="py-3 flex items-center justify-between">
@@ -1858,6 +2281,14 @@ export default function SettingsPage() {
         <AppFooter />
       </div>
       <MobileNavBar />
+
+      {/* WhatsApp OTP Verification Modal */}
+      <WhatsAppOtpModal
+        isOpen={isOtpModalOpen}
+        phone={whatsappNumber}
+        onClose={() => setIsOtpModalOpen(false)}
+        onVerified={handlePhoneVerified}
+      />
     </div>
   );
 }

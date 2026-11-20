@@ -24,7 +24,15 @@ import {
   Boxes,
 } from 'lucide-react';
 import { RoleArt } from '@/components/RoleArt';
-import { registerNewUser, UserRole, ProviderSubtype, getUserDashboardPath } from '@/data/userAuth';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
+import { WhatsAppOtpModal } from '@/components/WhatsAppOtpModal';
+import {
+  registerNewUser,
+  UserRole,
+  ProviderSubtype,
+  getUserDashboardPath,
+  sanitizePakistaniPhone,
+} from '@/data/userAuth';
 
 type SupportedLang = 'en' | 'ur' | 'ar' | 'de';
 type OperationalRole = 'CUSTOMER' | 'LISTER' | 'DRIVER' | 'PICK_DROP' | 'SHIFTING';
@@ -70,11 +78,32 @@ function RegisterForm() {
   const [businessName, setBusinessName] = useState('');
   const [city, setCity] = useState('');
   const [phone, setPhone] = useState('');
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [phoneLocked, setPhoneLocked] = useState(false);
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(true);
+
+  const handlePhoneChange = (raw: string) => {
+    if (phoneLocked) return;
+    const sanitized = sanitizePakistaniPhone(raw);
+    setPhone(sanitized.display);
+    if (phoneVerified) {
+      setPhoneVerified(false);
+    }
+  };
+
+  const handlePhoneVerified = (verifiedPhone: string) => {
+    const sanitized = sanitizePakistaniPhone(verifiedPhone);
+    setPhone(sanitized.display);
+    setPhoneVerified(true);
+    setPhoneLocked(true);
+    setNotice('✓ WhatsApp number successfully verified & permanently locked!');
+    setTimeout(() => setNotice(null), 4000);
+  };
 
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -233,6 +262,8 @@ function RegisterForm() {
           ? `${fullName.trim()} Cargo Logistics`
           : undefined),
       phone: phone.trim(),
+      phoneVerified,
+      phoneLocked,
       email: email.trim() || undefined,
       password: password,
       city: city.trim() || 'Lahore',
@@ -662,25 +693,75 @@ function RegisterForm() {
                   </label>
                 )}
 
-                {/* Phone */}
-                <label className="flex flex-col gap-1">
+                {/* Phone (+92 Default, Auto Zero-Stripping & WhatsApp Verification) */}
+                <div className="flex flex-col gap-1 sm:col-span-2">
                   <span className="text-xs font-bold text-[#344054] flex items-center justify-between">
-                    <span>{T.phone.en}</span>
+                    <span className="flex items-center gap-1.5 flex-wrap">
+                      <span>{T.phone.en}</span>
+                      {phoneVerified ? (
+                        <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <Lock className="w-2.5 h-2.5" /> Verified WhatsApp Number
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-500 font-normal">
+                          (Pakistani +92 · Auto-removes leading zero)
+                        </span>
+                      )}
+                    </span>
                     {lang !== 'en' && (
                       <span className="text-[11px] font-semibold text-emerald-700" dir={lang === 'ur' || lang === 'ar' ? 'rtl' : 'ltr'}>
                         {T.phone[lang]}
                       </span>
                     )}
                   </span>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="+92 300 1234567"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="h-11 border border-[#D0D5DD] rounded-xl px-3 text-sm font-mono font-semibold outline-none focus:border-[#0B6B4F]"
-                  />
-                </label>
+
+                  <div className="flex items-stretch gap-2">
+                    <div className={`flex flex-1 items-center h-11 border rounded-xl overflow-hidden bg-white transition ${
+                      phoneLocked ? 'bg-slate-100 border-slate-200' : 'border-[#D0D5DD] focus-within:border-[#0B6B4F] focus-within:ring-2 focus-within:ring-[#0B6B4F]/20'
+                    }`}>
+                      {/* Fixed +92 Pakistan prefix */}
+                      <div className="h-full px-3 bg-slate-50 border-r border-slate-200 flex items-center gap-1.5 shrink-0 text-slate-700 font-bold text-xs select-none">
+                        <span>🇵🇰</span>
+                        <span>+92</span>
+                      </div>
+
+                      <input
+                        type="tel"
+                        required
+                        disabled={phoneLocked}
+                        readOnly={phoneLocked}
+                        placeholder="300 1234567"
+                        value={phone}
+                        onChange={(e) => handlePhoneChange(e.target.value)}
+                        className={`w-full h-full px-3 text-sm font-mono font-semibold outline-none ${
+                          phoneLocked ? 'bg-slate-100 text-slate-700 cursor-not-allowed select-none' : 'text-[#101828]'
+                        }`}
+                      />
+                    </div>
+
+                    {/* WhatsApp OTP Verification Trigger */}
+                    {!phoneLocked ? (
+                      <button
+                        type="button"
+                        disabled={!sanitizePakistaniPhone(phone).isValid}
+                        onClick={() => setIsOtpModalOpen(true)}
+                        className="px-3.5 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold transition flex items-center gap-1.5 shrink-0 shadow-xs cursor-pointer active:scale-95"
+                        title="Verify via authentic WhatsApp OTP"
+                      >
+                        <WhatsAppIcon className="w-3.5 h-3.5" />
+                        <span>Verify WA</span>
+                      </button>
+                    ) : (
+                      <div className="px-3 h-11 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-1 shrink-0">
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Locked</span>
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-slate-500">
+                    Type e.g. <span className="font-mono font-bold text-slate-700">03331286257</span> or <span className="font-mono font-bold text-slate-700">3331286257</span> — zero is automatically removed.
+                  </span>
+                </div>
 
                 {/* Email (Optional) */}
                 <label className="flex flex-col gap-1">
@@ -833,6 +914,14 @@ function RegisterForm() {
           </div>
         </form>
       </main>
+
+      {/* WhatsApp OTP Verification Modal */}
+      <WhatsAppOtpModal
+        isOpen={isOtpModalOpen}
+        phone={phone}
+        onClose={() => setIsOtpModalOpen(false)}
+        onVerified={handlePhoneVerified}
+      />
     </div>
   );
 }

@@ -129,11 +129,14 @@ export default function LoginPage() {
               type="text"
               autoComplete="username"
               required
-              placeholder="+92 300 1234567 or email@domain.com"
+              placeholder="0300 1234567 or email@domain.com"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               className="h-12 border border-[#D0D5DD] rounded-xl px-3.5 text-sm font-medium outline-none focus:border-[#0B6B4F] focus:ring-2 focus:ring-[#0B6B4F]/20"
             />
+            <span className="text-[10px] text-slate-400">
+              Format: <span className="font-mono text-slate-600">0333...</span>, <span className="font-mono text-slate-600">+92 333...</span> or email
+            </span>
           </label>
 
           {/* Password Field */}
