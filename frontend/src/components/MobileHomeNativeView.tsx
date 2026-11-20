@@ -28,6 +28,7 @@ import {
   ArrowRight,
   ArrowLeft,
   Users,
+  User,
   Menu,
   ArrowUpDown,
   Building2,
@@ -346,9 +347,9 @@ export function MobileHomeNativeView() {
   }, [city, searchWhere]);
 
   const userInitials = useMemo(() => {
-    if (!activeUser?.name?.trim()) return 'HA';
+    if (!activeUser?.name?.trim()) return '';
     const parts = activeUser.name.trim().split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return 'HA';
+    if (parts.length === 0) return '';
     if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
     const first = parts[0][0] || 'U';
     const last = parts[parts.length - 1][0] || '';
@@ -401,13 +402,33 @@ export function MobileHomeNativeView() {
                 <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#D92D20] ring-2 ring-[#F2F4F7]" />
               </Link>
 
-              <Link
-                href={activeUser ? getUserDashboardPath(activeUser) : '/login'}
-                aria-label="My account"
-                className="w-9 h-9 rounded-full bg-[#0B6B4F] text-white font-bold text-xs flex items-center justify-center shadow-xs transition active:scale-95 hover:ring-2 hover:ring-emerald-400"
-              >
-                {userInitials}
-              </Link>
+              {activeUser ? (
+                <Link
+                  href={getUserDashboardPath(activeUser)}
+                  aria-label="My account"
+                  className="w-9 h-9 rounded-full bg-[#0B6B4F] text-white font-bold text-xs flex items-center justify-center shadow-xs transition active:scale-95 hover:ring-2 hover:ring-emerald-400 overflow-hidden"
+                  title={activeUser.name || 'Account Dashboard'}
+                >
+                  {activeUser.avatarUrl ? (
+                    <img
+                      src={activeUser.avatarUrl}
+                      alt={activeUser.name || 'User'}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span>{userInitials || 'U'}</span>
+                  )}
+                </Link>
+              ) : (
+                <Link
+                  href="/login"
+                  aria-label="Sign in"
+                  className="w-9 h-9 rounded-full bg-[#F2F4F7] hover:bg-slate-200 text-slate-700 flex items-center justify-center transition active:scale-95 border border-slate-200/80 shadow-2xs"
+                  title="Sign In / Register"
+                >
+                  <User className="w-4.5 h-4.5 text-slate-700 stroke-[2.2]" />
+                </Link>
+              )}
             </div>
           </div>
 
