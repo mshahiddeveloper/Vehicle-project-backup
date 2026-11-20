@@ -11,7 +11,6 @@ import {
   ChevronDown,
   ChevronRight,
   Car,
-  Compass,
   Bus,
   Truck,
   ShieldCheck,
@@ -1154,19 +1153,6 @@ export function MobileHomeNativeView() {
         </section>
       </div>
 
-      {/* Floating Map Button on Search Results View (Page 7) */}
-      {isFilteredResultsView && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
-          <button
-            type="button"
-            onClick={() => showToast('Opening interactive map view...')}
-            className="flex items-center gap-2 h-11 px-5 rounded-full bg-[#101828] text-white font-bold text-xs shadow-xl hover:bg-slate-800 active:scale-95 transition cursor-pointer border border-slate-700"
-          >
-            <Compass className="w-4 h-4 text-emerald-400 stroke-[2.2]" />
-            <span>Map</span>
-          </button>
-        </div>
-      )}
 
       {/* ========================================================================= */}
       {/* 6. SEARCH BOTTOM SHEET (Segmented 5-Col Grid & Non-Keyboard Pickers)      */}
