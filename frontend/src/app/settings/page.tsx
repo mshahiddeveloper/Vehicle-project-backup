@@ -967,7 +967,7 @@ export default function SettingsPage() {
                     <h3 className="font-heading font-extrabold text-base sm:text-lg text-white mt-1">
                       Direct Operational Clearance · Zero Document Blockers
                     </h3>
-                    <p className="text-xs text-emerald-100/80 max-w-xl">
+                    <p className="text-xs sm:text-sm text-white font-medium mt-1.5 max-w-xl leading-relaxed">
                       Super Admin has currently set document requirements to <strong>OFF</strong> for this role. You are authorized to list vehicles, post routes, and accept customer bookings immediately!
                     </p>
                   </div>

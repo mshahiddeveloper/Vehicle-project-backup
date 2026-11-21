@@ -987,7 +987,7 @@ function DriverDashboardContent() {
                         ? 'On Active Trip'
                         : 'Available & Ready for Hire'}
                     </h2>
-                    <p className="text-xs text-slate-300 mt-1">
+                    <p className="text-xs sm:text-sm text-white font-medium mt-1.5 leading-relaxed">
                       {availability === 'OFFLINE'
                         ? 'Your profile and contact number are completely HIDDEN from customers in the marketplace.'
                         : 'Customers in ' + driverCity + ' can see your hourly/daily rates and contact you directly.'}

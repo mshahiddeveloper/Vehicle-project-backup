@@ -1580,7 +1580,7 @@ export default function ServiceProviderDashboardPage() {
                         Daily Commuter Shuttle Operations Desk
                       </span>
                       <h2 className="text-lg sm:text-2xl font-black mt-1">{companyName}</h2>
-                      <p className="text-xs text-slate-300 mt-1">
+                      <p className="text-xs sm:text-sm text-white font-medium mt-1.5 leading-relaxed">
                         Operating verified daily school, university, and corporate office pick & drop commuter routes in {cityBase} and surrounding areas.
                       </p>
                     </div>
@@ -1680,7 +1680,7 @@ export default function ServiceProviderDashboardPage() {
                         Home Shifting & Cargo Moving Desk
                       </span>
                       <h2 className="text-lg sm:text-2xl font-black mt-1">{companyName}</h2>
-                      <p className="text-xs text-slate-300 mt-1">
+                      <p className="text-xs sm:text-sm text-white font-medium mt-1.5 leading-relaxed">
                         Operating home shifting, office relocations, freight cargo, and heavy item moving in {cityBase} and nationwide.
                       </p>
                     </div>

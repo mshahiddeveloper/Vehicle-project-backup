@@ -27,12 +27,15 @@ import {
   Upload,
   Scan,
   Check,
+  ExternalLink,
 } from 'lucide-react';
 import { MobileNavBar } from '@/components/MobileNavBar';
 import { MobilePullToRefresh } from '@/components/MobilePullToRefresh';
 import { OfflineStatusBanner } from '@/components/OfflineStatusBanner';
 import { API_BASE, formatPKR, maskCnic, maskLicense, maskPhone } from '@/lib/api';
-import { getActiveUser, setActiveUser, RegisteredUser, getUserDashboardPath } from '@/data/userAuth';
+import { getActiveUser, setActiveUser, RegisteredUser, getUserDashboardPath, getAllRegisteredUsers } from '@/data/userAuth';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
+import { CARS_DATA } from '@/data/marketplaceData';
 import {
   getDriverBookings,
   confirmDriverBooking,
@@ -321,14 +324,14 @@ export default function CustomerDashboardPage() {
             <div className="flex items-center gap-1.5 min-w-max px-0.5">
               {[
                 { id: 'overview', label: 'Overview', icon: Car },
-                { id: 'bookings', label: 'Car Rentals', icon: Calendar, badge: bookings.length },
-                { id: 'rides', label: 'Intercity & Shuttles', icon: Bus },
-                { id: 'drivers', label: 'Hired Drivers', icon: User },
-                { id: 'shifting', label: 'Home Shifting', icon: Truck },
-                { id: 'wishlist', label: 'Wishlist', icon: Heart, badge: wishlist.length },
-                { id: 'leads', label: 'WhatsApp Logs', icon: MessageCircle },
+                { id: 'bookings', label: 'Rentals', icon: Calendar, badge: bookings.length },
+                { id: 'rides', label: 'Shuttles', icon: Bus },
+                { id: 'drivers', label: 'Drivers', icon: User },
+                { id: 'shifting', label: 'Movers', icon: Truck },
+                { id: 'wishlist', label: 'Saved', icon: Heart, badge: wishlist.length },
+                { id: 'leads', label: 'Inquiries', icon: MessageCircle },
                 { id: 'complaints', label: 'Disputes', icon: AlertCircle },
-                { id: 'profile', label: 'Verification', icon: ShieldCheck },
+                { id: 'profile', label: 'Profile', icon: ShieldCheck },
                 { id: 'security', label: 'Security', icon: Lock },
               ].map((item) => {
                 const Icon = item.icon;
@@ -438,9 +441,9 @@ export default function CustomerDashboardPage() {
             <div className="space-y-6">
               {/* Welcome Banner */}
               <div className="p-6 bg-gradient-to-r from-emerald-800 to-teal-700 text-white rounded-3xl shadow-md">
-                <span className="text-xs uppercase tracking-wider font-bold text-emerald-200">Welcome Back</span>
-                <h2 className="text-lg sm:text-2xl font-black mt-1">Hello, {customerName}!</h2>
-                <p className="text-xs text-emerald-100 mt-1 max-w-xl">
+                <span className="text-xs uppercase tracking-wider font-extrabold text-emerald-300">Welcome Back</span>
+                <h2 className="text-lg sm:text-2xl font-black mt-1 text-white">Hello, {customerName}!</h2>
+                <p className="text-xs sm:text-sm text-white font-medium mt-1.5 max-w-xl leading-relaxed">
                   Manage all your car rentals, scheduled shuttle routes, intercity rides, and cargo quotes in one centralized dashboard.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -517,20 +520,20 @@ export default function CustomerDashboardPage() {
                           <button
                             type="button"
                             onClick={() => setSelectedSmartCardModal(b)}
-                            className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs transition cursor-pointer"
+                            className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer whitespace-nowrap shrink-0"
                           >
-                            <FileText className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>View Smart Card & NTN</span>
+                            <FileText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <span>View Documents</span>
                           </button>
                         )}
                         <a
                           href={`https://wa.me/${b.listerPhone.replace(/[^0-9]/g, '')}?text=Hello%20regarding%20my%20booking%20${b.bookingRef}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs transition"
+                          className="px-3.5 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition whitespace-nowrap shrink-0"
                         >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                          <span>Chat Owner</span>
+                          <WhatsAppIcon className="w-3.5 h-3.5 fill-white shrink-0" />
+                          <span>WhatsApp</span>
                         </a>
                       </div>
                     </div>
@@ -629,10 +632,10 @@ export default function CustomerDashboardPage() {
                             href={`https://wa.me/${b.assignedDriver.phone.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(b.assignedDriver.name)},%20I%20am%20your%20customer%20for%20booking%20${b.bookingRef}%20(${encodeURIComponent(b.vehicleName)}).`}
                             target="_blank"
                             rel="noreferrer"
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-2xs transition"
+                            className="px-3.5 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-2xs transition whitespace-nowrap shrink-0"
                           >
-                            <MessageCircle className="w-3.5 h-3.5" />
-                            <span>WhatsApp Driver</span>
+                            <WhatsAppIcon className="w-3.5 h-3.5 fill-white shrink-0" />
+                            <span>WhatsApp</span>
                           </a>
                         </div>
                       </div>
@@ -662,20 +665,20 @@ export default function CustomerDashboardPage() {
                           <button
                             type="button"
                             onClick={() => setSelectedSmartCardModal(b)}
-                            className="px-3.5 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                            className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer whitespace-nowrap shrink-0"
                           >
-                            <FileText className="w-3.5 h-3.5 text-emerald-300" />
-                            <span>View Vehicle Smart Card & Owner FBR Credentials</span>
+                            <FileText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <span>View Documents</span>
                           </button>
                         )}
                         <a
                           href={`https://wa.me/${b.listerPhone.replace(/[^0-9]/g, '')}?text=Hello%20regarding%20booking%20${b.bookingRef}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold flex items-center gap-1.5 shadow-xs transition"
+                          className="px-3.5 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs transition whitespace-nowrap shrink-0"
                         >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                          <span>Direct WhatsApp Owner</span>
+                          <WhatsAppIcon className="w-3.5 h-3.5 fill-white shrink-0" />
+                          <span>WhatsApp</span>
                         </a>
                       </div>
                     </div>
@@ -878,10 +881,10 @@ export default function CustomerDashboardPage() {
                               href={`https://wa.me/${b.driverPhone.replace(/[^0-9]/g, '')}?text=Assalam-o-Alaikum%20${encodeURIComponent(b.driverName)},%20regarding%20booking%20ref%20${b.bookingRef}`}
                               target="_blank"
                               rel="noreferrer"
-                              className="px-3.5 py-1.5 bg-[#0B6B4F] hover:bg-[#08513C] text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs transition"
+                              className="px-3.5 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition whitespace-nowrap shrink-0"
                             >
-                              <MessageCircle className="w-3.5 h-3.5" />
-                              <span>WhatsApp Driver</span>
+                              <WhatsAppIcon className="w-3.5 h-3.5 fill-white shrink-0" />
+                              <span>WhatsApp</span>
                             </a>
                             <a
                               href={`tel:${b.driverPhone}`}
@@ -1229,126 +1232,228 @@ export default function CustomerDashboardPage() {
       </div>
 
       {/* MUTUAL CREDENTIALS VAULT: EXCISE SMART CARD & FLEET OWNER FBR NTN */}
-      {selectedSmartCardModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto"
-          onClick={() => setSelectedSmartCardModal(null)}
-        >
+      {selectedSmartCardModal && (() => {
+        // Find authentic host record
+        const allUsers = getAllRegisteredUsers();
+        const modalPhoneClean = (selectedSmartCardModal.listerPhone || '').replace(/[^0-9]/g, '').slice(-10);
+        const resolvedLister = allUsers.find(
+          (u) =>
+            (modalPhoneClean && u.phone && u.phone.replace(/[^0-9]/g, '').slice(-10) === modalPhoneClean) ||
+            (selectedSmartCardModal.listerBusinessName &&
+              u.businessName &&
+              (u.businessName.toLowerCase().includes(selectedSmartCardModal.listerBusinessName.toLowerCase()) ||
+                selectedSmartCardModal.listerBusinessName.toLowerCase().includes(u.businessName.toLowerCase())))
+        );
+
+        // Find custom vehicles from localStorage if available
+        let customVehicles: any[] = [];
+        if (typeof window !== 'undefined') {
+          try {
+            const raw = localStorage.getItem('safarpk_lister_vehicles');
+            if (raw) customVehicles = JSON.parse(raw);
+          } catch {}
+        }
+
+        const resolvedVehicle =
+          customVehicles.find(
+            (v) =>
+              (selectedSmartCardModal.vehicleName && v.name && v.name.toLowerCase() === selectedSmartCardModal.vehicleName.toLowerCase()) ||
+              (selectedSmartCardModal.vehicleId && v.id === selectedSmartCardModal.vehicleId)
+          ) ||
+          CARS_DATA.find((c) => c.name === selectedSmartCardModal.vehicleName);
+
+        const dynamicSmartCardUrl =
+          resolvedVehicle?.smartCardUrl ||
+          resolvedLister?.carOwnerCardUrl ||
+          selectedSmartCardModal.smartCardUrl ||
+          null;
+
+        const dynamicRegNumber =
+          selectedSmartCardModal.assignedVehicleReg ||
+          resolvedVehicle?.regNumber ||
+          resolvedLister?.carOwnerCardRegNumber ||
+          'Verified Registration';
+
+        const dynamicNtnUrl =
+          resolvedLister?.ntnUrl ||
+          selectedSmartCardModal.ntnUrl ||
+          null;
+
+        const dynamicNtnNumber =
+          resolvedLister?.ntnNumber ||
+          selectedSmartCardModal.vehicleSmartCard?.taxpayerNtn ||
+          null;
+
+        const dynamicBusinessName =
+          resolvedLister?.businessName ||
+          selectedSmartCardModal.listerBusinessName ||
+          'Registered Fleet Host';
+
+        const dynamicPhone =
+          resolvedLister?.phone ||
+          selectedSmartCardModal.listerPhone ||
+          'Direct Host Contact';
+
+        return (
           <div
-            className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-slate-100 my-auto"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto"
+            onClick={() => setSelectedSmartCardModal(null)}
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                  📄
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-sm text-slate-900">
-                    Vehicle Registration & Owner FBR Credentials
-                  </h3>
-                  <span className="text-[10px] text-slate-600 font-bold">
-                    ✓ Registered Document · Review in person at handover
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedSmartCardModal(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Excise Registration Smart Card Scan Preview */}
-            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="font-extrabold text-xs text-slate-900 flex items-center gap-1.5">
-                  <Car className="w-4 h-4 text-emerald-600" />
-                  <span>Excise & Taxation Vehicle Smart Card</span>
-                </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                  Govt Verified
-                </span>
-              </div>
-
-              {/* Sample Smart Card Visual Preview */}
-              <div className="p-3.5 bg-gradient-to-tr from-slate-900 to-slate-800 text-white rounded-xl shadow-inner space-y-2 text-xs">
-                <div className="flex items-center justify-between border-b border-slate-700 pb-1.5 text-[10px] font-mono">
-                  <span className="text-emerald-400 font-bold">PUNJAB EXCISE & TAXATION DEPT</span>
-                  <span className="text-slate-400">SMART REGISTRATION CARD</span>
-                </div>
-                <div className="flex items-center justify-between">
+            <div
+              className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-slate-100 my-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                    <FileText className="w-5 h-5 text-emerald-700" />
+                  </div>
                   <div>
-                    <span className="text-[9px] text-slate-400 block uppercase">Registration Mark</span>
-                    <span className="text-base font-black tracking-widest text-white font-mono">
-                      {selectedSmartCardModal.assignedVehicleReg || selectedSmartCardModal.vehicleSmartCard?.registrationNo || 'LEA-24-9988'}
+                    <h3 className="font-extrabold text-sm text-slate-900">
+                      Vehicle Documents & Host Credentials
+                    </h3>
+                    <span className="text-[10px] text-emerald-700 font-bold block">
+                      ✓ Authentic Verified Records · Ready for Inspection
                     </span>
                   </div>
-                  <div className="text-right">
-                    <span className="text-[9px] text-slate-400 block uppercase">Token Status</span>
-                    <span className="text-[11px] font-bold text-emerald-400">Lifetime Tax Paid</span>
-                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-[10px] pt-1 border-t border-slate-700/60 font-mono text-slate-300">
+                <button
+                  onClick={() => setSelectedSmartCardModal(null)}
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer transition"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Excise Registration Smart Card Section */}
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-extrabold text-xs text-slate-900 flex items-center gap-1.5">
+                    <Car className="w-4 h-4 text-emerald-600" />
+                    <span>Excise & Taxation Vehicle Smart Card</span>
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                    Govt Verified
+                  </span>
+                </div>
+
+                {dynamicSmartCardUrl ? (
+                  <div className="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-900">
+                    <img
+                      src={dynamicSmartCardUrl}
+                      alt="Excise Vehicle Smart Card"
+                      className="w-full h-48 object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-3 justify-between">
+                      <div>
+                        <span className="text-[10px] text-emerald-300 font-bold uppercase block">Official Smart Card Scan</span>
+                        <span className="text-white text-xs font-mono font-bold">{dynamicRegNumber}</span>
+                      </div>
+                      <a
+                        href={dynamicSmartCardUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1 bg-white/90 hover:bg-white text-slate-900 rounded-lg text-[11px] font-bold shadow transition flex items-center gap-1"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        <span>View Full Document</span>
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-gradient-to-tr from-slate-900 to-slate-800 text-white rounded-2xl shadow-inner space-y-2.5 text-xs">
+                    <div className="flex items-center justify-between border-b border-slate-700 pb-1.5 text-[10px] font-mono">
+                      <span className="text-emerald-400 font-bold">EXCISE & TAXATION DEPARTMENT</span>
+                      <span className="text-slate-400">SMART CARD REGISTRATION</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-[9px] text-slate-400 block uppercase">Registration Mark</span>
+                        <span className="text-base font-black tracking-widest text-white font-mono">
+                          {dynamicRegNumber}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[9px] text-slate-400 block uppercase">Excise Status</span>
+                        <span className="text-[11px] font-bold text-emerald-400">Verified & Active</span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-300 leading-relaxed border-t border-slate-700/60 pt-2 font-sans">
+                      Physical Original Document: The original official excise smart card will be verified and physically inspected in person during vehicle handover.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Fleet Host FBR NTN & Business Credentials */}
+              <div className="p-3.5 bg-emerald-50/70 rounded-2xl border border-emerald-200 space-y-2.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-extrabold text-emerald-950 flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                    <span>Host FBR & Business Credentials</span>
+                  </span>
+                  <span className="text-[10px] font-bold bg-white text-emerald-900 px-2 py-0.5 rounded-full border border-emerald-300">
+                    ATL Active Taxpayer
+                  </span>
+                </div>
+
+                {dynamicNtnUrl && (
+                  <div className="relative rounded-xl overflow-hidden border border-emerald-300 bg-white p-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-emerald-700" />
+                      <span className="text-xs font-bold text-slate-800">FBR NTN Certificate Scan</span>
+                    </div>
+                    <a
+                      href={dynamicNtnUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span>View NTN Certificate</span>
+                    </a>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
                   <div>
-                    <span className="text-slate-500 block">Chassis Number:</span>
-                    <span>{selectedSmartCardModal.vehicleSmartCard?.chassisNo || 'NZE140-5019821'}</span>
+                    <span className="text-slate-500 block text-[10px]">Business / Host Name:</span>
+                    <strong className="text-slate-900">{dynamicBusinessName}</strong>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Engine Number:</span>
-                    <span>{selectedSmartCardModal.vehicleSmartCard?.engineNo || '2ZR-FE-9812401'}</span>
+                    <span className="text-slate-500 block text-[10px]">FBR NTN Number:</span>
+                    <span className="font-mono font-bold text-slate-900">
+                      {dynamicNtnNumber || 'Verified Active Taxpayer'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">Direct Verified Contact:</span>
+                    <span className="font-mono font-bold text-emerald-800">{dynamicPhone}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">Verification Protocol:</span>
+                    <span className="font-bold text-emerald-700">SafarPK Verified Host</span>
                   </div>
                 </div>
               </div>
+
+              {/* Legal Notice */}
+              <p className="text-[10px] text-slate-500 leading-tight">
+                * Protected under Pakistan Electronic Crimes Act (PECA 2016) & Electronic Transactions Ordinance (ETO 2002). This credential vault is shared solely under mutual booking consent for physical vehicle handover and road safety.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setSelectedSmartCardModal(null)}
+                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                Close Documents
+              </button>
             </div>
-
-            {/* Fleet Owner Business & Tax Credentials */}
-            <div className="p-3.5 bg-emerald-50/70 rounded-2xl border border-emerald-200 space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="font-extrabold text-emerald-950 flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                  <span>Fleet Owner Tax & Business Credentials</span>
-                </span>
-                <span className="text-[10px] font-bold bg-white text-emerald-900 px-2 py-0.5 rounded-full border border-emerald-300">
-                  ATL Active Taxpayer
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
-                <div>
-                  <span className="text-slate-500 block text-[10px]">Business Name:</span>
-                  <strong className="text-slate-900">{selectedSmartCardModal.listerBusinessName || 'Salman Rent a Car & Tours (Pvt) Ltd'}</strong>
-                </div>
-                <div>
-                  <span className="text-slate-500 block text-[10px]">FBR NTN Number:</span>
-                  <span className="font-mono font-bold text-slate-900">{selectedSmartCardModal.vehicleSmartCard?.taxpayerNtn || '7819201-3'}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block text-[10px]">Direct Contact:</span>
-                  <span className="font-mono font-bold text-emerald-800">{selectedSmartCardModal.listerPhone || '+92 300 1234567'}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block text-[10px]">Vehicle Fitness Expiry:</span>
-                  <span className="font-mono font-bold text-slate-900">{selectedSmartCardModal.vehicleSmartCard?.fitnessValidTill || '2026-12-31'}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Legal Notice */}
-            <p className="text-[10px] text-slate-500 leading-tight">
-              * Protected under Pakistan Electronic Crimes Act (PECA 2016) & Electronic Transactions Ordinance (ETO 2002). This credential vault is shared solely under mutual booking consent for physical vehicle handover and road safety.
-            </p>
-
-            <button
-              type="button"
-              onClick={() => setSelectedSmartCardModal(null)}
-              className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition cursor-pointer"
-            >
-              Close Credentials Vault
-            </button>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Global Mobile Bottom Navigation Bar */}
       <MobileNavBar />
