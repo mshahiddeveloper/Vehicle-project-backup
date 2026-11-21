@@ -28,11 +28,11 @@ export function OfflineStatusBanner() {
           : 'bg-emerald-50 dark:bg-[#064E3B] border-b border-emerald-300 dark:border-emerald-600 text-[#0B6B4F] dark:text-emerald-200'
       }`}
     >
-      <div className="max-w-7xl mx-auto py-1.5 px-4 flex items-center justify-center gap-2 text-xs font-bold animate-in fade-in duration-200">
+      <div className="max-w-7xl mx-auto py-1.5 px-4 flex items-center justify-center gap-1.5 text-xs font-bold animate-in fade-in duration-200 text-center">
         {!isOnline ? (
           <>
             <WifiOff className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-pulse" />
-            <span data-testid="offline-status-text">No internet connection — browsing saved offline content</span>
+            <span data-testid="offline-status-text">No internet connection</span>
           </>
         ) : (
           <>

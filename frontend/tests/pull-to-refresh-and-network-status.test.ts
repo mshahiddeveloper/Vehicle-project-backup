@@ -92,7 +92,7 @@ describe('Global Pull-to-Refresh & Network Status Indicator Tests', () => {
       isOnline: false,
       bgColor: 'bg-[#0F172A]',
       textColor: 'text-amber-300',
-      label: 'No internet connection — browsing saved offline content',
+      label: 'No internet connection',
     };
     expect(offlineConfig.bgColor).toBe('bg-[#0F172A]');
     expect(offlineConfig.textColor).toBe('text-amber-300');
