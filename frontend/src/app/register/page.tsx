@@ -285,8 +285,16 @@ function RegisterForm() {
       setNotice('Matching existing account found! Opening your dashboard directly...');
     }
 
-    // Direct deterministic routing to user's dedicated role portal
-    const dest = getUserDashboardPath(res.user);
+    // If customer, no upfront checklist is required on registration - direct to returnUrl or home page.
+    // When booking later, document verification will be asked if required by Super Admin.
+    // Vendor/Host roles (Lister, Driver, Provider) proceed to their dedicated role onboarding checklist.
+    let dest: string;
+    if (res.user.role === 'CUSTOMER') {
+      const returnUrl = searchParams.get('returnUrl') || searchParams.get('redirect') || searchParams.get('from');
+      dest = returnUrl || '/';
+    } else {
+      dest = getUserDashboardPath(res.user);
+    }
 
     setTimeout(() => {
       router.push(dest);

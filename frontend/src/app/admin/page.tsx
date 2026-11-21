@@ -1612,7 +1612,8 @@ export default function SuperAdminDashboardPage() {
   }, [docCountry]);
 
   const handleToggleDocRuleCell = (ruleIdx: number, roleKey: 'owner' | 'driver' | 'shuttle' | 'mover' | 'renter') => {
-    const states: DocRequirement[] = ['Upload', 'Type it', 'Optional', 'Off'];
+    // Cycle: Off -> Upload (Mandatory) -> Optional -> Off
+    const states: DocRequirement[] = ['Off', 'Upload', 'Optional', 'Type it'];
     const currentVal = docRulesList[ruleIdx][roleKey];
     const nextIdx = (states.indexOf(currentVal) + 1) % states.length;
     const nextVal = states[nextIdx];
@@ -1620,6 +1621,44 @@ export default function SuperAdminDashboardPage() {
     const updated = [...docRulesList];
     updated[ruleIdx] = { ...updated[ruleIdx], [roleKey]: nextVal };
     setDocRulesList(updated);
+  };
+
+  const handleSetAllDocsOff = () => {
+    const updated = docRulesList.map((rule) => ({
+      ...rule,
+      owner: 'Off' as DocRequirement,
+      driver: 'Off' as DocRequirement,
+      shuttle: 'Off' as DocRequirement,
+      mover: 'Off' as DocRequirement,
+      renter: 'Off' as DocRequirement,
+    }));
+    setDocRulesList(updated);
+    saveDocRulesForCountry(docCountry, updated);
+    setAdminNotice(`✓ All documents disabled across ${docCountry}. Users and hosts can list and book instantly with zero document blockers!`);
+    setTimeout(() => setAdminNotice(null), 4000);
+  };
+
+  const handleSetStandardMandatory = () => {
+    const updated = docRulesList.map((rule) => {
+      const lower = rule.docName.toLowerCase();
+      if (lower.includes('driving')) {
+        return { ...rule, owner: 'Off', driver: 'Upload', shuttle: 'Upload', mover: 'Upload', renter: 'Upload' } as DocRuleItem;
+      }
+      if (lower.includes('cnic') || lower.includes('national id')) {
+        return { ...rule, owner: 'Upload', driver: 'Upload', shuttle: 'Upload', mover: 'Upload', renter: 'Upload' } as DocRuleItem;
+      }
+      if (lower.includes('ntn') || lower.includes('business')) {
+        return { ...rule, owner: 'Upload', driver: 'Off', shuttle: 'Upload', mover: 'Upload', renter: 'Off' } as DocRuleItem;
+      }
+      if (lower.includes('owner card') || lower.includes('smart card')) {
+        return { ...rule, owner: 'Upload', driver: 'Off', shuttle: 'Upload', mover: 'Upload', renter: 'Off' } as DocRuleItem;
+      }
+      return rule;
+    });
+    setDocRulesList(updated);
+    saveDocRulesForCountry(docCountry, updated);
+    setAdminNotice(`✓ Standard mandatory verification enforced across ${docCountry} (CNIC + License + Owner Card).`);
+    setTimeout(() => setAdminNotice(null), 4000);
   };
 
   const handleSaveDocRules = () => {
@@ -5318,9 +5357,9 @@ export default function SuperAdminDashboardPage() {
             <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
                 <div>
-                  <h3 className="font-extrabold text-base text-white">Document Verification Rules Matrix</h3>
+                  <h3 className="font-extrabold text-base text-white">Central Document Verification Control</h3>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Configure document submission requirements for hosts, drivers, shuttles, movers, and customers. Click any badge to cycle: Upload → Type it → Optional → Off.
+                    Control the exact 4 documents per role: <strong>Driving License, CNIC, Business FBR NTN, and Car Owner Card</strong>. When set to <strong>Off</strong>, documents are completely hidden from the user's checklist, settings vault, and dashboard.
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -5332,6 +5371,34 @@ export default function SuperAdminDashboardPage() {
                     }`}
                   >
                     <span>Master Ask: {masterDocAsk ? 'ENABLED' : 'PAUSED'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Action Presets */}
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="text-xs">
+                  <span className="font-bold text-slate-200 block">Quick Policy Presets</span>
+                  <span className="text-slate-400 text-[11px]">
+                    Switch whole platform between instant frictionless listings or strict identity verification with 1 click.
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSetAllDocsOff}
+                    className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+                    title="Allow users to list vehicles and book without any document roadblock"
+                  >
+                    <span>⚡ Turn OFF All Docs (Instant Listings)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSetStandardMandatory}
+                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md active:scale-95"
+                    title="Enforce CNIC + License + Owner Card verification"
+                  >
+                    <span>🛡️ Enforce Standard Mandatory Verification</span>
                   </button>
                 </div>
               </div>
@@ -5365,7 +5432,7 @@ export default function SuperAdminDashboardPage() {
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-400 font-bold bg-slate-900/60">
-                      <th className="p-3.5">Document Name</th>
+                      <th className="p-3.5">Standard Document (Exact 4)</th>
                       <th className="p-3.5">Car Rental Host</th>
                       <th className="p-3.5">Driver</th>
                       <th className="p-3.5">Shuttle Operator</th>
@@ -5378,14 +5445,14 @@ export default function SuperAdminDashboardPage() {
                       const getBadgeClass = (req: DocRequirement) => {
                         switch (req) {
                           case 'Upload':
-                            return 'bg-emerald-950 text-emerald-300 border border-emerald-800';
+                            return 'bg-emerald-950 text-emerald-300 border border-emerald-800 shadow-xs';
                           case 'Type it':
                             return 'bg-blue-950 text-blue-300 border border-blue-800';
                           case 'Optional':
                             return 'bg-amber-950 text-amber-300 border border-amber-800';
                           case 'Off':
                           default:
-                            return 'bg-slate-900 text-slate-500 border border-slate-800';
+                            return 'bg-slate-900 text-slate-500 border border-slate-800 hover:text-slate-300';
                         }
                       };
 
@@ -5400,9 +5467,9 @@ export default function SuperAdminDashboardPage() {
                                 className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition hover:opacity-80 ${getBadgeClass(
                                   rule[role]
                                 )}`}
-                                title="Click to cycle status"
+                                title="Click to cycle: Off → Upload (Mandatory) → Optional → Off"
                               >
-                                {rule[role]}
+                                {rule[role] === 'Upload' ? 'Mandatory' : rule[role]}
                               </button>
                             </td>
                           ))}
@@ -5411,6 +5478,37 @@ export default function SuperAdminDashboardPage() {
                     })}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Status Explanation Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-xs">
+                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+                    <span className="font-bold text-slate-300">Off (Default / Unblocked)</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Completely hidden from user checklist, dashboard vault, and add car forms. User can list or book instantly with zero document blockers.
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                    <span className="font-bold text-amber-300">Optional</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Visible in Settings Vault for trust badge. Does NOT block publishing listings or completing customer bookings.
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                    <span className="font-bold text-emerald-300">Mandatory (Upload)</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Strictly required in Onboarding Checklist and forms. User cannot publish listings or complete bookings until uploaded.
+                  </p>
+                </div>
               </div>
 
               <div className="flex justify-end pt-2">

@@ -99,6 +99,8 @@ export interface RegisteredUser {
   cnicFrontUploaded?: boolean;
   cnicBackUploaded?: boolean;
   licenseUploaded?: boolean;
+  ntnUploaded?: boolean;
+  carOwnerCardUploaded?: boolean;
   email?: string;
   password?: string;
   city: string;
@@ -116,6 +118,11 @@ export interface RegisteredUser {
   cnicBackUrl?: string;
   licenseUrl?: string;
   tradeLicenseUrl?: string;
+  ntnUrl?: string;
+  ntnNumber?: string;
+  carOwnerCardUrl?: string;
+  carOwnerCardRegNumber?: string;
+  carOwnerCardLocked?: boolean;
   showroomAddress?: string;
   gpsLocation?: string;
   assignedAgentId?: string;

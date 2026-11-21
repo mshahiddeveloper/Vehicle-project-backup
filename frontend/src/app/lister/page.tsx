@@ -51,6 +51,10 @@ import { DashboardStoreWidget } from '@/components/DashboardStoreWidget';
 import { AnalyticsReportHub } from '@/components/AnalyticsReportHub';
 import { useCountry } from '@/app/context/CountryContext';
 import {
+  isDocActiveForRole,
+  isDocMandatoryForRole,
+} from '@/data/docRules';
+import {
   CityRideItem,
   getCustomCityRides,
   saveCustomCityRide,
@@ -890,6 +894,21 @@ export default function ListerDashboardPage() {
 
   // Publish Listing Handler (Supporting 3-Step Streamlined Flow & Double-Gate Approval)
   const handlePublishVehicle = (isDraft: boolean) => {
+    if (!isDraft) {
+      const isListerCnicMandatory = isDocMandatoryForRole('LISTER', 'cnic', country?.code || 'PK');
+      const isListerOwnerCardMandatory = isDocMandatoryForRole('LISTER', 'owner_card', country?.code || 'PK');
+      if (isListerCnicMandatory && !ownerCnic && !currentUser?.cnicFrontUrl) {
+        alert('⚠️ National ID (CNIC) is marked mandatory by platform administration. Please upload your CNIC before publishing.');
+        setWizardStep(2);
+        return;
+      }
+      if (isListerOwnerCardMandatory && !regNumber && !smartCardDocPreview && !currentUser?.carOwnerCardUploaded) {
+        alert('⚠️ Car Owner Card / Excise Smart Card is marked mandatory by platform administration. Please upload vehicle documents before publishing.');
+        setWizardStep(2);
+        return;
+      }
+    }
+
     setWizardSubmitting(true);
     setTimeout(() => {
       const hasActiveSub = currentUser?.subscription?.status === 'ACTIVE';
@@ -2760,108 +2779,142 @@ export default function ListerDashboardPage() {
                     ))}
                   </div>
 
-                  {/* Optional Verified Lister Documents OCR */}
-                  <details className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 cursor-pointer">
-                    <summary className="font-bold text-slate-800 flex items-center justify-between text-xs outline-none">
-                      <span className="flex items-center gap-2">
-                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                        <span>Optional: Get "Verified Owner" Badge (Upload CNIC & Excise Smart Card)</span>
-                      </span>
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                        Recommended
-                      </span>
-                    </summary>
+                  {/* Verified Lister Documents OCR (Strictly Controlled by Super Admin docRules) */}
+                  {(() => {
+                    const isCnicActive = isDocActiveForRole('LISTER', 'cnic', country?.code || 'PK');
+                    const isOwnerCardActive = isDocActiveForRole('LISTER', 'owner_card', country?.code || 'PK');
+                    const isCnicMandatory = isDocMandatoryForRole('LISTER', 'cnic', country?.code || 'PK');
+                    const isOwnerCardMandatory = isDocMandatoryForRole('LISTER', 'owner_card', country?.code || 'PK');
+                    const hasActive = isCnicActive || isOwnerCardActive;
+                    const hasMandatory = isCnicMandatory || isOwnerCardMandatory;
 
-                    <div className="pt-3 space-y-3 border-t border-slate-200">
-                      {/* CNIC Scan */}
-                      <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-xs text-slate-900">Owner National ID</span>
-                          <button
-                            type="button"
-                            onClick={() => handleCnicFileUpload()}
-                            className="text-emerald-700 font-bold hover:underline flex items-center gap-1"
-                          >
-                            <Scan className="w-3.5 h-3.5" />
-                            <span>⚡ Scan Demo CNIC</span>
-                          </button>
-                        </div>
-                        {cnicDocPreview ? (
-                          <div className="flex items-center gap-2 p-2 bg-emerald-50 rounded-lg">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                            <span className="text-xs font-mono font-bold text-emerald-950">
-                              CNIC: {ownerCnic || '35201-9876543-1'}
+                    if (!hasActive) return null;
+
+                    return (
+                      <details
+                        open={hasMandatory}
+                        className={`p-4 rounded-2xl border space-y-3 cursor-pointer ${
+                          hasMandatory ? 'bg-amber-50/50 border-amber-300' : 'bg-slate-50 border-slate-200'
+                        }`}
+                      >
+                        <summary className="font-bold text-slate-800 flex items-center justify-between text-xs outline-none">
+                          <span className="flex items-center gap-2">
+                            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                            <span>
+                              {hasMandatory
+                                ? 'Mandatory Verification: Upload Required Documents'
+                                : 'Optional: Get "Verified Owner" Badge (Upload CNIC & Excise Smart Card)'}
                             </span>
-                          </div>
-                        ) : (
-                          <label className="block p-3 border border-dashed border-slate-300 rounded-lg text-center cursor-pointer hover:border-emerald-500">
-                            <span className="text-xs text-slate-600 font-bold">Choose CNIC file (No file chosen)</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => {
-                                const f = e.target.files?.[0];
-                                if (f) handleCnicFileUpload(f);
-                              }}
-                            />
-                          </label>
-                        )}
-                      </div>
+                          </span>
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              hasMandatory ? 'text-amber-800 bg-amber-100 border border-amber-300' : 'text-emerald-700 bg-emerald-100'
+                            }`}
+                          >
+                            {hasMandatory ? 'Mandatory' : 'Recommended'}
+                          </span>
+                        </summary>
 
-                      {/* Smart Card Scan (Authentic OCR, Immutable Locking & Privacy Shield) */}
-                      <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-xs text-slate-900">Vehicle Excise Smart Card / Registration</span>
-                          {!smartCardDocPreview && (
-                            <button
-                              type="button"
-                              onClick={() => handleSmartCardFileUpload()}
-                              className="text-emerald-700 font-bold hover:underline flex items-center gap-1"
-                            >
-                              <Scan className="w-3.5 h-3.5" />
-                              <span>⚡ Scan Demo Smart Card</span>
-                            </button>
+                        <div className="pt-3 space-y-3 border-t border-slate-200">
+                          {/* CNIC Scan */}
+                          {isCnicActive && (
+                            <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-xs text-slate-900">
+                                  Owner National ID {isCnicMandatory && <span className="text-rose-600">*</span>}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCnicFileUpload()}
+                                  className="text-emerald-700 font-bold hover:underline flex items-center gap-1"
+                                >
+                                  <Scan className="w-3.5 h-3.5" />
+                                  <span>⚡ Scan Demo CNIC</span>
+                                </button>
+                              </div>
+                              {cnicDocPreview ? (
+                                <div className="flex items-center gap-2 p-2 bg-emerald-50 rounded-lg">
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                  <span className="text-xs font-mono font-bold text-emerald-950">
+                                    CNIC: {ownerCnic || '35201-9876543-1'}
+                                  </span>
+                                </div>
+                              ) : (
+                                <label className="block p-3 border border-dashed border-slate-300 rounded-lg text-center cursor-pointer hover:border-emerald-500">
+                                  <span className="text-xs text-slate-600 font-bold">Choose CNIC file (No file chosen)</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const f = e.target.files?.[0];
+                                      if (f) handleCnicFileUpload(f);
+                                    }}
+                                  />
+                                </label>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Smart Card Scan (Authentic OCR, Immutable Locking & Privacy Shield) */}
+                          {isOwnerCardActive && (
+                            <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-xs text-slate-900">
+                                  Vehicle Excise Smart Card / Registration {isOwnerCardMandatory && <span className="text-rose-600">*</span>}
+                                </span>
+                                {!smartCardDocPreview && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSmartCardFileUpload()}
+                                    className="text-emerald-700 font-bold hover:underline flex items-center gap-1"
+                                  >
+                                    <Scan className="w-3.5 h-3.5" />
+                                    <span>⚡ Scan Demo Smart Card</span>
+                                  </button>
+                                )}
+                              </div>
+                              {smartCardDocPreview ? (
+                                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
+                                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                      <span>Excise Registration Authenticated</span>
+                                    </span>
+                                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-200/80 text-emerald-900">
+                                      🔒 Locked Record
+                                    </span>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-slate-800 pt-1">
+                                    <div>Reg #: <strong className="text-slate-950">{regNumber || 'LEA-24-9988'}</strong></div>
+                                    <div>Chassis: <strong className="text-slate-950">{chassisNumber || 'NZE141-9081245'}</strong></div>
+                                    <div>Engine: <strong className="text-slate-950">{engineNumber || '1NZ-FE-829104'}</strong></div>
+                                    <div>Tax Paid: <strong className="text-emerald-800">30-Jun-2027</strong></div>
+                                  </div>
+                                  <p className="text-[10px] font-sans text-emerald-900 bg-white/80 p-2 rounded-lg leading-tight border border-emerald-200/60">
+                                    🛡️ <strong>Privacy Shield Guaranteed:</strong> These sensitive vehicle documents and chassis numbers are confidential. They will NOT appear on public search or listing pages, and unlock for customers only upon booking confirmation.
+                                  </p>
+                                </div>
+                              ) : (
+                                <label className="block p-3 border border-dashed border-slate-300 rounded-lg text-center cursor-pointer hover:border-emerald-500">
+                                  <span className="text-xs text-slate-600 font-bold">Choose Smart Card file (No file chosen)</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const f = e.target.files?.[0];
+                                      if (f) handleSmartCardFileUpload(f);
+                                    }}
+                                  />
+                                </label>
+                              )}
+                            </div>
                           )}
                         </div>
-                        {smartCardDocPreview ? (
-                          <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
-                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                                <span>Excise Registration Authenticated</span>
-                              </span>
-                              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-200/80 text-emerald-900">
-                                🔒 Locked Record
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-slate-800 pt-1">
-                              <div>Reg #: <strong className="text-slate-950">{regNumber || 'LEA-24-9988'}</strong></div>
-                              <div>Chassis: <strong className="text-slate-950">{chassisNumber || 'NZE141-9081245'}</strong></div>
-                              <div>Engine: <strong className="text-slate-950">{engineNumber || '1NZ-FE-829104'}</strong></div>
-                              <div>Tax Paid: <strong className="text-emerald-800">30-Jun-2027</strong></div>
-                            </div>
-                            <p className="text-[10px] font-sans text-emerald-900 bg-white/80 p-2 rounded-lg leading-tight border border-emerald-200/60">
-                              🛡️ <strong>Privacy Shield Guaranteed:</strong> These sensitive vehicle documents and chassis numbers are confidential. They will NOT appear on public search or listing pages, and unlock for customers only upon booking confirmation.
-                            </p>
-                          </div>
-                        ) : (
-                          <label className="block p-3 border border-dashed border-slate-300 rounded-lg text-center cursor-pointer hover:border-emerald-500">
-                            <span className="text-xs text-slate-600 font-bold">Choose Smart Card file (No file chosen)</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => {
-                                const f = e.target.files?.[0];
-                                if (f) handleSmartCardFileUpload(f);
-                              }}
-                            />
-                          </label>
-                        )}
-                      </div>
-                    </div>
-                  </details>
+                      </details>
+                    );
+                  })()}
 
                   <div className="flex items-center justify-between pt-3 border-t border-slate-100">
                     <button

@@ -562,18 +562,21 @@ describe('Tier 1: Feature Coverage (54 Happy-Path & Contract Tests)', () => {
       const names = rules.map((r) => r.docName);
       expect(names).toContain('National ID (CNIC)');
       expect(names).toContain('Driving licence');
-      expect(names).toContain('Vehicle registration smart card');
+      expect(names).toContain('Car Owner Card (Excise Smart Card)');
+      expect(names).toContain('Business FBR NTN');
     });
 
     it('T1.6.2: Pakistan Renter Driving Licence Requirement', () => {
       const res = getRenterDocRequirement('PK', 'licence');
-      expect(res.requirement).toBe('Upload');
+      // Initially Off by default to allow instant booking/listing
+      expect(res.requirement).toBe('Off');
       expect(res.docName).toBe('Driving licence');
     });
 
     it('T1.6.3: Pakistan Renter CNIC Requirement', () => {
       const res = getRenterDocRequirement('PK', 'id');
-      expect(res.requirement).toBe('Type it');
+      // Initially Off by default to allow instant booking/listing
+      expect(res.requirement).toBe('Off');
       expect(res.docName).toBe('National ID (CNIC)');
     });
 
@@ -586,8 +589,9 @@ describe('Tier 1: Feature Coverage (54 Happy-Path & Contract Tests)', () => {
     it('T1.6.5: United Arab Emirates (AE) Document Rules', () => {
       const rules = getDocRulesForCountry('AE');
       const names = rules.map((r) => r.docName);
-      expect(names).toContain('National ID (Emirates ID)');
-      expect(names).toContain('Vehicle Mulkiya card');
+      expect(names).toContain('Driving licence');
+      expect(names).toContain('National ID (CNIC)');
+      expect(names).toContain('Car Owner Card (Excise Smart Card)');
     });
 
     it('T1.6.6: Master Document Asking Switch', () => {

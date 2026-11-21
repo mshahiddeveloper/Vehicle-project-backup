@@ -13,6 +13,12 @@ import {
   sanitizePakistaniPhone,
   markUserPhoneVerified,
 } from '@/data/userAuth';
+import {
+  isDocActiveForRole,
+  isDocMandatoryForRole,
+  getRoleActiveDocList,
+  getRoleDocRequirement,
+} from '@/data/docRules';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import { WhatsAppOtpModal } from '@/components/WhatsAppOtpModal';
 import { COUNTRIES } from '@/data/countries';
@@ -299,6 +305,11 @@ export default function SettingsPage() {
   const [cnicBack, setCnicBack] = useState('');
   const [licenseDoc, setLicenseDoc] = useState('');
   const [tradeLicenseDoc, setTradeLicenseDoc] = useState('');
+  const [ntnNumber, setNtnNumber] = useState('');
+  const [ntnDoc, setNtnDoc] = useState('');
+  const [ownerCardNumber, setOwnerCardNumber] = useState('');
+  const [ownerCardDoc, setOwnerCardDoc] = useState('');
+  const [docRulesVersion, setDocRulesVersion] = useState(0);
 
   // Location & Pinned GPS
   const [showroomAddress, setShowroomAddress] = useState('Gulberg III, Main Boulevard, Lahore');
@@ -349,6 +360,16 @@ export default function SettingsPage() {
   const todayStr = typeof window !== 'undefined' ? new Date().toISOString().split('T')[0] : '2026-11-20';
 
   useEffect(() => {
+    const handleRulesUpdate = () => {
+      setDocRulesVersion((v) => v + 1);
+    };
+    window.addEventListener('safarpk_doc_rules_updated', handleRulesUpdate);
+    return () => {
+      window.removeEventListener('safarpk_doc_rules_updated', handleRulesUpdate);
+    };
+  }, []);
+
+  useEffect(() => {
     const u = getActiveUser();
     if (u) {
       setActiveUserState(u);
@@ -375,6 +396,11 @@ export default function SettingsPage() {
       setLicenseIssueDate(u.licenseIssueDate || '');
       setLicenseExpiryDate(u.licenseExpiryDate || '');
       setLicenseLocked(Boolean(u.licenseLocked));
+
+      setNtnNumber(u.ntnNumber || '');
+      setNtnDoc(u.ntnUrl || '');
+      setOwnerCardNumber(u.carOwnerCardRegNumber || '');
+      setOwnerCardDoc(u.carOwnerCardUrl || '');
 
       setAvatarUrl(u.avatarUrl || '');
       setCnicFront(u.cnicFrontUrl || '');
@@ -518,16 +544,72 @@ export default function SettingsPage() {
     }
   };
 
+  const handleNtnUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        setNtnDoc(dataUrl);
+        const u = getActiveUser();
+        if (u) {
+          u.ntnUrl = dataUrl;
+          u.ntnUploaded = true;
+          if (ntnNumber) u.ntnNumber = ntnNumber;
+          setActiveUser(u);
+          setActiveUserState({ ...u });
+          window.dispatchEvent(new Event('safarpk_auth_state_changed'));
+        }
+        setToastMessage('✓ Business FBR NTN document uploaded successfully!');
+        setTimeout(() => setToastMessage(''), 4500);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleOwnerCardUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        setOwnerCardDoc(dataUrl);
+        const u = getActiveUser();
+        if (u) {
+          u.carOwnerCardUrl = dataUrl;
+          u.carOwnerCardUploaded = true;
+          if (ownerCardNumber) u.carOwnerCardRegNumber = ownerCardNumber;
+          setActiveUser(u);
+          setActiveUserState({ ...u });
+          window.dispatchEvent(new Event('safarpk_auth_state_changed'));
+        }
+        setToastMessage('✓ Car Owner Excise Smart Card uploaded successfully!');
+        setTimeout(() => setToastMessage(''), 4500);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleLockDocuments = () => {
-    if (!cnicFront || !cnicBack) {
+    const userRole = activeUser?.role || 'CUSTOMER';
+    const isCnicMandatory = isDocMandatoryForRole(userRole, 'cnic', countryCode);
+    const isLicenseMandatory = isDocMandatoryForRole(userRole, 'license', countryCode);
+
+    if (isCnicMandatory && (!cnicFront || !cnicBack)) {
       setToastMessage('⚠️ Please upload both CNIC Front and CNIC Back photos before certifying.');
       setTimeout(() => setToastMessage(''), 4500);
       return;
     }
 
     const cleanCnic = nationalId.trim();
-    if (!cleanCnic || cleanCnic.replace(/\D/g, '').length < 13) {
+    if (isCnicMandatory && (!cleanCnic || cleanCnic.replace(/\D/g, '').length < 13)) {
       setToastMessage('⚠️ Please enter a valid 13-digit CNIC number (e.g. 35201-1234567-1).');
+      setTimeout(() => setToastMessage(''), 4500);
+      return;
+    }
+
+    if (isLicenseMandatory && !licenseDoc && !licenseNumber) {
+      setToastMessage('⚠️ Please upload your Driving License before certifying.');
       setTimeout(() => setToastMessage(''), 4500);
       return;
     }
@@ -549,8 +631,8 @@ export default function SettingsPage() {
       u.cnicIssueDate = issue;
       u.cnicExpiryDate = expiry;
       u.cnicLocked = true;
-      u.cnicFrontUploaded = true;
-      u.cnicBackUploaded = true;
+      u.cnicFrontUploaded = Boolean(cnicFront);
+      u.cnicBackUploaded = Boolean(cnicBack);
 
       if (licenseDoc || licenseNumber) {
         u.licenseUrl = licenseDoc;
@@ -561,6 +643,19 @@ export default function SettingsPage() {
         u.licenseExpiryDate = licenseExpiryDate || '2030-04-09';
         u.licenseLocked = true;
         u.licenseUploaded = true;
+      }
+
+      if (ntnDoc || ntnNumber) {
+        u.ntnUrl = ntnDoc;
+        u.ntnNumber = ntnNumber;
+        u.ntnUploaded = true;
+      }
+
+      if (ownerCardDoc || ownerCardNumber) {
+        u.carOwnerCardUrl = ownerCardDoc;
+        u.carOwnerCardRegNumber = ownerCardNumber;
+        u.carOwnerCardUploaded = true;
+        u.carOwnerCardLocked = true;
       }
 
       u.kycStatus = 'VERIFIED';
@@ -626,6 +721,16 @@ export default function SettingsPage() {
       u.cnicBackUrl = cnicBack || undefined;
       u.licenseUrl = licenseDoc || undefined;
       u.tradeLicenseUrl = tradeLicenseDoc || undefined;
+      if (ntnDoc || ntnNumber) {
+        u.ntnUrl = ntnDoc || undefined;
+        u.ntnNumber = ntnNumber.trim() || undefined;
+        u.ntnUploaded = Boolean(ntnDoc);
+      }
+      if (ownerCardDoc || ownerCardNumber) {
+        u.carOwnerCardUrl = ownerCardDoc || undefined;
+        u.carOwnerCardRegNumber = ownerCardNumber.trim() || undefined;
+        u.carOwnerCardUploaded = Boolean(ownerCardDoc);
+      }
       u.showroomAddress = showroomAddress;
       u.gpsLocation = gpsLocation;
       if (newPassword) u.password = newPassword;
@@ -682,22 +787,60 @@ export default function SettingsPage() {
     { id: 'security', label: 'Password & Security' },
   ];
 
+  // Dynamic Document Requirements per Super Admin Configuration
+  const userRole = activeUser?.role || 'CUSTOMER';
+  const isCustomer = userRole === 'CUSTOMER';
+
+  const isCnicActive = isDocActiveForRole(userRole, 'cnic', countryCode, activeUser?.providerSubtype);
+  const isLicenseActive = isDocActiveForRole(userRole, 'license', countryCode, activeUser?.providerSubtype);
+  const isNtnActive = isDocActiveForRole(userRole, 'ntn', countryCode, activeUser?.providerSubtype);
+  const isOwnerCardActive = isDocActiveForRole(userRole, 'owner_card', countryCode, activeUser?.providerSubtype);
+  const hasAnyActiveDoc = isCnicActive || isLicenseActive || isNtnActive || isOwnerCardActive;
+
   // Checklist Calculations
   const isPhoneVerified = Boolean(phoneVerified || activeUser?.phoneVerified);
   const isCnicFrontDone = Boolean(cnicFront || activeUser?.cnicFrontUrl);
   const isCnicBackDone = Boolean(cnicBack || activeUser?.cnicBackUrl);
-  const isLicenseDone = Boolean(licenseDoc || activeUser?.licenseUrl || theme.type === 'CUSTOMER');
+  const isLicenseDone = Boolean(licenseDoc || activeUser?.licenseUrl);
+  const isNtnDone = Boolean(ntnDoc || activeUser?.ntnUrl || activeUser?.ntnUploaded);
+  const isOwnerCardDone = Boolean(ownerCardDoc || activeUser?.carOwnerCardUrl || activeUser?.carOwnerCardUploaded);
   const isVaultCertified = Boolean(cnicLocked || activeUser?.cnicLocked);
 
-  const checklistItems = [
-    { label: 'WhatsApp Phone Verified', done: isPhoneVerified },
-    { label: 'CNIC Front Photo Uploaded', done: isCnicFrontDone },
-    { label: 'CNIC Back Photo Uploaded', done: isCnicBackDone },
-    { label: theme.type === 'DRIVER' ? 'Driving License Uploaded' : 'Business / ID Document Uploaded', done: isLicenseDone },
-    { label: 'Official Vault Certification Locked', done: isVaultCertified },
-  ];
+  // Dynamic checklist based strictly on Super Admin document rules
+  const checklistItems: { label: string; done: boolean; docId?: string }[] = [];
+  checklistItems.push({ label: 'WhatsApp Phone Verified', done: isPhoneVerified });
+
+  if (isCnicActive) {
+    checklistItems.push({ label: 'CNIC Front Photo Uploaded', done: isCnicFrontDone, docId: 'cnic' });
+    checklistItems.push({ label: 'CNIC Back Photo Uploaded', done: isCnicBackDone, docId: 'cnic' });
+  }
+  if (isLicenseActive) {
+    checklistItems.push({
+      label: theme.type === 'DRIVER' ? 'Driving License Uploaded' : 'Driving License / Verification',
+      done: isLicenseDone,
+      docId: 'license',
+    });
+  }
+  if (isNtnActive) {
+    checklistItems.push({
+      label: 'Business FBR NTN Uploaded',
+      done: isNtnDone,
+      docId: 'ntn',
+    });
+  }
+  if (isOwnerCardActive) {
+    checklistItems.push({
+      label: 'Car Owner Smart Card Uploaded',
+      done: isOwnerCardDone,
+      docId: 'owner_card',
+    });
+  }
+  if (hasAnyActiveDoc) {
+    checklistItems.push({ label: 'Official Vault Certification Locked', done: isVaultCertified });
+  }
+
   const checklistCompletedCount = checklistItems.filter((i) => i.done).length;
-  const checklistTotalCount = checklistItems.length;
+  const checklistTotalCount = Math.max(checklistItems.length, 1);
   const isAllChecklistCompleted = checklistCompletedCount === checklistTotalCount;
 
   return (
@@ -810,150 +953,129 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* PARTNER & USER ONBOARDING CHECKLIST */}
-          <section className="bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 rounded-2xl sm:rounded-3xl p-5 sm:p-6 text-white shadow-md border border-emerald-800/40 space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                    Verification Checklist
-                  </span>
-                  <span className="text-xs text-emerald-300/80 font-mono font-bold">
-                    {checklistCompletedCount} of {checklistTotalCount} Completed ({Math.round((checklistCompletedCount / checklistTotalCount) * 100)}%)
-                  </span>
-                </div>
-                <h3 className="font-heading font-extrabold text-base sm:text-lg text-white mt-1">
-                  Partner Verification & Security Checklist
-                </h3>
-                <p className="text-xs text-emerald-100/80 max-w-xl">
-                  Complete these required document steps to earn the SafarPK Certified badge and activate direct customer booking leads.
-                </p>
-              </div>
-
-              {isAllChecklistCompleted ? (
-                <div className="px-3.5 py-2 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
-                  <div className="text-xs">
-                    <div className="font-extrabold">100% Certified Member</div>
-                    <div className="text-[10px] text-emerald-300/80">All records locked & valid</div>
+          {/* ONBOARDING CHECKLIST: Only for Partners/Vendors (Hidden completely for CUSTOMER) */}
+          {!isCustomer && (
+            <section className="bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 rounded-2xl sm:rounded-3xl p-5 sm:p-6 text-white shadow-md border border-emerald-800/40 space-y-4">
+              {!hasAnyActiveDoc ? (
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                        Instant Access Active
+                      </span>
+                    </div>
+                    <h3 className="font-heading font-extrabold text-base sm:text-lg text-white mt-1">
+                      Direct Operational Clearance · Zero Document Blockers
+                    </h3>
+                    <p className="text-xs text-emerald-100/80 max-w-xl">
+                      Super Admin has currently set document requirements to <strong>OFF</strong> for this role. You are authorized to list vehicles, post routes, and accept customer bookings immediately!
+                    </p>
+                  </div>
+                  <div className="px-3.5 py-2 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+                    <div className="text-xs">
+                      <div className="font-extrabold">100% Unblocked</div>
+                      <div className="text-[10px] text-emerald-300/80">No documents required</div>
+                    </div>
                   </div>
                 </div>
               ) : (
-                <div className="px-3.5 py-2 rounded-2xl bg-amber-500/20 border border-amber-400/30 text-amber-200 flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
-                  <div className="text-xs">
-                    <div className="font-extrabold">Verification Incomplete</div>
-                    <div className="text-[10px] text-amber-200/80">{checklistTotalCount - checklistCompletedCount} item(s) pending</div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Progress Bar */}
-            <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-emerald-400 to-teal-300 transition-all duration-500"
-                style={{ width: `${(checklistCompletedCount / checklistTotalCount) * 100}%` }}
-              />
-            </div>
-
-            {/* Checklist Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
-              {/* 1. Phone / WhatsApp */}
-              <div className={`p-3 rounded-xl border flex items-center justify-between text-xs transition ${
-                isPhoneVerified ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-200' : 'bg-white/5 border-white/10 text-slate-300'
-              }`}>
-                <div className="flex items-center gap-2 min-w-0">
-                  <WhatsAppIcon className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <div className="truncate">
-                    <div className="font-bold text-white text-[11px] truncate">1. WhatsApp Phone</div>
-                    <div className="text-[10px] text-slate-400 truncate">{whatsappNumber ? `+92 ${whatsappNumber}` : 'Unverified'}</div>
-                  </div>
-                </div>
-                {isPhoneVerified ? (
-                  <span className="text-[10px] font-extrabold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
-                    ✓ Verified
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setIsOtpModalOpen(true)}
-                    className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/20 hover:bg-emerald-500/30 px-2 py-1 rounded-lg shrink-0 cursor-pointer"
-                  >
-                    Verify WA
-                  </button>
-                )}
-              </div>
-
-              {/* 2. CNIC Front */}
-              <div className={`p-3 rounded-xl border flex items-center justify-between text-xs transition ${
-                cnicFront ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-200' : 'bg-white/5 border-white/10 text-slate-300'
-              }`}>
-                <div className="flex items-center gap-2 min-w-0">
-                  <FileText className="w-4 h-4 text-teal-300 shrink-0" />
-                  <div className="truncate">
-                    <div className="font-bold text-white text-[11px] truncate">2. CNIC Front Photo</div>
-                    <div className="text-[10px] text-slate-400 truncate">{cnicFront ? 'Uploaded' : 'Action needed'}</div>
-                  </div>
-                </div>
-                {cnicFront ? (
-                  <span className="text-[10px] font-extrabold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
-                    ✓ Uploaded
-                  </span>
-                ) : (
-                  <a href="#documents" className="text-[10px] font-bold text-teal-400 hover:underline shrink-0">
-                    Upload
-                  </a>
-                )}
-              </div>
-
-              {/* 3. CNIC Back */}
-              <div className={`p-3 rounded-xl border flex items-center justify-between text-xs transition ${
-                cnicBack ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-200' : 'bg-white/5 border-white/10 text-slate-300'
-              }`}>
-                <div className="flex items-center gap-2 min-w-0">
-                  <FileText className="w-4 h-4 text-teal-300 shrink-0" />
-                  <div className="truncate">
-                    <div className="font-bold text-white text-[11px] truncate">3. CNIC Back Photo</div>
-                    <div className="text-[10px] text-slate-400 truncate">{cnicBack ? 'Uploaded' : 'Action needed'}</div>
-                  </div>
-                </div>
-                {cnicBack ? (
-                  <span className="text-[10px] font-extrabold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
-                    ✓ Uploaded
-                  </span>
-                ) : (
-                  <a href="#documents" className="text-[10px] font-bold text-teal-400 hover:underline shrink-0">
-                    Upload
-                  </a>
-                )}
-              </div>
-
-              {/* 4. License / NTN Certificate */}
-              <div className={`p-3 rounded-xl border flex items-center justify-between text-xs transition ${
-                licenseDoc || theme.type === 'CUSTOMER' ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-200' : 'bg-white/5 border-white/10 text-slate-300'
-              }`}>
-                <div className="flex items-center gap-2 min-w-0">
-                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <div className="truncate">
-                    <div className="font-bold text-white text-[11px] truncate">
-                      {theme.type === 'DRIVER' ? '4. Driving License' : '4. Business / License'}
+                <>
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                          Verification Checklist
+                        </span>
+                        <span className="text-xs text-emerald-300/80 font-mono font-bold">
+                          {checklistCompletedCount} of {checklistTotalCount} Completed ({Math.round((checklistCompletedCount / checklistTotalCount) * 100)}%)
+                        </span>
+                      </div>
+                      <h3 className="font-heading font-extrabold text-base sm:text-lg text-white mt-1">
+                        Partner Verification & Compliance Checklist
+                      </h3>
+                      <p className="text-xs text-emerald-100/80 max-w-xl">
+                        Complete these required document steps to earn the SafarPK Certified badge and activate direct customer booking leads.
+                      </p>
                     </div>
-                    <div className="text-[10px] text-slate-400 truncate">{licenseDoc ? 'Uploaded' : theme.type === 'CUSTOMER' ? 'Optional' : 'Action needed'}</div>
+
+                    {isAllChecklistCompleted ? (
+                      <div className="px-3.5 py-2 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 flex items-center gap-2">
+                        <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+                        <div className="text-xs">
+                          <div className="font-extrabold">100% Certified Member</div>
+                          <div className="text-[10px] text-emerald-300/80">All records locked & valid</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="px-3.5 py-2 rounded-2xl bg-amber-500/20 border border-amber-400/30 text-amber-200 flex items-center gap-2">
+                        <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
+                        <div className="text-xs">
+                          <div className="font-extrabold">Verification Incomplete</div>
+                          <div className="text-[10px] text-amber-200/80">{checklistTotalCount - checklistCompletedCount} item(s) pending</div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-                {licenseDoc ? (
-                  <span className="text-[10px] font-extrabold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
-                    ✓ Uploaded
-                  </span>
-                ) : (
-                  <a href="#documents" className="text-[10px] font-bold text-teal-400 hover:underline shrink-0">
-                    {theme.type === 'CUSTOMER' ? 'Optional' : 'Upload'}
-                  </a>
-                )}
-              </div>
-            </div>
-          </section>
+
+                  {/* Progress Bar */}
+                  <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-400 to-teal-300 transition-all duration-500"
+                      style={{ width: `${(checklistCompletedCount / checklistTotalCount) * 100}%` }}
+                    />
+                  </div>
+
+                  {/* Dynamic Checklist Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
+                    {checklistItems.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-3 rounded-xl border flex items-center justify-between text-xs transition ${
+                          item.done
+                            ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-200'
+                            : 'bg-white/5 border-white/10 text-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {idx === 0 ? (
+                            <WhatsAppIcon className="w-4 h-4 text-emerald-400 shrink-0" />
+                          ) : (
+                            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                          )}
+                          <div className="truncate">
+                            <div className="font-bold text-white text-[11px] truncate">
+                              {idx + 1}. {item.label}
+                            </div>
+                            <div className="text-[10px] text-slate-400 truncate">
+                              {item.done ? '✓ Done' : 'Action needed'}
+                            </div>
+                          </div>
+                        </div>
+                        {item.done ? (
+                          <span className="text-[10px] font-extrabold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
+                            ✓ Done
+                          </span>
+                        ) : idx === 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => setIsOtpModalOpen(true)}
+                            className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/20 hover:bg-emerald-500/30 px-2 py-1 rounded-lg shrink-0 cursor-pointer"
+                          >
+                            Verify WA
+                          </button>
+                        ) : (
+                          <a href="#documents" className="text-[10px] font-bold text-teal-400 hover:underline shrink-0">
+                            Upload
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </section>
+          )}
 
           {/* 1. PROFILE PICTURE & BUSINESS LOGO STUDIO */}
           <section
@@ -1147,369 +1269,467 @@ export default function SettingsPage() {
                   National ID & Verified Document Vault
                 </h2>
                 <p className="text-xs text-[#667085] mt-0.5">
-                  {theme.type === 'DRIVER'
-                    ? 'Certified CNIC and commercial driving licenses ensure customer trust and direct bookings.'
-                    : theme.type === 'LISTER'
-                    ? 'Certified CNIC and showroom NTN/trade certificate grant certified showroom badges.'
-                    : theme.type === 'MOVERS'
-                    ? 'Goods transport route permit and NTN verification for intercity moving jobs.'
-                    : theme.type === 'SHUTTLE'
-                    ? 'Commercial passenger route permit and vehicle fitness certificates.'
-                    : 'Certified National ID unlocks self-drive car bookings and certified profile status.'}
+                  Official identity records for your SafarPK profile verification and compliance.
                 </p>
               </div>
-              <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+              <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border flex items-center gap-1 ${
+                hasAnyActiveDoc
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : 'bg-slate-100 text-slate-700 border-slate-200'
+              }`}>
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>SafarPK Certified Vault</span>
+                <span>{hasAnyActiveDoc ? 'SafarPK Certified Vault' : 'Verification Unblocked'}</span>
               </span>
             </div>
 
-            {/* IMMUTABLE CERTIFIED IDENTITY DOSSIER CARD */}
-            <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-3">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
-                    <ShieldCheck className="w-4 h-4" />
+            {!hasAnyActiveDoc ? (
+              <div className="p-6 rounded-2xl bg-emerald-50/50 border border-emerald-200 text-center space-y-2.5">
+                <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-2xs">
+                  <CheckCircle2 className="w-6 h-6" />
+                </div>
+                <h4 className="font-extrabold text-sm sm:text-base text-emerald-950">
+                  Instant Operational Status · No Documents Required
+                </h4>
+                <p className="text-xs text-emerald-900/80 max-w-lg mx-auto leading-relaxed">
+                  Super Admin has configured document requirements to <strong>OFF</strong> for your role. You are free to list vehicles, manage services, and accept bookings immediately without uploading documents.
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* IMMUTABLE CERTIFIED IDENTITY DOSSIER CARD */}
+                <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                        <ShieldCheck className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="font-heading font-extrabold text-sm text-emerald-950 flex items-center gap-1.5 flex-wrap">
+                          <span>Identity & Verification Dossier</span>
+                          <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ${
+                            cnicLocked || (isCnicActive ? (cnicFront && cnicBack) : true)
+                              ? 'bg-emerald-200/80 text-emerald-900'
+                              : 'bg-amber-100 text-amber-800 border border-amber-300'
+                          }`}>
+                            {cnicLocked || (isCnicActive ? (cnicFront && cnicBack) : true)
+                              ? '✓ Documents Submitted'
+                              : 'Pending Verification'}
+                          </span>
+                        </h4>
+                        <p className="text-[11px] text-emerald-800 leading-tight">
+                          Official identification records for your SafarPK profile verification and compliance.
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-heading font-extrabold text-sm text-emerald-950 flex items-center gap-1.5 flex-wrap">
-                      <span>Identity & Verification Dossier</span>
-                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ${
-                        cnicFront && cnicBack ? 'bg-emerald-200/80 text-emerald-900' : 'bg-amber-100 text-amber-800 border border-amber-300'
-                      }`}>
-                        {cnicFront && cnicBack ? '✓ Documents Submitted' : 'Pending Verification'}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+                    <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Legal Full Name</span>
+                      <span className="font-extrabold text-xs text-slate-900 block mt-0.5 truncate">
+                        {cnicName || fullName || 'Pending Entry'}
                       </span>
-                    </h4>
-                    <p className="text-[11px] text-emerald-800 leading-tight">
-                      Official identification records for your SafarPK profile verification and compliance.
-                    </p>
+                      <span className="text-[9px] text-emerald-700 font-semibold">
+                        {cnicName ? 'Matched with Records' : 'From Registration'}
+                      </span>
+                    </div>
+
+                    {isCnicActive && (
+                      <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">National ID / CNIC</span>
+                        <span className="font-mono font-extrabold text-xs text-slate-900 block mt-0.5">
+                          {nationalId || 'Pending Entry'}
+                        </span>
+                        <span className="text-[9px] text-emerald-700 font-semibold">
+                          {nationalId ? '13-digit Pakistani format' : 'Enter 13-digit CNIC'}
+                        </span>
+                      </div>
+                    )}
+
+                    {isCnicActive && (
+                      <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">CNIC Expiry</span>
+                        <span className="font-mono font-bold text-xs text-slate-900 block mt-0.5">
+                          {cnicExpiryDate || 'Pending Entry'}
+                        </span>
+                        <span className="text-[9px] text-emerald-700 font-semibold">
+                          {cnicExpiryDate ? 'Valid & Active' : 'Select expiry date'}
+                        </span>
+                      </div>
+                    )}
+
+                    {isLicenseActive && (
+                      <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Driving License #</span>
+                        <span className="font-mono font-extrabold text-xs text-slate-900 block mt-0.5">
+                          {licenseNumber || 'Pending Entry'}
+                        </span>
+                        <span className="text-[9px] text-emerald-700 font-semibold">
+                          {licenseNumber ? 'Official License' : 'Action needed'}
+                        </span>
+                      </div>
+                    )}
+
+                    {isNtnActive && (
+                      <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">FBR NTN #</span>
+                        <span className="font-mono font-extrabold text-xs text-slate-900 block mt-0.5">
+                          {ntnNumber || 'Pending Entry'}
+                        </span>
+                        <span className="text-[9px] text-emerald-700 font-semibold">
+                          {ntnNumber ? 'Tax Registered' : 'Enter FBR NTN'}
+                        </span>
+                      </div>
+                    )}
+
+                    {isOwnerCardActive && (
+                      <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Excise Smart Card</span>
+                        <span className="font-mono font-extrabold text-xs text-slate-900 block mt-0.5">
+                          {ownerCardNumber || 'Pending Entry'}
+                        </span>
+                        <span className="text-[9px] text-emerald-700 font-semibold">
+                          {ownerCardNumber ? 'Ownership Record' : 'Enter Reg Number'}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
-                <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Legal Full Name</span>
-                  <span className="font-extrabold text-xs text-slate-900 block mt-0.5 truncate">
-                    {cnicName || fullName || 'Pending Entry'}
-                  </span>
-                  <span className="text-[9px] text-emerald-700 font-semibold">
-                    {cnicName ? 'Matched with CNIC' : 'From Registration'}
-                  </span>
+                {/* Input fields - Render strictly when document is active */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                  {isCnicActive && (
+                    <label className="flex flex-col gap-1.5 font-semibold text-[#344054]">
+                      <span>National ID / CNIC Number</span>
+                      <input
+                        type="text"
+                        value={nationalId}
+                        onChange={(e) => setNationalId(e.target.value)}
+                        placeholder="35201-1234567-1"
+                        className="h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition border-[#D0D5DD] text-[#101828] bg-white focus:border-emerald-600"
+                      />
+                    </label>
+                  )}
+
+                  {isCnicActive && (
+                    <label className="flex flex-col gap-1.5 font-semibold text-[#344054]">
+                      <span>CNIC Date of Issue</span>
+                      <input
+                        type="date"
+                        max={todayStr}
+                        value={cnicIssueDate}
+                        onChange={(e) => setCnicIssueDate(e.target.value)}
+                        className="h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition border-[#D0D5DD] text-[#101828] bg-white focus:border-emerald-600"
+                      />
+                    </label>
+                  )}
+
+                  {isCnicActive && (
+                    <label className="flex flex-col gap-1.5 font-semibold text-[#344054]">
+                      <span>CNIC Date of Expiry</span>
+                      <input
+                        type="date"
+                        min={todayStr}
+                        value={cnicExpiryDate}
+                        onChange={(e) => setCnicExpiryDate(e.target.value)}
+                        className="h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition border-[#D0D5DD] text-[#101828] bg-white focus:border-emerald-600"
+                      />
+                    </label>
+                  )}
+
+                  {isLicenseActive && (
+                    <label className="flex flex-col gap-1.5 font-semibold text-[#344054]">
+                      <span>Driving License #</span>
+                      <input
+                        type="text"
+                        value={licenseNumber}
+                        onChange={(e) => setLicenseNumber(e.target.value)}
+                        placeholder="LHR-DL-12345"
+                        className="h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition border-[#D0D5DD] text-[#101828] bg-white focus:border-emerald-600"
+                      />
+                    </label>
+                  )}
+
+                  {isNtnActive && (
+                    <label className="flex flex-col gap-1.5 font-semibold text-[#344054]">
+                      <span>Business FBR NTN #</span>
+                      <input
+                        type="text"
+                        value={ntnNumber}
+                        onChange={(e) => setNtnNumber(e.target.value)}
+                        placeholder="7819201-4"
+                        className="h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition border-[#D0D5DD] text-[#101828] bg-white focus:border-emerald-600"
+                      />
+                    </label>
+                  )}
+
+                  {isOwnerCardActive && (
+                    <label className="flex flex-col gap-1.5 font-semibold text-[#344054]">
+                      <span>Car Owner Smart Card / Reg #</span>
+                      <input
+                        type="text"
+                        value={ownerCardNumber}
+                        onChange={(e) => setOwnerCardNumber(e.target.value)}
+                        placeholder="LEA-24-9988"
+                        className="h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition border-[#D0D5DD] text-[#101828] bg-white focus:border-emerald-600"
+                      />
+                    </label>
+                  )}
                 </div>
 
-                <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">National ID / CNIC</span>
-                  <span className="font-mono font-extrabold text-xs text-slate-900 block mt-0.5">
-                    {nationalId || 'Pending Entry'}
-                  </span>
-                  <span className="text-[9px] text-emerald-700 font-semibold">
-                    {nationalId ? '13-digit Pakistani format' : 'Enter 13-digit CNIC'}
-                  </span>
-                </div>
-
-                <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Date of Issue</span>
-                  <span className="font-mono font-bold text-xs text-slate-900 block mt-0.5">
-                    {cnicIssueDate || 'Pending Entry'}
-                  </span>
-                  <span className="text-[9px] text-slate-400">
-                    {cnicIssueDate ? 'Authenticated record' : 'From Back of CNIC'}
-                  </span>
-                </div>
-
-                <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Date of Expiry</span>
-                  <span className="font-mono font-bold text-xs text-slate-900 block mt-0.5">
-                    {cnicExpiryDate || 'Pending Entry'}
-                  </span>
-                  <span className="text-[9px] text-emerald-700 font-semibold">
-                    {cnicExpiryDate ? 'Valid & Active' : 'Select expiry date'}
-                  </span>
-                </div>
-              </div>
-
-              {(theme.type === 'DRIVER' || licenseDoc || licenseNumber) && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2 border-t border-emerald-200/60">
-                  <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Driving License #</span>
-                    <span className="font-mono font-extrabold text-xs text-slate-900 block mt-0.5">
-                      {licenseNumber || 'Pending Entry'}
-                    </span>
-                    <span className="text-[9px] text-emerald-700 font-semibold">
-                      Official License
-                    </span>
+                {/* DRIVER SPECIFIC: License Category Selector */}
+                {theme.type === 'DRIVER' && isLicenseActive && (
+                  <div className="p-3.5 rounded-xl bg-sky-50 border border-sky-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                    <div>
+                      <span className="font-bold text-sky-950 block">Driving License Category</span>
+                      <span className="text-sky-700 text-[11px]">
+                        Select the official license category endorsed on your license.
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {(['LTV', 'HTV', 'PSV'] as const).map((cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setLicenseCategory(cat)}
+                          className={`h-9 px-3.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                            licenseCategory === cat
+                              ? 'bg-sky-600 text-white shadow-xs'
+                              : 'bg-white border border-sky-200 text-sky-900 hover:bg-sky-100'
+                          }`}
+                        >
+                          {cat} License {licenseCategory === cat && '✓'}
+                        </button>
+                      ))}
+                    </div>
                   </div>
+                )}
 
-                  <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">License Category</span>
-                    <span className="font-extrabold text-xs text-slate-900 block mt-0.5">{licenseCategory || 'LTV'}</span>
-                    <span className="text-[9px] text-emerald-700 font-semibold">Certified Chauffeur</span>
-                  </div>
+                {/* Document Upload Cards (Uniform Grid - Only Active Docs Rendered) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
+                  {/* Card 1: CNIC Front */}
+                  {isCnicActive && (
+                    <div className="p-4 rounded-2xl border border-[#E4E7EC] bg-[#F7F8FA] flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-[#101828]">CNIC Front</span>
+                        {cnicFront ? (
+                          <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded flex items-center gap-1">
+                            <Check className="w-2.5 h-2.5" /> Uploaded
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                            Required
+                          </span>
+                        )}
+                      </div>
 
-                  <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">License Issue Date</span>
-                    <span className="font-mono font-bold text-xs text-slate-900 block mt-0.5">
-                      {licenseIssueDate || 'Pending Entry'}
-                    </span>
-                    <span className="text-[9px] text-slate-400">Authenticated record</span>
-                  </div>
+                      <div className="h-28 rounded-xl bg-white border border-dashed border-slate-300 flex flex-col items-center justify-center p-2 overflow-hidden text-center">
+                        {cnicFront ? (
+                          <img src={cnicFront} alt="CNIC Front" className="w-full h-full object-cover rounded-lg" />
+                        ) : (
+                          <div className="flex flex-col items-center gap-1 text-[#667085]">
+                            <FileText className={`w-6 h-6 ${theme.primaryText}`} />
+                            <span className="text-[11px] font-bold text-[#101828]">CNIC Front Photo</span>
+                            <span className="text-[9px]">High resolution</span>
+                          </div>
+                        )}
+                      </div>
 
-                  <div className="p-3 bg-white rounded-xl border border-emerald-200/80 shadow-2xs">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">License Expiry Date</span>
-                    <span className="font-mono font-bold text-xs text-slate-900 block mt-0.5">
-                      {licenseExpiryDate || 'Pending Entry'}
-                    </span>
-                    <span className="text-[9px] text-emerald-700 font-semibold">
-                      {licenseExpiryDate ? 'Valid & Active' : 'Select expiry date'}
-                    </span>
-                  </div>
+                      <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95 shadow-2xs">
+                        <span>{cnicFront ? 'Change Front Photo' : 'Upload Front'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleCnicUpload(e, true)}
+                        />
+                      </label>
+                    </div>
+                  )}
+
+                  {/* Card 2: CNIC Back */}
+                  {isCnicActive && (
+                    <div className="p-4 rounded-2xl border border-[#E4E7EC] bg-[#F7F8FA] flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-[#101828]">CNIC Back</span>
+                        {cnicBack ? (
+                          <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded flex items-center gap-1">
+                            <Check className="w-2.5 h-2.5" /> Uploaded
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                            Required
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="h-28 rounded-xl bg-white border border-dashed border-slate-300 flex flex-col items-center justify-center p-2 overflow-hidden text-center">
+                        {cnicBack ? (
+                          <img src={cnicBack} alt="CNIC Back" className="w-full h-full object-cover rounded-lg" />
+                        ) : (
+                          <div className="flex flex-col items-center gap-1 text-[#667085]">
+                            <FileText className={`w-6 h-6 ${theme.primaryText}`} />
+                            <span className="text-[11px] font-bold text-[#101828]">CNIC Back Photo</span>
+                            <span className="text-[9px]">High resolution</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95 shadow-2xs">
+                        <span>{cnicBack ? 'Change Back Photo' : 'Upload Back'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleCnicUpload(e, false)}
+                        />
+                      </label>
+                    </div>
+                  )}
+
+                  {/* Card 3: Driving License */}
+                  {isLicenseActive && (
+                    <div className="p-4 rounded-2xl border border-[#E4E7EC] bg-[#F7F8FA] flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-[#101828]">Driving License</span>
+                        {licenseDoc ? (
+                          <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded flex items-center gap-1">
+                            <Check className="w-2.5 h-2.5" /> Uploaded
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-slate-500">
+                            {isDocMandatoryForRole(userRole, 'license', countryCode) ? 'Required' : 'Optional'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="h-28 rounded-xl bg-white border border-dashed border-slate-300 flex flex-col items-center justify-center p-2 overflow-hidden text-center">
+                        {licenseDoc ? (
+                          <img src={licenseDoc} alt="Document" className="w-full h-full object-cover rounded-lg" />
+                        ) : (
+                          <div className="flex flex-col items-center gap-1 text-[#667085]">
+                            <ShieldCheck className={`w-6 h-6 ${theme.primaryText}`} />
+                            <span className="text-[11px] font-bold text-[#101828]">Valid License</span>
+                            <span className="text-[9px]">Traffic Authority</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95 shadow-2xs">
+                        <span>{licenseDoc ? 'Change Document' : 'Upload License'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleLicenseUpload}
+                        />
+                      </label>
+                    </div>
+                  )}
+
+                  {/* Card 4: Business FBR NTN */}
+                  {isNtnActive && (
+                    <div className="p-4 rounded-2xl border border-[#E4E7EC] bg-[#F7F8FA] flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-[#101828]">Business FBR NTN</span>
+                        {ntnDoc ? (
+                          <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded flex items-center gap-1">
+                            <Check className="w-2.5 h-2.5" /> Uploaded
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-slate-500">
+                            {isDocMandatoryForRole(userRole, 'ntn', countryCode) ? 'Required' : 'Optional'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="h-28 rounded-xl bg-white border border-dashed border-slate-300 flex flex-col items-center justify-center p-2 overflow-hidden text-center">
+                        {ntnDoc ? (
+                          <img src={ntnDoc} alt="FBR NTN" className="w-full h-full object-cover rounded-lg" />
+                        ) : (
+                          <div className="flex flex-col items-center gap-1 text-[#667085]">
+                            <Building2 className={`w-6 h-6 ${theme.primaryText}`} />
+                            <span className="text-[11px] font-bold text-[#101828]">FBR Certificate</span>
+                            <span className="text-[9px]">Tax Compliance</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95 shadow-2xs">
+                        <span>{ntnDoc ? 'Change NTN Slip' : 'Upload NTN Slip'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleNtnUpload}
+                        />
+                      </label>
+                    </div>
+                  )}
+
+                  {/* Card 5: Car Owner Smart Card */}
+                  {isOwnerCardActive && (
+                    <div className="p-4 rounded-2xl border border-[#E4E7EC] bg-[#F7F8FA] flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-[#101828]">Car Owner Smart Card</span>
+                        {ownerCardDoc ? (
+                          <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded flex items-center gap-1">
+                            <Check className="w-2.5 h-2.5" /> Uploaded
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-slate-500">
+                            {isDocMandatoryForRole(userRole, 'owner_card', countryCode) ? 'Required' : 'Optional'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="h-28 rounded-xl bg-white border border-dashed border-slate-300 flex flex-col items-center justify-center p-2 overflow-hidden text-center">
+                        {ownerCardDoc ? (
+                          <img src={ownerCardDoc} alt="Excise Smart Card" className="w-full h-full object-cover rounded-lg" />
+                        ) : (
+                          <div className="flex flex-col items-center gap-1 text-[#667085]">
+                            <Car className={`w-6 h-6 ${theme.primaryText}`} />
+                            <span className="text-[11px] font-bold text-[#101828]">Excise Smart Card</span>
+                            <span className="text-[9px]">Registration Book</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95 shadow-2xs">
+                        <span>{ownerCardDoc ? 'Change Smart Card' : 'Upload Smart Card'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleOwnerCardUpload}
+                        />
+                      </label>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            {/* Input fields - Clean, directly editable */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-              <label className="flex flex-col gap-1.5 font-semibold text-[#344054]">
-                <span>National ID / CNIC Number</span>
-                <input
-                  type="text"
-                  value={nationalId}
-                  onChange={(e) => setNationalId(e.target.value)}
-                  placeholder="35201-1234567-1"
-                  className="h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition border-[#D0D5DD] text-[#101828] bg-white focus:border-emerald-600"
-                />
-              </label>
-
-              <label className="flex flex-col gap-1.5 font-semibold text-[#344054]">
-                <span>CNIC Date of Issue</span>
-                <input
-                  type="date"
-                  max={todayStr}
-                  value={cnicIssueDate}
-                  onChange={(e) => setCnicIssueDate(e.target.value)}
-                  className="h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition border-[#D0D5DD] text-[#101828] bg-white focus:border-emerald-600"
-                />
-              </label>
-
-              <label className="flex flex-col gap-1.5 font-semibold text-[#344054]">
-                <span>CNIC Date of Expiry</span>
-                <input
-                  type="date"
-                  min={todayStr}
-                  value={cnicExpiryDate}
-                  onChange={(e) => setCnicExpiryDate(e.target.value)}
-                  className="h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition border-[#D0D5DD] text-[#101828] bg-white focus:border-emerald-600"
-                />
-              </label>
-
-              <label className="flex flex-col gap-1.5 font-semibold text-[#344054]">
-                <span>
-                  {theme.type === 'DRIVER'
-                    ? 'Driving License #'
-                    : theme.type === 'LISTER'
-                    ? 'Showroom NTN / Reg #'
-                    : theme.type === 'MOVERS'
-                    ? 'Transport Permit #'
-                    : 'License / Reg #'}
-                </span>
-                <input
-                  type="text"
-                  value={licenseNumber}
-                  onChange={(e) => setLicenseNumber(e.target.value)}
-                  placeholder={
-                    theme.type === 'DRIVER'
-                      ? 'LHR-DL-12345'
-                      : theme.type === 'LISTER'
-                      ? 'NTN-7819201-4'
-                      : 'PERMIT-2026-X'
-                  }
-                  className="h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition border-[#D0D5DD] text-[#101828] bg-white focus:border-emerald-600"
-                />
-              </label>
-            </div>
-
-            {/* DRIVER SPECIFIC: License Category Selector */}
-            {theme.type === 'DRIVER' && (
-              <div className="p-3.5 rounded-xl bg-sky-50 border border-sky-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                <div>
-                  <span className="font-bold text-sky-950 block">Driving License Category</span>
-                  <span className="text-sky-700 text-[11px]">
-                    Select the official license category endorsed on your license.
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {(['LTV', 'HTV', 'PSV'] as const).map((cat) => (
+                {/* Dedicated Action to Lock and Certify Official Vault Documents */}
+                {!cnicLocked && (
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-slate-50 border border-emerald-200 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xs">
+                    <div className="text-xs">
+                      <span className="font-bold text-emerald-950 block text-sm">
+                        🔒 Ready to Certify & Lock Official Documents?
+                      </span>
+                      <span className="text-emerald-800 text-[11px]">
+                        Once locked, your details and uploaded documents are permanently safeguarded in the SafarPK Secure Vault to guarantee customer trust and fraud prevention.
+                      </span>
+                    </div>
                     <button
-                      key={cat}
                       type="button"
-                      onClick={() => setLicenseCategory(cat)}
-                      className={`h-9 px-3.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                        licenseCategory === cat
-                          ? 'bg-sky-600 text-white shadow-xs'
-                          : 'bg-white border border-sky-200 text-sky-900 hover:bg-sky-100'
-                      }`}
+                      onClick={handleLockDocuments}
+                      className="h-11 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition flex items-center gap-2 shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
                     >
-                      {cat} License {licenseCategory === cat && '✓'}
+                      <Lock className="w-4 h-4" />
+                      <span>Lock & Certify Documents</span>
                     </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Document Upload Cards (Uniform 3-card grid - Independent Uploads) */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
-              {/* Card 1: CNIC Front */}
-              <div className="p-4 rounded-2xl border border-[#E4E7EC] bg-[#F7F8FA] flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-[#101828]">CNIC Front</span>
-                  {cnicFront ? (
-                    <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded flex items-center gap-1">
-                      <Check className="w-2.5 h-2.5" /> Uploaded
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                      Required
-                    </span>
-                  )}
-                </div>
-
-                <div className="h-28 rounded-xl bg-white border border-dashed border-slate-300 flex flex-col items-center justify-center p-2 overflow-hidden text-center">
-                  {cnicFront ? (
-                    <img src={cnicFront} alt="CNIC Front" className="w-full h-full object-cover rounded-lg" />
-                  ) : (
-                    <div className="flex flex-col items-center gap-1 text-[#667085]">
-                      <FileText className={`w-6 h-6 ${theme.primaryText}`} />
-                      <span className="text-[11px] font-bold text-[#101828]">CNIC Front Photo</span>
-                      <span className="text-[9px]">High resolution</span>
-                    </div>
-                  )}
-                </div>
-
-                <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95 shadow-2xs">
-                  <span>{cnicFront ? 'Change Front Photo' : 'Upload Front'}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => handleCnicUpload(e, true)}
-                  />
-                </label>
-              </div>
-
-              {/* Card 2: CNIC Back */}
-              <div className="p-4 rounded-2xl border border-[#E4E7EC] bg-[#F7F8FA] flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-[#101828]">CNIC Back</span>
-                  {cnicBack ? (
-                    <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded flex items-center gap-1">
-                      <Check className="w-2.5 h-2.5" /> Uploaded
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                      Required
-                    </span>
-                  )}
-                </div>
-
-                <div className="h-28 rounded-xl bg-white border border-dashed border-slate-300 flex flex-col items-center justify-center p-2 overflow-hidden text-center">
-                  {cnicBack ? (
-                    <img src={cnicBack} alt="CNIC Back" className="w-full h-full object-cover rounded-lg" />
-                  ) : (
-                    <div className="flex flex-col items-center gap-1 text-[#667085]">
-                      <FileText className={`w-6 h-6 ${theme.primaryText}`} />
-                      <span className="text-[11px] font-bold text-[#101828]">CNIC Back Photo</span>
-                      <span className="text-[9px]">High resolution</span>
-                    </div>
-                  )}
-                </div>
-
-                <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95 shadow-2xs">
-                  <span>{cnicBack ? 'Change Back Photo' : 'Upload Back'}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => handleCnicUpload(e, false)}
-                  />
-                </label>
-              </div>
-
-              {/* Card 3: Role-Tailored Document */}
-              <div className="p-4 rounded-2xl border border-[#E4E7EC] bg-[#F7F8FA] flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-[#101828]">
-                    {theme.type === 'DRIVER'
-                      ? 'Driving License'
-                      : theme.type === 'LISTER'
-                      ? 'Showroom NTN / Trade'
-                      : theme.type === 'MOVERS'
-                      ? 'Transport Permit'
-                      : theme.type === 'SHUTTLE'
-                      ? 'Route Fitness Cert'
-                      : 'License / ID Slip'}
-                  </span>
-                  {licenseDoc ? (
-                    <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded flex items-center gap-1">
-                      <Check className="w-2.5 h-2.5" /> Uploaded
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-bold text-slate-500">
-                      {theme.type === 'DRIVER' ? 'Required' : 'Optional'}
-                    </span>
-                  )}
-                </div>
-
-                <div className="h-28 rounded-xl bg-white border border-dashed border-slate-300 flex flex-col items-center justify-center p-2 overflow-hidden text-center">
-                  {licenseDoc ? (
-                    <img src={licenseDoc} alt="Document" className="w-full h-full object-cover rounded-lg" />
-                  ) : (
-                    <div className="flex flex-col items-center gap-1 text-[#667085]">
-                      <ShieldCheck className={`w-6 h-6 ${theme.primaryText}`} />
-                      <span className="text-[11px] font-bold text-[#101828]">
-                        {theme.type === 'DRIVER'
-                          ? 'Valid License'
-                          : theme.type === 'LISTER'
-                          ? 'Trade / NTN Slip'
-                          : 'Official Certificate'}
-                      </span>
-                      <span className="text-[9px]">SafarPK Certified</span>
-                    </div>
-                  )}
-                </div>
-
-                <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95 shadow-2xs">
-                  <span>{licenseDoc ? 'Change Document' : 'Upload Document'}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleLicenseUpload}
-                  />
-                </label>
-              </div>
-            </div>
-
-            {/* Dedicated Action to Lock and Certify Official Vault Documents */}
-            {!cnicLocked && (
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-slate-50 border border-emerald-200 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xs">
-                <div className="text-xs">
-                  <span className="font-bold text-emerald-950 block text-sm">
-                    🔒 Ready to Certify & Lock Official Documents?
-                  </span>
-                  <span className="text-emerald-800 text-[11px]">
-                    Once locked, your 13-digit CNIC, dates and driving license details are permanently safeguarded in the SafarPK Secure Vault to guarantee customer trust and fraud prevention.
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleLockDocuments}
-                  className="h-11 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition flex items-center gap-2 shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
-                >
-                  <Lock className="w-4 h-4" />
-                  <span>Lock & Certify Documents</span>
-                </button>
-              </div>
+                  </div>
+                )}
+              </>
             )}
           </section>
 

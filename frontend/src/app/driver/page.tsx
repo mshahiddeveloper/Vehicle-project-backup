@@ -55,6 +55,7 @@ import {
 } from '@/data/driverBookings';
 import { MobileNavBar } from '@/components/MobileNavBar';
 import { DashboardStoreWidget } from '@/components/DashboardStoreWidget';
+import { isDocActiveForRole, isDocMandatoryForRole } from '@/data/docRules';
 import {
   getUserConversations,
   getConversationMessages,
@@ -1936,7 +1937,7 @@ function DriverDashboardContent() {
               <div>
                 <h3 className="font-extrabold text-base text-slate-900">Driving License & National ID Verification</h3>
                 <p className="text-slate-500">
-                  Upload your commercial driving license and National Identity Card (CNIC / Passport) for verification badge. Customers trust verified drivers.
+                  Manage your verified credentials. Documents are configured centrally by Super Admin.
                 </p>
               </div>
 
@@ -1947,121 +1948,149 @@ function DriverDashboardContent() {
                 </div>
               )}
 
-              {/* Driving License Upload */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Scan className="w-4 h-4 text-sky-700" />
-                    <span className="font-bold text-slate-900">1. Commercial Driving License (LTV / HTV / PSV)</span>
-                  </div>
-                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
-                    ✓ Verified
-                  </span>
-                </div>
+              {/* Dynamic Document Checks based on Super Admin docRules */}
+              {(() => {
+                const isLicenseActive = isDocActiveForRole('DRIVER', 'license');
+                const isCnicActive = isDocActiveForRole('DRIVER', 'cnic');
 
-                {!licenseDocPreview ? (
-                  <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-300 hover:border-sky-500 rounded-xl bg-white cursor-pointer transition text-center group">
-                    <Upload className="w-6 h-6 text-sky-600 group-hover:scale-110 transition mb-1" />
-                    <span className="font-bold text-xs text-slate-900">Upload Driving License (Front / Back Photo)</span>
-                    <input
-                      type="file"
-                      accept="image/*,.pdf"
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) handleUploadLicense(f);
-                      }}
-                    />
-                  </label>
-                ) : (
-                  <div className="p-3 bg-white border border-sky-200 rounded-xl flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={licenseDocPreview}
-                        alt="License preview"
-                        className="w-16 h-11 object-cover rounded-lg border border-slate-200 shadow-2xs"
-                      />
-                      <div>
-                        <span className="font-bold text-xs text-slate-900 block">{licenseDocName}</span>
-                        <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          <span>Extracted: {licenseNumber} ({licenseCategory}) · Valid to {licenseExpiry}</span>
-                        </span>
+                if (!isLicenseActive && !isCnicActive) {
+                  return (
+                    <div className="p-5 rounded-2xl bg-emerald-50/60 border border-emerald-200 text-center space-y-2">
+                      <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
+                        <CheckCircle2 className="w-5 h-5" />
                       </div>
+                      <h4 className="font-bold text-sm text-emerald-950">No Driver Documents Required</h4>
+                      <p className="text-xs text-emerald-800 max-w-md mx-auto">
+                        Super Admin has currently set document requirements to <strong>OFF</strong> for drivers. You can accept trips and customer bookings without uploading documents.
+                      </p>
                     </div>
-                    <label className="text-[11px] font-bold text-sky-800 hover:underline px-2.5 py-1 bg-sky-50 rounded-lg cursor-pointer">
-                      <span>Re-upload</span>
-                      <input
-                        type="file"
-                        accept="image/*,.pdf"
-                        className="hidden"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) handleUploadLicense(f);
-                        }}
-                      />
-                    </label>
-                  </div>
-                )}
-              </div>
+                  );
+                }
 
-              {/* National ID Upload */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                    <span className="font-bold text-slate-900">2. National Identity Card (CNIC / Passport)</span>
-                  </div>
-                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
-                    ✓ Verified
-                  </span>
-                </div>
+                return (
+                  <>
+                    {/* Driving License Upload */}
+                    {isLicenseActive && (
+                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Scan className="w-4 h-4 text-sky-700" />
+                            <span className="font-bold text-slate-900">1. Commercial Driving License (LTV / HTV / PSV)</span>
+                          </div>
+                          <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                            ✓ Verified
+                          </span>
+                        </div>
 
-                {!cnicDocPreview ? (
-                  <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-xl bg-white cursor-pointer transition text-center group">
-                    <Upload className="w-6 h-6 text-emerald-600 group-hover:scale-110 transition mb-1" />
-                    <span className="font-bold text-xs text-slate-900">Upload National ID Card</span>
-                    <input
-                      type="file"
-                      accept="image/*,.pdf"
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) handleUploadCnic(f);
-                      }}
-                    />
-                  </label>
-                ) : (
-                  <div className="p-3 bg-white border border-emerald-200 rounded-xl flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={cnicDocPreview}
-                        alt="CNIC preview"
-                        className="w-16 h-11 object-cover rounded-lg border border-slate-200 shadow-2xs"
-                      />
-                      <div>
-                        <span className="font-bold text-xs text-slate-900 block">{cnicDocName}</span>
-                        <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          <span>CNIC: {maskCnic(driverCnic)} · Name: {driverName}</span>
-                        </span>
+                        {!licenseDocPreview ? (
+                          <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-300 hover:border-sky-500 rounded-xl bg-white cursor-pointer transition text-center group">
+                            <Upload className="w-6 h-6 text-sky-600 group-hover:scale-110 transition mb-1" />
+                            <span className="font-bold text-xs text-slate-900">Upload Driving License (Front / Back Photo)</span>
+                            <input
+                              type="file"
+                              accept="image/*,.pdf"
+                              className="hidden"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) handleUploadLicense(f);
+                              }}
+                            />
+                          </label>
+                        ) : (
+                          <div className="p-3 bg-white border border-sky-200 rounded-xl flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <img
+                                src={licenseDocPreview}
+                                alt="License preview"
+                                className="w-16 h-11 object-cover rounded-lg border border-slate-200 shadow-2xs"
+                              />
+                              <div>
+                                <span className="font-bold text-xs text-slate-900 block">{licenseDocName}</span>
+                                <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                  <span>Extracted: {licenseNumber} ({licenseCategory}) · Valid to {licenseExpiry}</span>
+                                </span>
+                              </div>
+                            </div>
+                            <label className="text-[11px] font-bold text-sky-800 hover:underline px-2.5 py-1 bg-sky-50 rounded-lg cursor-pointer">
+                              <span>Re-upload</span>
+                              <input
+                                type="file"
+                                accept="image/*,.pdf"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  if (f) handleUploadLicense(f);
+                                }}
+                              />
+                            </label>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                    <label className="text-[11px] font-bold text-emerald-800 hover:underline px-2.5 py-1 bg-emerald-50 rounded-lg cursor-pointer">
-                      <span>Re-upload</span>
-                      <input
-                        type="file"
-                        accept="image/*,.pdf"
-                        className="hidden"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) handleUploadCnic(f);
-                        }}
-                      />
-                    </label>
-                  </div>
-                )}
-              </div>
+                    )}
+
+                    {/* National ID Upload */}
+                    {isCnicActive && (
+                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                            <span className="font-bold text-slate-900">2. National Identity Card (CNIC / Passport)</span>
+                          </div>
+                          <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                            ✓ Verified
+                          </span>
+                        </div>
+
+                        {!cnicDocPreview ? (
+                          <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-xl bg-white cursor-pointer transition text-center group">
+                            <Upload className="w-6 h-6 text-emerald-600 group-hover:scale-110 transition mb-1" />
+                            <span className="font-bold text-xs text-slate-900">Upload National ID Card</span>
+                            <input
+                              type="file"
+                              accept="image/*,.pdf"
+                              className="hidden"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) handleUploadCnic(f);
+                              }}
+                            />
+                          </label>
+                        ) : (
+                          <div className="p-3 bg-white border border-emerald-200 rounded-xl flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <img
+                                src={cnicDocPreview}
+                                alt="CNIC preview"
+                                className="w-16 h-11 object-cover rounded-lg border border-slate-200 shadow-2xs"
+                              />
+                              <div>
+                                <span className="font-bold text-xs text-slate-900 block">{cnicDocName}</span>
+                                <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                  <span>CNIC: {maskCnic(driverCnic)} · Name: {driverName}</span>
+                                </span>
+                              </div>
+                            </div>
+                            <label className="text-[11px] font-bold text-emerald-800 hover:underline px-2.5 py-1 bg-emerald-50 rounded-lg cursor-pointer">
+                              <span>Re-upload</span>
+                              <input
+                                type="file"
+                                accept="image/*,.pdf"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  if (f) handleUploadCnic(f);
+                                }}
+                              />
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
               {/* Manual Verification Number Adjustments */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-white border border-slate-200 rounded-2xl">
