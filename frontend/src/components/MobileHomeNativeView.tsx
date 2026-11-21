@@ -316,6 +316,7 @@ export function MobileHomeNativeView() {
   // Dynamic Service Datasets Filtered by Search Query & Location
   const filteredCars = useMemo(() => {
     let list = [...CARS_DATA];
+    const targetCity = searchWhere || city;
 
     if (searchTokens.length > 0) {
       // 1. Check if user typed a specific city in the query (e.g. "corolla karachi")
@@ -330,23 +331,15 @@ export function MobileHomeNativeView() {
           });
         }
       } else {
-        // Multi-token match across name, specs, owner, category, city
-        const tokenMatches = list.filter((c) => {
+        // Multi-token match across name, specs, owner, category, city strictly in targetCity
+        list = list.filter((c) => c.city.toLowerCase() === targetCity.toLowerCase());
+        list = list.filter((c) => {
           const searchable = `${c.name} ${c.specs} ${c.owner} ${c.category} ${c.city}`.toLowerCase();
           return searchTokens.every((tok) => searchable.includes(tok));
         });
-
-        // If local matches exist in targetCity, prioritize targetCity; else show cross-city matches
-        const targetCity = searchWhere || city;
-        const localMatches = tokenMatches.filter(
-          (c) => c.city.toLowerCase() === targetCity.toLowerCase()
-        );
-        list = localMatches.length > 0 ? localMatches : tokenMatches;
       }
     } else {
-      const targetCity = searchWhere || city;
-      const cityMatches = list.filter((c) => c.city.toLowerCase() === targetCity.toLowerCase());
-      if (cityMatches.length > 0) list = cityMatches;
+      list = list.filter((c) => c.city.toLowerCase() === targetCity.toLowerCase());
     }
 
     if (selectedCarCategory === 1) {
@@ -369,6 +362,8 @@ export function MobileHomeNativeView() {
 
   const filteredDrivers = useMemo(() => {
     let list = [...DRIVERS_DATA];
+    const targetCity = searchWhere || city;
+
     if (searchTokens.length > 0) {
       const explicitCity = searchTokens.find((t) => PAK_CITIES_LOWER.includes(t));
       if (explicitCity) {
@@ -381,63 +376,105 @@ export function MobileHomeNativeView() {
           });
         }
       } else {
-        const tokenMatches = list.filter((d) => {
-          const searchable = `${d.name} ${d.city} ${d.exp} ${d.langs} ${d.category} ${(d.tags || []).join(' ')}`.toLowerCase();
+        list = list.filter((d) => d.city.toLowerCase() === targetCity.toLowerCase());
+        list = list.filter((d) => {
+          const searchable = `${d.name} ${d.exp} ${d.langs} ${d.category} ${(d.tags || []).join(' ')}`.toLowerCase();
           return searchTokens.every((tok) => searchable.includes(tok));
         });
-        const targetCity = searchWhere || city;
-        const localMatches = tokenMatches.filter((d) => d.city.toLowerCase() === targetCity.toLowerCase());
-        list = localMatches.length > 0 ? localMatches : tokenMatches;
       }
     } else {
-      const targetCity = searchWhere || city;
-      const cityMatches = list.filter((d) => d.city.toLowerCase() === targetCity.toLowerCase());
-      if (cityMatches.length > 0) list = cityMatches;
+      list = list.filter((d) => d.city.toLowerCase() === targetCity.toLowerCase());
     }
     return list;
   }, [city, searchWhere, searchTokens, PAK_CITIES_LOWER]);
 
   const filteredRides = useMemo(() => {
     let list = [...CITY_RIDES_DATA];
+    const targetCity = searchWhere || city;
+
     if (searchTokens.length > 0) {
-      list = list.filter((r) => {
-        const searchable = `${r.fromCity} ${r.toCity} ${r.car} ${r.driver} ${(r.tags || []).join(' ')}`.toLowerCase();
-        return searchTokens.every((tok) => searchable.includes(tok));
-      });
+      const explicitCity = searchTokens.find((t) => PAK_CITIES_LOWER.includes(t));
+      if (explicitCity) {
+        list = list.filter(
+          (r) =>
+            r.fromCity.toLowerCase() === explicitCity ||
+            r.toCity.toLowerCase() === explicitCity
+        );
+        const nonCityTokens = searchTokens.filter((t) => t !== explicitCity);
+        if (nonCityTokens.length > 0) {
+          list = list.filter((r) => {
+            const searchable = `${r.fromCity} ${r.toCity} ${r.car} ${r.op} ${(r.tags || []).join(' ')}`.toLowerCase();
+            return nonCityTokens.every((tok) => searchable.includes(tok));
+          });
+        }
+      } else {
+        list = list.filter(
+          (r) =>
+            r.fromCity.toLowerCase() === targetCity.toLowerCase() ||
+            r.toCity.toLowerCase() === targetCity.toLowerCase()
+        );
+        list = list.filter((r) => {
+          const searchable = `${r.fromCity} ${r.toCity} ${r.car} ${r.op} ${(r.tags || []).join(' ')}`.toLowerCase();
+          return searchTokens.every((tok) => searchable.includes(tok));
+        });
+      }
     } else {
-      const targetCity = searchWhere || city;
-      const cityMatches = list.filter(
+      list = list.filter(
         (r) =>
           r.fromCity.toLowerCase() === targetCity.toLowerCase() ||
           r.toCity.toLowerCase() === targetCity.toLowerCase()
       );
-      if (cityMatches.length > 0) list = cityMatches;
     }
     return list;
-  }, [city, searchWhere, searchTokens]);
+  }, [city, searchWhere, searchTokens, PAK_CITIES_LOWER]);
 
   const filteredShuttles = useMemo(() => {
-    let list = [...SHUTTLES_DATA];
+    const targetCity = shuttleCity || searchWhere || city;
+    // 1. Strict filter by city - NO cross-city leakage ever
+    const cityList = SHUTTLES_DATA.filter(
+      (s) => s.city.toLowerCase() === targetCity.toLowerCase()
+    );
+
     if (searchTokens.length > 0) {
-      list = list.filter((s) => {
-        const searchable = `${s.name} ${s.city} ${s.from} ${s.to} ${(s.stops || []).join(' ')} ${s.vehicle}`.toLowerCase();
+      const explicitCity = searchTokens.find((t) => PAK_CITIES_LOWER.includes(t));
+      let baseList = cityList;
+      if (explicitCity && explicitCity !== targetCity.toLowerCase()) {
+        baseList = SHUTTLES_DATA.filter((s) => s.city.toLowerCase() === explicitCity);
+      }
+      return baseList.filter((s) => {
+        const searchable = `${s.op} ${s.city} ${s.from} ${s.to} ${(s.stops || []).join(' ')} ${s.van} ${(s.tags || []).join(' ')} ${s.category}`.toLowerCase();
         return searchTokens.every((tok) => searchable.includes(tok));
       });
-    } else {
-      const targetCity = shuttleCity || searchWhere || city;
-      if (shuttlePickupArea || shuttleDropArea) {
-        list = list.filter((s) =>
-          matchesShuttleRoute(s, shuttlePickupArea, shuttleDropArea, targetCity)
-        );
-      } else {
-        const cityMatches = list.filter(
-          (s) => s.city.toLowerCase() === targetCity.toLowerCase()
-        );
-        if (cityMatches.length > 0) list = cityMatches;
-      }
     }
-    return list.length > 0 ? list : SHUTTLES_DATA;
-  }, [city, searchWhere, shuttleCity, shuttlePickupArea, shuttleDropArea, searchTokens]);
+
+    if (shuttlePickupArea || shuttleDropArea) {
+      // Priority 1: Exact route match on both pickup and drop stops
+      const exactMatches = cityList.filter((s) =>
+        matchesShuttleRoute(s, shuttlePickupArea, shuttleDropArea, targetCity)
+      );
+      if (exactMatches.length > 0) {
+        return exactMatches;
+      }
+
+      // Priority 2: If both areas selected but no single corridor covers both,
+      // show corridors in THIS city that cover pickup OR drop
+      if (shuttlePickupArea && shuttleDropArea) {
+        const partialMatches = cityList.filter(
+          (s) =>
+            matchesShuttleRoute(s, shuttlePickupArea, '', targetCity) ||
+            matchesShuttleRoute(s, '', shuttleDropArea, targetCity)
+        );
+        if (partialMatches.length > 0) {
+          return partialMatches;
+        }
+      }
+
+      // Priority 3: Strictly return [] (empty list) - NEVER leak SHUTTLES_DATA across Pakistan!
+      return [];
+    }
+
+    return cityList;
+  }, [city, searchWhere, shuttleCity, shuttlePickupArea, shuttleDropArea, searchTokens, PAK_CITIES_LOWER]);
 
   // Dynamic Residential & Commercial Areas for Movers (Strictly Partitioned)
   const availableMoverAreas = useMemo(() => {
@@ -453,28 +490,33 @@ export function MobileHomeNativeView() {
   }, [searchWhere, city]);
 
   const filteredMovers = useMemo(() => {
-    let list = [...MOVERS_DATA];
     const targetCity = searchWhere || city;
-    const cityMatches = list.filter((m) => m.city.toLowerCase() === targetCity.toLowerCase());
-    if (cityMatches.length > 0) list = cityMatches;
+    let list = MOVERS_DATA.filter((m) => m.city.toLowerCase() === targetCity.toLowerCase());
 
     if (moverFromArea || moverToArea) {
-      const areaKeyword = (moverFromArea || moverToArea).toLowerCase();
-      const specificMatches = list.filter((m) => {
+      const fromArea = (moverFromArea || '').toLowerCase().trim();
+      const toArea = (moverToArea || '').toLowerCase().trim();
+      const areaMatches = list.filter((m) => {
         const fullText = `${m.name} ${m.trucks} ${(m.tags || []).join(' ')} ${m.category} ${m.city}`.toLowerCase();
-        return fullText.includes(areaKeyword);
+        return (fromArea && fullText.includes(fromArea)) || (toArea && fullText.includes(toArea));
       });
-      if (specificMatches.length > 0) list = specificMatches;
+      if (areaMatches.length > 0) {
+        list = areaMatches;
+      }
     }
 
     if (searchTokens.length > 0) {
+      const explicitCity = searchTokens.find((t) => PAK_CITIES_LOWER.includes(t));
+      if (explicitCity && explicitCity !== targetCity.toLowerCase()) {
+        list = MOVERS_DATA.filter((m) => m.city.toLowerCase() === explicitCity);
+      }
       list = list.filter((m) => {
-        const searchable = `${m.name} ${m.city} ${m.trucks} ${m.base} ${m.helper}`.toLowerCase();
+        const searchable = `${m.name} ${m.city} ${m.trucks} ${m.base} ${m.helper} ${(m.tags || []).join(' ')}`.toLowerCase();
         return searchTokens.every((tok) => searchable.includes(tok));
       });
     }
     return list;
-  }, [city, searchWhere, moverFromArea, moverToArea, searchTokens]);
+  }, [city, searchWhere, moverFromArea, moverToArea, searchTokens, PAK_CITIES_LOWER]);
 
   const userInitials = useMemo(() => {
     if (!activeUser?.name?.trim()) return '';
@@ -795,14 +837,14 @@ export function MobileHomeNativeView() {
             <div>
               <h2 className="font-heading font-black text-[19px] text-[#101828]">
                 {activeServiceIdx === 0
-                  ? `Cars in ${city}`
+                  ? `Cars in ${searchWhere || city}`
                   : activeServiceIdx === 1
-                  ? `Chauffeurs & Drivers in ${city}`
+                  ? `Chauffeurs & Drivers in ${searchWhere || city}`
                   : activeServiceIdx === 2
-                  ? `City to City Rides (${city})`
+                  ? `City to City Rides (${searchWhere || city})`
                   : activeServiceIdx === 3
-                  ? `Pick & Drop Shuttles (${city})`
-                  : `Cargo & Home Movers in ${city}`}
+                  ? `Pick & Drop Shuttles (${shuttleCity || searchWhere || city})`
+                  : `Cargo & Home Movers in ${searchWhere || city}`}
               </h2>
               <span className="text-xs text-slate-500 font-medium">
                 Direct verified fleet with ratings & instant contact
@@ -1277,18 +1319,24 @@ export function MobileHomeNativeView() {
                 </div>
                 <div>
                   <h3 className="font-heading font-extrabold text-base text-[#101828]">
-                    No shuttle routes found matching &ldquo;{searchQuery || searchWhere || city}&rdquo;
+                    No shuttle routes found in {shuttleCity || searchWhere || city}
                   </h3>
                   <p className="text-xs text-slate-500 mt-1 max-w-[280px]">
-                    Try searching by area like DHA, Gulberg, Clifton, or Blue Area.
+                    {shuttlePickupArea || shuttleDropArea
+                      ? `No direct corridor found for ${[shuttlePickupArea, shuttleDropArea].filter(Boolean).join(' → ')}. Try selecting another area or view all corridors.`
+                      : 'Try searching by area like DHA, Gulberg, Bahria Town, or Canal Road.'}
                   </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSearchQuery('')}
+                  onClick={() => {
+                    setSearchQuery('');
+                    setShuttlePickupArea('');
+                    setShuttleDropArea('');
+                  }}
                   className="px-4 py-2 rounded-xl bg-[#0B6B4F] text-white font-bold text-xs shadow-xs hover:bg-[#08513C] transition cursor-pointer"
                 >
-                  Reset Search & View All Shuttles
+                  Reset Route & View All {shuttleCity || searchWhere || city} Shuttles
                 </button>
               </div>
             ))}
@@ -2205,6 +2253,10 @@ export function MobileHomeNativeView() {
                   setPickupDate('');
                   setReturnDate('');
                   setIsSelfDrive(true);
+                  setShuttlePickupArea('');
+                  setShuttleDropArea('');
+                  setMoverFromArea('');
+                  setMoverToArea('');
                   showToast('Search & filters reset');
                 }}
                 className="h-[52px] px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 active:scale-[0.99] text-slate-700 font-bold text-xs transition cursor-pointer shrink-0"

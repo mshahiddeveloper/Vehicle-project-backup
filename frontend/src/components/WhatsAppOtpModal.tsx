@@ -229,3 +229,4 @@ export function WhatsAppOtpModal({ isOpen, phone, onClose, onVerified }: WhatsAp
     </div>
   );
 }
+
