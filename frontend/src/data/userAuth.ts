@@ -6,7 +6,7 @@ import { recordAuditAction } from './auditLog';
 
 export type UserRole = 'CUSTOMER' | 'LISTER' | 'DRIVER' | 'PROVIDER' | 'AGENT' | 'SUPER_ADMIN';
 export type ProviderSubtype = 'PICK_AND_DROP' | 'COMMERCIAL_CARGO' | 'CITY_TO_CITY';
-export type SubscriptionStatus = 'UNSUBSCRIBED' | 'PENDING_APPROVAL' | 'ACTIVE' | 'REJECTED' | 'PAUSED';
+export type SubscriptionStatus = 'UNSUBSCRIBED' | 'PENDING_APPROVAL' | 'ACTIVE' | 'REJECTED' | 'PAUSED' | 'EXPIRED';
 export type KycStatus = 'UNVERIFIED' | 'PENDING_APPROVAL' | 'VERIFIED';
 
 /**
@@ -39,11 +39,15 @@ export interface UserSubscription {
   planName?: string;
   targetRole?: string;
   amountPaid?: number;
+  originalAmount?: number;
+  discountAmount?: number;
+  discountPercentage?: number;
+  isFreePromo?: boolean;
+  freePromoReason?: string;
   currency?: string;
   symbol?: string;
   wasPrice?: number;
   nowPrice?: number;
-  discountAmount?: number;
   promoCodeApplied?: string;
   paymentRef?: string;
   paymentProofUrl?: string;
@@ -1094,12 +1098,71 @@ export function registerNewUser(params: {
         timestamp: nowIso,
       },
     ],
-    subscription: {
-      status: 'UNSUBSCRIBED',
-      quota: 0,
-      usedQuota: 0,
-    },
+    subscription: (() => {
+      const promoPolicy = isCategoryFreePromoActive(params.role, params.providerSubtype);
+      if (promoPolicy && promoPolicy.isFreePromoActive) {
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + promoPolicy.freeDurationDays);
+        const expiryIso = expiry.toISOString();
+        const expiryDisplay = expiry.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+        return {
+          status: 'ACTIVE' as SubscriptionStatus,
+          planId: `${params.role.toLowerCase()}-free-promo`,
+          planName: promoPolicy.planName,
+          amountPaid: 0,
+          originalAmount: promoPolicy.displayOriginalPrice,
+          discountAmount: promoPolicy.displayOriginalPrice,
+          discountPercentage: 100,
+          isFreePromo: true,
+          freePromoReason: promoPolicy.reason,
+          currency: promoPolicy.currency,
+          symbol: promoPolicy.symbol,
+          startDate: nowIso.slice(0, 10),
+          endDate: expiryIso,
+          validUntil: expiryIso,
+          renewsOn: expiryDisplay,
+          quota: 15,
+          usedQuota: 0,
+          approvedAt: nowIso,
+          paymentRef: `PROMO-FREE-${Date.now().toString().slice(-6)}`,
+        };
+      }
+      return {
+        status: 'UNSUBSCRIBED' as SubscriptionStatus,
+        quota: 0,
+        usedQuota: 0,
+      };
+    })(),
   };
+
+  // If auto-granted promotional free subscription, record into billing history ledger
+  if (newUser.subscription.isFreePromo) {
+    try {
+      recordSubscriptionPayment({
+        userId: newUser.id,
+        userName: newUser.name,
+        businessName: newUser.businessName,
+        phone: newUser.phone,
+        role: newUser.role,
+        providerSubtype: newUser.providerSubtype,
+        planId: newUser.subscription.planId || 'free-promo',
+        planName: newUser.subscription.planName || 'Promotional Free Listing Pass',
+        amountPaid: 0,
+        originalAmount: newUser.subscription.originalAmount || 2500,
+        discountAmount: newUser.subscription.originalAmount || 2500,
+        discountPercentage: 100,
+        isFreePromo: true,
+        currency: newUser.subscription.currency || 'PKR',
+        symbol: newUser.subscription.symbol || 'Rs',
+        paymentMode: '100% Promo Waiver / Free Trial',
+        paymentRef: newUser.subscription.paymentRef || `PROMO-${Date.now().toString().slice(-6)}`,
+        status: 'CONFIRMED',
+        recordedBy: 'Category Promo Policy (Super Admin)',
+        notes: newUser.subscription.freePromoReason || '100% Free Promotional Trial (0 PKR paid)',
+      });
+    } catch (e) {}
+  }
 
   all.unshift(newUser);
   saveAllRegisteredUsers(all);
@@ -1449,6 +1512,10 @@ export interface SubscriptionPaymentRecord {
   planId: string;
   planName: string;
   amountPaid: number;
+  originalAmount?: number;
+  discountAmount?: number;
+  discountPercentage?: number;
+  isFreePromo?: boolean;
   currency: string;
   symbol: string;
   paymentMode: string; // 'Cash (Office)' | 'Bank Transfer / Raast' | 'JazzCash / Easypaisa' | 'Card' | 'Cheque'
@@ -2043,6 +2110,24 @@ export function toggleUserSubscriptionPause(
       });
     } catch (e) {}
 
+    // Synchronize fleet listings: when subscription is paused, pause all listings
+    try {
+      const fleetKey = `safarpk_fleet_${user.id}`;
+      const rawFleet = localStorage.getItem(fleetKey);
+      if (rawFleet) {
+        const fleet = JSON.parse(rawFleet);
+        if (Array.isArray(fleet)) {
+          const updatedFleet = fleet.map((item: any) => ({
+            ...item,
+            status: newStatus === 'PAUSED' ? 'PAUSED' : (item.prevStatus || 'LIVE'),
+            prevStatus: newStatus === 'PAUSED' ? (item.status !== 'PAUSED' ? item.status : item.prevStatus || 'LIVE') : undefined,
+            pausedReason: newStatus === 'PAUSED' ? 'Subscription Paused' : undefined,
+          }));
+          localStorage.setItem(fleetKey, JSON.stringify(updatedFleet));
+        }
+      }
+    } catch (e) {}
+
     window.dispatchEvent(new CustomEvent('safarpk_user_subscription_updated', { detail: { userId, status: newStatus } }));
     return {
       success: true,
@@ -2180,6 +2265,357 @@ export function toggleListingPause(
     return { success: false, isPaused: false, message: e.message || 'Operation failed' };
   }
 }
+
+/**
+ * =========================================================================
+ * CATEGORY PROMOTIONAL POLICIES & FREE SUBSCRIPTION ENGINE
+ * =========================================================================
+ */
+export interface CategoryPromoPolicy {
+  category: 'DRIVER' | 'RENT_A_CAR' | 'PICK_AND_DROP' | 'HOME_SHIFTING' | 'CITY_TO_CITY';
+  label: string;
+  role: UserRole;
+  isFreePromoActive: boolean; // TRUE for DRIVER by default
+  freeDurationDays: number; // default: 30 days
+  displayOriginalPrice: number; // e.g. 2500 for driver, 12000 for rent a car
+  currency: string;
+  symbol: string;
+  planName: string;
+  reason: string;
+  requiresListingApproval: boolean;
+}
+
+const STORAGE_CATEGORY_PROMO_KEY = 'safarpk_category_promo_policies';
+
+export const DEFAULT_CATEGORY_PROMO_POLICIES: CategoryPromoPolicy[] = [
+  {
+    category: 'DRIVER',
+    label: 'Hire a Driver (Chauffeur Directory)',
+    role: 'DRIVER',
+    isFreePromoActive: true, // Free subscription for drivers by default!
+    freeDurationDays: 30,
+    displayOriginalPrice: 2500,
+    currency: 'PKR',
+    symbol: 'Rs',
+    planName: 'Independent Chauffeur Pass (100% Free Promo)',
+    reason: 'Driver Launch Promotion — Free to List Profile (Pending Approval)',
+    requiresListingApproval: true,
+  },
+  {
+    category: 'RENT_A_CAR',
+    label: 'Rent a Car Fleet',
+    role: 'LISTER',
+    isFreePromoActive: false,
+    freeDurationDays: 30,
+    displayOriginalPrice: 12000,
+    currency: 'PKR',
+    symbol: 'Rs',
+    planName: 'Professional Fleet Hub (15 Vehicles)',
+    reason: 'Standard Paid Subscription Required',
+    requiresListingApproval: true,
+  },
+  {
+    category: 'PICK_AND_DROP',
+    label: 'Pick & Drop Shuttles',
+    role: 'PROVIDER',
+    isFreePromoActive: false,
+    freeDurationDays: 30,
+    displayOriginalPrice: 4800,
+    currency: 'PKR',
+    symbol: 'Rs',
+    planName: 'Commuter Route Shuttle Pass',
+    reason: 'Standard Paid Subscription Required',
+    requiresListingApproval: true,
+  },
+  {
+    category: 'HOME_SHIFTING',
+    label: 'Home Shifting & Cargo',
+    role: 'PROVIDER',
+    isFreePromoActive: false,
+    freeDurationDays: 30,
+    displayOriginalPrice: 5500,
+    currency: 'PKR',
+    symbol: 'Rs',
+    planName: 'Cargo & Shifting Mover Pass',
+    reason: 'Standard Paid Subscription Required',
+    requiresListingApproval: true,
+  },
+  {
+    category: 'CITY_TO_CITY',
+    label: 'City to City Rides',
+    role: 'PROVIDER',
+    isFreePromoActive: false,
+    freeDurationDays: 30,
+    displayOriginalPrice: 4500,
+    currency: 'PKR',
+    symbol: 'Rs',
+    planName: 'Intercity Travel Route Pass',
+    reason: 'Standard Paid Subscription Required',
+    requiresListingApproval: true,
+  },
+];
+
+export function getCategoryPromoPolicies(): CategoryPromoPolicy[] {
+  if (typeof window === 'undefined') return DEFAULT_CATEGORY_PROMO_POLICIES;
+  try {
+    const raw = localStorage.getItem(STORAGE_CATEGORY_PROMO_KEY);
+    if (!raw) {
+      localStorage.setItem(STORAGE_CATEGORY_PROMO_KEY, JSON.stringify(DEFAULT_CATEGORY_PROMO_POLICIES));
+      return DEFAULT_CATEGORY_PROMO_POLICIES;
+    }
+    return JSON.parse(raw);
+  } catch (e) {
+    return DEFAULT_CATEGORY_PROMO_POLICIES;
+  }
+}
+
+export function saveCategoryPromoPolicies(policies: CategoryPromoPolicy[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_CATEGORY_PROMO_KEY, JSON.stringify(policies));
+    window.dispatchEvent(new Event('safarpk_category_promos_updated'));
+  } catch (e) {}
+}
+
+export function toggleCategoryPromoPolicy(category: string, active?: boolean): CategoryPromoPolicy | null {
+  const current = getCategoryPromoPolicies();
+  const target = current.find((p) => p.category === category);
+  if (!target) return null;
+  target.isFreePromoActive = typeof active === 'boolean' ? active : !target.isFreePromoActive;
+  saveCategoryPromoPolicies(current);
+  return target;
+}
+
+export function updateCategoryPromoPolicy(category: string, updates: Partial<CategoryPromoPolicy>): boolean {
+  const current = getCategoryPromoPolicies();
+  const idx = current.findIndex((p) => p.category === category);
+  if (idx === -1) return false;
+  current[idx] = { ...current[idx], ...updates };
+  saveCategoryPromoPolicies(current);
+  return true;
+}
+
+export function isCategoryFreePromoActive(role: UserRole, subtype?: ProviderSubtype): CategoryPromoPolicy | null {
+  const policies = getCategoryPromoPolicies();
+  if (role === 'DRIVER') {
+    const p = policies.find((pol) => pol.category === 'DRIVER');
+    return p && p.isFreePromoActive ? p : null;
+  }
+  if (role === 'LISTER') {
+    const p = policies.find((pol) => pol.category === 'RENT_A_CAR');
+    return p && p.isFreePromoActive ? p : null;
+  }
+  if (role === 'PROVIDER') {
+    if (subtype === 'PICK_AND_DROP') {
+      const p = policies.find((pol) => pol.category === 'PICK_AND_DROP');
+      return p && p.isFreePromoActive ? p : null;
+    }
+    if (subtype === 'COMMERCIAL_CARGO') {
+      const p = policies.find((pol) => pol.category === 'HOME_SHIFTING');
+      return p && p.isFreePromoActive ? p : null;
+    }
+    if (subtype === 'CITY_TO_CITY') {
+      const p = policies.find((pol) => pol.category === 'CITY_TO_CITY');
+      return p && p.isFreePromoActive ? p : null;
+    }
+  }
+  return null;
+}
+
+export interface GrantFreeSubscriptionParams {
+  userId: string;
+  planId?: string;
+  planName?: string;
+  originalPrice?: number;
+  durationDays?: number;
+  customExpiryDate?: string;
+  reason?: string;
+  grantedBy?: string;
+}
+
+export function grantFreePromotionalSubscription(params: GrantFreeSubscriptionParams): {
+  success: boolean;
+  user: RegisteredUser | null;
+  expiryDate: string;
+  message: string;
+} {
+  const all = getAllRegisteredUsers();
+  const user = all.find((u) => u.id === params.userId);
+  if (!user) return { success: false, user: null, expiryDate: '', message: 'User not found' };
+
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0, 10);
+
+  let expiryDate = new Date();
+  if (params.customExpiryDate) {
+    const custom = new Date(params.customExpiryDate.includes('T') ? params.customExpiryDate : params.customExpiryDate + 'T23:59:59');
+    if (!isNaN(custom.getTime())) {
+      expiryDate = custom;
+    } else {
+      expiryDate.setDate(expiryDate.getDate() + (params.durationDays || 30));
+    }
+  } else {
+    expiryDate.setDate(expiryDate.getDate() + (params.durationDays || 30));
+  }
+
+  const expiryIso = expiryDate.toISOString();
+  const expiryDisplay = expiryDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  const originalPrice = params.originalPrice ?? (user.role === 'DRIVER' ? 2500 : user.role === 'LISTER' ? 12000 : 5000);
+  const planName = params.planName || (user.role === 'DRIVER' ? 'Independent Chauffeur Pass (100% Free Promo)' : 'Commercial Lister Pass (100% Free Promo)');
+
+  user.subscription = {
+    status: 'ACTIVE',
+    planId: params.planId || 'free-promo-pass',
+    planName,
+    amountPaid: 0,
+    originalAmount: originalPrice,
+    discountAmount: originalPrice,
+    discountPercentage: 100,
+    isFreePromo: true,
+    freePromoReason: params.reason || 'Super Admin 100% Discounted Free Trial',
+    currency: 'PKR',
+    symbol: 'Rs',
+    startDate: todayStr,
+    endDate: expiryIso,
+    validUntil: expiryIso,
+    renewsOn: expiryDisplay,
+    quota: 15,
+    usedQuota: user.subscription?.usedQuota || 0,
+    approvedAt: now.toISOString(),
+    paymentRef: `PROMO-FREE-${Date.now().toString().slice(-6)}`,
+  };
+
+  user.activities = user.activities || [];
+  user.activities.unshift({
+    id: `act-${Date.now()}`,
+    type: 'SUBSCRIPTION_REQUESTED',
+    title: '100% Free Promotional Subscription Granted',
+    description: `Granted active free subscription until ${expiryDisplay} (${params.reason || 'Admin Waiver'}). Original amount: PKR ${originalPrice.toLocaleString()} (0 PKR paid).`,
+    timestamp: now.toISOString(),
+  });
+
+  saveAllRegisteredUsers(all);
+
+  const active = getActiveUser();
+  if (active && (active.id === user.id || active.phone === user.phone)) {
+    setActiveUser(user);
+  }
+
+  // Record into financial ledger with 0 PKR paid and 100% discount
+  recordSubscriptionPayment({
+    userId: user.id,
+    userName: user.name,
+    businessName: user.businessName,
+    phone: user.phone,
+    role: user.role,
+    providerSubtype: user.providerSubtype,
+    planId: params.planId || 'free-promo-pass',
+    planName,
+    amountPaid: 0,
+    originalAmount: originalPrice,
+    discountAmount: originalPrice,
+    discountPercentage: 100,
+    isFreePromo: true,
+    currency: 'PKR',
+    symbol: 'Rs',
+    paymentMode: '100% Promo Waiver / Free Trial',
+    paymentRef: user.subscription.paymentRef || `PROMO-${Date.now().toString().slice(-6)}`,
+    status: 'CONFIRMED',
+    recordedBy: params.grantedBy || 'Super Admin',
+    notes: params.reason || 'Super Admin 100% Discounted Free Trial (0 PKR paid)',
+  });
+
+  try {
+    recordAuditAction({
+      action: 'SUBSCRIPTION_STATUS_CHANGE',
+      staffId: params.grantedBy || 'Super Admin',
+      staffName: params.grantedBy || 'Super Admin',
+      targetType: 'UserSubscription',
+      targetId: user.id,
+      details: `Granted 100% Free Subscription until ${expiryDisplay} for ${user.name} (${user.phone}). Value: PKR ${originalPrice}, Paid: 0 PKR.`,
+    });
+  } catch (e) {}
+
+  window.dispatchEvent(new CustomEvent('safarpk_user_subscription_updated', { detail: { userId: user.id, status: 'ACTIVE' } }));
+  window.dispatchEvent(new Event('safarpk_auth_state_changed'));
+
+  return {
+    success: true,
+    user,
+    expiryDate: expiryDisplay,
+    message: `100% Free subscription activated for ${user.name} until ${expiryDisplay}! Amount: PKR 0 Paid (Value: PKR ${originalPrice.toLocaleString()}).`,
+  };
+}
+
+export function syncSubscriptionExpiries(): {
+  checkedCount: number;
+  expiredCount: number;
+} {
+  if (typeof window === 'undefined') return { checkedCount: 0, expiredCount: 0 };
+  try {
+    const all = getAllRegisteredUsers();
+    const now = new Date();
+    let expiredCount = 0;
+
+    all.forEach((user) => {
+      if (user.subscription && user.subscription.status === 'ACTIVE') {
+        const endStr = user.subscription.validUntil || user.subscription.endDate;
+        if (endStr) {
+          const end = new Date(endStr.includes('T') ? endStr : endStr + 'T23:59:59');
+          if (!isNaN(end.getTime()) && now > end) {
+            // Subscription has expired!
+            user.subscription.status = 'PAUSED';
+            user.subscription.rejectionReason = 'Subscription validity expired';
+            expiredCount++;
+
+            // Auto-pause all fleet listings for this user
+            try {
+              const fleetKey = `safarpk_fleet_${user.id}`;
+              const rawFleet = localStorage.getItem(fleetKey);
+              if (rawFleet) {
+                const fleet = JSON.parse(rawFleet);
+                if (Array.isArray(fleet)) {
+                  const updatedFleet = fleet.map((item: any) => ({
+                    ...item,
+                    status: 'PAUSED',
+                    pausedReason: 'Subscription Expired',
+                  }));
+                  localStorage.setItem(fleetKey, JSON.stringify(updatedFleet));
+                }
+              }
+            } catch (e) {}
+
+            user.activities = user.activities || [];
+            user.activities.unshift({
+              id: `act-${Date.now()}`,
+              type: 'PROFILE_UPDATED',
+              title: 'Subscription Expired — Listings Paused',
+              description: `Subscription period ended on ${end.toLocaleDateString()}. All listings automatically paused.`,
+              timestamp: now.toISOString(),
+            });
+          }
+        }
+      }
+    });
+
+    if (expiredCount > 0) {
+      saveAllRegisteredUsers(all);
+      const active = getActiveUser();
+      if (active) {
+        const updated = all.find((u) => u.id === active.id);
+        if (updated) setActiveUser(updated);
+      }
+      window.dispatchEvent(new Event('safarpk_user_subscription_updated'));
+      window.dispatchEvent(new Event('safarpk_auth_state_changed'));
+    }
+
+    return { checkedCount: all.length, expiredCount };
+  } catch (e) {
+    return { checkedCount: 0, expiredCount: 0 };
+  }
+}
+
 
 
 

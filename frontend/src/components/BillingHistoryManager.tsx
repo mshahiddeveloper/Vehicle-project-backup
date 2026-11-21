@@ -40,6 +40,7 @@ import {
   RegisteredUser,
   getAllRegisteredUsers,
   saveAllRegisteredUsers,
+  syncSubscriptionExpiries,
 } from '@/data/userAuth';
 import { SubscriptionPricingSection } from './SubscriptionPricingSection';
 
@@ -80,6 +81,9 @@ export function BillingHistoryManager({
 
   // Refresh user and ledger
   const refreshData = () => {
+    try {
+      syncSubscriptionExpiries();
+    } catch (e) {}
     const user = getActiveUser();
     setCurrentUser(user);
     const all = getAllSubscriptionPayments();
@@ -463,10 +467,24 @@ export function BillingHistoryManager({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-slate-700/80">
             <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
               <span className="text-[11px] text-slate-400 block font-medium">Monthly Investment</span>
-              <span className="text-base sm:text-lg font-black text-emerald-400 block mt-0.5">
-                Rs. {((lastPayment?.amountPaid || currentUser?.subscription?.amountPaid || 12000)).toLocaleString()}
-              </span>
-              <span className="text-[10px] text-slate-400 block">Billed Monthly</span>
+              {currentUser?.subscription?.isFreePromo || lastPayment?.isFreePromo || (lastPayment && lastPayment.amountPaid === 0) ? (
+                <div>
+                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                    <span className="text-base sm:text-lg font-black text-emerald-400">Rs. 0</span>
+                    <span className="text-xs line-through text-slate-400">
+                      Rs. {(currentUser?.subscription?.originalAmount || lastPayment?.originalAmount || 2500).toLocaleString()}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-emerald-300 font-bold block">100% Promo Discount Applied</span>
+                </div>
+              ) : (
+                <div>
+                  <span className="text-base sm:text-lg font-black text-emerald-400 block mt-0.5">
+                    Rs. {((lastPayment?.amountPaid || currentUser?.subscription?.amountPaid || 12000)).toLocaleString()}
+                  </span>
+                  <span className="text-[10px] text-slate-400 block">Billed Monthly</span>
+                </div>
+              )}
             </div>
 
             <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
@@ -640,9 +658,19 @@ export function BillingHistoryManager({
                     <h4 className="font-bold text-sm text-slate-900 leading-snug">{p.planName}</h4>
                     <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
                       <span>{formattedDate}</span>
-                      <span className="font-heading font-black text-sm text-slate-900">
-                        Rs. {p.amountPaid.toLocaleString()}
-                      </span>
+                      {p.isFreePromo || p.amountPaid === 0 ? (
+                        <div className="text-right">
+                          <span className="text-[11px] line-through text-slate-400 mr-1.5">
+                            Rs. {(p.originalAmount || 2500).toLocaleString()}
+                          </span>
+                          <span className="font-heading font-black text-sm text-emerald-700">Rs. 0</span>
+                          <span className="block text-[10px] font-bold text-emerald-700">100% Discount Applied</span>
+                        </div>
+                      ) : (
+                        <span className="font-heading font-black text-sm text-slate-900">
+                          Rs. {p.amountPaid.toLocaleString()}
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between text-[11px] text-slate-500 pt-0.5">
@@ -972,21 +1000,44 @@ export function BillingHistoryManager({
                     </td>
                     <td className="py-3 text-center text-slate-600">30 Days</td>
                     <td className="py-3 text-right font-heading font-black text-slate-900">
-                      Rs. {selectedInvoice.amountPaid.toLocaleString()}
+                      {selectedInvoice.isFreePromo || selectedInvoice.amountPaid === 0 ? (
+                        <div>
+                          <span className="line-through text-slate-400 block text-[11px]">
+                            Rs. {(selectedInvoice.originalAmount || 2500).toLocaleString()}
+                          </span>
+                          <span className="text-emerald-700 font-black">Rs. 0</span>
+                        </div>
+                      ) : (
+                        `Rs. ${selectedInvoice.amountPaid.toLocaleString()}`
+                      )}
                     </td>
                   </tr>
                 </tbody>
                 <tfoot>
                   <tr className="border-t border-slate-200">
-                    <td colSpan={2} className="py-2.5 text-right font-bold text-slate-600">Subtotal:</td>
-                    <td className="py-2.5 text-right font-mono font-bold text-slate-900">Rs. {selectedInvoice.amountPaid.toLocaleString()}</td>
+                    <td colSpan={2} className="py-2.5 text-right font-bold text-slate-600">
+                      Package Rate:
+                    </td>
+                    <td className="py-2.5 text-right font-mono font-bold text-slate-900">
+                      Rs. {(selectedInvoice.originalAmount || selectedInvoice.amountPaid || 2500).toLocaleString()}
+                    </td>
                   </tr>
+                  {(selectedInvoice.isFreePromo || selectedInvoice.amountPaid === 0) && (
+                    <tr className="bg-emerald-50/60">
+                      <td colSpan={2} className="py-1.5 text-right font-bold text-emerald-800">
+                        100% Promotional Discount / Admin Waiver:
+                      </td>
+                      <td className="py-1.5 text-right font-mono font-bold text-emerald-700">
+                        -Rs. {(selectedInvoice.originalAmount || 2500).toLocaleString()}
+                      </td>
+                    </tr>
+                  )}
                   <tr>
                     <td colSpan={2} className="py-1 text-right font-bold text-slate-600">Federal Excise / GST:</td>
                     <td className="py-1 text-right font-mono text-slate-500">Rs. 0 (Inclusive)</td>
                   </tr>
                   <tr className="border-t-2 border-slate-900">
-                    <td colSpan={2} className="py-2.5 text-right font-black text-sm text-slate-900">Total:</td>
+                    <td colSpan={2} className="py-2.5 text-right font-black text-sm text-slate-900">Total Amount Paid:</td>
                     <td className="py-2.5 text-right font-heading font-black text-base text-emerald-700">
                       Rs. {selectedInvoice.amountPaid.toLocaleString()}
                     </td>

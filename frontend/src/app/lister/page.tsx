@@ -44,7 +44,7 @@ import { MobileNavBar } from '@/components/MobileNavBar';
 import { API_BASE, formatPKR, maskCnic, maskLicense, maskPhone } from '@/lib/api';
 import { SubscriptionPricingSection } from '@/components/SubscriptionPricingSection';
 import { BillingHistoryManager } from '@/components/BillingHistoryManager';
-import { getActiveUser, RegisteredUser, getUserDashboardPath } from '@/data/userAuth';
+import { getActiveUser, RegisteredUser, getUserDashboardPath, syncSubscriptionExpiries } from '@/data/userAuth';
 import { DashboardStoreWidget } from '@/components/DashboardStoreWidget';
 import { AnalyticsReportHub } from '@/components/AnalyticsReportHub';
 import { useCountry } from '@/app/context/CountryContext';
@@ -215,6 +215,7 @@ export default function ListerDashboardPage() {
 
   // Sync with active authenticated registered user & enforce Lister role guard
   useEffect(() => {
+    syncSubscriptionExpiries();
     const user = getActiveUser();
     if (!user) {
       if (typeof window !== 'undefined') {
@@ -885,17 +886,13 @@ export default function ListerDashboardPage() {
     }
   };
 
-  // Publish Listing Handler (Supporting 3-Step Streamlined Flow)
+  // Publish Listing Handler (Supporting 3-Step Streamlined Flow & Double-Gate Approval)
   const handlePublishVehicle = (isDraft: boolean) => {
-    // If attempting to publish live but user has no active subscription, promote & block
-    if (!isDraft && currentUser && (!currentUser.subscription || currentUser.subscription.status === 'UNSUBSCRIBED')) {
-      setShowSubscriptionRequiredModal(true);
-      return;
-    }
-
     setWizardSubmitting(true);
     setTimeout(() => {
-      const isPending = !isDraft && currentUser?.subscription?.status === 'PENDING_APPROVAL';
+      const hasActiveSub = currentUser?.subscription?.status === 'ACTIVE';
+      // If user posts (not draft), save as PENDING_APPROVAL awaiting admin approval or active subscription
+      const vehicleStatus = isDraft ? 'DRAFT' : 'PENDING_APPROVAL';
       const vehicleImg =
         carPhotoSlots.find((p) => p.url)?.url ||
         uploadedPhotos[0]?.url ||
@@ -935,7 +932,7 @@ export default function ListerDashboardPage() {
         comfortFeatures: selectedComfortFeatures.length > 0 ? selectedComfortFeatures : undefined,
         infotainmentFeatures:
           selectedInfotainmentFeatures.length > 0 ? selectedInfotainmentFeatures : undefined,
-        status: isDraft ? 'DRAFT' : isPending ? 'PENDING_APPROVAL' : 'LIVE',
+        status: vehicleStatus,
         views: 0,
         leads: 0,
         img: vehicleImg,
@@ -971,16 +968,19 @@ export default function ListerDashboardPage() {
       if (personalSearchLocation) setOperatingArea(personalSearchLocation);
 
       setWizardSubmitting(false);
-      setWizardSuccessMsg(
-        isDraft
-          ? '💾 Saved as Draft in your Fleet Roster!'
-          : isPending
-          ? '⏳ Vehicle Draft Saved! Your subscription payment is pending admin approval. It will go LIVE automatically once approved.'
-          : `🎉 Vehicle "${carBrand} ${carModel}" Published & LIVE on SafarPK!`
-      );
+
+      if (isDraft) {
+        setWizardSuccessMsg('💾 Saved as Draft in your Fleet Roster!');
+        setActiveTab('fleet');
+      } else if (!hasActiveSub) {
+        setWizardSuccessMsg('🎉 Vehicle saved as Pending! To make this listing LIVE and receive customer inquiries, please activate your subscription pass.');
+        setShowSubscriptionRequiredModal(true);
+      } else {
+        setWizardSuccessMsg(`✅ Vehicle "${carBrand} ${carModel}" saved! Submitted for Admin/Agent approval before going LIVE.`);
+        setActiveTab('fleet');
+      }
       setTimeout(() => {
         setWizardSuccessMsg(null);
-        setActiveTab('fleet');
         setWizardStep(1);
       }, 2000);
     }, 700);
@@ -1486,13 +1486,24 @@ export default function ListerDashboardPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() =>
-                          setFleetList(
-                            fleetList.map((item) =>
-                              item.id === f.id ? { ...item, status: item.status === 'LIVE' ? 'PAUSED' : 'LIVE' } : item
-                            )
-                          )
-                        }
+                        onClick={() => {
+                          const isActivating = f.status !== 'LIVE';
+                          if (isActivating && currentUser?.subscription?.status !== 'ACTIVE') {
+                            setShowSubscriptionRequiredModal(true);
+                            setWizardSuccessMsg('⚠️ Active subscription required to make listings LIVE. Please activate your subscription pass or contact support.');
+                            setTimeout(() => setWizardSuccessMsg(null), 4000);
+                            return;
+                          }
+                          const updated = fleetList.map((item) =>
+                            item.id === f.id ? { ...item, status: item.status === 'LIVE' ? 'PAUSED' : 'LIVE' } : item
+                          );
+                          setFleetList(updated);
+                          if (currentUser && currentUser.id !== 'usr-demo-lister') {
+                            try {
+                              localStorage.setItem(`safarpk_fleet_${currentUser.id}`, JSON.stringify(updated));
+                            } catch (e) {}
+                          }
+                        }}
                         className="py-1.5 px-2 text-xs font-bold rounded-xl border border-slate-300 bg-white hover:bg-slate-100 transition cursor-pointer text-center truncate"
                       >
                         {f.status === 'LIVE' ? 'Pause' : 'Activate'}
@@ -4161,10 +4172,10 @@ export default function ListerDashboardPage() {
 
             <div>
               <h3 className="text-base font-black text-slate-900">
-                Subscription Pass Required to Publish Live
+                Listing Saved as Pending — Subscription Required to Go LIVE
               </h3>
               <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                Your account is currently unsubscribed. To publish vehicles live on the SafarPK public marketplace and start receiving customer booking calls, please choose a subscription pass.
+                Your vehicle has been successfully saved to your roster as <strong className="text-amber-700">Pending Approval</strong>. To make this listing LIVE on the public marketplace and start receiving customer booking calls & WhatsApp leads, please activate your subscription pass.
               </p>
             </div>
 
@@ -4175,11 +4186,11 @@ export default function ListerDashboardPage() {
               </div>
               <div className="flex items-center gap-2 font-bold">
                 <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Direct client bookings and direct payment handover</span>
+                <span>Zero commission on bookings (Keep 100% earnings)</span>
               </div>
               <div className="flex items-center gap-2 font-bold">
                 <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Save drafts anytime; listings go live automatically upon approval</span>
+                <span>Super Admin / Agent verified badge on all listings</span>
               </div>
             </div>
 
@@ -4192,18 +4203,18 @@ export default function ListerDashboardPage() {
                 }}
                 className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-md transition cursor-pointer flex items-center justify-center gap-2"
               >
-                <span>⚡ View Subscription Packages & Apply Promo Code</span>
+                <span>⚡ View Subscription Packages & Activate</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => {
                   setShowSubscriptionRequiredModal(false);
-                  handlePublishVehicle(true);
+                  setActiveTab('fleet');
                 }}
                 className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
               >
-                💾 Save as Draft Only (Publish Later)
+                👀 View My Listings (Saved as Pending)
               </button>
             </div>
           </div>

@@ -44,7 +44,7 @@ import { AnalyticsReportHub } from '@/components/AnalyticsReportHub';
 import { API_BASE, formatPKR, maskCnic, maskLicense, maskPhone } from '@/lib/api';
 import { SubscriptionPricingSection } from '@/components/SubscriptionPricingSection';
 import { BillingHistoryManager } from '@/components/BillingHistoryManager';
-import { getActiveUser, RegisteredUser, logoutActiveUser, getUserDashboardPath } from '@/data/userAuth';
+import { getActiveUser, RegisteredUser, logoutActiveUser, getUserDashboardPath, syncSubscriptionExpiries } from '@/data/userAuth';
 import {
   getDriverBookings,
   confirmDriverBooking,
@@ -148,6 +148,7 @@ function DriverDashboardContent() {
 
   // Sync with logged in driver profile & enforce Driver role guard
   useEffect(() => {
+    syncSubscriptionExpiries();
     const user = getActiveUser();
     if (!user) {
       if (typeof window !== 'undefined') {
@@ -478,6 +479,11 @@ function DriverDashboardContent() {
 
   // Master Toggle Availability Handler
   const handleToggleStatus = (newStatus: 'AVAILABLE' | 'BUSY' | 'OFFLINE') => {
+    if (newStatus === 'AVAILABLE' && currentUser?.subscription?.status !== 'ACTIVE') {
+      setAvailabilityNotice('⚠️ Active subscription required to go online. Your profile is paused. Please renew your subscription pass or contact support.');
+      setTimeout(() => setAvailabilityNotice(null), 5000);
+      return;
+    }
     setAvailability(newStatus);
     if (newStatus === 'OFFLINE') {
       setAvailabilityNotice('🔴 You are now OFFLINE. Your profile is HIDDEN from the public marketplace.');
@@ -892,6 +898,69 @@ function DriverDashboardContent() {
                 className="px-3.5 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-xl text-xs font-bold shrink-0"
               >
                 View Status
+              </button>
+            </div>
+          )}
+
+          {/* FREE PROMOTIONAL DRIVER PASS BANNER */}
+          {currentUser?.subscription?.isFreePromo && currentUser.subscription.status === 'ACTIVE' && (
+            <div className="p-4 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-sky-500/10 border-2 border-emerald-500/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-lg font-black shrink-0">
+                  🎁
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-black text-xs text-emerald-950">
+                      Launch Promotion Active: 100% Free Driver Subscription!
+                    </h4>
+                    <span className="px-2 py-0.2 rounded text-[9px] font-black bg-emerald-600 text-white">
+                      Rs. 0 Paid (Value: Rs. {formatPKR(currentUser.subscription.originalAmount || 2500)})
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-emerald-800 mt-0.5">
+                    {currentUser.subscription.freePromoReason || 'SafarPK Driver Promotion: Free subscription granted to list your chauffeur profile and receive direct customer inquiries.'}
+                    {currentUser.subscription.validUntil && ` Valid until ${new Date(currentUser.subscription.validUntil).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' })}.`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('subscription')}
+                className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shrink-0 cursor-pointer"
+              >
+                View Pass & Receipt
+              </button>
+            </div>
+          )}
+
+          {/* SUBSCRIPTION PAUSED / EXPIRED BANNER */}
+          {(currentUser?.subscription?.status === 'PAUSED' || currentUser?.subscription?.status === 'EXPIRED') && (
+            <div className="p-4 bg-rose-50 border-2 border-rose-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center text-lg font-black shrink-0">
+                  ⏸️
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-black text-xs text-rose-950">
+                      Subscription Pass Paused / Expired
+                    </h4>
+                    <span className="px-2 py-0.2 rounded text-[9px] font-black bg-rose-600 text-white">
+                      Profile Paused
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-rose-800 mt-0.5">
+                    Your driver subscription validity has ended. Your profile is temporarily hidden from customer searches. Please renew your subscription pass or contact support to reactivate your listing.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('subscription')}
+                className="px-4 py-2 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-xs font-bold shrink-0 cursor-pointer"
+              >
+                Renew Driver Pass
               </button>
             </div>
           )}

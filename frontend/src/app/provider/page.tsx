@@ -49,6 +49,7 @@ import {
   isServiceApprovedForUser,
   getUserDashboardPath,
   SafarServiceType,
+  syncSubscriptionExpiries,
 } from '@/data/userAuth';
 import { MobileNavBar } from '@/components/MobileNavBar';
 import { DashboardStoreWidget } from '@/components/DashboardStoreWidget';
@@ -424,6 +425,7 @@ export default function ServiceProviderDashboardPage() {
 
   // Sync with logged-in user profile & enforce Provider role guard
   React.useEffect(() => {
+    syncSubscriptionExpiries();
     const user = getActiveUser();
     if (!user) {
       if (typeof window !== 'undefined') {
@@ -1496,6 +1498,69 @@ export default function ServiceProviderDashboardPage() {
                 className="px-3.5 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-xl text-xs font-bold shrink-0"
               >
                 View Status
+              </button>
+            </div>
+          )}
+
+          {/* FREE PROMOTIONAL PROVIDER PASS BANNER */}
+          {currentUser?.subscription?.isFreePromo && currentUser.subscription.status === 'ACTIVE' && (
+            <div className="p-4 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-sky-500/10 border-2 border-emerald-500/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-lg font-black shrink-0">
+                  🎁
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-black text-xs text-emerald-950">
+                      Launch Promotion Active: 100% Free Transport Provider Pass!
+                    </h4>
+                    <span className="px-2 py-0.2 rounded text-[9px] font-black bg-emerald-600 text-white">
+                      Rs. 0 Paid (Value: Rs. {formatPKR(currentUser.subscription.originalAmount || 5000)})
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-emerald-800 mt-0.5">
+                    {currentUser.subscription.freePromoReason || 'SafarPK Provider Promotion: Free subscription granted to publish routes and receive direct corporate leads.'}
+                    {currentUser.subscription.validUntil && ` Valid until ${new Date(currentUser.subscription.validUntil).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' })}.`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('subscription')}
+                className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shrink-0 cursor-pointer"
+              >
+                View Pass & Receipt
+              </button>
+            </div>
+          )}
+
+          {/* SUBSCRIPTION PAUSED / EXPIRED BANNER */}
+          {(currentUser?.subscription?.status === 'PAUSED' || currentUser?.subscription?.status === 'EXPIRED') && (
+            <div className="p-4 bg-rose-50 border-2 border-rose-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center text-lg font-black shrink-0">
+                  ⏸️
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-black text-xs text-rose-950">
+                      Transport Provider Subscription Paused / Expired
+                    </h4>
+                    <span className="px-2 py-0.2 rounded text-[9px] font-black bg-rose-600 text-white">
+                      Listings Paused
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-rose-800 mt-0.5">
+                    Your transport subscription validity has expired. Your active routes and commercial listings have been automatically paused. Please renew your subscription pass or contact support to reactivate.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('subscription')}
+                className="px-4 py-2 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-xs font-bold shrink-0 cursor-pointer"
+              >
+                Renew Provider Pass
               </button>
             </div>
           )}

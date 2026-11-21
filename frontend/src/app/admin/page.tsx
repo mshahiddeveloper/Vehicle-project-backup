@@ -112,6 +112,12 @@ import {
   getPausedListingIds,
   isListingPaused,
   toggleListingPause,
+  grantFreePromotionalSubscription,
+  getCategoryPromoPolicies,
+  toggleCategoryPromoPolicy,
+  updateCategoryPromoPolicy,
+  CategoryPromoPolicy,
+  syncSubscriptionExpiries,
 } from '@/data/userAuth';
 import {
   getAllLeads,
@@ -498,6 +504,102 @@ export default function SuperAdminDashboardPage() {
       window.removeEventListener('safarpk_ledger_updated', onLedgerUpdate);
     };
   }, []);
+
+  // =========================================================================
+  // FREE PROMOTIONAL SUBSCRIPTION (ADMIN WAIVER) & LAUNCH POLICIES
+  // =========================================================================
+  const [showGrantFreeModal, setShowGrantFreeModal] = useState(false);
+  const [grantFreeModalUser, setGrantFreeModalUser] = useState<RegisteredUser | null>(null);
+  const [freePlanName, setFreePlanName] = useState('Promotional Free Waiver Pass');
+  const [freeOriginalPrice, setFreeOriginalPrice] = useState(2500);
+  const [freeDurationPreset, setFreeDurationPreset] = useState<'7' | '15' | '30' | '90' | '180' | '365' | 'CUSTOM'>('30');
+  const [freeCustomExpiryDate, setFreeCustomExpiryDate] = useState('');
+  const [freeReason, setFreeReason] = useState('Super Admin 100% Free Promotional Launch Offer');
+  const [freeNotifyWhatsApp, setFreeNotifyWhatsApp] = useState(true);
+  const [categoryPromoPolicies, setCategoryPromoPolicies] = useState<CategoryPromoPolicy[]>([]);
+
+  useEffect(() => {
+    syncSubscriptionExpiries();
+    setCategoryPromoPolicies(getCategoryPromoPolicies());
+  }, []);
+
+  const handleOpenGrantFreeModal = (user?: any) => {
+    const target = user?.rawUser || user || null;
+    setGrantFreeModalUser(target);
+    if (target) {
+      if (target.role === 'DRIVER') {
+        setFreePlanName('Independent Chauffeur Launch Pass (100% Free Promo)');
+        setFreeOriginalPrice(2500);
+      } else if (target.role === 'LISTER') {
+        setFreePlanName('Commercial Fleet Hub Pass (100% Free Promo)');
+        setFreeOriginalPrice(12000);
+      } else {
+        setFreePlanName('Commercial Transport Provider Pass (100% Free Promo)');
+        setFreeOriginalPrice(5500);
+      }
+    } else {
+      setFreePlanName('VIP Promotional Free Pass');
+      setFreeOriginalPrice(5000);
+    }
+    setFreeDurationPreset('30');
+    const d30 = new Date();
+    d30.setDate(d30.getDate() + 30);
+    setFreeCustomExpiryDate(d30.toISOString().slice(0, 10));
+    setShowGrantFreeModal(true);
+  };
+
+  const handleExecuteGrantFreeSubscription = () => {
+    if (!grantFreeModalUser) {
+      alert('Please select a lister, driver, or transport provider.');
+      return;
+    }
+    const days = freeDurationPreset === 'CUSTOM' ? 30 : parseInt(freeDurationPreset, 10);
+    const customDate = freeDurationPreset === 'CUSTOM' ? freeCustomExpiryDate : undefined;
+
+    const res = grantFreePromotionalSubscription({
+      userId: grantFreeModalUser.id,
+      planName: freePlanName,
+      originalPrice: freeOriginalPrice,
+      durationDays: days,
+      customExpiryDate: customDate,
+      reason: freeReason,
+      grantedBy: 'Super Admin',
+    });
+
+    if (res.success) {
+      setRegisteredUsersList(getAllRegisteredUsers());
+      setSubscriptionPayments(getAllSubscriptionPayments());
+      setAdminNotice(`🎁 100% Free Subscription granted to ${grantFreeModalUser.name} until ${res.expiryDate}!`);
+      setTimeout(() => setAdminNotice(null), 5000);
+      setShowGrantFreeModal(false);
+
+      if (freeNotifyWhatsApp && grantFreeModalUser.phone) {
+        const cleanPhone = grantFreeModalUser.phone.replace(/[^0-9]/g, '');
+        const msg = encodeURIComponent(
+          `Salam ${grantFreeModalUser.name}!\n\n` +
+          `🎉 Mubarak! Super Admin has granted you a *100% FREE Promotional Subscription* on SafarPK!\n\n` +
+          `• Plan: ${freePlanName}\n` +
+          `• Original Price: PKR ${freeOriginalPrice.toLocaleString()}\n` +
+          `• Discount Applied: 100% Promotional Waiver\n` +
+          `• Amount Paid: PKR 0 (Confirmed Paid in Ledger)\n` +
+          `• Validity Until: ${res.expiryDate}\n\n` +
+          `Your listings can now be reviewed and published LIVE on SafarPK. Visit your dashboard to manage your fleet & requests.`
+        );
+        window.open(`https://wa.me/${cleanPhone}?text=${msg}`, '_blank');
+      }
+    } else {
+      alert(res.message);
+    }
+  };
+
+  const handleToggleCategoryPromo = (catKey: string) => {
+    toggleCategoryPromoPolicy(catKey);
+    const updated = getCategoryPromoPolicies();
+    setCategoryPromoPolicies(updated);
+    const changed = updated.find((p) => p.category === catKey);
+    setAdminNotice(`✅ Category Promo Policy for ${changed?.label || catKey} set to ${changed?.isFreePromoActive ? 'ACTIVE (100% FREE)' : 'DISABLED'}.`);
+    setTimeout(() => setAdminNotice(null), 3500);
+  };
 
   // Update Plan Defaults when Role is Selected in Manual Onboarding
   const handleSelectMvRole = (role: 'LISTER' | 'DRIVER' | 'PROVIDER') => {
@@ -2900,14 +3002,121 @@ export default function SuperAdminDashboardPage() {
                     Super Admin master control: Add new packages, update monthly PKR prices, change vehicle quotas, or delete outdated plans.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowAddPlanModal(true)}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0"
-                >
-                  <PlusCircle className="w-4 h-4" />
-                  <span>➕ Add New Subscription Plan</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenGrantFreeModal()}
+                    className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-sm"
+                  >
+                    <span>🎁 Grant Free Waiver</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddPlanModal(true)}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0"
+                  >
+                    <PlusCircle className="w-4 h-4 text-emerald-400" />
+                    <span>➕ Add New Subscription Plan</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 0. CATEGORY PROMOTIONAL FREE REGISTRATION POLICIES (LAUNCH WAIVERS) */}
+              <div className="bg-gradient-to-r from-slate-950 via-emerald-950/20 to-slate-950 rounded-2xl border-2 border-emerald-500/40 p-5 space-y-4 shadow-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-lg shadow-xs">
+                      🎁
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-black text-sm text-white">
+                          Category Promotional Free Registration Policies
+                        </h4>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-black">
+                          {categoryPromoPolicies.filter((p) => p.isFreePromoActive).length} Active Free Categories
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400">
+                        When active, new registrants in that category receive a 100% Free Promo Pass (Rs. 0 paid invoice recorded with full package value). Listings remain pending until Super Admin / Agent approval.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenGrantFreeModal()}
+                    className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black shadow-md flex items-center gap-1.5 transition cursor-pointer self-start sm:self-auto"
+                  >
+                    <span>🎁 Grant Individual Waiver</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {categoryPromoPolicies.map((pol) => (
+                    <div
+                      key={pol.category}
+                      className={`p-4 rounded-xl border flex flex-col justify-between space-y-3 transition ${
+                        pol.isFreePromoActive
+                          ? 'bg-slate-900/90 border-emerald-500/50 shadow-md'
+                          : 'bg-slate-950/60 border-slate-800 opacity-60'
+                      }`}
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-sm text-white flex items-center gap-1.5">
+                            <span>{pol.category === 'DRIVER' ? '👨‍✈️' : pol.category === 'RENT_A_CAR' ? '🚗' : pol.category === 'PICK_AND_DROP' ? '🚌' : pol.category === 'HOME_SHIFTING' ? '📦' : '🛣️'}</span>
+                            <span>{pol.label}</span>
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-black ${
+                              pol.isFreePromoActive
+                                ? 'bg-emerald-500 text-black'
+                                : 'bg-slate-800 text-slate-400'
+                            }`}
+                          >
+                            {pol.isFreePromoActive ? '100% FREE ACTIVE' : 'CHARGED (PAID)'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 leading-snug">
+                          {pol.reason}
+                        </p>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-800/80 space-y-1 text-xs">
+                        <div className="flex justify-between text-slate-300">
+                          <span className="text-slate-400">Regular Package Rate:</span>
+                          <span className="font-bold line-through text-slate-400">PKR {formatPKR(pol.displayOriginalPrice)}</span>
+                        </div>
+                        <div className="flex justify-between text-emerald-400 font-bold">
+                          <span>Charged Amount:</span>
+                          <span>PKR 0 (100% Free Promo)</span>
+                        </div>
+                        <div className="flex justify-between text-slate-300">
+                          <span className="text-slate-400">Default Duration:</span>
+                          <span className="font-bold text-white">{pol.freeDurationDays} Days</span>
+                        </div>
+                        <div className="flex justify-between text-slate-300">
+                          <span className="text-slate-400">Listing Approval Gate:</span>
+                          <span className="font-bold text-amber-300">{pol.requiresListingApproval ? 'Pending Admin/Agent' : 'Instant Live'}</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleCategoryPromo(pol.category)}
+                          className={`w-full py-2 px-3 rounded-xl text-xs font-black transition cursor-pointer text-center ${
+                            pol.isFreePromoActive
+                              ? 'bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800'
+                              : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm'
+                          }`}
+                        >
+                          {pol.isFreePromoActive ? 'Disable Free Promo' : 'Enable 100% Free Launch Offer'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* 1. PENDING SUBSCRIBER APPROVALS QUEUE */}
@@ -3379,11 +3588,20 @@ export default function SuperAdminDashboardPage() {
           {/* ========================================================================= */}
           {activeTab === 'directory' && (
             <div className="bg-slate-900/80 rounded-3xl border border-slate-800 p-6 space-y-5 shadow-xl">
-              <div>
-                <h3 className="font-extrabold text-base text-white">User, Lister & Driver Directory ({filteredDirectory.length})</h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Deep search any customer, private fleet owner, commuter operator, or chauffeur by Name, Phone, CNIC, or City to troubleshoot inquiries and resolve complaints.
-                </p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-extrabold text-base text-white">User, Lister & Driver Directory ({filteredDirectory.length})</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Deep search any customer, private fleet owner, commuter operator, or chauffeur by Name, Phone, CNIC, or City to troubleshoot inquiries and resolve complaints.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleOpenGrantFreeModal()}
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black shadow-md flex items-center gap-1.5 transition cursor-pointer shrink-0"
+                >
+                  <span>🎁 Grant 100% Free Subscription</span>
+                </button>
               </div>
 
               {/* Search & Filter Bar */}
@@ -3543,6 +3761,18 @@ export default function SuperAdminDashboardPage() {
                         <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
                         <span>Services</span>
                       </button>
+
+                      {/* Grant 100% Free Subscription Waiver Button */}
+                      {user.role !== 'CUSTOMER' && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenGrantFreeModal(user)}
+                          className="px-2.5 py-1.5 bg-gradient-to-r from-teal-950 to-emerald-950 hover:from-teal-900 hover:to-emerald-900 text-emerald-300 border border-emerald-700/60 rounded-xl font-bold text-xs flex items-center gap-1 transition cursor-pointer"
+                          title="Grant 100% Free Subscription Waiver (PKR 0 paid invoice)"
+                        >
+                          <span>🎁 Free Waiver</span>
+                        </button>
+                      )}
 
                       {/* Subscription Pause / Resume Button */}
                       {user.rawUser?.subscription && user.role !== 'CUSTOMER' && (
@@ -5440,6 +5670,19 @@ export default function SuperAdminDashboardPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
+                  {/* Grant 100% Free Subscription Waiver */}
+                  {inspectingUser.role !== 'CUSTOMER' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleOpenGrantFreeModal(inspectingUser);
+                      }}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white flex items-center gap-1 shadow-xs"
+                    >
+                      <span>🎁 Grant Free Waiver</span>
+                    </button>
+                  )}
+
                   {/* Pause / Resume Subscription */}
                   <button
                     type="button"
@@ -6511,6 +6754,198 @@ export default function SuperAdminDashboardPage() {
             >
               Done & Return to Overview
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 🎁 GRANT 100% FREE SUBSCRIPTION (ADMIN WAIVER) MODAL */}
+      {showGrantFreeModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center text-xl shadow-md">
+                  🎁
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Grant 100% Free Subscription Waiver</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Assign a time-limited free pass with Rs. 0 paid invoice, recorded value, and custom expiry.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowGrantFreeModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Target Lister/User Selection */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-300">Target Lister / Driver / Vendor</label>
+              <select
+                value={grantFreeModalUser?.id || ''}
+                onChange={(e) => {
+                  const u = registeredUsersList.find((usr) => usr.id === e.target.value);
+                  if (u) {
+                    handleOpenGrantFreeModal(u);
+                  }
+                }}
+                className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white font-bold cursor-pointer"
+              >
+                <option value="">-- Choose User from Directory --</option>
+                {registeredUsersList
+                  .filter((u) => u.role !== 'CUSTOMER')
+                  .map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name} {u.businessName ? `(${u.businessName})` : ''} — {u.role} ({u.phone})
+                    </option>
+                  ))}
+              </select>
+              {grantFreeModalUser && (
+                <div className="p-2.5 bg-slate-950/60 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="font-bold text-white block">{grantFreeModalUser.name}</span>
+                    <span className="text-[11px] text-slate-400">{grantFreeModalUser.phone} • {grantFreeModalUser.city || 'Pakistan'}</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-emerald-400 border border-slate-700">
+                    {grantFreeModalUser.role}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Plan Name & Original Price Breakdown */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-300">Subscription Plan Name</label>
+                <input
+                  type="text"
+                  value={freePlanName}
+                  onChange={(e) => setFreePlanName(e.target.value)}
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white font-bold"
+                  placeholder="e.g. Driver Free Launch Pass"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-300">Original Plan Value (PKR)</label>
+                <input
+                  type="number"
+                  value={freeOriginalPrice}
+                  onChange={(e) => setFreeOriginalPrice(Number(e.target.value) || 0)}
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white font-bold"
+                  placeholder="2500"
+                />
+              </div>
+            </div>
+
+            {/* Financial Ledger & Invoice Value Breakdown Banner */}
+            <div className="p-3.5 bg-emerald-950/40 border border-emerald-700/60 rounded-2xl space-y-1.5 text-xs text-emerald-300">
+              <div className="flex justify-between font-bold">
+                <span className="text-slate-400 font-sans">Official Package Rate:</span>
+                <span className="line-through text-slate-400">PKR {formatPKR(freeOriginalPrice)}</span>
+              </div>
+              <div className="flex justify-between font-bold text-emerald-400">
+                <span>Super Admin Promotional Waiver:</span>
+                <span>-100% Promo (-PKR {formatPKR(freeOriginalPrice)})</span>
+              </div>
+              <div className="flex justify-between font-black text-sm pt-1 border-t border-emerald-800/60 text-white">
+                <span>Final Invoiced Amount:</span>
+                <span className="text-emerald-400">PKR 0 (Status: CONFIRMED / PAID)</span>
+              </div>
+              <p className="text-[10px] text-slate-400 pt-0.5">
+                * An authentic PKR 0 confirmed receipt will be recorded in the financial ledger and user billing history showing the full discount.
+              </p>
+            </div>
+
+            {/* Duration Selector */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-300">Waiver Duration & Expiry</label>
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                {[
+                  { label: '7 Days', val: '7' },
+                  { label: '15 Days', val: '15' },
+                  { label: '30 Days', val: '30' },
+                  { label: '3 Months', val: '90' },
+                  { label: '6 Months', val: '180' },
+                  { label: 'Custom', val: 'CUSTOM' },
+                ].map((d) => (
+                  <button
+                    key={d.val}
+                    type="button"
+                    onClick={() => setFreeDurationPreset(d.val as any)}
+                    className={`py-2 px-1 text-center rounded-xl text-xs font-bold transition cursor-pointer border ${
+                      freeDurationPreset === d.val
+                        ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs'
+                        : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+
+              {freeDurationPreset === 'CUSTOM' && (
+                <div className="pt-1.5">
+                  <label className="text-[11px] font-bold text-slate-400 block mb-1">
+                    Select Exact Expiry Date:
+                  </label>
+                  <input
+                    type="date"
+                    value={freeCustomExpiryDate}
+                    onChange={(e) => setFreeCustomExpiryDate(e.target.value)}
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white font-bold cursor-pointer"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Reason / Notes */}
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-300">Promo / Waiver Reason</label>
+              <input
+                type="text"
+                value={freeReason}
+                onChange={(e) => setFreeReason(e.target.value)}
+                className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white"
+                placeholder="e.g. Launch Promotional Offer, Chauffeur Early Adopter Waiver"
+              />
+            </div>
+
+            {/* WhatsApp Notification Checkbox */}
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="checkbox"
+                id="freeNotifyWhatsApp"
+                checked={freeNotifyWhatsApp}
+                onChange={(e) => setFreeNotifyWhatsApp(e.target.checked)}
+                className="w-4 h-4 rounded text-emerald-600 border-slate-700 bg-slate-950 focus:ring-0 cursor-pointer"
+              />
+              <label htmlFor="freeNotifyWhatsApp" className="text-xs text-slate-300 font-semibold cursor-pointer">
+                Send instant confirmation message on WhatsApp with 0 PKR voucher details
+              </label>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowGrantFreeModal(false)}
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteGrantFreeSubscription}
+                className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black shadow-md transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>🎁 Grant 100% Free Subscription Now</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
