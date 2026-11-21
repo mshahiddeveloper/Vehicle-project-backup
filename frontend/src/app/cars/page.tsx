@@ -273,7 +273,7 @@ function CarsDirectoryContent() {
       </div>
 
       {/* Main Content Area */}
-      <main className="max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-4 sm:py-8 flex-1 flex flex-col gap-5">
+      <main className="max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-4 sm:py-8 flex-1 flex flex-col gap-5 pb-32 sm:pb-12">
         {/* Desktop Breadcrumb & Heading */}
         <div className="hidden md:flex flex-col gap-2">
           <div className="flex items-center gap-2 text-xs text-[#667085] font-semibold">

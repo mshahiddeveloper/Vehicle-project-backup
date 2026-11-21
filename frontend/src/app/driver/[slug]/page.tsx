@@ -34,6 +34,7 @@ import {
   FileCheck,
   Lock,
   Heart,
+  Send,
 } from 'lucide-react';
 
 export default function PublicDriverProfilePage() {
@@ -102,7 +103,7 @@ export default function PublicDriverProfilePage() {
     if (typeof window !== 'undefined') {
       const el = document.getElementById('driver-booking-section');
       if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
   };
@@ -233,7 +234,7 @@ export default function PublicDriverProfilePage() {
     <div className="min-h-screen bg-slate-50 font-sans text-[#101828] flex flex-col justify-between">
       <AppHeader />
 
-      <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-4 sm:py-6 md:py-10 flex flex-col gap-4 sm:gap-6 pb-32 lg:pb-12">
+      <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-4 sm:py-6 md:py-10 flex flex-col gap-4 sm:gap-6 pb-56 sm:pb-48 lg:pb-16">
         {/* Mobile Quick Back Bar (Native Mobile App Top Bar) */}
         <div className="flex items-center justify-between gap-2 md:hidden pb-1">
           <button
@@ -772,14 +773,21 @@ export default function PublicDriverProfilePage() {
 
                 <button
                   type="submit"
-                  className="w-full h-9 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition cursor-pointer"
+                  className="w-full h-11 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm transition cursor-pointer shadow-md active:scale-[0.99] flex items-center justify-center gap-2"
                 >
-                  Send Inquiry to {(driver?.name || 'Driver').split(' ')[0]}
+                  <Send className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Send Inquiry to {(driver?.name || 'Driver').split(' ')[0]}</span>
                 </button>
+                <p className="text-[11px] text-slate-500 text-center font-medium pt-1">
+                  Direct chauffeur booking · No advance deposit required
+                </p>
               </form>
             )}
           </aside>
         </div>
+
+        {/* Dedicated Mobile Safe Scroll Clearance: Guarantees form submit buttons scroll 100% clear of sticky action bar */}
+        <div className="h-28 lg:hidden" aria-hidden="true" />
       </main>
 
       {/* Mobile App Sticky Action Bar (Direct, Elevated, Never Hidden Behind Menu) */}
@@ -791,7 +799,7 @@ export default function PublicDriverProfilePage() {
           title={phoneRevealed ? (driver?.phone || 'Available') : 'Show Number'}
         >
           <Phone className="w-4 h-4 text-purple-600 shrink-0" />
-          <span className="truncate">{phoneRevealed ? (driver?.phone || 'Available') : 'Call Driver'}</span>
+          <span className="truncate">{phoneRevealed ? (driver?.phone || 'Available') : 'Show Number'}</span>
         </button>
 
         <button

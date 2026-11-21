@@ -101,7 +101,7 @@ export default function MoverDetailPage() {
     if (typeof window !== 'undefined') {
       const el = document.getElementById('mover-booking-section');
       if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
   };
@@ -184,7 +184,7 @@ export default function MoverDetailPage() {
     <div className="min-h-screen bg-white font-sans text-[#101828] flex flex-col justify-between">
       <AppHeader />
 
-      <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-4 sm:py-6 md:py-10 flex flex-col gap-4 sm:gap-6 pb-32 lg:pb-12">
+      <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-4 sm:py-6 md:py-10 flex flex-col gap-4 sm:gap-6 pb-56 sm:pb-48 lg:pb-16">
         {/* Mobile App Navigation Bar (Native App Look) */}
         <div className="md:hidden flex items-center justify-between gap-2 pb-1">
           <button
@@ -694,14 +694,21 @@ export default function MoverDetailPage() {
 
                 <button
                   type="submit"
-                  className="w-full h-9 rounded-xl bg-[#C2410C] hover:bg-[#9A3412] text-white font-bold text-xs transition cursor-pointer shadow-2xs active:scale-[0.99]"
+                  className="w-full h-11 rounded-2xl bg-[#C2410C] hover:bg-[#9A3412] text-white font-bold text-xs sm:text-sm transition cursor-pointer shadow-md active:scale-[0.99] flex items-center justify-center gap-2"
                 >
-                  Send Shifting Details
+                  <Calculator className="w-4 h-4 text-orange-200" />
+                  <span>Send Shifting Details & Get Quote</span>
                 </button>
+                <p className="text-[11px] text-slate-500 text-center font-medium pt-1">
+                  Free shifting inspection & written quotation · Pay on shifting day
+                </p>
               </form>
             )}
           </aside>
         </div>
+
+        {/* Dedicated Mobile Safe Scroll Clearance: Guarantees form submit buttons scroll 100% clear of sticky action bar */}
+        <div className="h-28 lg:hidden" aria-hidden="true" />
       </main>
 
       {/* Mobile App Sticky Action Bar (Direct, Elevated, Never Hidden Behind Menu) */}
@@ -713,7 +720,7 @@ export default function MoverDetailPage() {
           title={phoneRevealed ? mover.phone : 'Click to show phone number'}
         >
           <Phone className="w-4 h-4 text-[#C2410C] shrink-0" />
-          <span className="truncate">{phoneRevealed ? mover.phone : 'Call Host'}</span>
+          <span className="truncate">{phoneRevealed ? mover.phone : 'Show Number'}</span>
         </button>
 
         <button

@@ -466,7 +466,7 @@ export default function ListingDetailPage() {
     if (typeof window !== 'undefined') {
       const el = document.getElementById('booking-section');
       if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
     }
@@ -1000,7 +1000,7 @@ export default function ListingDetailPage() {
     <div className="min-h-screen bg-white font-sans text-[#101828] flex flex-col">
       <AppHeader />
 
-      <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-4 sm:py-6 md:py-10 flex flex-col gap-4 sm:gap-6 pb-28 lg:pb-12">
+      <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-4 sm:py-6 md:py-10 flex flex-col gap-4 sm:gap-6 pb-56 sm:pb-48 lg:pb-16">
         {/* Desktop Breadcrumb */}
         <nav aria-label="Breadcrumb" className="hidden md:flex text-sm text-[#667085] items-center gap-2">
           <Link href="/" className="hover:text-[#101828]">
@@ -2005,7 +2005,7 @@ export default function ListingDetailPage() {
           {/* Quick Booking Modal (Clean, Non-Intrusive Drawer / Dialog) */}
           {step === 1 && (
             <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in">
-              <div className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
+              <div className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 pb-8 shadow-2xl flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div>
                     <h3 className="font-heading font-extrabold text-base text-slate-900">Instant Booking & Direct Chat</h3>
@@ -2143,6 +2143,9 @@ export default function ListingDetailPage() {
             </div>
           )}
         </div>
+
+        {/* Dedicated Mobile Safe Scroll Clearance: Guarantees form and booking actions scroll 100% clear of sticky action bar */}
+        <div className="h-28 lg:hidden" aria-hidden="true" />
       </main>
 
       {/* Floating Sticky Booking Bar for Mobile (Clean, Bottom-0, Dedicated, Never Hidden Behind Menu) */}

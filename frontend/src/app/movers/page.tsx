@@ -104,7 +104,7 @@ export default function MoversPage() {
     <div className="min-h-screen bg-white font-sans text-[#101828] flex flex-col">
       <AppHeader />
 
-      <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-6 md:py-10 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 items-start">
+      <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-6 md:py-10 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 items-start pb-32 sm:pb-12">
         {/*
           RESPONSIVE ORDERING:
           On mobile (< lg): Calculator is order-1 (at the very TOP of the page for instant access).
