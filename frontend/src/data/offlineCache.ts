@@ -92,9 +92,21 @@ export function useNetworkStatus() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    const handleCustomNetworkStatus = (e: any) => {
+      if (typeof e.detail?.isOnline === 'boolean') {
+        setIsOnline(e.detail.isOnline);
+        if (e.detail.isOnline) {
+          setWasOffline(true);
+          setTimeout(() => setWasOffline(false), 3500);
+        }
+      }
+    };
+    window.addEventListener('safarpk_network_status', handleCustomNetworkStatus);
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('safarpk_network_status', handleCustomNetworkStatus);
     };
   }, []);
 

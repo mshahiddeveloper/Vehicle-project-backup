@@ -36,8 +36,6 @@ import { COUNTRIES, CountryInfo, SUPPORTED_CURRENCIES, CurrencyInfo } from '@/da
 import { getActiveUser, RegisteredUser, logoutActiveUser, getUserDashboardPath } from '@/data/userAuth';
 import { useCountry } from '@/app/context/CountryContext';
 import { getSiteBranding, SiteBranding } from '@/data/branding';
-import { MobilePullToRefresh } from '@/components/MobilePullToRefresh';
-import { useNetworkStatus } from '@/data/offlineCache';
 
 interface AppHeaderProps {
   currentCountry?: CountryInfo;
@@ -84,7 +82,6 @@ export function AppHeader({
   accentColor = '#0B6B4F',
 }: AppHeaderProps) {
   const pathname = usePathname();
-  const { isOnline, wasOffline } = useNetworkStatus();
   const {
     country: ctxCountry,
     setCountry: ctxSetCountry,
@@ -665,23 +662,6 @@ export function AppHeader({
           </Link>
         </div>
       </div>
-
-      {/* Mobile Animated Pull-to-Refresh Car below header */}
-      <MobilePullToRefresh />
-
-      {/* Offline Alert Bar: Exact placement directly below header & above body content, exactly where loading car is, zero overlap */}
-      {!isOnline && (
-        <div className="w-full bg-[#101828] text-amber-300 border-t border-[#1E293B] py-1.5 px-4 text-center flex items-center justify-center gap-2 text-xs font-bold animate-in fade-in duration-200">
-          <WifiOff className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-          <span>No internet connection</span>
-        </div>
-      )}
-      {wasOffline && (
-        <div className="w-full bg-emerald-900 text-emerald-200 border-t border-emerald-800 py-1 px-4 text-center flex items-center justify-center gap-2 text-xs font-bold animate-in fade-in duration-200">
-          <Wifi className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-          <span>Back online</span>
-        </div>
-      )}
     </header>
 
     {/* ========================================================================= */}

@@ -2,23 +2,64 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { initOfflineDataCache } from '@/data/offlineCache';
+import { syncSubscriptionExpiries } from '@/data/userAuth';
 
+/**
+ * Global Pull-To-Refresh Experience with animated SafarPK race car.
+ * - Available globally across all pages for both guest and authenticated users.
+ * - Smoothly anchors right below any sticky header (or top of screen).
+ * - Full content refresh: On refresh completion, re-syncs offline cache & subscriptions,
+ *   and reloads page content via window.location.reload() when online.
+ * - Resilient when offline: Preserves currently loaded in-memory data, syncs storage,
+ *   and retreats without crashing the browser.
+ */
 export function MobilePullToRefresh() {
   const router = useRouter();
   const [pullDistance, setPullDistance] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLaunching, setIsLaunching] = useState(false);
+  const [headerHeight, setHeaderHeight] = useState(0);
 
   const startXRef = useRef<number | null>(null);
   const startYRef = useRef<number | null>(null);
   const currentPullRef = useRef<number>(0);
   const isRefreshingRef = useRef<boolean>(false);
 
+  // Monitor top header height to position pull-down car right below it
+  useEffect(() => {
+    const updateHeader = () => {
+      const header = document.querySelector('header');
+      if (header) {
+        const rect = header.getBoundingClientRect();
+        if (rect.top <= 10 && rect.height > 0) {
+          setHeaderHeight(rect.height);
+          return;
+        }
+      }
+      setHeaderHeight(0);
+    };
+
+    updateHeader();
+    window.addEventListener('resize', updateHeader);
+    window.addEventListener('scroll', updateHeader, { passive: true });
+    return () => {
+      window.removeEventListener('resize', updateHeader);
+      window.removeEventListener('scroll', updateHeader);
+    };
+  }, []);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const isMobile = () => window.innerWidth < 768;
+    const isTouchOrMobile = () => {
+      return (
+        window.innerWidth <= 1024 ||
+        'ontouchstart' in window ||
+        navigator.maxTouchPoints > 0
+      );
+    };
 
     const getScrollTop = () => {
       return (
@@ -30,7 +71,7 @@ export function MobilePullToRefresh() {
     };
 
     const handleTouchStart = (e: TouchEvent) => {
-      if (!isMobile() || isRefreshingRef.current) return;
+      if (!isTouchOrMobile() || isRefreshingRef.current) return;
 
       // Only prepare pull if page is at the very top
       if (getScrollTop() <= 4) {
@@ -43,7 +84,7 @@ export function MobilePullToRefresh() {
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (startYRef.current === null || isRefreshingRef.current || !isMobile()) return;
+      if (startYRef.current === null || isRefreshingRef.current || !isTouchOrMobile()) return;
 
       const currentScroll = getScrollTop();
       if (currentScroll > 4) {
@@ -52,6 +93,7 @@ export function MobilePullToRefresh() {
         if (currentPullRef.current > 0) {
           currentPullRef.current = 0;
           setPullDistance(0);
+          window.dispatchEvent(new CustomEvent('safarpk_pull_distance', { detail: { pullDistance: 0 } }));
           setIsPulling(false);
         }
         return;
@@ -69,6 +111,7 @@ export function MobilePullToRefresh() {
         if (currentPullRef.current > 0) {
           currentPullRef.current = 0;
           setPullDistance(0);
+          window.dispatchEvent(new CustomEvent('safarpk_pull_distance', { detail: { pullDistance: 0 } }));
           setIsPulling(false);
         }
         return;
@@ -81,6 +124,7 @@ export function MobilePullToRefresh() {
         if (currentPullRef.current > 0) {
           currentPullRef.current = 0;
           setPullDistance(0);
+          window.dispatchEvent(new CustomEvent('safarpk_pull_distance', { detail: { pullDistance: 0 } }));
           setIsPulling(false);
         }
         return;
@@ -95,23 +139,25 @@ export function MobilePullToRefresh() {
         const distance = Math.min(105, Math.pow(diffY, 0.85) * 1.45);
         currentPullRef.current = distance;
         setPullDistance(distance);
+        window.dispatchEvent(new CustomEvent('safarpk_pull_distance', { detail: { pullDistance: distance } }));
         setIsPulling(true);
       }
     };
 
     const handleTouchEnd = () => {
-      if (isRefreshingRef.current || !isMobile()) return;
+      if (isRefreshingRef.current || !isTouchOrMobile()) return;
 
       const current = currentPullRef.current;
       startYRef.current = null;
       startXRef.current = null;
       setIsPulling(false);
 
-      if (current >= 62) {
+      if (current >= 60) {
         triggerRaceRefresh();
       } else if (current > 0) {
         currentPullRef.current = 0;
         setPullDistance(0);
+        window.dispatchEvent(new CustomEvent('safarpk_pull_distance', { detail: { pullDistance: 0 } }));
       }
     };
 
@@ -120,6 +166,7 @@ export function MobilePullToRefresh() {
       setIsRefreshing(true);
       setIsLaunching(false);
       setPullDistance(95);
+      window.dispatchEvent(new CustomEvent('safarpk_pull_distance', { detail: { pullDistance: 95 } }));
 
       try {
         if ('vibrate' in navigator) {
@@ -127,10 +174,12 @@ export function MobilePullToRefresh() {
         }
       } catch {}
 
-      // Fast priority data refresh
+      // Fast priority data refresh & state sync
       try {
         router.refresh();
         window.dispatchEvent(new CustomEvent('safarpk_pull_refresh'));
+        initOfflineDataCache();
+        syncSubscriptionExpiries();
       } catch {}
 
       // Keep car running while loading, then launch off top
@@ -140,7 +189,15 @@ export function MobilePullToRefresh() {
         setTimeout(() => {
           setPullDistance(0);
           currentPullRef.current = 0;
+          window.dispatchEvent(new CustomEvent('safarpk_pull_distance', { detail: { pullDistance: 0 } }));
 
+          // If online: perform a true page content reload!
+          if (typeof window !== 'undefined' && navigator.onLine) {
+            window.location.reload();
+            return;
+          }
+
+          // If offline: smoothly finish without crashing or wiping content
           setTimeout(() => {
             setIsRefreshing(false);
             setIsLaunching(false);
@@ -155,27 +212,38 @@ export function MobilePullToRefresh() {
     window.addEventListener('touchend', handleTouchEnd, { passive: true });
     window.addEventListener('touchcancel', handleTouchEnd, { passive: true });
 
+    // Also support manual / programmatic trigger for testing & debugging
+    const handleManualTrigger = () => {
+      if (!isRefreshingRef.current) {
+        triggerRaceRefresh();
+      }
+    };
+    window.addEventListener('safarpk_trigger_pull_refresh', handleManualTrigger);
+
     return () => {
       window.removeEventListener('touchstart', handleTouchStart);
       window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('touchcancel', handleTouchEnd);
+      window.removeEventListener('safarpk_trigger_pull_refresh', handleManualTrigger);
     };
   }, [router]);
 
   if (pullDistance <= 0 && !isRefreshing) return null;
 
-  const isReady = pullDistance >= 62;
+  const isReady = pullDistance >= 60;
 
   return (
     <div
       style={{
+        top: `${headerHeight}px`,
         height: `${pullDistance}px`,
         transition: isPulling
           ? 'none'
           : 'height 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
       }}
-      className="md:hidden w-full overflow-hidden bg-gradient-to-b from-slate-100 via-slate-50 to-white border-b border-slate-200/80 relative flex flex-col items-center justify-end select-none pointer-events-none z-30"
+      data-testid="mobile-pull-to-refresh"
+      className="fixed left-0 right-0 z-35 overflow-hidden bg-gradient-to-b from-slate-100 via-slate-50 to-white border-b border-slate-200/80 flex flex-col items-center justify-end select-none pointer-events-none shadow-xs"
     >
       {/* Light subtle clean track line */}
       <div className="absolute inset-0 flex items-center justify-center opacity-25">
@@ -194,6 +262,7 @@ export function MobilePullToRefresh() {
 
         {/* The Animated Race Car (Facing Upward) */}
         <div
+          data-testid="pull-refresh-car"
           className={`relative z-10 transition-transform duration-200 ${
             isLaunching
               ? 'animate-car-launch'
@@ -257,12 +326,12 @@ export function MobilePullToRefresh() {
         </div>
 
         {/* Short & Clean Status Text */}
-        <span className="text-[11px] font-bold text-slate-500 mt-1">
+        <span data-testid="pull-refresh-status" className="text-[11px] font-bold text-slate-500 mt-1">
           {isRefreshing
-            ? 'Refreshing...'
+            ? 'Refreshing page content...'
             : isReady
-            ? 'Release'
-            : 'Pull to refresh'}
+            ? 'Release to refresh'
+            : 'Pull down to refresh'}
         </span>
       </div>
     </div>
