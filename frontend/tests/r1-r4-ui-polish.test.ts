@@ -67,7 +67,7 @@ describe('Milestone 1: UI Refactoring & Polish (Requirements R1 - R4)', () => {
       // In MobileHomeNativeView.tsx
       expect(mobileHomeSource).toContain('aria-label="Open Navigation Drawer"');
       expect(mobileHomeSource).toContain('SafarPK');
-      expect(mobileHomeSource).toContain('href="/inbox"');
+      expect(mobileHomeSource).toContain("'/inbox'");
       expect(mobileHomeSource).toContain('aria-label="Notifications"');
       expect(mobileHomeSource).toContain('aria-label="My account"');
 

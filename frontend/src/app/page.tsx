@@ -33,6 +33,8 @@ import {
   ArrowLeftRight,
 } from 'lucide-react';
 import { AppHeader } from '@/components/AppHeader';
+import { getActiveUser } from '@/data/userAuth';
+import { setPendingWishlist, consumeWishlistToast } from '@/data/wishlist';
 import { AppFooter } from '@/components/AppFooter';
 import { MobileNavBar } from '@/components/MobileNavBar';
 import { MobileHomeNativeView } from '@/components/MobileHomeNativeView';
@@ -607,6 +609,24 @@ export default function HomePage() {
   }, []);
 
   const toggleSave = (car: VehicleCardItem) => {
+    const user = getActiveUser();
+    if (!user) {
+      const currentUrl = typeof window !== 'undefined' ? (window.location.pathname + window.location.search) : '/';
+      setPendingWishlist({
+        id: car.id,
+        category: 'car',
+        title: car.name,
+        name: car.name,
+        specs: car.specs,
+        city: car.city,
+        rate: car.price,
+        price: car.price,
+        href: `/listing/${car.id}`,
+      }, currentUrl);
+      window.location.href = `/login?returnUrl=${encodeURIComponent(currentUrl)}&pendingWishlist=1`;
+      return;
+    }
+
     try {
       let updated: string[];
       let storedList: any[] = [];

@@ -35,6 +35,7 @@ import {
   getUserDashboardPath,
   sanitizePakistaniPhone,
 } from '@/data/userAuth';
+import { executePendingWishlistIfAny } from '@/data/wishlist';
 
 type SupportedLang = 'en' | 'ur' | 'ar' | 'de';
 type OperationalRole = 'CUSTOMER' | 'LISTER' | 'DRIVER' | 'PICK_DROP' | 'SHIFTING';
@@ -285,11 +286,12 @@ function RegisterForm() {
       setNotice('Matching existing account found! Opening your dashboard directly...');
     }
 
-    // If customer, no upfront checklist is required on registration - direct to returnUrl or home page.
-    // When booking later, document verification will be asked if required by Super Admin.
-    // Vendor/Host roles (Lister, Driver, Provider) proceed to their dedicated role onboarding checklist.
+    // Check if there was an in-progress guest wishlist action
+    const pending = executePendingWishlistIfAny();
     let dest: string;
-    if (res.user.role === 'CUSTOMER') {
+    if (pending.executed) {
+      dest = pending.returnUrl || (res.user.role === 'CUSTOMER' ? '/' : getUserDashboardPath(res.user));
+    } else if (res.user.role === 'CUSTOMER') {
       const returnUrl = searchParams.get('returnUrl') || searchParams.get('redirect') || searchParams.get('from');
       dest = returnUrl || '/';
     } else {
@@ -912,7 +914,10 @@ function RegisterForm() {
           <div className="pt-3 border-t border-[#F0F2F4] text-center text-xs text-[#475467] flex items-center justify-center gap-1.5 flex-wrap">
             <span>{T.haveAcc.en}</span>
             {lang !== 'en' && <span className="text-slate-400">({T.haveAcc[lang]})</span>}
-            <Link href="/login" className="font-extrabold text-[#0B6B4F] hover:underline ml-1">
+            <Link
+              href={returnUrl ? `/login?returnUrl=${encodeURIComponent(returnUrl)}` : '/login'}
+              className="font-extrabold text-[#0B6B4F] hover:underline ml-1"
+            >
               {T.signIn.en}
               {lang !== 'en' && ` (${T.signIn[lang]})`}
             </Link>

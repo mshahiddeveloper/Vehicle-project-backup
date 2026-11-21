@@ -54,6 +54,8 @@ import {
   formatShortDate,
 } from '@/data/marketplaceData';
 import { getActiveUser, getAllRegisteredUsers, RegisteredUser, getUserDashboardPath } from '@/data/userAuth';
+import { getUserUnreadMessageCount } from '@/data/chatEngine';
+import { setPendingWishlist, consumeWishlistToast } from '@/data/wishlist';
 import { formatPKR, maskPhone } from '@/lib/api';
 import { getStoreSlugForOwner } from '@/data/storefrontEngine';
 import { MobileNavigationDrawer } from '@/components/AppHeader';
@@ -97,6 +99,7 @@ export const formatDateDisplay = (dateStr: string) => {
 export function MobileHomeNativeView() {
   const router = useRouter();
   const [activeUser, setActiveUser] = useState<RegisteredUser | null>(null);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const [city, setCity] = useState<string>('Karachi');
   const [dynamicCities, setDynamicCities] = useState<CityOption[]>(FAMOUS_PAKISTAN_CITIES);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
@@ -223,17 +226,28 @@ export function MobileHomeNativeView() {
   }, []);
 
   useEffect(() => {
-    setActiveUser(getActiveUser());
-    const onAuth = () => setActiveUser(getActiveUser());
-    window.addEventListener('safarpk_auth_state_changed', onAuth);
+    const syncAuth = () => {
+      const u = getActiveUser();
+      setActiveUser(u);
+      setUnreadCount(getUserUnreadMessageCount(u));
+    };
+    syncAuth();
+    window.addEventListener('safarpk_auth_state_changed', syncAuth);
+    window.addEventListener('safarpk_chat_updated', syncAuth);
 
     syncSavedFavorites();
     window.addEventListener('safarpk_saved_updated', syncSavedFavorites);
     window.addEventListener('safarpk_favorites_updated', syncSavedFavorites);
     window.addEventListener('storage', syncSavedFavorites);
 
+    const pendingToast = consumeWishlistToast();
+    if (pendingToast) {
+      showToast(pendingToast);
+    }
+
     return () => {
-      window.removeEventListener('safarpk_auth_state_changed', onAuth);
+      window.removeEventListener('safarpk_auth_state_changed', syncAuth);
+      window.removeEventListener('safarpk_chat_updated', syncAuth);
       window.removeEventListener('safarpk_saved_updated', syncSavedFavorites);
       window.removeEventListener('safarpk_favorites_updated', syncSavedFavorites);
       window.removeEventListener('storage', syncSavedFavorites);
@@ -254,6 +268,25 @@ export function MobileHomeNativeView() {
   };
 
   const toggleSaveCar = (carId: string, carName: string) => {
+    const currentUser = getActiveUser();
+    if (!currentUser) {
+      const currentUrl = typeof window !== 'undefined' ? (window.location.pathname + window.location.search) : '/';
+      const foundCar = filteredCars.find((c) => c.id === carId) || CARS_DATA.find((c) => c.id === carId);
+      setPendingWishlist({
+        id: carId,
+        category: 'car',
+        title: foundCar?.name || carName,
+        name: foundCar?.name || carName,
+        specs: foundCar?.specs || 'Verified Car Rental',
+        city: foundCar?.city || city,
+        rate: foundCar?.price || 'PKR 12,000 / day',
+        price: foundCar?.price || 'PKR 12,000 / day',
+        href: `/listing/${carId}`,
+      }, currentUrl);
+      window.location.href = `/login?returnUrl=${encodeURIComponent(currentUrl)}&pendingWishlist=1`;
+      return;
+    }
+
     const isCurrentlySaved = savedCarIds.includes(carId);
     let updated: string[];
     if (isCurrentlySaved) {
@@ -632,12 +665,14 @@ export function MobileHomeNativeView() {
 
             <div className="flex items-center gap-2 shrink-0">
               <Link
-                href="/inbox"
+                href={activeUser ? '/inbox' : '/login?returnUrl=/inbox'}
                 aria-label="Notifications"
                 className="relative w-9 h-9 rounded-full bg-[#F2F4F7] text-[#101828] flex items-center justify-center transition active:scale-95 hover:bg-slate-200"
               >
                 <Bell className="w-4.5 h-4.5 stroke-[2] text-slate-700" />
-                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#D92D20] ring-2 ring-[#F2F4F7]" />
+                {activeUser && unreadCount > 0 && (
+                  <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#D92D20] ring-2 ring-[#F2F4F7]" />
+                )}
               </Link>
 
               {activeUser ? (

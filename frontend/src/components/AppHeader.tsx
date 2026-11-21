@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { COUNTRIES, CountryInfo, SUPPORTED_CURRENCIES, CurrencyInfo } from '@/data/countries';
 import { getActiveUser, RegisteredUser, logoutActiveUser, getUserDashboardPath } from '@/data/userAuth';
+import { getUserUnreadMessageCount } from '@/data/chatEngine';
 import { useCountry } from '@/app/context/CountryContext';
 import { getSiteBranding, SiteBranding } from '@/data/branding';
 import { checkIsAppInstalled } from '@/data/offlineCache';
@@ -92,6 +93,7 @@ export function AppHeader({
     setCurrency: ctxSetCurrency,
   } = useCountry();
   const [activeUser, setActiveUserState] = useState<RegisteredUser | null>(null);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const [mounted, setMounted] = useState(false);
   const [showCountryMenu, setShowCountryMenu] = useState(false);
   const [showCurrencyMenu, setShowCurrencyMenu] = useState(false);
@@ -132,15 +134,21 @@ export function AppHeader({
     };
   }, []);
 
-  // Sync active user
+  // Sync active user & unread messages
   useEffect(() => {
-    setActiveUserState(getActiveUser());
-    const handleAuthChange = () => {
-      setActiveUserState(getActiveUser());
+    const syncUserAndUnread = () => {
+      const user = getActiveUser();
+      setActiveUserState(user);
+      setUnreadCount(getUserUnreadMessageCount(user));
     };
-    window.addEventListener('safarpk_auth_state_changed', handleAuthChange);
+    syncUserAndUnread();
+    window.addEventListener('safarpk_auth_state_changed', syncUserAndUnread);
+    window.addEventListener('safarpk_chat_updated', syncUserAndUnread);
+    window.addEventListener('storage', syncUserAndUnread);
     return () => {
-      window.removeEventListener('safarpk_auth_state_changed', handleAuthChange);
+      window.removeEventListener('safarpk_auth_state_changed', syncUserAndUnread);
+      window.removeEventListener('safarpk_chat_updated', syncUserAndUnread);
+      window.removeEventListener('storage', syncUserAndUnread);
     };
   }, []);
 
@@ -643,12 +651,14 @@ export function AppHeader({
         {/* Right: Notification Bell + User Profile Avatar / Initials */}
         <div className="flex items-center gap-2 shrink-0">
           <Link
-            href="/inbox"
+            href={activeUser ? '/inbox' : '/login?returnUrl=/inbox'}
             aria-label="Notifications"
             className="relative w-9 h-9 rounded-full bg-[#F2F4F7] text-[#101828] flex items-center justify-center transition active:scale-95 hover:bg-slate-200"
           >
             <Bell className="w-4.5 h-4.5 stroke-[2] text-slate-700" />
-            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#D92D20] ring-2 ring-[#F2F4F7]" />
+            {activeUser && unreadCount > 0 && (
+              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#D92D20] ring-2 ring-[#F2F4F7]" />
+            )}
           </Link>
 
           <Link

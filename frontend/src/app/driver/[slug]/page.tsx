@@ -14,6 +14,7 @@ import {
 import { recordLead, recordClickEvent } from '@/data/activityTracker';
 import { getWhatsAppTargetUrl, startOrOpenConversation } from '@/data/chatEngine';
 import { getActiveUser, isListingPaused } from '@/data/userAuth';
+import { setPendingWishlist, consumeWishlistToast } from '@/data/wishlist';
 import { useCountry } from '@/app/context/CountryContext';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import {
@@ -74,6 +75,25 @@ export default function PublicDriverProfilePage() {
 
   const handleToggleSaveDriver = () => {
     if (!driver) return;
+    const user = getActiveUser();
+    if (!user) {
+      const currentUrl = typeof window !== 'undefined' ? (window.location.pathname + window.location.search) : `/driver/${driver.slug}`;
+      setPendingWishlist({
+        id: driver.id,
+        category: 'driver',
+        title: `${driver.name} (Professional Chauffeur)`,
+        name: `${driver.name} (Professional Chauffeur)`,
+        specs: `${driver.experience} · ${driver.city}`,
+        sub: `${driver.experience} · ${driver.city}`,
+        city: driver.city,
+        rate: formatPrice(driver.dailyRate12h) + ' / 12h',
+        price: formatPrice(driver.dailyRate12h) + ' / 12h',
+        href: `/driver/${driver.slug}`,
+      }, currentUrl);
+      window.location.href = `/login?returnUrl=${encodeURIComponent(currentUrl)}&pendingWishlist=1`;
+      return;
+    }
+
     try {
       const raw = localStorage.getItem('safarpk_saved_items');
       let list = raw ? JSON.parse(raw) : [];

@@ -1,17 +1,20 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Globe, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, UserCheck, AlertCircle } from 'lucide-react';
 import { authenticateUser, getUserDashboardPath } from '@/data/userAuth';
+import { executePendingWishlistIfAny } from '@/data/wishlist';
 import { MobilePullToRefresh } from '@/components/MobilePullToRefresh';
 import { OfflineStatusBanner } from '@/components/OfflineStatusBanner';
 
 type SupportedLang = 'en' | 'ur' | 'ar' | 'de';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnUrl = searchParams.get('returnUrl') || searchParams.get('redirect') || searchParams.get('from');
 
   const [lang, setLang] = useState<SupportedLang>('en');
   const [identifier, setIdentifier] = useState('');
@@ -53,14 +56,33 @@ export default function LoginPage() {
       return;
     }
 
-    // Deterministic role-based target portal routing
-    router.push(getUserDashboardPath(res.user));
+    // Check if there was an in-progress guest wishlist action
+    const pending = executePendingWishlistIfAny();
+    let dest: string;
+    if (pending.executed) {
+      dest = pending.returnUrl || '/saved';
+    } else if (returnUrl) {
+      dest = returnUrl;
+    } else {
+      dest = getUserDashboardPath(res.user);
+    }
+
+    router.push(dest);
   };
 
   const quickSwitch = (demoId: string) => {
     const res = authenticateUser(demoId, 'password123');
     if (res.success && res.user) {
-      router.push(getUserDashboardPath(res.user));
+      const pending = executePendingWishlistIfAny();
+      let dest: string;
+      if (pending.executed) {
+        dest = pending.returnUrl || '/saved';
+      } else if (returnUrl) {
+        dest = returnUrl;
+      } else {
+        dest = getUserDashboardPath(res.user);
+      }
+      router.push(dest);
     }
   };
 
@@ -250,7 +272,10 @@ export default function LoginPage() {
           {/* Switch to Register */}
           <div className="pt-3 border-t border-[#F0F2F4] text-center text-xs text-[#475467] flex items-center justify-center gap-1.5">
             <span>{T.noAcc.en}</span>
-            <Link href="/register" className="font-extrabold text-[#0B6B4F] hover:underline">
+            <Link
+              href={returnUrl ? `/register?returnUrl=${encodeURIComponent(returnUrl)}` : '/register'}
+              className="font-extrabold text-[#0B6B4F] hover:underline"
+            >
               {T.create.en}
             </Link>
           </div>
@@ -259,4 +284,13 @@ export default function LoginPage() {
     </div>
   );
 }
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
+  );
+}
+
 

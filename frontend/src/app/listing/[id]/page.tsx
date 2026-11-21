@@ -8,6 +8,7 @@ import { AppFooter } from '@/components/AppFooter';
 import { MobileNavBar } from '@/components/MobileNavBar';
 import { recordLead, recordClickEvent } from '@/data/activityTracker';
 import { getActiveUser, setActiveUser, isListingPaused } from '@/data/userAuth';
+import { setPendingWishlist, consumeWishlistToast } from '@/data/wishlist';
 import { getApiBaseUrl } from '@/lib/api';
 import { startOrOpenConversation, getWhatsAppTargetUrl } from '@/data/chatEngine';
 import { getStoreSlugForOwner } from '@/data/storefrontEngine';
@@ -542,10 +543,34 @@ export default function ListingDetailPage() {
         if (Array.isArray(parsed) && parsed.some((it: any) => (it.id || it) === car.id)) saved = true;
       }
       setIsSaved(saved);
+
+      const toast = consumeWishlistToast();
+      if (toast) {
+        setShareNotice(toast);
+        setTimeout(() => setShareNotice(null), 3000);
+      }
     } catch (e) {}
   }, [car.id]);
 
   const handleToggleSave = () => {
+    const user = getActiveUser();
+    if (!user) {
+      const currentUrl = typeof window !== 'undefined' ? (window.location.pathname + window.location.search) : `/listing/${car.id}`;
+      setPendingWishlist({
+        id: car.id,
+        category: 'car',
+        title: car.title,
+        name: car.title,
+        specs: `${car.transmission} · ${car.year} · ${car.seats} seats`,
+        city: car.city,
+        rate: `PKR ${car.dailyRate.toLocaleString()} / day`,
+        price: `PKR ${car.dailyRate.toLocaleString()} / day`,
+        href: `/listing/${car.id}`,
+      }, currentUrl);
+      window.location.href = `/login?returnUrl=${encodeURIComponent(currentUrl)}&pendingWishlist=1`;
+      return;
+    }
+
     try {
       const nextSaved = !isSaved;
       setIsSaved(nextSaved);

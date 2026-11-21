@@ -319,19 +319,13 @@ export default function DriversPage() {
   };
 
   const handleChatInInbox = (driver: DriverItem) => {
+    const user = getActiveUser();
+    if (!user) {
+      window.location.href = `/login?returnUrl=${encodeURIComponent('/drivers')}`;
+      return;
+    }
+
     const ref = `SF-${Math.floor(10000 + Math.random() * 90000)}`;
-    const user = getActiveUser() || {
-      id: 'usr-customer-active',
-      name: 'Customer Guest',
-      phone: '+92 300 0000000',
-      city: driver.city,
-      countryCode: 'PK',
-      role: 'CUSTOMER' as const,
-      registeredAt: new Date().toISOString(),
-      subscription: { status: 'UNSUBSCRIBED' as const, quota: 0, usedQuota: 0 },
-      metrics: { viewCount: 0, leadsCount: 0, clickCount: 0, lastActive: new Date().toISOString() },
-      activities: [],
-    };
 
     createDriverBooking({
       bookingRef: ref,

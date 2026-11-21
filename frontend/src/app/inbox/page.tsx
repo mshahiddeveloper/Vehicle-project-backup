@@ -68,29 +68,40 @@ function InboxContent() {
 
   // 1. Initial Load & Auth Sync
   useEffect(() => {
-    let user = getActiveUser();
-    if (!user) {
-      user = DEMO_USERS.find((u) => u.role === 'CUSTOMER') || DEMO_USERS[0];
-    }
-    setActiveUser(user);
-    setAutoReplyState(isListerAutoReplyEnabled(user.id));
+    const syncInbox = () => {
+      const user = getActiveUser();
+      if (!user) {
+        setActiveUser(null);
+        setConversations([]);
+        setMessages([]);
+        return;
+      }
+      setActiveUser(user);
+      setAutoReplyState(isListerAutoReplyEnabled(user.id));
 
-    // Auto purge messages older than 7 days
-    const purged = purgeExpiredMessages();
-    if (purged > 0) {
-      setPurgedNotification(purged);
-      setTimeout(() => setPurgedNotification(null), 5000);
-    }
+      // Auto purge messages older than 7 days
+      const purged = purgeExpiredMessages();
+      if (purged > 0) {
+        setPurgedNotification(purged);
+        setTimeout(() => setPurgedNotification(null), 5000);
+      }
 
-    const convs = getUserConversations(user);
-    setConversations(convs);
+      const convs = getUserConversations(user);
+      setConversations(convs);
 
-    if (convParam && convs.some((c) => c.id === convParam)) {
-      setActiveConvId(convParam);
-      setMobileView('CHAT');
-    } else if (convs.length > 0) {
-      setActiveConvId(convs[0].id);
-    }
+      if (convParam && convs.some((c) => c.id === convParam)) {
+        setActiveConvId(convParam);
+        setMobileView('CHAT');
+      } else if (convs.length > 0) {
+        setActiveConvId(convs[0].id);
+      }
+    };
+
+    syncInbox();
+    window.addEventListener('safarpk_auth_state_changed', syncInbox);
+    return () => {
+      window.removeEventListener('safarpk_auth_state_changed', syncInbox);
+    };
   }, [convParam]);
 
   // Sync auto-reply toggle across tabs/windows
@@ -271,6 +282,41 @@ function InboxContent() {
     const ref = (c.bookingRef || '').toLowerCase();
     return names.includes(q) || about.includes(q) || ref.includes(q);
   });
+
+  if (!activeUser) {
+    return (
+      <div className="min-h-screen bg-[#F7F8FA] font-sans text-[#101828] flex flex-col pb-20 md:pb-0">
+        <AppHeader />
+        <main className="flex-1 max-w-[560px] w-full mx-auto px-4 py-16 flex flex-col items-center justify-center text-center">
+          <div className="w-16 h-16 rounded-3xl bg-emerald-50 border border-emerald-100 flex items-center justify-center mb-5 text-[#0B6B4F] shadow-xs">
+            <MessageSquare className="w-8 h-8" />
+          </div>
+          <h1 className="font-heading font-black text-2xl sm:text-3xl text-[#101828] mb-2">
+            Sign In to View Messages
+          </h1>
+          <p className="text-xs sm:text-sm text-[#667085] mb-6 max-w-sm leading-relaxed">
+            Direct chat, booking updates, and partner messages are private to your account. Please log in or create an account to start or continue your conversations.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xs">
+            <Link
+              href="/login?returnUrl=/inbox"
+              className="flex-1 h-11 rounded-xl bg-[#0B6B4F] text-white font-bold text-xs sm:text-sm flex items-center justify-center hover:bg-[#08513C] shadow-xs transition"
+            >
+              Sign In
+            </Link>
+            <Link
+              href="/register?returnUrl=/inbox"
+              className="flex-1 h-11 rounded-xl bg-white border border-[#D0D5DD] text-[#344054] font-bold text-xs sm:text-sm flex items-center justify-center hover:bg-slate-50 transition"
+            >
+              Create Account
+            </Link>
+          </div>
+        </main>
+        <AppFooter />
+        <MobileNavBar />
+      </div>
+    );
+  }
 
   return (
     <div

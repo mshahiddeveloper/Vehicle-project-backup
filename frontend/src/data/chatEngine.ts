@@ -754,6 +754,20 @@ export function getUserConversations(user: RegisteredUser): ChatConversation[] {
 }
 
 /**
+ * Get total unread message count for a user.
+ * Returns 0 if user is null/logged out.
+ */
+export function getUserUnreadMessageCount(user: RegisteredUser | null): number {
+  if (!user) return 0;
+  try {
+    const convs = getUserConversations(user);
+    return convs.reduce((sum, c) => sum + (c.unreadCountFor?.[user.id] || 0), 0);
+  } catch (e) {
+    return 0;
+  }
+}
+
+/**
  * Get all active messages for a specific conversation
  */
 export function getConversationMessages(conversationId: string): ChatMessage[] {

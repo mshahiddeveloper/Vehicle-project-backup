@@ -351,7 +351,7 @@ function MobileNavBarContent() {
       },
       {
         label: activeUser ? (activeUser.role === 'CUSTOMER' ? 'Bookings' : 'Dashboard') : 'Bookings',
-        href: activeUser ? getUserDashboardPath(activeUser) : '/login',
+        href: activeUser ? getUserDashboardPath(activeUser) : '/login?returnUrl=/customer',
         icon: CalendarCheck,
         isActive: pathname === '/customer',
       },
@@ -363,13 +363,13 @@ function MobileNavBarContent() {
       },
       {
         label: 'Inbox',
-        href: '/inbox',
+        href: activeUser ? '/inbox' : '/login?returnUrl=/inbox',
         icon: MessageSquare,
         isActive: pathname === '/inbox',
       },
       {
         label: 'Profile',
-        href: activeUser ? '/settings' : '/login',
+        href: activeUser ? '/settings' : '/login?returnUrl=/settings',
         icon: User,
         isActive: pathname === '/settings' || pathname === '/login',
       },

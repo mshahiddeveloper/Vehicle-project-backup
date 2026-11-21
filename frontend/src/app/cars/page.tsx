@@ -23,7 +23,8 @@ import { AppHeader } from '@/components/AppHeader';
 import { MobileNavBar } from '@/components/MobileNavBar';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import { CARS_DATA, VehicleCardItem } from '@/data/marketplaceData';
-import { isListingPaused } from '@/data/userAuth';
+import { isListingPaused, getActiveUser } from '@/data/userAuth';
+import { setPendingWishlist, consumeWishlistToast } from '@/data/wishlist';
 import { formatPKR } from '@/lib/api';
 
 const PAK_CITIES = [
@@ -76,12 +77,14 @@ function CarsDirectoryContent() {
     if (paramSearch && paramSearch !== searchQuery) setSearchQuery(paramSearch);
   }, [paramCity, paramSearch]);
 
-  // Load saved vehicles from storage
+  // Load saved vehicles from storage & pending wishlist toast
   useEffect(() => {
     try {
       const saved = localStorage.getItem('safarpk_saved_cars');
       if (saved) setSavedCarIds(JSON.parse(saved));
     } catch {}
+    const toast = consumeWishlistToast();
+    if (toast) showToast(toast);
   }, []);
 
   const showToast = (msg: string) => {
@@ -90,6 +93,25 @@ function CarsDirectoryContent() {
   };
 
   const toggleSaveCar = (carId: string, carName: string) => {
+    const user = getActiveUser();
+    if (!user) {
+      const currentUrl = typeof window !== 'undefined' ? (window.location.pathname + window.location.search) : '/cars';
+      const foundCar = filteredCars.find((c) => c.id === carId) || CARS_DATA.find((c) => c.id === carId);
+      setPendingWishlist({
+        id: carId,
+        category: 'car',
+        title: foundCar?.name || carName,
+        name: foundCar?.name || carName,
+        specs: foundCar?.specs || 'Verified Car Rental',
+        city: foundCar?.city || selectedCity || 'Pakistan',
+        rate: foundCar?.price || 'PKR 12,000 / day',
+        price: foundCar?.price || 'PKR 12,000 / day',
+        href: `/listing/${carId}`,
+      }, currentUrl);
+      window.location.href = `/login?returnUrl=${encodeURIComponent(currentUrl)}&pendingWishlist=1`;
+      return;
+    }
+
     let next: string[];
     if (savedCarIds.includes(carId)) {
       next = savedCarIds.filter((id) => id !== carId);

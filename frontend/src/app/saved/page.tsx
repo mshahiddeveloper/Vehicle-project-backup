@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { AppHeader } from '@/components/AppHeader';
 import { AppFooter } from '@/components/AppFooter';
 import { MobileNavBar } from '@/components/MobileNavBar';
-import { Heart, Trash2, ArrowRight, Car, User, Bus, Truck } from 'lucide-react';
+import { Heart, Trash2, ArrowRight, Car, User, Bus, Truck, LogIn, UserPlus } from 'lucide-react';
 import { CARS_DATA } from '@/data/marketplaceData';
+import { getActiveUser, RegisteredUser } from '@/data/userAuth';
 
 interface SavedItem {
   id: string;
@@ -56,11 +57,21 @@ const INITIAL_SAVED: SavedItem[] = [
 
 export default function SavedItemsPage() {
   const [filterIdx, setFilterIdx] = useState<number>(0); // 0: All, 1: Cars, 2: Drivers, 3: Shuttles, 4: Movers
-  const [items, setItems] = useState<SavedItem[]>(INITIAL_SAVED);
+  const [activeUser, setActiveUser] = useState<RegisteredUser | null>(null);
+  const [items, setItems] = useState<SavedItem[]>([]);
 
   const loadSaved = () => {
     try {
       if (typeof window === 'undefined') return;
+      const user = getActiveUser();
+      setActiveUser(user);
+
+      // Logged out visitors: Wishlist is completely blank and displays friendly login prompt
+      if (!user) {
+        setItems([]);
+        return;
+      }
+
       const raw = localStorage.getItem('safarpk_saved_items');
       let customItems: SavedItem[] = [];
       if (raw) {
@@ -113,7 +124,7 @@ export default function SavedItemsPage() {
 
       const seen = new Set<string>();
       const merged: SavedItem[] = [];
-      for (const item of [...customItems, ...INITIAL_SAVED]) {
+      for (const item of customItems) {
         if (!seen.has(item.id)) {
           seen.add(item.id);
           merged.push(item);
@@ -121,7 +132,7 @@ export default function SavedItemsPage() {
       }
       setItems(merged);
     } catch (e) {
-      setItems(INITIAL_SAVED);
+      setItems([]);
     }
   };
 
@@ -129,10 +140,12 @@ export default function SavedItemsPage() {
     loadSaved();
     window.addEventListener('safarpk_saved_updated', loadSaved);
     window.addEventListener('safarpk_favorites_updated', loadSaved);
+    window.addEventListener('safarpk_auth_state_changed', loadSaved);
     window.addEventListener('storage', loadSaved);
     return () => {
       window.removeEventListener('safarpk_saved_updated', loadSaved);
       window.removeEventListener('safarpk_favorites_updated', loadSaved);
+      window.removeEventListener('safarpk_auth_state_changed', loadSaved);
       window.removeEventListener('storage', loadSaved);
     };
   }, []);
@@ -234,8 +247,38 @@ export default function SavedItemsPage() {
           ))}
         </div>
 
-        {/* Items List - Matching Page 48 */}
-        {filtered.length > 0 ? (
+        {/* Wishlist Content Section */}
+        {!activeUser ? (
+          <div className="p-8 sm:p-12 rounded-3xl bg-white border border-[#EEF0F2] text-center flex flex-col items-center gap-4 shadow-xs mt-1">
+            <div className="w-16 h-16 rounded-3xl bg-rose-50 border border-rose-100 flex items-center justify-center text-[#D92D20] shadow-2xs">
+              <Heart className="w-8 h-8 fill-rose-500/20 text-[#D92D20]" />
+            </div>
+            <div className="max-w-md flex flex-col gap-1.5">
+              <h2 className="font-heading font-black text-xl sm:text-2xl text-[#101828]">
+                Sign in to view your Saved items
+              </h2>
+              <p className="text-xs sm:text-sm text-[#667085] leading-relaxed">
+                Your saved vehicles, verified chauffeurs, and daily commute routes are synced to your account so you can access them anytime across all your devices.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xs mt-2">
+              <Link
+                href="/login?returnUrl=/saved"
+                className="flex-1 h-11 px-5 rounded-xl bg-[#0B6B4F] text-white font-bold text-xs sm:text-sm flex items-center justify-center hover:bg-[#08513C] shadow-xs transition gap-2"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Sign In</span>
+              </Link>
+              <Link
+                href="/register?returnUrl=/saved"
+                className="flex-1 h-11 px-5 rounded-xl bg-white border border-[#D0D5DD] text-[#344054] font-bold text-xs sm:text-sm flex items-center justify-center hover:bg-slate-50 transition gap-2"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Create Free Account</span>
+              </Link>
+            </div>
+          </div>
+        ) : filtered.length > 0 ? (
           <div className="flex flex-col gap-3">
             {filtered.map((item) => (
               <div
