@@ -227,12 +227,13 @@ export default function LoginPage() {
               </button>
             </div>
             <div className="grid grid-cols-2 gap-1.5 text-[11px] font-bold pt-1">
-              <Link
-                href="/admin/console"
-                className="p-1.5 rounded-lg border border-slate-900 bg-slate-900 text-white hover:bg-slate-800 text-center transition"
+              <button
+                type="button"
+                onClick={() => quickSwitch('admin@safarpk.com')}
+                className="p-1.5 rounded-lg border border-slate-900 bg-slate-900 text-white hover:bg-slate-800 text-center transition cursor-pointer"
               >
                 ⚡ Super Admin
-              </Link>
+              </button>
               <Link
                 href="/admin/agents"
                 className="p-1.5 rounded-lg border border-blue-600 bg-blue-50 text-blue-900 hover:bg-blue-100 text-center transition"

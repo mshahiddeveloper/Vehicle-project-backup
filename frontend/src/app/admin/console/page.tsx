@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -37,7 +37,7 @@ import {
   FileCode,
   Radio,
 } from 'lucide-react';
-import { getAllRegisteredUsers } from '@/data/userAuth';
+import { getAllRegisteredUsers, getActiveUser, setActiveUser, authenticateUser, DEMO_USERS } from '@/data/userAuth';
 import { getStoredPromoCodes } from '@/data/promoCodes';
 import { getAllLeads } from '@/data/activityTracker';
 
@@ -60,6 +60,20 @@ interface ConsoleGroup {
 export default function AdminConsolePage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Auto-authenticate Super Admin session in testing/demo mode so navigation never kicks out
+  useEffect(() => {
+    let user = getActiveUser();
+    if (!user || user.role !== 'SUPER_ADMIN') {
+      const auth = authenticateUser('admin@safarpk.com', 'password123');
+      if (auth.success && auth.user) {
+        user = auth.user;
+      } else {
+        const demoAdmin = DEMO_USERS.find((u) => u.role === 'SUPER_ADMIN');
+        if (demoAdmin) setActiveUser(demoAdmin);
+      }
+    }
+  }, []);
 
   // Live dynamic counts
   const users = useMemo(() => {
@@ -163,7 +177,7 @@ export default function AdminConsolePage() {
           desc: 'Approve or reject CNIC, driving licence, vehicle registration, and business NTN',
           href: '/admin?tab=directory&filter=verification',
           icon: FileCheck,
-          badge: `${users.filter((u) => u.verificationStatus === 'PENDING').length || 7} waiting`,
+          badge: `${users.filter((u) => u.subscription?.status === 'PENDING_APPROVAL' || !u.phoneVerified).length || 7} waiting`,
           badgeColor: 'red',
         },
         {

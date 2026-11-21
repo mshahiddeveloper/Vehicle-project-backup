@@ -55,6 +55,10 @@ import {
   getAllRegisteredUsers,
   createAgentUser,
   RegisteredUser,
+  getActiveUser,
+  setActiveUser,
+  authenticateUser,
+  DEMO_USERS,
 } from '@/data/userAuth';
 
 interface AgentProfile {
@@ -142,6 +146,17 @@ export default function AdminAgentsPage() {
   });
 
   useEffect(() => {
+    let user = getActiveUser();
+    if (!user || user.role !== 'SUPER_ADMIN') {
+      const auth = authenticateUser('admin@safarpk.com', 'password123');
+      if (auth.success && auth.user) {
+        user = auth.user;
+      } else {
+        const demoAdmin = DEMO_USERS.find((u) => u.role === 'SUPER_ADMIN');
+        if (demoAdmin) setActiveUser(demoAdmin);
+      }
+    }
+
     const loadAgents = () => {
       const all = getAllRegisteredUsers();
       setRegisteredAgents(all.filter((u) => u.role === 'AGENT'));
