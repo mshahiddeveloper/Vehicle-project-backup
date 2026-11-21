@@ -3,6 +3,14 @@
 import { SubscriptionPlan, getStoredPlans } from './promoCodes';
 import { saveAgentPermissions } from './agentPermissions';
 import { recordAuditAction } from './auditLog';
+import {
+  sealUserSession,
+  unsealUserSession,
+  generateCryptographicOtp,
+  timingSafeEqual,
+  hashPassword,
+  verifyPassword,
+} from '@/lib/cryptoVault';
 
 export type UserRole = 'CUSTOMER' | 'LISTER' | 'DRIVER' | 'PROVIDER' | 'AGENT' | 'SUPER_ADMIN';
 export type ProviderSubtype = 'PICK_AND_DROP' | 'COMMERCIAL_CARGO' | 'CITY_TO_CITY';
@@ -775,16 +783,25 @@ export interface WhatsAppOtpResult {
 
 /**
  * Dispatch a 6-digit WhatsApp verification OTP for free authentic phone authentication
+ * with cryptographic random generation, 10-minute expiry, and brute-force attempt limits.
  */
 export function sendWhatsAppVerificationOtp(phone: string): WhatsAppOtpResult {
   const sanitized = sanitizePakistaniPhone(phone);
-  // Generate authentic 6-digit OTP
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+  // Generate cryptographically secure 6-digit OTP
+  const code = generateCryptographicOtp();
+  const now = Date.now();
+  const expiresAt = now + 10 * 60 * 1000; // 10 minutes
 
   if (typeof window !== 'undefined') {
     try {
-      const payload = { code, phone: sanitized.standard, key: sanitized.key, expiresAt };
+      const payload = {
+        code,
+        phone: sanitized.standard,
+        key: sanitized.key,
+        expiresAt,
+        attempts: 0,
+        createdAt: now,
+      };
       localStorage.setItem(`safarpk_wa_otp_${sanitized.key}`, JSON.stringify(payload));
     } catch (e) {}
   }
@@ -805,7 +822,7 @@ export function sendWhatsAppVerificationOtp(phone: string): WhatsAppOtpResult {
 }
 
 /**
- * Verify WhatsApp OTP code
+ * Verify WhatsApp OTP code with attempt locking and timing-safe comparison
  */
 export function verifyWhatsAppOtpCode(phone: string, inputCode: string): { success: boolean; error?: string } {
   const sanitized = sanitizePakistaniPhone(phone);
@@ -824,21 +841,36 @@ export function verifyWhatsAppOtpCode(phone: string, inputCode: string): { succe
   try {
     const raw = localStorage.getItem(`safarpk_wa_otp_${sanitized.key}`);
     if (!raw) {
-      // Allow valid 6-digit code entered from simulated dispatch
-      return { success: true };
+      return { success: false, error: 'No active verification code found. Please request a new code.' };
     }
     const data = JSON.parse(raw);
     if (Date.now() > data.expiresAt) {
+      localStorage.removeItem(`safarpk_wa_otp_${sanitized.key}`);
       return { success: false, error: 'Verification code has expired. Please request a new code.' };
     }
-    if (data.code !== cleanInput) {
-      return { success: false, error: 'Incorrect verification code. Please check and try again.' };
+
+    // Brute-force protection: track attempts (max 3 allowed)
+    data.attempts = (data.attempts || 0) + 1;
+    if (data.attempts > 3) {
+      localStorage.removeItem(`safarpk_wa_otp_${sanitized.key}`);
+      return { success: false, error: 'Verification code locked due to too many failed attempts. Please request a new code.' };
     }
-    // Clean up
+
+    // Timing-safe comparison to prevent side-channel timing attacks
+    if (!timingSafeEqual(data.code, cleanInput)) {
+      localStorage.setItem(`safarpk_wa_otp_${sanitized.key}`, JSON.stringify(data));
+      const remaining = 3 - data.attempts;
+      return {
+        success: false,
+        error: `Incorrect verification code. ${remaining > 0 ? `${remaining} attempt(s) remaining.` : 'Code locked.'}`,
+      };
+    }
+
+    // Clean up on success
     localStorage.removeItem(`safarpk_wa_otp_${sanitized.key}`);
     return { success: true };
   } catch (e) {
-    return { success: true };
+    return { success: false, error: 'Verification failed. Please try again.' };
   }
 }
 
@@ -970,21 +1002,29 @@ export function purgeDemoData(): void {
 }
 
 /**
- * Get currently logged-in user session
+ * Get currently logged-in user session with cryptographic tamper-proofing verification
  */
 export function getActiveUser(): RegisteredUser | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(STORAGE_ACTIVE_SESSION_KEY);
     if (!raw) return null;
-    return JSON.parse(raw);
+    const user = unsealUserSession<RegisteredUser>(raw);
+    if (!user) {
+      // Session tampered with, expired, or invalid
+      return null;
+    }
+    // Deep clone and strip password to prevent credential leakage
+    const sanitizedUser = { ...user };
+    delete (sanitizedUser as any).password;
+    return sanitizedUser;
   } catch (e) {
     return null;
   }
 }
 
 /**
- * Set active user session
+ * Set active user session with cryptographic tamper-proofing signature
  */
 export function setActiveUser(user: RegisteredUser): void {
   if (typeof window === 'undefined') return;
@@ -993,7 +1033,9 @@ export function setActiveUser(user: RegisteredUser): void {
     user.metrics = user.metrics || { viewCount: 0, leadsCount: 0, clickCount: 0, lastActive: new Date().toISOString() };
     user.metrics.lastActive = new Date().toISOString();
 
-    localStorage.setItem(STORAGE_ACTIVE_SESSION_KEY, JSON.stringify(user));
+    // Cryptographically seal user session with HMAC-SHA256 signature
+    const sealed = sealUserSession(user);
+    localStorage.setItem(STORAGE_ACTIVE_SESSION_KEY, sealed);
 
     // Also update this user in the registered users list
     const all = getAllRegisteredUsers();
@@ -1035,12 +1077,15 @@ export function authenticateUser(
     };
   }
 
-  // If user has a password set and password is provided, verify it
-  if (found.password && password && found.password !== password) {
-    return {
-      success: false,
-      error: 'Incorrect password. Please check and try again.',
-    };
+  // If user has a password set and password is provided, verify it with timing-safe comparison
+  if (found.password && password) {
+    const isPasswordValid = timingSafeEqual(found.password, password);
+    if (!isPasswordValid) {
+      return {
+        success: false,
+        error: 'Incorrect password. Please check and try again.',
+      };
+    }
   }
 
   // Record login activity
@@ -1048,12 +1093,17 @@ export function authenticateUser(
     type: 'LOGIN',
     title: 'User Signed In',
     description: `Signed into ${found.role} dashboard`,
+    timestamp: new Date().toISOString(),
   });
 
-  setActiveUser(found);
+  // Strip password from returned authenticated user
+  const sanitizedUser = { ...found };
+  delete (sanitizedUser as any).password;
+
+  setActiveUser(sanitizedUser);
   return {
     success: true,
-    user: found,
+    user: sanitizedUser,
   };
 }
 

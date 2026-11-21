@@ -153,9 +153,16 @@ export default function SuperAdminDashboardPage() {
   // Enforce Super Admin role guard & sync URL search params (?tab=..., ?role=..., ?cat=..., ?filter=...)
   useEffect(() => {
     let user = getActiveUser();
-    if (!user || user.role !== 'SUPER_ADMIN') {
-      // In demo / testing mode, auto-authenticate demo Super Admin (admin@safarpk.com)
-      // so testing navigation and direct tab clicks NEVER kick the user out to /login
+    // Security Guard: If logged in as another role (e.g. CUSTOMER, LISTER, DRIVER), redirect to user portal
+    if (user && user.role !== 'SUPER_ADMIN') {
+      if (typeof window !== 'undefined') {
+        window.location.replace(getUserDashboardPath(user));
+      }
+      return;
+    }
+
+    if (!user) {
+      // In demo / test runner mode, authenticate demo Super Admin
       const auth = authenticateUser('admin@safarpk.com', 'password123');
       if (auth.success && auth.user) {
         user = auth.user;
