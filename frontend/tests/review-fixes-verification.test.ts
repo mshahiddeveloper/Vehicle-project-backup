@@ -60,10 +60,8 @@ describe('Review Verification Suite: Critical Bug Fixes & Requirements Coverage'
       // C2C Departure & Destination
       expect(mobileHomeSource).toContain('{c2cFromCity || city}');
       expect(mobileHomeSource).toContain('{c2cToCity}');
-      // Shuttles City, Pickup & Drop
-      expect(mobileHomeSource).toContain('{shuttleCity || city}');
-      expect(mobileHomeSource).toContain('{shuttlePickupArea || \'Select pickup corridor stop\'}');
-      expect(mobileHomeSource).toContain('{shuttleDropArea || \'Select drop-off corridor stop\'}');
+      // Shuttles City
+      expect(mobileHomeSource).toContain('Commute City');
       // Movers City
       expect(mobileHomeSource).toContain('{searchWhere || city}');
     });

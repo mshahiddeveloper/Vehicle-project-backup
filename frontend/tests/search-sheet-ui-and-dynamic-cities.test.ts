@@ -159,6 +159,28 @@ describe('Search Sheet UI, Default City & Dynamic Partner Cities Tests', () => {
       expect(mobileHomeSource).toContain('CAR_CATEGORIES[selectedCarCategory]');
       expect(mobileHomeSource).toContain('selectedPriceMax');
     });
+
+    it('T5.5: Pick & drop search only contains Commute City, pickup/drop-off area pickers are removed', () => {
+      const shuttleSheetIdx = mobileHomeSource.indexOf('{activeServiceIdx === 3 && (');
+      expect(shuttleSheetIdx).toBeGreaterThan(-1);
+      const shuttleSheetSlice = mobileHomeSource.slice(shuttleSheetIdx, shuttleSheetIdx + 1500);
+      expect(shuttleSheetSlice).toContain('Commute City');
+      expect(shuttleSheetSlice).not.toContain('Pick-up area (Home Stop)');
+      expect(shuttleSheetSlice).not.toContain('Drop-off (Office or School Stop)');
+
+      // Other category options still preserve their fields
+      const c2cIdx = mobileHomeSource.indexOf('{activeServiceIdx === 2 && (');
+      expect(c2cIdx).toBeGreaterThan(-1);
+      const c2cSlice = mobileHomeSource.slice(c2cIdx, c2cIdx + 3000);
+      expect(c2cSlice).toContain('Leaving from');
+      expect(c2cSlice).toContain('Going to');
+
+      const moversIdx = mobileHomeSource.indexOf('{activeServiceIdx === 4 && (');
+      expect(moversIdx).toBeGreaterThan(-1);
+      const moversSlice = mobileHomeSource.slice(moversIdx, moversIdx + 5000);
+      expect(moversSlice).toContain('Pickup Location');
+      expect(moversSlice).toContain('Drop-off Location');
+    });
   });
 
   describe('6. Dynamic Partner/Lister Cities Syncing', () => {

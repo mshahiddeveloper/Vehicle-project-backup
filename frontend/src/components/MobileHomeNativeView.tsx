@@ -1824,48 +1824,20 @@ export function MobileHomeNativeView() {
                 </>
               )}
 
-              {/* SERVICE 3: PICK & DROP SHUTTLES */}
+              {/* SERVICE 3: PICK & DROP SHUTTLES (Simplified: Commute City only - Area searched via top search bar) */}
               {activeServiceIdx === 3 && (
-                <>
-                  <div className="flex items-center gap-3 h-[48px] px-3.5">
-                    <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                      <MapPin className="w-3.5 h-3.5 stroke-[2.2]" />
-                    </span>
-                    <button type="button" onClick={() => setCitySheetOpen(true)} className="flex-1 flex items-center justify-between text-left border-0 bg-transparent cursor-pointer p-0">
-                      <div>
-                        <span className="text-[10px] font-bold text-[#667085] uppercase tracking-wide block leading-none mb-0.5">Commute City</span>
-                        <span className="text-xs font-bold text-[#101828]">{shuttleCity || city}</span>
-                      </div>
-                      <ChevronDown className="w-4 h-4 text-slate-400" />
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-3 h-[48px] px-3.5">
-                    <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                      <Navigation className="w-3.5 h-3.5 stroke-[2.2]" />
-                    </span>
-                    <button type="button" onClick={() => setShuttleAreaSheetOpen('pickup')} className="flex-1 flex items-center justify-between text-left border-0 bg-transparent cursor-pointer p-0">
-                      <div className="min-w-0 pr-2">
-                        <span className="text-[10px] font-bold text-[#667085] uppercase tracking-wide block leading-none mb-0.5">Pick-up area (Home Stop)</span>
-                        <span className="text-xs font-bold text-[#101828] truncate block">{shuttlePickupArea || 'Select pickup corridor stop'}</span>
-                      </div>
-                      <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-3 h-[48px] px-3.5">
-                    <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                      <Flag className="w-3.5 h-3.5 stroke-[2.2]" />
-                    </span>
-                    <button type="button" onClick={() => setShuttleAreaSheetOpen('drop')} className="flex-1 flex items-center justify-between text-left border-0 bg-transparent cursor-pointer p-0">
-                      <div className="min-w-0 pr-2">
-                        <span className="text-[10px] font-bold text-[#667085] uppercase tracking-wide block leading-none mb-0.5">Drop-off (Office or School Stop)</span>
-                        <span className="text-xs font-bold text-[#101828] truncate block">{shuttleDropArea || 'Select drop-off corridor stop'}</span>
-                      </div>
-                      <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
-                    </button>
-                  </div>
-                </>
+                <div className="flex items-center gap-3 h-[50px] px-3.5 hover:bg-slate-50/70 transition">
+                  <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                    <MapPin className="w-3.5 h-3.5 stroke-[2.2]" />
+                  </span>
+                  <button type="button" onClick={() => setCitySheetOpen(true)} className="flex-1 flex items-center justify-between text-left border-0 bg-transparent cursor-pointer p-0">
+                    <div>
+                      <span className="text-[10px] font-bold text-[#667085] uppercase tracking-wide block leading-none mb-0.5">Commute City</span>
+                      <span className="text-xs font-bold text-[#101828]">{shuttleCity || searchWhere || city}</span>
+                    </div>
+                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                  </button>
+                </div>
               )}
 
               {/* SERVICE 4: MOVERS */}

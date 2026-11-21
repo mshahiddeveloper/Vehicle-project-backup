@@ -245,12 +245,11 @@ describe('Milestone 1: UI Refactoring & Polish (Requirements R1 - R4)', () => {
       // 3. Non-matching pickup stop
       expect(matchesShuttleRoute(testShuttle, 'North Nazimabad', 'Clifton')).toBe(false);
 
-      // 4. Shuttle search sheet has pickup area and drop-off area pickers, no single-day trip date picker
+      // 4. Shuttle search sheet has commute city and area search via top search bar
       const shuttleSheetIdx = mobileHomeSource.indexOf('{activeServiceIdx === 3 && (');
       expect(shuttleSheetIdx).toBeGreaterThan(-1);
       const shuttleSheetSlice = mobileHomeSource.slice(shuttleSheetIdx, shuttleSheetIdx + 3000);
-      expect(shuttleSheetSlice).toContain('Pick-up area (Home Stop)');
-      expect(shuttleSheetSlice).toContain('Drop-off (Office or School Stop)');
+      expect(shuttleSheetSlice).toContain('Commute City');
       expect(shuttleSheetSlice).not.toContain('Single-Day Trip Date');
     });
 
