@@ -13,6 +13,7 @@ export interface VehicleCardItem {
   phone: string;
   whatsapp: string;
   rating: number;
+  blockedDates?: string[];
 }
 
 export interface DriverCardItem {
@@ -37,6 +38,7 @@ export interface DriverCardItem {
   cnic?: string; // Verified NADRA CNIC: e.g. '35201-2123456-1'
   licenseNumber?: string; // Verified Driving Licence: e.g. 'LHR-DL-98210'
   rating: number;
+  blockedDates?: string[];
 }
 
 export interface CityRideItem {
@@ -66,6 +68,7 @@ export interface CityRideItem {
   pickupPoint?: string;
   dropPoint?: string;
   rating: number;
+  blockedDates?: string[];
 }
 
 export interface ShuttleItem {
@@ -89,6 +92,7 @@ export interface ShuttleItem {
   whatsapp: string;
   contacted?: string;
   rating: number;
+  blockedDates?: string[];
 }
 
 export interface MoverItem {
@@ -106,6 +110,7 @@ export interface MoverItem {
   whatsapp: string;
   contacted?: string;
   rating: number;
+  blockedDates?: string[];
 }
 
 export const SERVICE_CATEGORIES: Record<number, string[]> = {
@@ -419,6 +424,7 @@ export const DRIVERS_DATA: DriverCardItem[] = [
     cnic: '35202-3312098-3',
     licenseNumber: 'LHR-HTV-81204',
     rating: 4.9,
+    blockedDates: ['2026-11-20', '2026-11-21'],
   },
   {
     id: 'drv-4',

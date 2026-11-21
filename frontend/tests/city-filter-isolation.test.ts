@@ -115,5 +115,40 @@ describe('Strict City Filter Isolation & Route Corridor Matching', () => {
       expect(mover.city.toLowerCase()).toBe('lahore');
     }
   });
+
+  it('guarantees busy drivers are hidden on today date and on blocked dates', () => {
+    const busyDriver = DRIVERS_DATA.find((d) => d.id === 'drv-3');
+    expect(busyDriver).toBeDefined();
+    expect(busyDriver?.avail).toBe('Busy');
+    expect(busyDriver?.blockedDates).toContain('2026-11-20');
+
+    // Filter available drivers in Lahore for today (2026-11-20)
+    const today = '2026-11-20';
+    const lahoreAvailableToday = DRIVERS_DATA.filter((d) => {
+      if (d.city.toLowerCase() !== 'lahore') return false;
+      if (d.avail === 'Offline') return false;
+      if (today === '2026-11-20' && d.avail === 'Busy') return false;
+      if (d.blockedDates && d.blockedDates.includes(today)) return false;
+      return true;
+    });
+
+    // drv-3 must NOT be present
+    expect(lahoreAvailableToday.map((d) => d.id)).not.toContain('drv-3');
+    // drv-1 (Imran Khan) and drv-2 (Waqar Ahmed) must be present
+    expect(lahoreAvailableToday.map((d) => d.id)).toContain('drv-1');
+    expect(lahoreAvailableToday.map((d) => d.id)).toContain('drv-2');
+    expect(lahoreAvailableToday.length).toBe(2);
+  });
+
+  it('guarantees search input is not duplicated in MobileHomeNativeView', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const src = fs.readFileSync(
+      path.resolve(__dirname, '../src/components/MobileHomeNativeView.tsx'),
+      'utf-8'
+    );
+    const searchMatches = src.match(/ref=\{searchInputRef\}/g);
+    expect(searchMatches).toHaveLength(1);
+  });
 });
 

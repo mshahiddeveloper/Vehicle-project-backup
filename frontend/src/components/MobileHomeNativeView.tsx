@@ -85,6 +85,21 @@ export const getTodayDateString = () => {
   return `${year}-${month}-${day}`;
 };
 
+export const formatDateDisplay = (dateStr: string) => {
+  if (!dateStr) return '';
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const d = new Date(year, month, day);
+      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+  } catch (e) {}
+  return dateStr;
+};
+
 export function MobileHomeNativeView() {
   const router = useRouter();
   const [activeUser, setActiveUser] = useState<RegisteredUser | null>(null);
@@ -106,12 +121,20 @@ export function MobileHomeNativeView() {
   const [carCategorySheetOpen, setCarCategorySheetOpen] = useState(false);
   const [priceSheetOpen, setPriceSheetOpen] = useState(false);
   const todayDateStr = useMemo(() => getTodayDateString(), []);
+  const tomorrowDateStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, []);
 
   // Search Sheet Specific Inputs
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchWhere, setSearchWhere] = useState('Lahore');
-  const [pickupDate, setPickupDate] = useState('');
+  const [pickupDate, setPickupDate] = useState(() => getTodayDateString());
   const [returnDate, setReturnDate] = useState('');
   const [c2cFromCity, setC2cFromCity] = useState('Lahore');
   const [c2cToCity, setC2cToCity] = useState('Islamabad');
@@ -364,6 +387,21 @@ export function MobileHomeNativeView() {
     let list = [...DRIVERS_DATA];
     const targetCity = searchWhere || city;
 
+    // 1. Strict city filter
+    list = list.filter((d) => d.city.toLowerCase() === targetCity.toLowerCase());
+
+    // 2. Strict Date Availability filter:
+    // Offline drivers -> hidden
+    // If effectiveDate is Today and driver is 'Busy' -> hidden
+    // If driver has blocked this date in blockedDates -> hidden
+    const effectiveDate = pickupDate || todayDateStr;
+    list = list.filter((d) => {
+      if (d.avail === 'Offline') return false;
+      if (effectiveDate === todayDateStr && d.avail === 'Busy') return false;
+      if (d.blockedDates && d.blockedDates.includes(effectiveDate)) return false;
+      return true;
+    });
+
     if (searchTokens.length > 0) {
       const explicitCity = searchTokens.find((t) => PAK_CITIES_LOWER.includes(t));
       if (explicitCity) {
@@ -376,17 +414,14 @@ export function MobileHomeNativeView() {
           });
         }
       } else {
-        list = list.filter((d) => d.city.toLowerCase() === targetCity.toLowerCase());
         list = list.filter((d) => {
           const searchable = `${d.name} ${d.exp} ${d.langs} ${d.category} ${(d.tags || []).join(' ')}`.toLowerCase();
           return searchTokens.every((tok) => searchable.includes(tok));
         });
       }
-    } else {
-      list = list.filter((d) => d.city.toLowerCase() === targetCity.toLowerCase());
     }
     return list;
-  }, [city, searchWhere, searchTokens, PAK_CITIES_LOWER]);
+  }, [city, searchWhere, pickupDate, todayDateStr, searchTokens, PAK_CITIES_LOWER]);
 
   const filteredRides = useMemo(() => {
     let list = [...CITY_RIDES_DATA];
@@ -1669,74 +1704,6 @@ export function MobileHomeNativeView() {
               </div>
             </div>
 
-            {/* Live Search & Model Keyword Input Box */}
-            <div className="flex flex-col gap-2">
-              <div className="relative flex items-center">
-                <Search className="absolute left-3.5 w-4.5 h-4.5 text-[#0B6B4F] stroke-[2.2]" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={
-                    activeServiceIdx === 0
-                      ? 'Type name, model or city (e.g. Corolla, Civic, Karachi...)'
-                      : activeServiceIdx === 1
-                      ? 'Type driver name, city, tag (e.g. Tariq, Executive...)'
-                      : activeServiceIdx === 2
-                      ? 'Type city or car (e.g. Lahore, Islamabad, Civic...)'
-                      : activeServiceIdx === 3
-                      ? 'Type area or corridor (e.g. DHA, Gulberg...)'
-                      : 'Type truck or area (e.g. Shehzore, Johar Town...)'
-                  }
-                  className="w-full h-12 pl-10 pr-10 rounded-2xl bg-[#F4F6F8] border border-[#D0D5DD] text-sm font-semibold text-[#101828] placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:border-[#0B6B4F] focus:bg-white focus:ring-2 focus:ring-[#0B6B4F]/20 shadow-2xs transition"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 w-6 h-6 rounded-full bg-slate-200/80 hover:bg-slate-300 text-slate-600 flex items-center justify-center transition active:scale-90"
-                    aria-label="Clear search"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-
-              {/* Popular Quick Suggestions Chips */}
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 shrink-0">
-                  Quick:
-                </span>
-                {(activeServiceIdx === 0
-                  ? ['Corolla', 'Civic', 'Yaris', 'Fortuner', 'HiAce', 'Prado', 'Karachi', 'Islamabad', 'Automatic']
-                  : activeServiceIdx === 1
-                  ? ['Tariq', 'Executive', 'Highway', 'Monthly', 'Certified Chauffeur', 'Karachi']
-                  : activeServiceIdx === 2
-                  ? ['Lahore', 'Islamabad', 'Karachi', 'Civic', 'Corolla']
-                  : activeServiceIdx === 3
-                  ? ['DHA Phase 5', 'Gulberg', 'Clifton', 'Fast NU', 'Blue Area']
-                  : ['Shehzore', 'Suzuki Ravi', 'Mazda Titan', 'Johar Town', 'DHA']
-                ).map((tag) => {
-                  const isTagActive = searchQuery.toLowerCase().includes(tag.toLowerCase());
-                  return (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => setSearchQuery(tag)}
-                      className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-bold transition cursor-pointer active:scale-95 ${
-                        isTagActive
-                          ? 'bg-[#0B6B4F] text-white shadow-xs'
-                          : 'bg-[#F2F4F7] hover:bg-slate-200 text-slate-700'
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
             {/* Form Fields Card */}
             <div className="border border-[#E4E7EC] rounded-2xl overflow-hidden bg-white divide-y divide-[#EEF0F2]">
               {/* SERVICE 0: CAR RENTAL & SERVICE 1: DRIVERS */}
@@ -1989,86 +1956,72 @@ export function MobileHomeNativeView() {
                 </>
               )}
 
-              {/* SERVICE 1: DRIVERS - STARTING DATE / WHEN NEEDED (Flexible Free Browsing + Quick 1-Tap Chips) */}
+              {/* SERVICE 1: DRIVERS - DUTY DATE */}
               {activeServiceIdx === 1 && (
-                <div className="flex flex-col gap-2.5 px-3.5 py-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                        <Calendar className="w-4 h-4 stroke-[2.2]" />
+                <div className="flex flex-col gap-2 px-3.5 py-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <Calendar className="w-4 h-4 stroke-[2.2]" />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1 block">
+                        When needed / Starting Date
                       </span>
-                      <div>
-                        <span className="text-[11px] font-bold text-[#667085] leading-none mb-1 block">
-                          When needed / Starting Date (کب سے چاہیے)
-                        </span>
-                        <span className="text-sm font-bold text-[#101828]">
-                          {pickupDate ? `Starting from ${pickupDate}` : 'Any Date · Flexible Availability (تمام دستیاب ڈرائیورز)'}
-                        </span>
-                      </div>
+                      <span className="text-sm font-bold text-[#101828] truncate block">
+                        {/* Any Date (Flexible) */}
+                        {(!pickupDate || pickupDate === todayDateStr)
+                          ? `Today (${formatDateDisplay(todayDateStr)})`
+                          : pickupDate === tomorrowDateStr
+                          ? `Tomorrow (${formatDateDisplay(tomorrowDateStr)})`
+                          : formatDateDisplay(pickupDate)}
+                      </span>
                     </div>
-                    {pickupDate && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPickupDate('');
-                          showToast('Flexible date browsing enabled (all drivers)');
-                        }}
-                        className="text-[11px] font-bold text-[#0B6B4F] bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded-lg transition cursor-pointer shrink-0"
-                      >
-                        Reset / Any Date
-                      </button>
-                    )}
                   </div>
 
-                  {/* 1-Tap Quick Action Date Selection */}
-                  <div className="flex items-center gap-2 pt-1 overflow-x-auto pb-0.5 scrollbar-none">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPickupDate('');
-                        showToast('Showing all available drivers (no date restriction)');
-                      }}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer whitespace-nowrap ${
-                        !pickupDate
-                          ? 'bg-[#0B6B4F] text-white shadow-xs'
-                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                      }`}
-                    >
-                      Any Date (Flexible)
-                    </button>
+                  {/* 3 Clean Options: Today (default), Tomorrow, Select Date */}
+                  <div className="grid grid-cols-3 gap-2 pt-1">
                     <button
                       type="button"
                       onClick={() => {
                         setPickupDate(todayDateStr);
-                        showToast(`Date set to Today (${todayDateStr})`);
+                        showToast(`Duty date set to Today (${formatDateDisplay(todayDateStr)})`);
                       }}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer whitespace-nowrap ${
-                        pickupDate === todayDateStr
+                      className={`py-2 px-1 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
+                        (!pickupDate || pickupDate === todayDateStr)
                           ? 'bg-[#0B6B4F] text-white shadow-xs'
                           : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                       }`}
                     >
                       Today
                     </button>
+
                     <button
                       type="button"
                       onClick={() => {
-                        const d = new Date();
-                        d.setDate(d.getDate() + 1);
-                        const tomStr = d.toISOString().split('T')[0];
-                        setPickupDate(tomStr);
-                        showToast(`Date set to Tomorrow (${tomStr})`);
+                        setPickupDate(tomorrowDateStr);
+                        showToast(`Duty date set to Tomorrow (${formatDateDisplay(tomorrowDateStr)})`);
                       }}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer whitespace-nowrap ${
-                        pickupDate && pickupDate !== todayDateStr
+                      className={`py-2 px-1 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
+                        pickupDate === tomorrowDateStr
                           ? 'bg-[#0B6B4F] text-white shadow-xs'
                           : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                       }`}
                     >
                       Tomorrow
                     </button>
-                    <label className="relative flex items-center justify-center px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer transition whitespace-nowrap">
-                      <span>Pick Date</span>
+
+                    <label
+                      className={`relative flex items-center justify-center py-2 px-1 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
+                        pickupDate && pickupDate !== todayDateStr && pickupDate !== tomorrowDateStr
+                          ? 'bg-[#0B6B4F] text-white shadow-xs'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      <span className="truncate">
+                        {pickupDate && pickupDate !== todayDateStr && pickupDate !== tomorrowDateStr
+                          ? formatDateDisplay(pickupDate)
+                          : 'Select Date'}
+                      </span>
                       <input
                         type="date"
                         min={todayDateStr}
@@ -2078,8 +2031,9 @@ export function MobileHomeNativeView() {
                           if (val && val < todayDateStr) {
                             setPickupDate(todayDateStr);
                             showToast('Past dates cannot be selected');
-                          } else {
+                          } else if (val) {
                             setPickupDate(val);
+                            showToast(`Duty date set to ${formatDateDisplay(val)}`);
                           }
                         }}
                         className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
@@ -2092,35 +2046,91 @@ export function MobileHomeNativeView() {
               {/* SERVICE 0: CAR RENTALS - PICKUP & RETURN DATES */}
               {activeServiceIdx === 0 && (
                 <>
-                  <label className="flex items-center gap-3 min-h-[58px] px-3.5">
-                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                      <Calendar className="w-4 h-4 stroke-[2.2]" />
-                    </span>
-                    <span className="flex-1 flex flex-col justify-center">
-                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
-                        Pick-up date
+                  <div className="flex flex-col gap-2 px-3.5 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                        <Calendar className="w-4 h-4 stroke-[2.2]" />
                       </span>
-                      <input
-                        type="date"
-                        min={todayDateStr}
-                        value={pickupDate}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val && val < todayDateStr) {
-                            setPickupDate(todayDateStr);
-                            showToast('Past dates cannot be selected');
-                          } else {
-                            setPickupDate(val);
-                            if (returnDate && returnDate < val) {
-                              setReturnDate(val);
-                            }
-                          }
-                        }}
-                        className="border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent"
-                      />
-                    </span>
-                  </label>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[11px] font-bold text-[#667085] leading-none mb-1 block">
+                          Pick-up date
+                        </span>
+                        <span className="text-sm font-bold text-[#101828] truncate block">
+                          {(!pickupDate || pickupDate === todayDateStr)
+                            ? `Today (${formatDateDisplay(todayDateStr)})`
+                            : pickupDate === tomorrowDateStr
+                            ? `Tomorrow (${formatDateDisplay(tomorrowDateStr)})`
+                            : formatDateDisplay(pickupDate)}
+                        </span>
+                      </div>
+                    </div>
 
+                    {/* 3 Clean Options: Today, Tomorrow, Select Date */}
+                    <div className="grid grid-cols-3 gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPickupDate(todayDateStr);
+                          if (returnDate && returnDate < todayDateStr) setReturnDate(todayDateStr);
+                          showToast(`Pick-up date set to Today (${formatDateDisplay(todayDateStr)})`);
+                        }}
+                        className={`py-2 px-1 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
+                          (!pickupDate || pickupDate === todayDateStr)
+                            ? 'bg-[#0B6B4F] text-white shadow-xs'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                        }`}
+                      >
+                        Today
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPickupDate(tomorrowDateStr);
+                          if (returnDate && returnDate < tomorrowDateStr) setReturnDate(tomorrowDateStr);
+                          showToast(`Pick-up date set to Tomorrow (${formatDateDisplay(tomorrowDateStr)})`);
+                        }}
+                        className={`py-2 px-1 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
+                          pickupDate === tomorrowDateStr
+                            ? 'bg-[#0B6B4F] text-white shadow-xs'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                        }`}
+                      >
+                        Tomorrow
+                      </button>
+                      <label
+                        className={`relative flex items-center justify-center py-2 px-1 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
+                          pickupDate && pickupDate !== todayDateStr && pickupDate !== tomorrowDateStr
+                            ? 'bg-[#0B6B4F] text-white shadow-xs'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                        }`}
+                      >
+                        <span className="truncate">
+                          {pickupDate && pickupDate !== todayDateStr && pickupDate !== tomorrowDateStr
+                            ? formatDateDisplay(pickupDate)
+                            : 'Select Date'}
+                        </span>
+                        <input
+                          type="date"
+                          min={todayDateStr}
+                          value={pickupDate}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val && val < todayDateStr) {
+                              setPickupDate(todayDateStr);
+                              showToast('Past dates cannot be selected');
+                            } else if (val) {
+                              setPickupDate(val);
+                              if (returnDate && returnDate < val) setReturnDate(val);
+                              showToast(`Pick-up date set to ${formatDateDisplay(val)}`);
+                            }
+                          }}
+                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Return date */}
                   <label className="flex items-center gap-3 min-h-[58px] px-3.5">
                     <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
                       <Calendar className="w-4 h-4 stroke-[2.2]" />
@@ -2250,7 +2260,7 @@ export function MobileHomeNativeView() {
                   setSelectedCarCategory(0);
                   setSelectedTransmission('All');
                   setSelectedPriceMax(null);
-                  setPickupDate('');
+                  setPickupDate(todayDateStr);
                   setReturnDate('');
                   setIsSelfDrive(true);
                   setShuttlePickupArea('');
