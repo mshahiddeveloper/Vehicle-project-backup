@@ -7,7 +7,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { AppFooter } from '@/components/AppFooter';
 import { MobileNavBar } from '@/components/MobileNavBar';
 import { recordLead, recordClickEvent } from '@/data/activityTracker';
-import { getActiveUser, setActiveUser } from '@/data/userAuth';
+import { getActiveUser, setActiveUser, isListingPaused } from '@/data/userAuth';
 import { getApiBaseUrl } from '@/lib/api';
 import { startOrOpenConversation, getWhatsAppTargetUrl } from '@/data/chatEngine';
 import { getStoreSlugForOwner } from '@/data/storefrontEngine';
@@ -1053,6 +1053,16 @@ export default function ListingDetailPage() {
       <AppHeader />
 
       <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-4 sm:py-6 md:py-10 flex flex-col gap-4 sm:gap-6 pb-24 lg:pb-16">
+        {/* Paused Listing Notice */}
+        {isListingPaused(car.id, car.hostPhone) && (
+          <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl flex items-center gap-3 text-amber-900 text-xs font-semibold shadow-xs">
+            <span className="text-xl">⏸️</span>
+            <div>
+              <span className="font-bold block text-sm">Listing Currently Paused / Inactive</span>
+              This vehicle listing is currently paused. Please browse other verified fleet options.
+            </div>
+          </div>
+        )}
         {/* Desktop Breadcrumb */}
         <nav aria-label="Breadcrumb" className="hidden md:flex text-sm text-[#667085] items-center gap-2">
           <Link href="/" className="hover:text-[#101828]">

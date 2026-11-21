@@ -6,6 +6,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { AppFooter } from '@/components/AppFooter';
 import { MobileNavBar } from '@/components/MobileNavBar';
 import { MOVERS_DATA, MoverItem } from '@/data/marketplaceData';
+import { isListingPaused } from '@/data/userAuth';
 import { recordLead, recordClickEvent } from '@/data/activityTracker';
 import { getWhatsAppTargetUrl } from '@/data/chatEngine';
 import { Phone, MessageSquare, Truck, ArrowRight, ShieldCheck, Check, Search, ChevronDown, Eye, CheckCircle2 } from 'lucide-react';
@@ -28,6 +29,7 @@ export default function MoversPage() {
   const estimatedCost = selectedMover.baseNum + estimatedKm * kmRateNum + helpersCount * helperRateNum;
 
   const filteredMovers = movers.filter((m) => {
+    if (isListingPaused(m.id, m.phone)) return false;
     if (sizeFilter !== 'ALL' && m.category !== sizeFilter) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();

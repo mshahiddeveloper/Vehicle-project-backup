@@ -10,7 +10,7 @@ import { recordLead, recordClickEvent } from '@/data/activityTracker';
 import { ShieldCheck, Phone, MessageSquare, Check, ArrowRight, UserCheck, Lock, Search } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import { maskPakistaniCnic, maskPakistaniLicense, createDriverBooking } from '@/data/driverBookings';
-import { getActiveUser } from '@/data/userAuth';
+import { getActiveUser, isListingPaused } from '@/data/userAuth';
 import { startOrOpenConversation, getWhatsAppTargetUrl } from '@/data/chatEngine';
 import { slugify } from '@/data/storefrontEngine';
 import { useCountry } from '@/app/context/CountryContext';
@@ -178,6 +178,7 @@ export default function DriversPage() {
   const tripLabels = ['City · by the day', 'Outstation', 'Monthly'];
 
   const filteredDrivers = drivers.filter((d) => {
+    if (isListingPaused(d.id, d.phone)) return false;
     if (!d.trips.includes(tripType)) return false;
     if (availOnly && d.avail !== 'Available') return false;
     if (selectedCity && d.city.toLowerCase() !== selectedCity.toLowerCase()) return false;

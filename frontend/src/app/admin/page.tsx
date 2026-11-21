@@ -533,9 +533,16 @@ export default function SuperAdminDashboardPage() {
   // =========================================================================
   const [showGrantFreeModal, setShowGrantFreeModal] = useState(false);
   const [grantFreeModalUser, setGrantFreeModalUser] = useState<RegisteredUser | null>(null);
+  const [freeUserSearchQuery, setFreeUserSearchQuery] = useState('');
+  const [freeQuota, setFreeQuota] = useState(1);
+  const [freeBillingCycle, setFreeBillingCycle] = useState<'MONTHLY' | 'ANNUAL'>('ANNUAL');
+  const [freeStatus, setFreeStatus] = useState<SubscriptionStatus>('ACTIVE');
+  const [freeSelectedPackageId, setFreeSelectedPackageId] = useState('');
+  const [plansUserSearchTerm, setPlansUserSearchTerm] = useState('');
+  const [editingPromoPolicy, setEditingPromoPolicy] = useState<CategoryPromoPolicy | null>(null);
   const [freePlanName, setFreePlanName] = useState('Promotional Free Waiver Pass');
   const [freeOriginalPrice, setFreeOriginalPrice] = useState(2500);
-  const [freeDurationPreset, setFreeDurationPreset] = useState<'7' | '15' | '30' | '90' | '180' | '365' | 'CUSTOM'>('30');
+  const [freeDurationPreset, setFreeDurationPreset] = useState<'7' | '15' | '30' | '90' | '180' | '365' | 'CUSTOM'>('365');
   const [freeCustomExpiryDate, setFreeCustomExpiryDate] = useState('');
   const [freeReason, setFreeReason] = useState('Super Admin 100% Free Promotional Launch Offer');
   const [freeNotifyWhatsApp, setFreeNotifyWhatsApp] = useState(true);
@@ -546,28 +553,50 @@ export default function SuperAdminDashboardPage() {
     setCategoryPromoPolicies(getCategoryPromoPolicies());
   }, []);
 
-  const handleOpenGrantFreeModal = (user?: any) => {
+  const handleOpenGrantFreeModal = (user?: any, planPrefill?: any) => {
     const target = user?.rawUser || user || null;
     setGrantFreeModalUser(target);
-    if (target) {
+    setFreeUserSearchQuery('');
+    setFreeSelectedPackageId('');
+    setFreeStatus('ACTIVE');
+
+    if (planPrefill) {
+      setFreePlanName(planPrefill.name);
+      setFreeOriginalPrice(planPrefill.wasPrice || (planPrefill.billingCycle === 'ANNUAL' ? 7000 : 2500));
+      setFreeQuota(planPrefill.maxListings || (target?.role === 'DRIVER' ? 1 : 15));
+      setFreeBillingCycle(planPrefill.billingCycle || 'ANNUAL');
+      setFreeDurationPreset(planPrefill.billingCycle === 'ANNUAL' ? '365' : '30');
+    } else if (target) {
       if (target.role === 'DRIVER') {
-        setFreePlanName('Independent Chauffeur Launch Pass (100% Free Promo)');
-        setFreeOriginalPrice(2500);
+        setFreePlanName('Independent Chauffeur Annual Pass (100% Free Promo)');
+        setFreeOriginalPrice(7000);
+        setFreeQuota(1);
+        setFreeBillingCycle('ANNUAL');
+        setFreeDurationPreset('365');
       } else if (target.role === 'LISTER') {
         setFreePlanName('Commercial Fleet Hub Pass (100% Free Promo)');
         setFreeOriginalPrice(12000);
+        setFreeQuota(15);
+        setFreeBillingCycle('MONTHLY');
+        setFreeDurationPreset('30');
       } else {
         setFreePlanName('Commercial Transport Provider Pass (100% Free Promo)');
         setFreeOriginalPrice(5500);
+        setFreeQuota(5);
+        setFreeBillingCycle('MONTHLY');
+        setFreeDurationPreset('30');
       }
     } else {
       setFreePlanName('VIP Promotional Free Pass');
-      setFreeOriginalPrice(5000);
+      setFreeOriginalPrice(7000);
+      setFreeQuota(1);
+      setFreeBillingCycle('ANNUAL');
+      setFreeDurationPreset('365');
     }
-    setFreeDurationPreset('30');
-    const d30 = new Date();
-    d30.setDate(d30.getDate() + 30);
-    setFreeCustomExpiryDate(d30.toISOString().slice(0, 10));
+
+    const d = new Date();
+    d.setDate(d.getDate() + (target?.role === 'DRIVER' ? 365 : 30));
+    setFreeCustomExpiryDate(d.toISOString().slice(0, 10));
     setShowGrantFreeModal(true);
   };
 
@@ -585,6 +614,9 @@ export default function SuperAdminDashboardPage() {
       originalPrice: freeOriginalPrice,
       durationDays: days,
       customExpiryDate: customDate,
+      quota: freeQuota,
+      billingCycle: freeDurationPreset === '365' ? 'ANNUAL' : freeBillingCycle,
+      status: freeStatus,
       reason: freeReason,
       grantedBy: 'Super Admin',
     });
@@ -592,7 +624,7 @@ export default function SuperAdminDashboardPage() {
     if (res.success) {
       setRegisteredUsersList(getAllRegisteredUsers());
       setSubscriptionPayments(getAllSubscriptionPayments());
-      setAdminNotice(`🎁 100% Free Subscription granted to ${grantFreeModalUser.name} until ${res.expiryDate}!`);
+      setAdminNotice(`🎁 100% Free Subscription granted to ${grantFreeModalUser.name} until ${res.expiryDate} (Quota: ${freeQuota} Listings)!`);
       setTimeout(() => setAdminNotice(null), 5000);
       setShowGrantFreeModal(false);
 
@@ -602,6 +634,7 @@ export default function SuperAdminDashboardPage() {
           `Salam ${grantFreeModalUser.name}!\n\n` +
           `🎉 Mubarak! Super Admin has granted you a *100% FREE Promotional Subscription* on SafarPK!\n\n` +
           `• Plan: ${freePlanName}\n` +
+          `• Quota: ${freeQuota} Listing(s) Allowed\n` +
           `• Original Price: PKR ${freeOriginalPrice.toLocaleString()}\n` +
           `• Discount Applied: 100% Promotional Waiver\n` +
           `• Amount Paid: PKR 0 (Confirmed Paid in Ledger)\n` +
@@ -909,6 +942,32 @@ export default function SuperAdminDashboardPage() {
     const updated = plans.map((p) => (p.id === editingPlan.id ? { ...editingPlan } : p));
     setPlans(updated);
     saveStoredPlans(updated);
+
+    if (editingPlan.price === 0) {
+      const catKey =
+        editingPlan.targetRole === 'DRIVER'
+          ? 'DRIVER'
+          : editingPlan.targetRole === 'CAR_RENTAL'
+          ? 'RENT_A_CAR'
+          : editingPlan.targetRole === 'PICK_AND_DROP'
+          ? 'PICK_AND_DROP'
+          : editingPlan.targetRole === 'SHIFTING'
+          ? 'HOME_SHIFTING'
+          : 'CITY_TO_CITY';
+      const duration = editingPlan.billingCycle === 'ANNUAL' ? 365 : 30;
+
+      updateCategoryPromoPolicy(catKey, {
+        isFreePromoActive: true,
+        freeDurationDays: duration,
+        displayOriginalPrice: editingPlan.wasPrice,
+        quota: editingPlan.maxListings,
+        billingCycle: editingPlan.billingCycle,
+        planName: editingPlan.name,
+        planId: editingPlan.id,
+      });
+      setCategoryPromoPolicies(getCategoryPromoPolicies());
+    }
+
     setAdminNotice(`Subscription Package "${editingPlan.name}" updated with WAS - NOW rates.`);
     setEditingPlan(null);
     setTimeout(() => setAdminNotice(null), 3000);
@@ -932,6 +991,33 @@ export default function SuperAdminDashboardPage() {
     const updated = [...plans, newPlan];
     setPlans(updated);
     saveStoredPlans(updated);
+
+    // If new package is free (NOW Price === 0), auto-sync with that category's promo policy!
+    if (newPlan.price === 0) {
+      const catKey =
+        newPlan.targetRole === 'DRIVER'
+          ? 'DRIVER'
+          : newPlan.targetRole === 'CAR_RENTAL'
+          ? 'RENT_A_CAR'
+          : newPlan.targetRole === 'PICK_AND_DROP'
+          ? 'PICK_AND_DROP'
+          : newPlan.targetRole === 'SHIFTING'
+          ? 'HOME_SHIFTING'
+          : 'CITY_TO_CITY';
+      const duration = newPlan.billingCycle === 'ANNUAL' ? 365 : 30;
+
+      updateCategoryPromoPolicy(catKey, {
+        isFreePromoActive: true,
+        freeDurationDays: duration,
+        displayOriginalPrice: newPlan.wasPrice,
+        quota: newPlan.maxListings,
+        billingCycle: newPlan.billingCycle,
+        planName: newPlan.name,
+        planId: newPlan.id,
+      });
+      setCategoryPromoPolicies(getCategoryPromoPolicies());
+    }
+
     setShowAddPlanModal(false);
     setNewPlanForm({
       name: '',
@@ -3204,8 +3290,14 @@ export default function SuperAdminDashboardPage() {
                           <span>PKR 0 (100% Free Promo)</span>
                         </div>
                         <div className="flex justify-between text-slate-300">
-                          <span className="text-slate-400">Default Duration:</span>
-                          <span className="font-bold text-white">{pol.freeDurationDays} Days</span>
+                          <span className="text-slate-400">Duration Period:</span>
+                          <span className="font-bold text-white">{pol.freeDurationDays} Days ({pol.billingCycle || (pol.freeDurationDays >= 300 ? 'ANNUAL' : 'MONTHLY')})</span>
+                        </div>
+                        <div className="flex justify-between text-slate-300">
+                          <span className="text-slate-400">Allowed Listing Quota:</span>
+                          <span className="font-bold text-cyan-300">
+                            {pol.quota || (pol.category === 'DRIVER' ? 1 : 15)} {pol.quota === 1 || pol.category === 'DRIVER' ? 'Listing' : 'Listings'}
+                          </span>
                         </div>
                         <div className="flex justify-between text-slate-300">
                           <span className="text-slate-400">Listing Approval Gate:</span>
@@ -3213,11 +3305,19 @@ export default function SuperAdminDashboardPage() {
                         </div>
                       </div>
 
-                      <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                      <div className="pt-2 border-t border-slate-800/80 flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditingPromoPolicy(pol)}
+                          className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer"
+                          title="Edit duration, quota, and rates for this category"
+                        >
+                          ⚙️ Edit
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleToggleCategoryPromo(pol.category)}
-                          className={`w-full py-2 px-3 rounded-xl text-xs font-black transition cursor-pointer text-center ${
+                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition cursor-pointer text-center ${
                             pol.isFreePromoActive
                               ? 'bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800'
                               : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm'
@@ -3229,6 +3329,175 @@ export default function SuperAdminDashboardPage() {
                     </div>
                   ))}
                 </div>
+              </div>
+
+              {/* 0.5. INDIVIDUAL USER / LISTER / DRIVER SUBSCRIPTION SEARCH & MANAGER */}
+              <div className="bg-slate-950/90 rounded-2xl border-2 border-indigo-500/30 p-5 space-y-4 shadow-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-lg shadow-xs">
+                      🔍
+                    </div>
+                    <div>
+                      <h4 className="font-black text-sm text-white">
+                        Individual User & Lister Subscription Manager
+                      </h4>
+                      <p className="text-[11px] text-slate-400">
+                        Deep search any individual vendor, driver, or fleet owner by Mobile Number (+92...), CNIC (35201-...), Email, or Name to assign subscription packages, pause/resume listings, or grant 12-month free passes.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Instant Search Bar */}
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <input
+                    type="text"
+                    placeholder="Search user by Mobile (+92 300...), CNIC (35201-...), Email, or Name..."
+                    value={plansUserSearchTerm}
+                    onChange={(e) => setPlansUserSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder:text-slate-500 font-medium focus:border-indigo-500 focus:outline-hidden"
+                  />
+                </div>
+
+                {/* Matching Users List */}
+                {(() => {
+                  const q = plansUserSearchTerm.trim().toLowerCase();
+                  const cleanQ = q.replace(/\D/g, '');
+                  const matched = registeredUsersList
+                    .filter((u) => u.role !== 'CUSTOMER')
+                    .filter((u) => {
+                      if (!q) return false;
+                      const nameMatch = (u.name || '').toLowerCase().includes(q);
+                      const bizMatch = (u.businessName || '').toLowerCase().includes(q);
+                      const emailMatch = (u.email || '').toLowerCase().includes(q);
+                      const cnicMatch = (u.cnicNumber || u.nationalId || '').toLowerCase().includes(q);
+                      const phoneMatch = cleanQ.length > 2 && (u.phone || '').replace(/\D/g, '').includes(cleanQ);
+                      return nameMatch || bizMatch || emailMatch || cnicMatch || phoneMatch;
+                    });
+
+                  if (!q) {
+                    return (
+                      <p className="text-xs text-slate-500 italic py-1">
+                        💡 Type a mobile number, CNIC, or name above to look up and manage an individual user&apos;s subscription quota and active status.
+                      </p>
+                    );
+                  }
+
+                  if (matched.length === 0) {
+                    return (
+                      <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800 text-xs text-slate-400 text-center">
+                        No lister, driver, or provider matched &ldquo;{plansUserSearchTerm}&rdquo;.
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
+                      {matched.map((user) => {
+                        const sub = user.subscription;
+                        const isPaused = sub?.status === 'PAUSED';
+                        const isExpired = sub?.status === 'EXPIRED';
+                        const isActive = sub?.status === 'ACTIVE';
+                        const quota = sub?.quota ?? (user.role === 'DRIVER' ? 1 : 15);
+
+                        return (
+                          <div
+                            key={user.id}
+                            className="p-3.5 bg-slate-900/90 rounded-xl border border-slate-800 hover:border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
+                          >
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-bold text-white text-sm">{user.name}</span>
+                                {user.businessName && (
+                                  <span className="text-slate-400 font-medium">({user.businessName})</span>
+                                )}
+                                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                                  {user.role}
+                                </span>
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-black ${
+                                    isActive
+                                      ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                      : isPaused
+                                      ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                                      : isExpired
+                                      ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                                      : 'bg-slate-800 text-slate-400 border border-slate-700'
+                                  }`}
+                                >
+                                  {sub?.status || 'UNSUBSCRIBED'}
+                                </span>
+                                {sub?.isFreePromo && (
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-teal-950 text-teal-300 border border-teal-800">
+                                    100% FREE PROMO
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-3 text-slate-400 text-[11px]">
+                                <span>📞 <strong className="text-slate-200">{user.phone}</strong></span>
+                                {(user.cnicNumber || user.nationalId) && (
+                                  <span>🪪 CNIC: <strong className="text-slate-200">{user.cnicNumber || user.nationalId}</strong></span>
+                                )}
+                                {user.email && (
+                                  <span>✉️ <strong className="text-slate-200">{user.email}</strong></span>
+                                )}
+                                <span>📍 {user.city || 'Pakistan'}</span>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-3 text-[11px] pt-1">
+                                <span className="text-slate-300">
+                                  Plan: <strong className="text-emerald-400">{sub?.planName || 'No Plan'}</strong>
+                                </span>
+                                <span className="text-slate-300">
+                                  Quota: <strong className="text-white">{quota} {quota === 1 ? 'Listing' : 'Listings'}</strong>
+                                </span>
+                                <span className="text-slate-300">
+                                  Valid Until / Renewal: <strong className="text-amber-300">{sub?.renewsOn || (sub?.validUntil ? new Date(sub.validUntil).toLocaleDateString() : 'N/A')}</strong>
+                                </span>
+                                {sub?.originalAmount ? (
+                                  <span className="text-slate-400">
+                                    Value: PKR {sub.originalAmount.toLocaleString()} ({sub.amountPaid === 0 ? 'Rs. 0 Paid' : `Rs. ${sub.amountPaid}`})
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex flex-wrap items-center gap-2 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenGrantFreeModal(user)}
+                                className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-bold transition shadow-xs flex items-center gap-1 cursor-pointer"
+                              >
+                                <span>🎁 Assign Subscription</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const res = toggleUserSubscriptionPause(user.id, 'Super Admin');
+                                  setRegisteredUsersList(getAllRegisteredUsers());
+                                  setAdminNotice(res.message);
+                                  setTimeout(() => setAdminNotice(null), 3500);
+                                }}
+                                className={`px-3 py-1.5 rounded-xl font-bold transition cursor-pointer border ${
+                                  isPaused
+                                    ? 'bg-emerald-950 text-emerald-300 border-emerald-800 hover:bg-emerald-900'
+                                    : 'bg-amber-950 text-amber-300 border-amber-800 hover:bg-amber-900'
+                                }`}
+                              >
+                                {isPaused ? '▶️ Resume Sub' : '⏸️ Pause Sub'}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* 1. PENDING SUBSCRIBER APPROVALS QUEUE */}
@@ -7029,9 +7298,16 @@ export default function SuperAdminDashboardPage() {
               </button>
             </div>
 
-            {/* Target Lister/User Selection */}
+            {/* Target Lister/User Selection & Instant Filter */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-300">Target Lister / Driver / Vendor</label>
+              <input
+                type="text"
+                placeholder="🔍 Filter by Phone (+92...), CNIC, Email, or Name..."
+                value={freeUserSearchQuery}
+                onChange={(e) => setFreeUserSearchQuery(e.target.value)}
+                className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white placeholder:text-slate-500 mb-1"
+              />
               <select
                 value={grantFreeModalUser?.id || ''}
                 onChange={(e) => {
@@ -7042,9 +7318,19 @@ export default function SuperAdminDashboardPage() {
                 }}
                 className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white font-bold cursor-pointer"
               >
-                <option value="">-- Choose User from Directory --</option>
+                <option value="">-- Choose User from Directory ({registeredUsersList.filter((u) => u.role !== 'CUSTOMER').length} Available) --</option>
                 {registeredUsersList
                   .filter((u) => u.role !== 'CUSTOMER')
+                  .filter((u) => {
+                    if (!freeUserSearchQuery.trim()) return true;
+                    const q = freeUserSearchQuery.trim().toLowerCase();
+                    const cleanQ = q.replace(/\D/g, '');
+                    const matchName = (u.name || '').toLowerCase().includes(q);
+                    const matchPhone = cleanQ.length > 2 && (u.phone || '').replace(/\D/g, '').includes(cleanQ);
+                    const matchCnic = (u.cnicNumber || u.nationalId || '').toLowerCase().includes(q);
+                    const matchEmail = (u.email || '').toLowerCase().includes(q);
+                    return matchName || matchPhone || matchCnic || matchEmail;
+                  })
                   .map((u) => (
                     <option key={u.id} value={u.id}>
                       {u.name} {u.businessName ? `(${u.businessName})` : ''} — {u.role} ({u.phone})
@@ -7058,16 +7344,46 @@ export default function SuperAdminDashboardPage() {
                     <span className="text-[11px] text-slate-400">{grantFreeModalUser.phone} • {grantFreeModalUser.city || 'Pakistan'}</span>
                   </div>
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-emerald-400 border border-slate-700">
-                    {grantFreeModalUser.role}
+                    {grantFreeModalUser.role} · Current Quota: {grantFreeModalUser.subscription?.quota ?? (grantFreeModalUser.role === 'DRIVER' ? 1 : 15)}
                   </span>
                 </div>
               )}
             </div>
 
+            {/* Quick Fill From Created Packages */}
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                <span>⚡ Select from Created Packages (Auto-Fill)</span>
+              </label>
+              <select
+                value={freeSelectedPackageId}
+                onChange={(e) => {
+                  const pid = e.target.value;
+                  setFreeSelectedPackageId(pid);
+                  const pkg = plans.find((p) => p.id === pid);
+                  if (pkg) {
+                    setFreePlanName(pkg.name);
+                    setFreeOriginalPrice(pkg.wasPrice || (pkg.billingCycle === 'ANNUAL' ? 7000 : 2500));
+                    setFreeQuota(pkg.maxListings || (grantFreeModalUser?.role === 'DRIVER' ? 1 : 15));
+                    setFreeBillingCycle(pkg.billingCycle || 'ANNUAL');
+                    setFreeDurationPreset(pkg.billingCycle === 'ANNUAL' ? '365' : '30');
+                  }
+                }}
+                className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white font-bold cursor-pointer"
+              >
+                <option value="">-- Custom Manual Parameters --</option>
+                {plans.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.targetRole}) — {p.billingCycle} · WAS: Rs. {formatPKR(p.wasPrice)} · Quota: {p.maxListings}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Plan Name & Original Price Breakdown */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-300">Subscription Plan Name</label>
+                <label className="text-xs font-bold text-slate-300">Subscription Plan Name *</label>
                 <input
                   type="text"
                   value={freePlanName}
@@ -7077,14 +7393,40 @@ export default function SuperAdminDashboardPage() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-300">Original Plan Value (PKR)</label>
+                <label className="text-xs font-bold text-slate-300">Original Plan Value (PKR) *</label>
                 <input
                   type="number"
                   value={freeOriginalPrice}
                   onChange={(e) => setFreeOriginalPrice(Number(e.target.value) || 0)}
                   className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white font-bold"
-                  placeholder="2500"
+                  placeholder="7000"
                 />
+              </div>
+            </div>
+
+            {/* Quota & Status Controls */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-300">Allowed Listing Quota (Vehicles / Profiles) *</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={freeQuota}
+                  onChange={(e) => setFreeQuota(Math.max(1, Number(e.target.value) || 1))}
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white font-bold"
+                  placeholder="1 for Chauffeur, 15 for Fleet"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-300">Subscription Initial Status</label>
+                <select
+                  value={freeStatus}
+                  onChange={(e) => setFreeStatus(e.target.value as SubscriptionStatus)}
+                  className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white font-bold cursor-pointer"
+                >
+                  <option value="ACTIVE">ACTIVE (Listings Live Up to Quota)</option>
+                  <option value="PAUSED">PAUSED (Hold Listings as Paused)</option>
+                </select>
               </div>
             </div>
 
@@ -7103,21 +7445,22 @@ export default function SuperAdminDashboardPage() {
                 <span className="text-emerald-400">PKR 0 (Status: CONFIRMED / PAID)</span>
               </div>
               <p className="text-[10px] text-slate-400 pt-0.5">
-                * An authentic PKR 0 confirmed receipt will be recorded in the financial ledger and user billing history showing the full discount.
+                * An authentic PKR 0 confirmed receipt will be recorded in the financial ledger and user billing history showing the full discount. Quota: {freeQuota} listing(s).
               </p>
             </div>
 
             {/* Duration Selector */}
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-300">Waiver Duration & Expiry</label>
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                 {[
                   { label: '7 Days', val: '7' },
                   { label: '15 Days', val: '15' },
                   { label: '30 Days', val: '30' },
-                  { label: '3 Months', val: '90' },
-                  { label: '6 Months', val: '180' },
-                  { label: 'Custom', val: 'CUSTOM' },
+                  { label: '3 Months (90d)', val: '90' },
+                  { label: '6 Months (180d)', val: '180' },
+                  { label: '12 Months (1 Year)', val: '365' },
+                  { label: 'Custom Date', val: 'CUSTOM' },
                 ].map((d) => (
                   <button
                     key={d.val}
@@ -7190,6 +7533,163 @@ export default function SuperAdminDashboardPage() {
                 className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black shadow-md transition flex items-center gap-1.5 cursor-pointer"
               >
                 <span>🎁 Grant 100% Free Subscription Now</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ⚙️ EDIT CATEGORY PROMO POLICY MODAL */}
+      {editingPromoPolicy && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">⚙️</span>
+                <h3 className="font-bold text-sm text-white">Edit Policy: {editingPromoPolicy.label}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingPromoPolicy(null)}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-300 block mb-1">Duration Period (Days)</label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[
+                    { label: '30 Days', days: 30, cycle: 'MONTHLY' },
+                    { label: '90 Days', days: 90, cycle: 'QUARTERLY' },
+                    { label: '180 Days', days: 180, cycle: 'CUSTOM' },
+                    { label: '365 Days (Annual)', days: 365, cycle: 'ANNUAL' },
+                  ].map((preset) => (
+                    <button
+                      key={preset.days}
+                      type="button"
+                      onClick={() =>
+                        setEditingPromoPolicy({
+                          ...editingPromoPolicy,
+                          freeDurationDays: preset.days,
+                          billingCycle: preset.cycle as any,
+                        })
+                      }
+                      className={`p-2 rounded-xl text-[11px] font-bold border transition cursor-pointer text-center ${
+                        editingPromoPolicy.freeDurationDays === preset.days
+                          ? 'bg-emerald-600 text-white border-emerald-500'
+                          : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Allowed Listing Quota *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editingPromoPolicy.quota || 1}
+                    onChange={(e) =>
+                      setEditingPromoPolicy({
+                        ...editingPromoPolicy,
+                        quota: Math.max(1, Number(e.target.value) || 1),
+                      })
+                    }
+                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-300 block mb-1">Regular Rate (WAS Price) *</label>
+                  <input
+                    type="number"
+                    value={editingPromoPolicy.displayOriginalPrice || 7000}
+                    onChange={(e) =>
+                      setEditingPromoPolicy({
+                        ...editingPromoPolicy,
+                        displayOriginalPrice: Number(e.target.value) || 0,
+                      })
+                    }
+                    className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-300 block mb-1">Promo Plan Display Title</label>
+                <input
+                  type="text"
+                  value={editingPromoPolicy.planName}
+                  onChange={(e) =>
+                    setEditingPromoPolicy({
+                      ...editingPromoPolicy,
+                      planName: e.target.value,
+                    })
+                  }
+                  className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-300 block mb-1">Policy Description / Reason</label>
+                <input
+                  type="text"
+                  value={editingPromoPolicy.reason}
+                  onChange={(e) =>
+                    setEditingPromoPolicy({
+                      ...editingPromoPolicy,
+                      reason: e.target.value,
+                    })
+                  }
+                  className="w-full p-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-medium"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="promoReqApproval"
+                  checked={editingPromoPolicy.requiresListingApproval}
+                  onChange={(e) =>
+                    setEditingPromoPolicy({
+                      ...editingPromoPolicy,
+                      requiresListingApproval: e.target.checked,
+                    })
+                  }
+                  className="w-4 h-4 rounded text-emerald-600 bg-slate-950 border-slate-700 cursor-pointer"
+                />
+                <label htmlFor="promoReqApproval" className="text-slate-300 font-semibold cursor-pointer">
+                  Require Super Admin / Agent verification before listings go LIVE
+                </label>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setEditingPromoPolicy(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  updateCategoryPromoPolicy(editingPromoPolicy.category, editingPromoPolicy);
+                  setCategoryPromoPolicies(getCategoryPromoPolicies());
+                  setAdminNotice(`✅ Category policy for ${editingPromoPolicy.label} updated.`);
+                  setEditingPromoPolicy(null);
+                  setTimeout(() => setAdminNotice(null), 3000);
+                }}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-md"
+              >
+                Save Category Policy
               </button>
             </div>
           </div>

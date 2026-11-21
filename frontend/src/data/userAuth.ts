@@ -1,6 +1,6 @@
 'use client';
 
-import { SubscriptionPlan } from './promoCodes';
+import { SubscriptionPlan, getStoredPlans } from './promoCodes';
 import { saveAgentPermissions } from './agentPermissions';
 import { recordAuditAction } from './auditLog';
 
@@ -61,6 +61,7 @@ export interface UserSubscription {
   startDate?: string;
   amount?: number;
   rejectionReason?: string;
+  billingCycle?: 'MONTHLY' | 'QUARTERLY' | 'ANNUAL' | 'CUSTOM';
 }
 
 export interface UserActivityLog {
@@ -1144,14 +1145,16 @@ export function registerNewUser(params: {
     subscription: (() => {
       const promoPolicy = isCategoryFreePromoActive(params.role, params.providerSubtype);
       if (promoPolicy && promoPolicy.isFreePromoActive) {
+        const duration = promoPolicy.freeDurationDays || 30;
         const expiry = new Date();
-        expiry.setDate(expiry.getDate() + promoPolicy.freeDurationDays);
+        expiry.setDate(expiry.getDate() + duration);
         const expiryIso = expiry.toISOString();
         const expiryDisplay = expiry.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        const quota = promoPolicy.quota !== undefined ? promoPolicy.quota : (params.role === 'DRIVER' ? 1 : 15);
 
         return {
           status: 'ACTIVE' as SubscriptionStatus,
-          planId: `${params.role.toLowerCase()}-free-promo`,
+          planId: promoPolicy.planId || `${params.role.toLowerCase()}-free-promo`,
           planName: promoPolicy.planName,
           amountPaid: 0,
           originalAmount: promoPolicy.displayOriginalPrice,
@@ -1159,13 +1162,14 @@ export function registerNewUser(params: {
           discountPercentage: 100,
           isFreePromo: true,
           freePromoReason: promoPolicy.reason,
-          currency: promoPolicy.currency,
-          symbol: promoPolicy.symbol,
+          currency: promoPolicy.currency || 'PKR',
+          symbol: promoPolicy.symbol || 'Rs',
+          billingCycle: promoPolicy.billingCycle || (duration >= 300 ? 'ANNUAL' : 'MONTHLY'),
           startDate: nowIso.slice(0, 10),
           endDate: expiryIso,
           validUntil: expiryIso,
           renewsOn: expiryDisplay,
-          quota: 15,
+          quota,
           usedQuota: 0,
           approvedAt: nowIso,
           paymentRef: `PROMO-FREE-${Date.now().toString().slice(-6)}`,
@@ -2107,6 +2111,74 @@ export function createAgentUser(data: {
 }
 
 /**
+ * Synchronize user fleet listings with their allowed quota limit and active status.
+ * If isActive is false, all listings are paused and added to paused list.
+ * If isActive is true, up to quota listings are set to LIVE; excess listings stay PAUSED.
+ */
+export function syncUserListingsQuota(
+  userId: string,
+  quota: number = 1,
+  isActive: boolean = true
+): { total: number; live: number; paused: number } {
+  if (typeof window === 'undefined') return { total: 0, live: 0, paused: 0 };
+  try {
+    const fleetKey = `safarpk_fleet_${userId}`;
+    const rawFleet = localStorage.getItem(fleetKey);
+    const pausedIds = new Set<string>(getPausedListingIds());
+    let total = 0;
+    let live = 0;
+    let paused = 0;
+
+    if (rawFleet) {
+      const fleet = JSON.parse(rawFleet);
+      if (Array.isArray(fleet) && fleet.length > 0) {
+        total = fleet.length;
+        const allowedLiveLimit = Math.max(0, quota);
+
+        const updatedFleet = fleet.map((item: any, idx: number) => {
+          const itemId = String(item.id || `veh-${idx}`);
+          if (!isActive) {
+            paused++;
+            pausedIds.add(itemId);
+            return {
+              ...item,
+              status: 'PAUSED',
+              pausedReason: 'Subscription Inactive / Paused',
+            };
+          } else if (idx < allowedLiveLimit) {
+            live++;
+            pausedIds.delete(itemId);
+            return {
+              ...item,
+              status: 'LIVE',
+              pausedReason: undefined,
+            };
+          } else {
+            paused++;
+            pausedIds.add(itemId);
+            return {
+              ...item,
+              status: 'PAUSED',
+              pausedReason: `Plan Quota Limit Reached (Max ${allowedLiveLimit} Allowed)`,
+            };
+          }
+        });
+
+        localStorage.setItem(fleetKey, JSON.stringify(updatedFleet));
+      }
+    }
+
+    localStorage.setItem('safarpk_paused_listings', JSON.stringify(Array.from(pausedIds)));
+    window.dispatchEvent(new Event('safarpk_listing_pause_updated'));
+    window.dispatchEvent(new Event('safarpk_fleet_updated'));
+
+    return { total, live, paused };
+  } catch (e) {
+    return { total: 0, live: 0, paused: 0 };
+  }
+}
+
+/**
  * Pause / Resume a user's subscription (Available to SUPER_ADMIN and AGENT)
  */
 export function toggleUserSubscriptionPause(
@@ -2121,8 +2193,25 @@ export function toggleUserSubscriptionPause(
 
     const wasActive = user.subscription?.status === 'ACTIVE';
     const newStatus: SubscriptionStatus = wasActive ? 'PAUSED' : 'ACTIVE';
-    user.subscription = user.subscription || { quota: 0, usedQuota: 0, status: 'UNSUBSCRIBED' };
+    const effectiveQuota = user.subscription?.quota ?? (user.role === 'DRIVER' ? 1 : 15);
+
+    user.subscription = user.subscription || { quota: effectiveQuota, usedQuota: 0, status: 'UNSUBSCRIBED' };
     user.subscription.status = newStatus;
+    user.subscription.quota = effectiveQuota;
+
+    // If resuming an expired subscription, give it 30 days of active grace
+    if (newStatus === 'ACTIVE') {
+      const now = new Date();
+      const validUntil = user.subscription.validUntil ? new Date(user.subscription.validUntil) : null;
+      if (!validUntil || isNaN(validUntil.getTime()) || validUntil <= now) {
+        const renewed = new Date();
+        const cycleDays = user.subscription.billingCycle === 'ANNUAL' ? 365 : 30;
+        renewed.setDate(renewed.getDate() + cycleDays);
+        user.subscription.validUntil = renewed.toISOString();
+        user.subscription.endDate = renewed.toISOString();
+        user.subscription.renewsOn = renewed.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      }
+    }
 
     const actionText = newStatus === 'PAUSED' ? 'Paused' : 'Resumed / Activated';
     user.activities = user.activities || [];
@@ -2138,7 +2227,7 @@ export function toggleUserSubscriptionPause(
 
     const active = getActiveUser();
     if (active && (active.id === user.id || active.phone === user.phone)) {
-      active.subscription.status = newStatus;
+      active.subscription = user.subscription;
       setActiveUser(active);
     }
 
@@ -2153,29 +2242,14 @@ export function toggleUserSubscriptionPause(
       });
     } catch (e) {}
 
-    // Synchronize fleet listings: when subscription is paused, pause all listings
-    try {
-      const fleetKey = `safarpk_fleet_${user.id}`;
-      const rawFleet = localStorage.getItem(fleetKey);
-      if (rawFleet) {
-        const fleet = JSON.parse(rawFleet);
-        if (Array.isArray(fleet)) {
-          const updatedFleet = fleet.map((item: any) => ({
-            ...item,
-            status: newStatus === 'PAUSED' ? 'PAUSED' : (item.prevStatus || 'LIVE'),
-            prevStatus: newStatus === 'PAUSED' ? (item.status !== 'PAUSED' ? item.status : item.prevStatus || 'LIVE') : undefined,
-            pausedReason: newStatus === 'PAUSED' ? 'Subscription Paused' : undefined,
-          }));
-          localStorage.setItem(fleetKey, JSON.stringify(updatedFleet));
-        }
-      }
-    } catch (e) {}
+    // Synchronize fleet listings: when subscription is active, activate up to quota; when paused, pause all
+    syncUserListingsQuota(user.id, effectiveQuota, newStatus === 'ACTIVE');
 
     window.dispatchEvent(new CustomEvent('safarpk_user_subscription_updated', { detail: { userId, status: newStatus } }));
     return {
       success: true,
       isPaused: newStatus === 'PAUSED',
-      message: `User subscription has been ${actionText.toLowerCase()}.`,
+      message: `User subscription has been ${actionText.toLowerCase()}. Active live listings updated as per quota (${effectiveQuota}).`,
     };
   } catch (e: any) {
     return { success: false, isPaused: false, message: e.message || 'Operation failed' };
@@ -2261,8 +2335,29 @@ export function getPausedListingIds(): string[] {
   }
 }
 
-export function isListingPaused(listingId: string): boolean {
-  return getPausedListingIds().includes(listingId);
+export function isListingPaused(listingId: string, ownerIdentifier?: string): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const paused = getPausedListingIds();
+    if (paused.includes(listingId)) return true;
+
+    if (ownerIdentifier) {
+      const all = getAllRegisteredUsers();
+      const cleanOwner = ownerIdentifier.replace(/\D/g, '');
+      const owner = all.find(
+        (u) =>
+          u.id === ownerIdentifier ||
+          (cleanOwner && u.phone && u.phone.replace(/\D/g, '').endsWith(cleanOwner.slice(-10))) ||
+          (u.email && u.email.toLowerCase() === ownerIdentifier.toLowerCase())
+      );
+      if (owner && owner.subscription) {
+        if (owner.subscription.status === 'PAUSED' || owner.subscription.status === 'EXPIRED') {
+          return true;
+        }
+      }
+    }
+  } catch {}
+  return false;
 }
 
 export function toggleListingPause(
@@ -2326,6 +2421,9 @@ export interface CategoryPromoPolicy {
   planName: string;
   reason: string;
   requiresListingApproval: boolean;
+  quota?: number; // Allowed listing quota (e.g. 1 for DRIVER, 15 for RENT_A_CAR)
+  billingCycle?: 'MONTHLY' | 'QUARTERLY' | 'ANNUAL' | 'CUSTOM';
+  planId?: string;
 }
 
 const STORAGE_CATEGORY_PROMO_KEY = 'safarpk_category_promo_policies';
@@ -2336,11 +2434,13 @@ export const DEFAULT_CATEGORY_PROMO_POLICIES: CategoryPromoPolicy[] = [
     label: 'Hire a Driver (Chauffeur Directory)',
     role: 'DRIVER',
     isFreePromoActive: true, // Free subscription for drivers by default!
-    freeDurationDays: 30,
-    displayOriginalPrice: 2500,
+    freeDurationDays: 365, // 12 Months / 1 Year Annual Free Launch Pass
+    displayOriginalPrice: 7000,
+    quota: 1, // Drivers have 1 profile/listing!
+    billingCycle: 'ANNUAL',
     currency: 'PKR',
     symbol: 'Rs',
-    planName: 'Independent Chauffeur Pass (100% Free Promo)',
+    planName: 'Independent Chauffeur Annual Pass (100% Free Promo)',
     reason: 'Driver Launch Promotion — Free to List Profile (Pending Approval)',
     requiresListingApproval: true,
   },
@@ -2351,6 +2451,8 @@ export const DEFAULT_CATEGORY_PROMO_POLICIES: CategoryPromoPolicy[] = [
     isFreePromoActive: false,
     freeDurationDays: 30,
     displayOriginalPrice: 12000,
+    quota: 15,
+    billingCycle: 'MONTHLY',
     currency: 'PKR',
     symbol: 'Rs',
     planName: 'Professional Fleet Hub (15 Vehicles)',
@@ -2364,6 +2466,8 @@ export const DEFAULT_CATEGORY_PROMO_POLICIES: CategoryPromoPolicy[] = [
     isFreePromoActive: false,
     freeDurationDays: 30,
     displayOriginalPrice: 4800,
+    quota: 5,
+    billingCycle: 'MONTHLY',
     currency: 'PKR',
     symbol: 'Rs',
     planName: 'Commuter Route Shuttle Pass',
@@ -2377,6 +2481,8 @@ export const DEFAULT_CATEGORY_PROMO_POLICIES: CategoryPromoPolicy[] = [
     isFreePromoActive: false,
     freeDurationDays: 30,
     displayOriginalPrice: 5500,
+    quota: 5,
+    billingCycle: 'MONTHLY',
     currency: 'PKR',
     symbol: 'Rs',
     planName: 'Cargo & Shifting Mover Pass',
@@ -2390,6 +2496,8 @@ export const DEFAULT_CATEGORY_PROMO_POLICIES: CategoryPromoPolicy[] = [
     isFreePromoActive: false,
     freeDurationDays: 30,
     displayOriginalPrice: 4500,
+    quota: 5,
+    billingCycle: 'MONTHLY',
     currency: 'PKR',
     symbol: 'Rs',
     planName: 'Intercity Travel Route Pass',
@@ -2440,29 +2548,61 @@ export function updateCategoryPromoPolicy(category: string, updates: Partial<Cat
 
 export function isCategoryFreePromoActive(role: UserRole, subtype?: ProviderSubtype): CategoryPromoPolicy | null {
   const policies = getCategoryPromoPolicies();
+  let categoryKey: 'DRIVER' | 'RENT_A_CAR' | 'PICK_AND_DROP' | 'HOME_SHIFTING' | 'CITY_TO_CITY' = 'RENT_A_CAR';
+  let targetRoleKey: 'CAR_RENTAL' | 'DRIVER' | 'PICK_AND_DROP' | 'SHIFTING' | 'PROVIDER' = 'CAR_RENTAL';
+
   if (role === 'DRIVER') {
-    const p = policies.find((pol) => pol.category === 'DRIVER');
-    return p && p.isFreePromoActive ? p : null;
-  }
-  if (role === 'LISTER') {
-    const p = policies.find((pol) => pol.category === 'RENT_A_CAR');
-    return p && p.isFreePromoActive ? p : null;
-  }
-  if (role === 'PROVIDER') {
+    categoryKey = 'DRIVER';
+    targetRoleKey = 'DRIVER';
+  } else if (role === 'LISTER') {
+    categoryKey = 'RENT_A_CAR';
+    targetRoleKey = 'CAR_RENTAL';
+  } else if (role === 'PROVIDER') {
     if (subtype === 'PICK_AND_DROP') {
-      const p = policies.find((pol) => pol.category === 'PICK_AND_DROP');
-      return p && p.isFreePromoActive ? p : null;
-    }
-    if (subtype === 'COMMERCIAL_CARGO') {
-      const p = policies.find((pol) => pol.category === 'HOME_SHIFTING');
-      return p && p.isFreePromoActive ? p : null;
-    }
-    if (subtype === 'CITY_TO_CITY') {
-      const p = policies.find((pol) => pol.category === 'CITY_TO_CITY');
-      return p && p.isFreePromoActive ? p : null;
+      categoryKey = 'PICK_AND_DROP';
+      targetRoleKey = 'PICK_AND_DROP';
+    } else if (subtype === 'COMMERCIAL_CARGO') {
+      categoryKey = 'HOME_SHIFTING';
+      targetRoleKey = 'SHIFTING';
+    } else {
+      categoryKey = 'CITY_TO_CITY';
+      targetRoleKey = 'CAR_RENTAL';
     }
   }
-  return null;
+
+  // Priority check: Look for any stored subscription package created with price === 0 (or marked free promo)
+  try {
+    const storedPlans = getStoredPlans();
+    const freePlan = storedPlans.find(
+      (p) =>
+        p.isActive &&
+        p.price === 0 &&
+        (p.targetRole === targetRoleKey || p.targetRole === 'ALL' || (role === 'DRIVER' && p.targetRole === 'DRIVER'))
+    );
+    if (freePlan) {
+      const isAnnual = freePlan.billingCycle === 'ANNUAL';
+      const duration = isAnnual ? 365 : 30;
+      return {
+        category: categoryKey,
+        label: freePlan.name,
+        role: role,
+        isFreePromoActive: true,
+        freeDurationDays: duration,
+        displayOriginalPrice: freePlan.wasPrice || (isAnnual ? 7000 : 2500),
+        quota: freePlan.maxListings || (role === 'DRIVER' ? 1 : 15),
+        billingCycle: freePlan.billingCycle,
+        currency: 'PKR',
+        symbol: 'Rs',
+        planName: freePlan.name,
+        planId: freePlan.id,
+        reason: 'Super Admin Published 100% Free Subscription Package',
+        requiresListingApproval: true,
+      };
+    }
+  } catch (e) {}
+
+  const p = policies.find((pol) => pol.category === categoryKey);
+  return p && p.isFreePromoActive ? p : null;
 }
 
 export interface GrantFreeSubscriptionParams {
@@ -2472,6 +2612,9 @@ export interface GrantFreeSubscriptionParams {
   originalPrice?: number;
   durationDays?: number;
   customExpiryDate?: string;
+  quota?: number;
+  billingCycle?: 'MONTHLY' | 'QUARTERLY' | 'ANNUAL' | 'CUSTOM';
+  status?: SubscriptionStatus;
   reason?: string;
   grantedBy?: string;
 }
@@ -2489,26 +2632,30 @@ export function grantFreePromotionalSubscription(params: GrantFreeSubscriptionPa
   const now = new Date();
   const todayStr = now.toISOString().slice(0, 10);
 
+  const durationDays = params.durationDays ?? (params.billingCycle === 'ANNUAL' ? 365 : 30);
   let expiryDate = new Date();
   if (params.customExpiryDate) {
     const custom = new Date(params.customExpiryDate.includes('T') ? params.customExpiryDate : params.customExpiryDate + 'T23:59:59');
     if (!isNaN(custom.getTime())) {
       expiryDate = custom;
     } else {
-      expiryDate.setDate(expiryDate.getDate() + (params.durationDays || 30));
+      expiryDate.setDate(expiryDate.getDate() + durationDays);
     }
   } else {
-    expiryDate.setDate(expiryDate.getDate() + (params.durationDays || 30));
+    expiryDate.setDate(expiryDate.getDate() + durationDays);
   }
 
   const expiryIso = expiryDate.toISOString();
   const expiryDisplay = expiryDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
-  const originalPrice = params.originalPrice ?? (user.role === 'DRIVER' ? 2500 : user.role === 'LISTER' ? 12000 : 5000);
-  const planName = params.planName || (user.role === 'DRIVER' ? 'Independent Chauffeur Pass (100% Free Promo)' : 'Commercial Lister Pass (100% Free Promo)');
+  const isAnnual = params.billingCycle === 'ANNUAL' || durationDays >= 300;
+  const originalPrice = params.originalPrice ?? (user.role === 'DRIVER' ? (isAnnual ? 7000 : 2500) : user.role === 'LISTER' ? 12000 : 5000);
+  const planName = params.planName || (user.role === 'DRIVER' ? (isAnnual ? 'Independent Chauffeur Annual Pass (100% Free Promo)' : 'Independent Chauffeur Pass (100% Free Promo)') : 'Commercial Lister Pass (100% Free Promo)');
+  const quota = params.quota !== undefined ? params.quota : (user.role === 'DRIVER' ? 1 : 15);
+  const subscriptionStatus: SubscriptionStatus = params.status || 'ACTIVE';
 
   user.subscription = {
-    status: 'ACTIVE',
+    status: subscriptionStatus,
     planId: params.planId || 'free-promo-pass',
     planName,
     amountPaid: 0,
@@ -2519,11 +2666,12 @@ export function grantFreePromotionalSubscription(params: GrantFreeSubscriptionPa
     freePromoReason: params.reason || 'Super Admin 100% Discounted Free Trial',
     currency: 'PKR',
     symbol: 'Rs',
+    billingCycle: params.billingCycle || (isAnnual ? 'ANNUAL' : 'MONTHLY'),
     startDate: todayStr,
     endDate: expiryIso,
     validUntil: expiryIso,
     renewsOn: expiryDisplay,
-    quota: 15,
+    quota,
     usedQuota: user.subscription?.usedQuota || 0,
     approvedAt: now.toISOString(),
     paymentRef: `PROMO-FREE-${Date.now().toString().slice(-6)}`,
@@ -2534,7 +2682,7 @@ export function grantFreePromotionalSubscription(params: GrantFreeSubscriptionPa
     id: `act-${Date.now()}`,
     type: 'SUBSCRIPTION_REQUESTED',
     title: '100% Free Promotional Subscription Granted',
-    description: `Granted active free subscription until ${expiryDisplay} (${params.reason || 'Admin Waiver'}). Original amount: PKR ${originalPrice.toLocaleString()} (0 PKR paid).`,
+    description: `Granted active free subscription until ${expiryDisplay} (${params.reason || 'Admin Waiver'}). Quota: ${quota} listing(s). Original value: PKR ${originalPrice.toLocaleString()} (0 PKR paid).`,
     timestamp: now.toISOString(),
   });
 
@@ -2542,7 +2690,8 @@ export function grantFreePromotionalSubscription(params: GrantFreeSubscriptionPa
 
   const active = getActiveUser();
   if (active && (active.id === user.id || active.phone === user.phone)) {
-    setActiveUser(user);
+    active.subscription = user.subscription;
+    setActiveUser(active);
   }
 
   // Record into financial ledger with 0 PKR paid and 100% discount
@@ -2566,7 +2715,7 @@ export function grantFreePromotionalSubscription(params: GrantFreeSubscriptionPa
     paymentRef: user.subscription.paymentRef || `PROMO-${Date.now().toString().slice(-6)}`,
     status: 'CONFIRMED',
     recordedBy: params.grantedBy || 'Super Admin',
-    notes: params.reason || 'Super Admin 100% Discounted Free Trial (0 PKR paid)',
+    notes: `${params.reason || 'Super Admin 100% Discounted Free Trial'} · Quota: ${quota} Listing(s)`,
   });
 
   try {
@@ -2576,18 +2725,21 @@ export function grantFreePromotionalSubscription(params: GrantFreeSubscriptionPa
       staffName: params.grantedBy || 'Super Admin',
       targetType: 'UserSubscription',
       targetId: user.id,
-      details: `Granted 100% Free Subscription until ${expiryDisplay} for ${user.name} (${user.phone}). Value: PKR ${originalPrice}, Paid: 0 PKR.`,
+      details: `Granted 100% Free Subscription until ${expiryDisplay} for ${user.name} (${user.phone}). Value: PKR ${originalPrice}, Quota: ${quota}, Paid: 0 PKR.`,
     });
   } catch (e) {}
 
-  window.dispatchEvent(new CustomEvent('safarpk_user_subscription_updated', { detail: { userId: user.id, status: 'ACTIVE' } }));
+  // Synchronize fleet listings: activate up to quota if ACTIVE, or pause all if PAUSED
+  syncUserListingsQuota(user.id, quota, subscriptionStatus === 'ACTIVE');
+
+  window.dispatchEvent(new CustomEvent('safarpk_user_subscription_updated', { detail: { userId: user.id, status: subscriptionStatus } }));
   window.dispatchEvent(new Event('safarpk_auth_state_changed'));
 
   return {
     success: true,
     user,
     expiryDate: expiryDisplay,
-    message: `100% Free subscription activated for ${user.name} until ${expiryDisplay}! Amount: PKR 0 Paid (Value: PKR ${originalPrice.toLocaleString()}).`,
+    message: `100% Free subscription activated for ${user.name} until ${expiryDisplay}! Allowed quota: ${quota} Listing(s). Amount: PKR 0 Paid (Value: PKR ${originalPrice.toLocaleString()}).`,
   };
 }
 
@@ -2612,22 +2764,8 @@ export function syncSubscriptionExpiries(): {
             user.subscription.rejectionReason = 'Subscription validity expired';
             expiredCount++;
 
-            // Auto-pause all fleet listings for this user
-            try {
-              const fleetKey = `safarpk_fleet_${user.id}`;
-              const rawFleet = localStorage.getItem(fleetKey);
-              if (rawFleet) {
-                const fleet = JSON.parse(rawFleet);
-                if (Array.isArray(fleet)) {
-                  const updatedFleet = fleet.map((item: any) => ({
-                    ...item,
-                    status: 'PAUSED',
-                    pausedReason: 'Subscription Expired',
-                  }));
-                  localStorage.setItem(fleetKey, JSON.stringify(updatedFleet));
-                }
-              }
-            } catch (e) {}
+            // Auto-pause all fleet listings for this user and add to safarpk_paused_listings
+            syncUserListingsQuota(user.id, user.subscription.quota || 1, false);
 
             user.activities = user.activities || [];
             user.activities.unshift({

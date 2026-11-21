@@ -13,7 +13,7 @@ import {
 } from '@/data/storefrontEngine';
 import { recordLead, recordClickEvent } from '@/data/activityTracker';
 import { getWhatsAppTargetUrl, startOrOpenConversation } from '@/data/chatEngine';
-import { getActiveUser } from '@/data/userAuth';
+import { getActiveUser, isListingPaused } from '@/data/userAuth';
 import { useCountry } from '@/app/context/CountryContext';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import {
@@ -298,6 +298,16 @@ export default function PublicDriverProfilePage() {
       <AppHeader />
 
       <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-4 sm:py-6 md:py-10 flex flex-col gap-4 sm:gap-6 pb-24 lg:pb-16">
+        {/* Paused Profile Notice */}
+        {isListingPaused(driver.id, driver.phone) && (
+          <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl flex items-center gap-3 text-amber-900 text-xs font-semibold shadow-xs">
+            <span className="text-xl">⏸️</span>
+            <div>
+              <span className="font-bold block text-sm">Chauffeur Profile Currently Paused / Inactive</span>
+              This chauffeur profile is currently paused from public marketplace reservations.
+            </div>
+          </div>
+        )}
         {/* Mobile Quick Back Bar (Native Mobile App Top Bar) */}
         <div className="flex items-center justify-between gap-2 md:hidden pb-1">
           <button

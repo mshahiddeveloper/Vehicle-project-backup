@@ -30,6 +30,7 @@ import {
   CITY_COMMUTE_AREAS,
   matchesShuttleRoute,
 } from '@/data/marketplaceData';
+import { isListingPaused } from '@/data/userAuth';
 
 const POPULAR_COMMUTE_CORRIDORS: Record<string, { from: string; to: string; label: string }[]> = {
   Karachi: [
@@ -84,6 +85,7 @@ export default function ShuttlesPage() {
   // Intermediate Stop Corridor Matching & Filtering
   const filteredShuttles = useMemo(() => {
     return SHUTTLES_DATA.filter((shuttle) => {
+      if (isListingPaused(shuttle.id, shuttle.phone)) return false;
       // 1. Audience / Gender filter
       if (audienceFilter === 'Girls' && !shuttle.tags.some((t) => t.toLowerCase().includes('girl'))) {
         return false;

@@ -142,10 +142,32 @@ export function BillingHistoryManager({
     if (currentUser?.subscription?.renewsOn) {
       return currentUser.subscription.renewsOn;
     }
+    if (currentUser?.subscription?.validUntil) {
+      const d = new Date(currentUser.subscription.validUntil);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      }
+    }
     const d = new Date();
     d.setDate(d.getDate() + 28);
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   }, [currentUser]);
+
+  const isAnnual = useMemo(() => {
+    if (currentUser?.subscription?.billingCycle === 'ANNUAL') return true;
+    if (currentUser?.subscription?.validUntil) {
+      const start = currentUser?.subscription?.startDate ? new Date(currentUser.subscription.startDate).getTime() : Date.now();
+      const end = new Date(currentUser.subscription.validUntil).getTime();
+      if (!isNaN(start) && !isNaN(end) && end - start > 100 * 24 * 3600 * 1000) return true;
+    }
+    return false;
+  }, [currentUser]);
+
+  const billingLabel = isAnnual ? 'Annual Investment' : 'Monthly Investment';
+  const cycleLabel = isAnnual ? 'Billed Annually' : 'Billed Monthly';
+  const quotaCount = currentUser?.subscription?.quota ?? (role === 'DRIVER' ? 1 : 15);
+  const quotaDisplay = `${quotaCount} ${quotaCount === 1 ? 'Listing' : 'Listings'}`;
+  const isPausedOrExpired = currentUser?.subscription?.status === 'PAUSED' || currentUser?.subscription?.status === 'EXPIRED';
 
   // Filtered invoices
   const filteredPayments = useMemo(() => {
@@ -466,13 +488,13 @@ export function BillingHistoryManager({
           {/* 4 Metrics Strip */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-slate-700/80">
             <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
-              <span className="text-[11px] text-slate-400 block font-medium">Monthly Investment</span>
+              <span className="text-[11px] text-slate-400 block font-medium">{billingLabel}</span>
               {currentUser?.subscription?.isFreePromo || lastPayment?.isFreePromo || (lastPayment && lastPayment.amountPaid === 0) ? (
                 <div>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
                     <span className="text-base sm:text-lg font-black text-emerald-400">Rs. 0</span>
                     <span className="text-xs line-through text-slate-400">
-                      Rs. {(currentUser?.subscription?.originalAmount || lastPayment?.originalAmount || 2500).toLocaleString()}
+                      Rs. {(currentUser?.subscription?.originalAmount || lastPayment?.originalAmount || (role === 'DRIVER' ? 7000 : 12000)).toLocaleString()}
                     </span>
                   </div>
                   <span className="text-[10px] text-emerald-300 font-bold block">100% Promo Discount Applied</span>
@@ -480,9 +502,9 @@ export function BillingHistoryManager({
               ) : (
                 <div>
                   <span className="text-base sm:text-lg font-black text-emerald-400 block mt-0.5">
-                    Rs. {((lastPayment?.amountPaid || currentUser?.subscription?.amountPaid || 12000)).toLocaleString()}
+                    Rs. {((lastPayment?.amountPaid || currentUser?.subscription?.amountPaid || (role === 'DRIVER' ? 2000 : 12000))).toLocaleString()}
                   </span>
-                  <span className="text-[10px] text-slate-400 block">Billed Monthly</span>
+                  <span className="text-[10px] text-slate-400 block">{cycleLabel}</span>
                 </div>
               )}
             </div>
@@ -498,7 +520,7 @@ export function BillingHistoryManager({
             <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
               <span className="text-[11px] text-slate-400 block font-medium">Fleet Quota Status</span>
               <span className="text-base sm:text-lg font-black text-white block mt-0.5">
-                {currentUser?.subscription?.quota ? `${currentUser.subscription.quota} Listings` : '15 Listings Live'}
+                {quotaDisplay}
               </span>
               <span className="text-[10px] text-emerald-400 font-semibold block">Unlimited WhatsApp Clicks</span>
             </div>
@@ -506,38 +528,69 @@ export function BillingHistoryManager({
             <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
               <span className="text-[11px] text-slate-400 block font-medium">Payment Channel</span>
               <span className="text-base sm:text-lg font-black text-white block mt-0.5 truncate">
-                {lastPayment?.paymentMode || 'Raast Instant'}
+                {currentUser?.subscription?.isFreePromo ? '100% Promo Waiver' : (lastPayment?.paymentMode || 'Raast Instant')}
               </span>
-              <span className="text-[10px] text-slate-400 block truncate">Ref: {lastPayment?.paymentRef || 'ACTIVE'}</span>
+              <span className="text-[10px] text-slate-400 block truncate">Ref: {currentUser?.subscription?.paymentRef || lastPayment?.paymentRef || 'ACTIVE'}</span>
             </div>
           </div>
         </div>
       )}
 
-      {/* 2. Pending Renewal Notice Card */}
-      <div className="bg-amber-50/80 border border-amber-200/90 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <div className="w-9 h-9 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center shrink-0 mt-0.5">
-            <Calendar className="w-4 h-4 text-amber-800" />
+      {/* 2. Pending Renewal / Paused Status Notice Card */}
+      {isPausedOrExpired ? (
+        <div className="bg-rose-50 border-2 border-rose-300 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center text-lg font-black shrink-0 mt-0.5">
+              ⏸️
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-heading font-extrabold text-sm sm:text-base text-rose-950">
+                  Subscription Paused / Validity Expired
+                </h3>
+                <span className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-600 text-white">
+                  Listings Paused
+                </span>
+              </div>
+              <p className="text-xs text-rose-800/90 mt-0.5">
+                Your listings are currently paused and hidden from customer marketplace searches. Submit your renewal payment or select a subscription pass to immediately reactivate your listings up to your quota limit.
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-heading font-extrabold text-sm sm:text-base text-amber-950">
-              Upcoming Renewal Cycle · Due on {nextRenewalDate}
-            </h3>
-            <p className="text-xs text-amber-800/90 mt-0.5">
-              Ensure uninterrupted marketplace presence. You can submit early payment via Raast, Meezan Bank, or JazzCash at any time.
-            </p>
-          </div>
-        </div>
 
-        <button
-          type="button"
-          onClick={openPaymentModal}
-          className="px-4 py-2 bg-amber-800 hover:bg-amber-900 text-white rounded-xl text-xs font-bold transition shadow-xs self-start sm:self-auto shrink-0 cursor-pointer"
-        >
-          Pay Pending Renewal
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={openPaymentModal}
+            className="px-5 py-2.5 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-xs font-bold transition shadow-xs self-start sm:self-auto shrink-0 cursor-pointer flex items-center gap-2"
+          >
+            <span>⚡ Renew & Reactivate Listings</span>
+          </button>
+        </div>
+      ) : (
+        <div className="bg-amber-50/80 border border-amber-200/90 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center shrink-0 mt-0.5">
+              <Calendar className="w-4 h-4 text-amber-800" />
+            </div>
+            <div>
+              <h3 className="font-heading font-extrabold text-sm sm:text-base text-amber-950">
+                Upcoming Renewal Cycle · Due on {nextRenewalDate}
+              </h3>
+              <p className="text-xs text-amber-800/90 mt-0.5">
+                Ensure uninterrupted marketplace presence. You can submit early payment via Raast, Meezan Bank, or JazzCash at any time.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={openPaymentModal}
+            className="px-4 py-2 bg-amber-800 hover:bg-amber-900 text-white rounded-xl text-xs font-bold transition shadow-xs self-start sm:self-auto shrink-0 cursor-pointer"
+          >
+            Pay Pending Renewal
+          </button>
+        </div>
+      )}
 
       {/* 3. Invoices & Billing History Section */}
       <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-2xs space-y-4">

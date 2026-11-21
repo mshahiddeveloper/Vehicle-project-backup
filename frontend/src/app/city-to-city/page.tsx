@@ -27,6 +27,7 @@ import {
   CITY_RIDES_DATA,
   getCustomCityRides,
 } from '@/data/marketplaceData';
+import { isListingPaused } from '@/data/userAuth';
 
 const INTERCITY_CITIES = [
   'Karachi',
@@ -76,6 +77,7 @@ export default function CityToCityPage() {
   };
 
   const filteredRides = allRides.filter((r) => {
+    if (isListingPaused(r.id, r.phone)) return false;
     // City match
     if (fromCity.trim()) {
       const qFrom = fromCity.toLowerCase().trim();

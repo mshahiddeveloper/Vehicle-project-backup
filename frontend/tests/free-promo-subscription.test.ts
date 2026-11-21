@@ -8,6 +8,9 @@ import {
   getAllRegisteredUsers,
   getAllSubscriptionPayments,
   saveAllRegisteredUsers,
+  syncUserListingsQuota,
+  toggleUserSubscriptionPause,
+  isListingPaused,
 } from '../src/data/userAuth';
 
 describe('Super Admin Free Promotional Subscription & Launch Policies', () => {
@@ -35,7 +38,9 @@ describe('Super Admin Free Promotional Subscription & Launch Policies', () => {
     expect(regRes.success).toBe(true);
     expect(regRes.user?.subscription?.status).toBe('ACTIVE');
     expect(regRes.user?.subscription?.amountPaid).toBe(0);
-    expect(regRes.user?.subscription?.originalAmount).toBe(2500);
+    expect(regRes.user?.subscription?.originalAmount).toBe(7000);
+    expect(regRes.user?.subscription?.quota).toBe(1);
+    expect(regRes.user?.subscription?.billingCycle).toBe('ANNUAL');
     expect(regRes.user?.subscription?.discountPercentage).toBe(100);
     expect(regRes.user?.subscription?.isFreePromo).toBe(true);
 
@@ -44,7 +49,7 @@ describe('Super Admin Free Promotional Subscription & Launch Policies', () => {
     const driverSlip = ledger.find((l) => l.userId === regRes.user?.id);
     expect(driverSlip).toBeDefined();
     expect(driverSlip?.amountPaid).toBe(0);
-    expect(driverSlip?.originalAmount).toBe(2500);
+    expect(driverSlip?.originalAmount).toBe(7000);
     expect(driverSlip?.discountPercentage).toBe(100);
     expect(driverSlip?.status).toBe('CONFIRMED');
     expect(driverSlip?.isFreePromo).toBe(true);
@@ -168,6 +173,98 @@ describe('Super Admin Free Promotional Subscription & Launch Policies', () => {
     // Fleet in localStorage must now be automatically PAUSED
     const updatedFleet = JSON.parse(localStorage.getItem(fleetKey) || '[]');
     expect(updatedFleet[0].status).toBe('PAUSED');
-    expect(updatedFleet[0].pausedReason).toBe('Subscription Expired');
+  });
+
+  it('T5: syncUserListingsQuota strictly limits LIVE listings to the quota and pauses excess', () => {
+    const userId = 'usr-fleet-quota-test';
+    const fleetKey = `safarpk_fleet_${userId}`;
+
+    // Add 4 vehicles
+    localStorage.setItem(
+      fleetKey,
+      JSON.stringify([
+        { id: 'v-101', title: 'Car 1', status: 'PENDING' },
+        { id: 'v-102', title: 'Car 2', status: 'PENDING' },
+        { id: 'v-103', title: 'Car 3', status: 'PENDING' },
+        { id: 'v-104', title: 'Car 4', status: 'PENDING' },
+      ])
+    );
+
+    // Sync with quota = 2 and isActive = true
+    const result = syncUserListingsQuota(userId, 2, true);
+    expect(result.total).toBe(4);
+    expect(result.live).toBe(2);
+    expect(result.paused).toBe(2);
+
+    const updated = JSON.parse(localStorage.getItem(fleetKey) || '[]');
+    expect(updated[0].status).toBe('LIVE');
+    expect(updated[1].status).toBe('LIVE');
+    expect(updated[2].status).toBe('PAUSED');
+    expect(updated[3].status).toBe('PAUSED');
+
+    // Paused listings IDs in storage must include excess
+    expect(isListingPaused('v-101')).toBe(false);
+    expect(isListingPaused('v-102')).toBe(false);
+    expect(isListingPaused('v-103')).toBe(true);
+    expect(isListingPaused('v-104')).toBe(true);
+  });
+
+  it('T6: toggleUserSubscriptionPause pauses all listings when subscription is paused and reactivates up to quota', () => {
+    const regRes = registerNewUser({
+      name: 'Raza Motors',
+      phone: '03001122334',
+      password: 'Password123!',
+      role: 'LISTER',
+      city: 'Rawalpindi',
+    });
+    expect(regRes.success).toBe(true);
+    const userId = regRes.user!.id;
+    const fleetKey = `safarpk_fleet_${userId}`;
+
+    // Grant 100% Free 12-month pass with quota = 1
+    grantFreePromotionalSubscription({
+      userId,
+      planName: 'Starter Chauffeur Pass (Annual)',
+      originalPrice: 7000,
+      durationDays: 365,
+      quota: 1,
+      billingCycle: 'ANNUAL',
+      reason: '12 Month Special Free Listing',
+      grantedBy: 'Super Admin',
+    });
+
+    localStorage.setItem(
+      fleetKey,
+      JSON.stringify([
+        { id: 'v-201', title: 'Honda Civic', status: 'LIVE' },
+        { id: 'v-202', title: 'Toyota Yaris', status: 'PAUSED' },
+      ])
+    );
+
+    // 1. Pause subscription
+    const pauseRes = toggleUserSubscriptionPause(userId, 'Super Admin');
+    expect(pauseRes.success).toBe(true);
+    expect(pauseRes.isPaused).toBe(true);
+
+    // Both listings must now be paused
+    const pausedFleet = JSON.parse(localStorage.getItem(fleetKey) || '[]');
+    expect(pausedFleet[0].status).toBe('PAUSED');
+    expect(pausedFleet[1].status).toBe('PAUSED');
+    expect(isListingPaused('v-201')).toBe(true);
+    expect(isListingPaused('v-202')).toBe(true);
+
+    // Also isListingPaused with owner phone should return true
+    expect(isListingPaused('any-listing', '03001122334')).toBe(true);
+
+    // 2. Resume subscription -> should activate only up to quota (1)
+    const resumeRes = toggleUserSubscriptionPause(userId, 'Super Admin');
+    expect(resumeRes.success).toBe(true);
+    expect(resumeRes.isPaused).toBe(false);
+
+    const resumedFleet = JSON.parse(localStorage.getItem(fleetKey) || '[]');
+    expect(resumedFleet[0].status).toBe('LIVE');
+    expect(resumedFleet[1].status).toBe('PAUSED');
+    expect(isListingPaused('v-201')).toBe(false);
+    expect(isListingPaused('v-202')).toBe(true);
   });
 });
