@@ -452,7 +452,6 @@ export default function SettingsPage() {
   };
 
   const handleCnicUpload = (e: React.ChangeEvent<HTMLInputElement>, isFront: boolean) => {
-    if (cnicLocked) return;
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -491,7 +490,6 @@ export default function SettingsPage() {
   };
 
   const handleLicenseUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (licenseLocked) return;
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -1171,21 +1169,19 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
-                    <Lock className="w-4 h-4" />
+                    <ShieldCheck className="w-4 h-4" />
                   </div>
                   <div>
                     <h4 className="font-heading font-extrabold text-sm text-emerald-950 flex items-center gap-1.5 flex-wrap">
-                      <span>Certified Identity Dossier</span>
+                      <span>Identity & Verification Dossier</span>
                       <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ${
-                        cnicLocked ? 'bg-emerald-200/80 text-emerald-900' : 'bg-amber-100 text-amber-800 border border-amber-300'
+                        cnicFront && cnicBack ? 'bg-emerald-200/80 text-emerald-900' : 'bg-amber-100 text-amber-800 border border-amber-300'
                       }`}>
-                        {cnicLocked ? '🔒 Locked & Immutable' : '⏳ Pending Certification Lock'}
+                        {cnicFront && cnicBack ? '✓ Documents Submitted' : 'Pending Verification'}
                       </span>
                     </h4>
                     <p className="text-[11px] text-emerald-800 leading-tight">
-                      {cnicLocked
-                        ? 'Authentic verified identity records. These details are permanently locked to your profile to prevent fraud.'
-                        : 'Upload your CNIC front & back photos, verify your extracted details below, and lock your authentic records.'}
+                      Official identification records for your SafarPK profile verification and compliance.
                     </p>
                   </div>
                 </div>
@@ -1198,7 +1194,7 @@ export default function SettingsPage() {
                     {cnicName || fullName || 'Pending Entry'}
                   </span>
                   <span className="text-[9px] text-emerald-700 font-semibold">
-                    {cnicLocked ? 'Matched with CNIC' : 'From Registration'}
+                    {cnicName ? 'Matched with CNIC' : 'From Registration'}
                   </span>
                 </div>
 
@@ -1218,7 +1214,7 @@ export default function SettingsPage() {
                     {cnicIssueDate || 'Pending Entry'}
                   </span>
                   <span className="text-[9px] text-slate-400">
-                    {cnicLocked ? 'Authenticated record' : 'From Back of CNIC'}
+                    {cnicIssueDate ? 'Authenticated record' : 'From Back of CNIC'}
                   </span>
                 </div>
 
@@ -1241,7 +1237,7 @@ export default function SettingsPage() {
                       {licenseNumber || 'Pending Entry'}
                     </span>
                     <span className="text-[9px] text-emerald-700 font-semibold">
-                      {licenseLocked ? 'Traffic Police Endorsed' : 'Official License'}
+                      Official License
                     </span>
                   </div>
 
@@ -1272,102 +1268,54 @@ export default function SettingsPage() {
               )}
             </div>
 
-            {/* Input fields - Editable before lock, permanently locked & disabled once certified */}
+            {/* Input fields - Clean, directly editable */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
               <label className="flex flex-col gap-1.5 font-semibold text-[#344054]">
-                <span className="flex items-center justify-between">
-                  <span>National ID / CNIC Number</span>
-                  {cnicLocked && (
-                    <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
-                      <Lock className="w-3 h-3" /> Locked
-                    </span>
-                  )}
-                </span>
+                <span>National ID / CNIC Number</span>
                 <input
                   type="text"
                   value={nationalId}
-                  readOnly={cnicLocked}
-                  disabled={cnicLocked}
                   onChange={(e) => setNationalId(e.target.value)}
                   placeholder="35201-1234567-1"
-                  className={`h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition ${
-                    cnicLocked
-                      ? 'bg-slate-100 text-slate-700 border-slate-200 cursor-not-allowed select-none font-bold'
-                      : 'border-[#D0D5DD] text-[#101828] bg-white focus:border-emerald-600'
-                  }`}
+                  className="h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition border-[#D0D5DD] text-[#101828] bg-white focus:border-emerald-600"
                 />
               </label>
 
               <label className="flex flex-col gap-1.5 font-semibold text-[#344054]">
-                <span className="flex items-center justify-between">
-                  <span>CNIC Date of Issue</span>
-                  {cnicLocked && (
-                    <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
-                      <Lock className="w-3 h-3" /> Locked
-                    </span>
-                  )}
-                </span>
+                <span>CNIC Date of Issue</span>
                 <input
                   type="date"
                   max={todayStr}
                   value={cnicIssueDate}
-                  readOnly={cnicLocked}
-                  disabled={cnicLocked}
                   onChange={(e) => setCnicIssueDate(e.target.value)}
-                  className={`h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition ${
-                    cnicLocked
-                      ? 'bg-slate-100 text-slate-700 border-slate-200 cursor-not-allowed select-none font-bold'
-                      : 'border-[#D0D5DD] text-[#101828] bg-white focus:border-emerald-600'
-                  }`}
+                  className="h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition border-[#D0D5DD] text-[#101828] bg-white focus:border-emerald-600"
                 />
               </label>
 
               <label className="flex flex-col gap-1.5 font-semibold text-[#344054]">
-                <span className="flex items-center justify-between">
-                  <span>CNIC Date of Expiry</span>
-                  {cnicLocked && (
-                    <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
-                      <Lock className="w-3 h-3" /> Locked
-                    </span>
-                  )}
-                </span>
+                <span>CNIC Date of Expiry</span>
                 <input
                   type="date"
                   min={todayStr}
                   value={cnicExpiryDate}
-                  readOnly={cnicLocked}
-                  disabled={cnicLocked}
                   onChange={(e) => setCnicExpiryDate(e.target.value)}
-                  className={`h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition ${
-                    cnicLocked
-                      ? 'bg-slate-100 text-slate-700 border-slate-200 cursor-not-allowed select-none font-bold'
-                      : 'border-[#D0D5DD] text-[#101828] bg-white focus:border-emerald-600'
-                  }`}
+                  className="h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition border-[#D0D5DD] text-[#101828] bg-white focus:border-emerald-600"
                 />
               </label>
 
               <label className="flex flex-col gap-1.5 font-semibold text-[#344054]">
-                <span className="flex items-center justify-between">
-                  <span>
-                    {theme.type === 'DRIVER'
-                      ? 'Driving License #'
-                      : theme.type === 'LISTER'
-                      ? 'Showroom NTN / Reg #'
-                      : theme.type === 'MOVERS'
-                      ? 'Transport Permit #'
-                      : 'License / Reg #'}
-                  </span>
-                  {licenseLocked && (
-                    <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
-                      <Lock className="w-3 h-3" /> Locked
-                    </span>
-                  )}
+                <span>
+                  {theme.type === 'DRIVER'
+                    ? 'Driving License #'
+                    : theme.type === 'LISTER'
+                    ? 'Showroom NTN / Reg #'
+                    : theme.type === 'MOVERS'
+                    ? 'Transport Permit #'
+                    : 'License / Reg #'}
                 </span>
                 <input
                   type="text"
                   value={licenseNumber}
-                  readOnly={licenseLocked}
-                  disabled={licenseLocked}
                   onChange={(e) => setLicenseNumber(e.target.value)}
                   placeholder={
                     theme.type === 'DRIVER'
@@ -1376,11 +1324,7 @@ export default function SettingsPage() {
                       ? 'NTN-7819201-4'
                       : 'PERMIT-2026-X'
                   }
-                  className={`h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition ${
-                    licenseLocked
-                      ? 'bg-slate-100 text-slate-700 border-slate-200 cursor-not-allowed select-none font-bold'
-                      : 'border-[#D0D5DD] text-[#101828] bg-white focus:border-emerald-600'
-                  }`}
+                  className="h-11 sm:h-12 px-3.5 border rounded-xl font-mono text-xs sm:text-sm outline-none transition border-[#D0D5DD] text-[#101828] bg-white focus:border-emerald-600"
                 />
               </label>
             </div>
@@ -1391,9 +1335,7 @@ export default function SettingsPage() {
                 <div>
                   <span className="font-bold text-sky-950 block">Driving License Category</span>
                   <span className="text-sky-700 text-[11px]">
-                    {licenseLocked
-                      ? 'Official license category locked in verified driver dossier.'
-                      : 'Select the official license category endorsed on your license.'}
+                    Select the official license category endorsed on your license.
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1401,15 +1343,14 @@ export default function SettingsPage() {
                     <button
                       key={cat}
                       type="button"
-                      disabled={licenseLocked}
-                      onClick={() => !licenseLocked && setLicenseCategory(cat)}
-                      className={`h-9 px-3.5 rounded-lg text-xs font-bold transition ${
+                      onClick={() => setLicenseCategory(cat)}
+                      className={`h-9 px-3.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                         licenseCategory === cat
                           ? 'bg-sky-600 text-white shadow-xs'
                           : 'bg-white border border-sky-200 text-sky-900 hover:bg-sky-100'
-                      } ${licenseLocked ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'}`}
+                      }`}
                     >
-                      {cat} License {licenseLocked && licenseCategory === cat && '✓'}
+                      {cat} License {licenseCategory === cat && '✓'}
                     </button>
                   ))}
                 </div>
@@ -1422,11 +1363,7 @@ export default function SettingsPage() {
               <div className="p-4 rounded-2xl border border-[#E4E7EC] bg-[#F7F8FA] flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-xs text-[#101828]">CNIC Front</span>
-                  {cnicLocked ? (
-                    <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
-                      <Lock className="w-2.5 h-2.5" /> Certified
-                    </span>
-                  ) : cnicFront ? (
+                  {cnicFront ? (
                     <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded flex items-center gap-1">
                       <Check className="w-2.5 h-2.5" /> Uploaded
                     </span>
@@ -1449,33 +1386,22 @@ export default function SettingsPage() {
                   )}
                 </div>
 
-                {cnicLocked ? (
-                  <div className="py-2 px-3 rounded-xl bg-slate-100 text-slate-500 text-center font-bold text-xs flex items-center justify-center gap-1.5 cursor-not-allowed select-none">
-                    <Lock className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Locked & Certified</span>
-                  </div>
-                ) : (
-                  <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95 shadow-2xs">
-                    <span>{cnicFront ? 'Change Front Photo' : 'Upload Front'}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => handleCnicUpload(e, true)}
-                    />
-                  </label>
-                )}
+                <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95 shadow-2xs">
+                  <span>{cnicFront ? 'Change Front Photo' : 'Upload Front'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleCnicUpload(e, true)}
+                  />
+                </label>
               </div>
 
               {/* Card 2: CNIC Back */}
               <div className="p-4 rounded-2xl border border-[#E4E7EC] bg-[#F7F8FA] flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-xs text-[#101828]">CNIC Back</span>
-                  {cnicLocked ? (
-                    <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
-                      <Lock className="w-2.5 h-2.5" /> Certified
-                    </span>
-                  ) : cnicBack ? (
+                  {cnicBack ? (
                     <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded flex items-center gap-1">
                       <Check className="w-2.5 h-2.5" /> Uploaded
                     </span>
@@ -1498,22 +1424,15 @@ export default function SettingsPage() {
                   )}
                 </div>
 
-                {cnicLocked ? (
-                  <div className="py-2 px-3 rounded-xl bg-slate-100 text-slate-500 text-center font-bold text-xs flex items-center justify-center gap-1.5 cursor-not-allowed select-none">
-                    <Lock className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Locked & Certified</span>
-                  </div>
-                ) : (
-                  <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95 shadow-2xs">
-                    <span>{cnicBack ? 'Change Back Photo' : 'Upload Back'}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => handleCnicUpload(e, false)}
-                    />
-                  </label>
-                )}
+                <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95 shadow-2xs">
+                  <span>{cnicBack ? 'Change Back Photo' : 'Upload Back'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleCnicUpload(e, false)}
+                  />
+                </label>
               </div>
 
               {/* Card 3: Role-Tailored Document */}
@@ -1530,11 +1449,7 @@ export default function SettingsPage() {
                       ? 'Route Fitness Cert'
                       : 'License / ID Slip'}
                   </span>
-                  {licenseLocked ? (
-                    <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
-                      <Lock className="w-2.5 h-2.5" /> Certified
-                    </span>
-                  ) : licenseDoc ? (
+                  {licenseDoc ? (
                     <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded flex items-center gap-1">
                       <Check className="w-2.5 h-2.5" /> Uploaded
                     </span>
@@ -1563,22 +1478,15 @@ export default function SettingsPage() {
                   )}
                 </div>
 
-                {licenseLocked ? (
-                  <div className="py-2 px-3 rounded-xl bg-slate-100 text-slate-500 text-center font-bold text-xs flex items-center justify-center gap-1.5 cursor-not-allowed select-none">
-                    <Lock className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Locked & Certified</span>
-                  </div>
-                ) : (
-                  <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95 shadow-2xs">
-                    <span>{licenseDoc ? 'Change Document' : 'Upload Document'}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleLicenseUpload}
-                    />
-                  </label>
-                )}
+                <label className="py-2 px-3 rounded-xl bg-white border border-[#D0D5DD] hover:bg-slate-50 text-center font-bold text-xs text-[#344054] cursor-pointer transition active:scale-95 shadow-2xs">
+                  <span>{licenseDoc ? 'Change Document' : 'Upload Document'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleLicenseUpload}
+                  />
+                </label>
               </div>
             </div>
 
@@ -2086,7 +1994,7 @@ export default function SettingsPage() {
                 <span>WhatsApp Phone Number</span>
                 {phoneLocked || phoneVerified ? (
                   <span className="text-[10px] text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
-                    <Lock className="w-2.5 h-2.5" /> Verified & Locked
+                    <Check className="w-2.5 h-2.5 text-emerald-700" /> Verified
                   </span>
                 ) : (
                   <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-bold">
@@ -2131,13 +2039,10 @@ export default function SettingsPage() {
                 ) : (
                   <div className="px-3 h-11 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-1 shrink-0">
                     <Check className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Locked</span>
+                    <span>Verified</span>
                   </div>
                 )}
               </div>
-              <span className="text-[10px] text-slate-500">
-                Auto-removes leading zero (e.g. <span className="font-mono font-bold text-slate-700">03331286257</span> becomes <span className="font-mono font-bold text-slate-700">+92 333 1286257</span>). Locked permanently once verified.
-              </span>
             </div>
 
             <div className="flex flex-col divide-y divide-[#F0F2F4] text-xs">

@@ -91,7 +91,7 @@ export function WhatsAppOtpModal({ isOpen, phone, onClose, onVerified }: WhatsAp
                 WhatsApp Verification
               </h3>
               <p className="text-xs text-emerald-200/90 flex items-center gap-1 mt-0.5">
-                <Lock className="w-3 h-3" /> Authentic Phone Authentication
+                <ShieldCheck className="w-3.5 h-3.5" /> Authentic Phone Authentication
               </p>
             </div>
           </div>
@@ -207,7 +207,7 @@ export function WhatsAppOtpModal({ isOpen, phone, onClose, onVerified }: WhatsAp
               className="w-full h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm shadow-md shadow-emerald-900/10 transition flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>Verify & Lock Authentic Number</span>
+              <span>Verify WhatsApp Number</span>
             </button>
 
             <button
@@ -221,7 +221,7 @@ export function WhatsAppOtpModal({ isOpen, phone, onClose, onVerified }: WhatsAp
 
           <div className="text-center pt-1">
             <span className="text-[10px] text-slate-400 leading-tight">
-              🔒 Once verified, this WhatsApp phone number becomes immutable on your profile to protect against identity fraud.
+              ✓ Once verified, this WhatsApp phone number is saved to your profile for secure logins.
             </span>
           </div>
         </form>

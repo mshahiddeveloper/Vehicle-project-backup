@@ -2279,16 +2279,30 @@ export default function AgentDashboardPage() {
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200/80">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                             caller.role === 'CUSTOMER'
                               ? 'bg-purple-100 text-purple-800'
                               : caller.role === 'LISTER'
                               ? 'bg-blue-100 text-blue-800'
                               : caller.role === 'DRIVER'
                               ? 'bg-amber-100 text-amber-800'
+                              : caller.role === 'SHUTTLE'
+                              ? 'bg-teal-100 text-teal-800'
+                              : caller.role === 'CARGO'
+                              ? 'bg-orange-100 text-orange-800'
                               : 'bg-emerald-100 text-emerald-800'
                           }`}>
-                            {caller.role}
+                            {caller.role === 'CUSTOMER'
+                              ? '👤 Customer (Traveler)'
+                              : caller.role === 'LISTER'
+                              ? '🚗 Rent Vehicle Host'
+                              : caller.role === 'DRIVER'
+                              ? '👨‍✈️ Private Chauffeur'
+                              : caller.role === 'SHUTTLE'
+                              ? '🚌 Pick & Drop Shuttle'
+                              : caller.role === 'CARGO'
+                              ? '📦 Cargo & Moving Host'
+                              : caller.role}
                           </span>
                           <strong className="text-sm font-black text-slate-900">{caller.name}</strong>
                           <span className="text-slate-400">•</span>
@@ -3168,8 +3182,18 @@ export default function AgentDashboardPage() {
                   <span className="text-[10px] text-slate-400 font-semibold uppercase block">Subject Name</span>
                   <strong className="text-sm text-slate-900">{selectedCallerModal.name}</strong>
                 </div>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
-                  {selectedCallerModal.role}
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-900 border border-blue-200">
+                  {selectedCallerModal.role === 'CUSTOMER'
+                    ? '👤 Customer (Traveler)'
+                    : selectedCallerModal.role === 'LISTER'
+                    ? '🚗 Rent Vehicle Host'
+                    : selectedCallerModal.role === 'DRIVER'
+                    ? '👨‍✈️ Private Chauffeur'
+                    : selectedCallerModal.role === 'SHUTTLE'
+                    ? '🚌 Pick & Drop Shuttle'
+                    : selectedCallerModal.role === 'CARGO'
+                    ? '📦 Cargo & Moving Host'
+                    : selectedCallerModal.role}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">

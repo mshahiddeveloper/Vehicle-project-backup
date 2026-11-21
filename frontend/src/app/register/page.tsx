@@ -698,13 +698,9 @@ function RegisterForm() {
                   <span className="text-xs font-bold text-[#344054] flex items-center justify-between">
                     <span className="flex items-center gap-1.5 flex-wrap">
                       <span>{T.phone.en}</span>
-                      {phoneVerified ? (
+                      {phoneVerified && (
                         <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <Lock className="w-2.5 h-2.5" /> Verified WhatsApp Number
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-slate-500 font-normal">
-                          (Pakistani +92 · Auto-removes leading zero)
+                          <Check className="w-2.5 h-2.5 text-emerald-700" /> Verified
                         </span>
                       )}
                     </span>
@@ -754,13 +750,10 @@ function RegisterForm() {
                     ) : (
                       <div className="px-3 h-11 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-1 shrink-0">
                         <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Locked</span>
+                        <span>Verified</span>
                       </div>
                     )}
                   </div>
-                  <span className="text-[10px] text-slate-500">
-                    Type e.g. <span className="font-mono font-bold text-slate-700">03331286257</span> or <span className="font-mono font-bold text-slate-700">3331286257</span> — zero is automatically removed.
-                  </span>
                 </div>
 
                 {/* Email (Optional) */}
