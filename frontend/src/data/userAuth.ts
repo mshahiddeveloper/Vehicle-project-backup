@@ -599,7 +599,7 @@ export const DEMO_USERS: RegisteredUser[] = [
     phone: '+92 333 5599182',
     email: 'almakkah.cargo@safarpk.com',
     password: 'password123',
-    city: 'Rawalpindi',
+    city: 'Islamabad',
     countryCode: 'PK',
     role: 'PROVIDER',
     providerSubtype: 'COMMERCIAL_CARGO',
@@ -617,7 +617,7 @@ export const DEMO_USERS: RegisteredUser[] = [
         id: 'act-401',
         type: 'REGISTER',
         title: 'Shifting & Cargo Operator Registered',
-        description: 'Commercial home shifting truck fleet registered in Rawalpindi',
+        description: 'Commercial home shifting truck fleet registered in Islamabad',
         timestamp: '2026-02-15T09:00:00Z',
       },
     ],
@@ -908,13 +908,18 @@ export function getAllRegisteredUsers(): RegisteredUser[] {
       if (idx === -1) {
         sanitized.push(demo);
         mutated = true;
-      } else if (sanitized[idx].email !== demo.email || sanitized[idx].name !== demo.name) {
+      } else if (
+        sanitized[idx].email !== demo.email ||
+        sanitized[idx].name !== demo.name ||
+        sanitized[idx].city !== demo.city
+      ) {
         sanitized[idx] = {
           ...sanitized[idx],
           email: demo.email,
           name: demo.name,
           businessName: demo.businessName,
           providerSubtype: demo.providerSubtype,
+          city: demo.city,
         };
         mutated = true;
       }

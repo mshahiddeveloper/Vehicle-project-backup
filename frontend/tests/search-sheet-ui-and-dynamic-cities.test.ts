@@ -127,29 +127,30 @@ describe('Search Sheet UI, Default City & Dynamic Partner Cities Tests', () => {
   });
 
   describe('5. Search Sheet Native App Styling & Sizing', () => {
-    it('T5.1: Self-drive and With driver toggle has comfortable native app height (h-10.5)', () => {
+    it('T5.1: Self-drive and With driver toggle has comfortable native app height (h-11)', () => {
       const selfDriveIdx = mobileHomeSource.indexOf('Self-drive vs With Driver Segmented Toggle');
       expect(selfDriveIdx).toBeGreaterThan(-1);
       const selfDriveSlice = mobileHomeSource.slice(selfDriveIdx, selfDriveIdx + 1200);
-      expect(selfDriveSlice).toContain('h-10.5');
+      expect(selfDriveSlice).toContain('h-11');
       expect(selfDriveSlice).toContain('Self-drive');
       expect(selfDriveSlice).toContain('With driver');
     });
 
-    it('T5.2: Universal search input has proper height (h-11.5) with centered icon and clean placeholder', () => {
+    it('T5.2: Universal search input has proper height (h-12) with centered icon and clean placeholder', () => {
       const searchBoxIdx = mobileHomeSource.indexOf('Live Search & Model Keyword Input Box');
       expect(searchBoxIdx).toBeGreaterThan(-1);
       const searchBoxSlice = mobileHomeSource.slice(searchBoxIdx, searchBoxIdx + 2500);
-      expect(searchBoxSlice).toContain('h-11.5');
+      expect(searchBoxSlice).toContain('h-12');
+      expect(searchBoxSlice).toContain('pl-11');
       expect(searchBoxSlice).toContain('top-1/2 -translate-y-1/2');
       expect(searchBoxSlice).toContain('Search car name or model');
     });
 
-    it('T5.3: Transmission row provides generous touch target and 3 pill options', () => {
+    it('T5.3: Transmission row provides spacious dedicated 3-column pill grid without horizontal squeezing', () => {
       const transIdx = mobileHomeSource.indexOf('SERVICE 0: TRANSMISSION');
       expect(transIdx).toBeGreaterThan(-1);
-      const transSlice = mobileHomeSource.slice(transIdx, transIdx + 1200);
-      expect(transSlice).toContain('h-[50px]');
+      const transSlice = mobileHomeSource.slice(transIdx, transIdx + 1500);
+      expect(transSlice).toContain('grid-cols-3');
       expect(transSlice).toContain("['All', 'Automatic', 'Manual']");
     });
 
@@ -227,6 +228,21 @@ describe('Search Sheet UI, Default City & Dynamic Partner Cities Tests', () => {
       expect(citySheetSlice).toContain('Major Hubs');
       expect(citySheetSlice).toContain('Registered Partner Cities');
       expect(citySheetSlice).toContain('Partner City');
+    });
+
+    it('T6.3: Initial demo users are strictly constrained to major hubs and do not seed unlisted cities like Rawalpindi', () => {
+      const users = getAllRegisteredUsers();
+      const demoUsers = users.filter((u) => u.id.startsWith('usr-demo-'));
+      const famousLower = FAMOUS_PAKISTAN_CITIES.map((c) => c.name.toLowerCase());
+      demoUsers.forEach((demo) => {
+        expect(famousLower).toContain(demo.city.toLowerCase());
+      });
+    });
+
+    it('T6.4: Only active subscribed listers qualify for partner cities (customers and unpaid accounts excluded)', () => {
+      expect(mobileHomeSource).toContain("u.role === 'LISTER' || u.role === 'DRIVER' || u.role === 'PROVIDER'");
+      expect(mobileHomeSource).toContain("u.subscription && u.subscription.status === 'ACTIVE'");
+      expect(mobileHomeSource).toContain("!u.id.startsWith('usr-demo-')");
     });
   });
 });

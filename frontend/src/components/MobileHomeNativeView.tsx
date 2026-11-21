@@ -183,10 +183,13 @@ export function MobileHomeNativeView() {
         const partnerCitiesMap = new Map<string, CityOption>();
 
         allUsers.forEach((u) => {
-          if (
-            u.city &&
-            (u.role === 'LISTER' || u.role === 'DRIVER' || u.role === 'PROVIDER')
-          ) {
+          // Strictly only vendors/listers (NOT CUSTOMER) who have an ACTIVE subscription,
+          // and are not demo accounts without real services
+          const isListerRole = u.role === 'LISTER' || u.role === 'DRIVER' || u.role === 'PROVIDER';
+          const isPaidOrActiveSub = u.subscription && u.subscription.status === 'ACTIVE';
+          const isNotDemo = !u.id.startsWith('usr-demo-');
+
+          if (isListerRole && isPaidOrActiveSub && isNotDemo && u.city) {
             const raw = u.city.trim();
             if (raw) {
               const cap = raw.charAt(0).toUpperCase() + raw.slice(1);
@@ -1632,7 +1635,7 @@ export function MobileHomeNativeView() {
             onClick={() => setSearchSheetOpen(false)}
             aria-label="Close search"
           />
-          <div className="bg-white rounded-t-[26px] p-4 pb-6 max-h-[92vh] overflow-y-auto flex flex-col gap-2.5 shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
+          <div className="bg-white rounded-t-[26px] p-4 pb-6 max-h-[92vh] overflow-y-auto flex flex-col gap-3.5 shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
             <div className="w-10 h-1.5 rounded-full bg-[#D0D5DD] mx-auto mb-0.5 shrink-0" />
 
             <div className="flex items-center justify-between pb-0.5">
@@ -1642,7 +1645,7 @@ export function MobileHomeNativeView() {
               <button
                 type="button"
                 onClick={() => setSearchSheetOpen(false)}
-                className="h-7.5 px-3 rounded-full bg-[#F2F4F7] hover:bg-slate-200 font-semibold text-xs text-slate-700 cursor-pointer transition"
+                className="h-8 px-3.5 rounded-full bg-[#F2F4F7] hover:bg-slate-200 font-semibold text-xs text-slate-700 cursor-pointer transition"
               >
                 Cancel
               </button>
@@ -1658,13 +1661,13 @@ export function MobileHomeNativeView() {
                     key={s.id}
                     type="button"
                     onClick={() => setActiveServiceIdx(idx)}
-                    className={`flex flex-col items-center justify-center py-1.5 px-0.5 rounded-xl transition cursor-pointer select-none ${
+                    className={`flex flex-col items-center justify-center py-2 px-0.5 rounded-xl transition cursor-pointer select-none ${
                       isSelected
-                        ? 'bg-white text-[#0B6B4F] shadow-2xs font-extrabold border border-[#DCE7E1]'
+                        ? 'bg-white text-[#0B6B4F] shadow-xs font-extrabold border border-[#DCE7E1]'
                         : 'text-[#667085] hover:text-[#101828] font-semibold'
                     }`}
                   >
-                    <Icon className={`w-4 h-4 mb-0.5 shrink-0 ${isSelected ? 'text-[#0B6B4F]' : 'text-slate-400'}`} />
+                    <Icon className={`w-4 h-4 mb-1 shrink-0 ${isSelected ? 'text-[#0B6B4F]' : 'text-slate-400'}`} />
                     <span className="text-[10px] leading-[1.15] text-center tracking-tight">
                       {s.label}
                     </span>
@@ -1675,17 +1678,17 @@ export function MobileHomeNativeView() {
 
             {/* Self-drive vs With Driver Segmented Toggle (Car Rental Only - Clean App Style) */}
             {activeServiceIdx === 0 && (
-              <div className="grid grid-cols-2 gap-1.5 p-1.5 bg-[#F2F5F3] rounded-2xl border border-[#DFE7E2]">
+              <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#F4F6F8] rounded-2xl border border-[#E4E7EC]">
                 <button
                   type="button"
                   onClick={() => {
                     setIsSelfDrive(true);
                     showToast('Self-drive rental selected');
                   }}
-                  className={`h-10.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer select-none ${
+                  className={`h-11 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer select-none ${
                     isSelfDrive
                       ? 'bg-[#0B6B4F] text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
+                      : 'text-slate-600 hover:text-slate-900 bg-white/40 hover:bg-white'
                   }`}
                 >
                   <Car className="w-4 h-4 stroke-[2.2]" />
@@ -1697,10 +1700,10 @@ export function MobileHomeNativeView() {
                     setIsSelfDrive(false);
                     showToast('Chauffeur / With driver selected');
                   }}
-                  className={`h-10.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer select-none ${
+                  className={`h-11 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer select-none ${
                     !isSelfDrive
                       ? 'bg-[#0B6B4F] text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
+                      : 'text-slate-600 hover:text-slate-900 bg-white/40 hover:bg-white'
                   }`}
                 >
                   <Users className="w-4 h-4 stroke-[2.2]" />
@@ -1711,7 +1714,7 @@ export function MobileHomeNativeView() {
 
             {/* Live Search & Model Keyword Input Box (Proper Spacious Height & Centered Icon) */}
             <div className="relative flex items-center">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[#0B6B4F] stroke-[2.2] pointer-events-none" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0B6B4F] stroke-[2.2] pointer-events-none" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -1728,7 +1731,7 @@ export function MobileHomeNativeView() {
                     ? 'Search corridor stop (e.g. DHA, Gulberg)'
                     : 'Search truck type or area'
                 }
-                className="w-full h-11.5 pl-10.5 pr-10 rounded-xl bg-white border border-[#D0D5DD] text-xs sm:text-sm font-semibold text-[#101828] placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:border-[#0B6B4F] focus:ring-2 focus:ring-[#0B6B4F]/20 shadow-xs transition"
+                className="w-full h-12 pl-11 pr-10 rounded-xl bg-white border border-[#D0D5DD] text-xs sm:text-sm font-semibold text-[#101828] placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:border-[#0B6B4F] focus:ring-2 focus:ring-[#0B6B4F]/20 shadow-xs transition"
               />
               {searchQuery && (
                 <button
@@ -1801,7 +1804,7 @@ export function MobileHomeNativeView() {
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-3 h-[48px] px-3.5">
+                  <div className="flex items-center gap-3 h-[50px] px-3.5">
                     <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
                       <Flag className="w-3.5 h-3.5 stroke-[2.2]" />
                     </span>
@@ -1821,6 +1824,39 @@ export function MobileHomeNativeView() {
                       <ChevronDown className="w-4 h-4 text-slate-400" />
                     </button>
                   </div>
+
+                  <label className="relative flex items-center gap-3 h-[50px] px-3.5 cursor-pointer hover:bg-slate-50/70 transition">
+                    <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <Calendar className="w-3.5 h-3.5 stroke-[2.2]" />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[10px] font-bold text-[#667085] uppercase tracking-wide block leading-none mb-0.5">
+                        Travel Date
+                      </span>
+                      <span className="text-xs font-bold text-[#101828]">
+                        {formatShortDate(pickupDate || todayDateStr)}
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-bold text-[#0B6B4F] bg-[#E9F3EE] px-2 py-0.5 rounded-md shrink-0">
+                      Select Date
+                    </span>
+                    <input
+                      type="date"
+                      min={todayDateStr}
+                      value={pickupDate || todayDateStr}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val && val < todayDateStr) {
+                          setPickupDate(todayDateStr);
+                          showToast('Past dates cannot be selected');
+                        } else if (val) {
+                          setPickupDate(val);
+                          showToast(`Travel date: ${formatShortDate(val)}`);
+                        }
+                      }}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    />
+                  </label>
                 </>
               )}
 
@@ -2038,16 +2074,23 @@ export function MobileHomeNativeView() {
                 </div>
               )}
 
-              {/* SERVICE 0: TRANSMISSION (Prominent Inline 3-Pill Switcher - 100% visible, never cut off) */}
+              {/* SERVICE 0: TRANSMISSION (Spacious Dedicated Selector - Zero horizontal crowding) */}
               {activeServiceIdx === 0 && (
-                <div className="flex items-center justify-between h-[50px] px-3.5 hover:bg-slate-50/70 transition">
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                      <SlidersHorizontal className="w-3.5 h-3.5 stroke-[2.2]" />
+                <div className="p-3 hover:bg-slate-50/50 transition">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-md bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                        <SlidersHorizontal className="w-3.5 h-3.5 stroke-[2.2]" />
+                      </span>
+                      <span className="text-[10px] font-bold text-[#667085] uppercase tracking-wide">
+                        Transmission
+                      </span>
+                    </div>
+                    <span className="text-xs font-bold text-[#0B6B4F]">
+                      {selectedTransmission === 'All' ? 'Any' : selectedTransmission}
                     </span>
-                    <span className="text-xs font-bold text-[#344054]">Transmission</span>
                   </div>
-                  <div className="flex items-center gap-1 bg-[#F4F6F8] p-1 rounded-xl border border-[#EEF0F2]">
+                  <div className="grid grid-cols-3 gap-1.5 p-1 bg-[#F4F6F8] rounded-xl border border-[#EEF0F2]">
                     {(['All', 'Automatic', 'Manual'] as const).map((trans) => {
                       const isSelected = selectedTransmission === trans;
                       return (
@@ -2058,10 +2101,10 @@ export function MobileHomeNativeView() {
                             setSelectedTransmission(trans);
                             showToast(`Transmission: ${trans === 'All' ? 'Any' : trans}`);
                           }}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer select-none ${
+                          className={`h-9 rounded-lg text-xs font-bold transition flex items-center justify-center cursor-pointer select-none ${
                             isSelected
                               ? 'bg-[#0B6B4F] text-white shadow-xs'
-                              : 'text-slate-600 hover:text-slate-900'
+                              : 'text-slate-600 hover:text-slate-900 bg-white/40 hover:bg-white'
                           }`}
                         >
                           {trans === 'All' ? 'Any' : trans}
