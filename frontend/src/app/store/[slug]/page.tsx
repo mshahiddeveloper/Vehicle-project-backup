@@ -329,7 +329,7 @@ export default function StorefrontPage() {
         </div>
       </div>
 
-      <main className="flex-1 pb-56 sm:pb-48 lg:pb-20">
+      <main className="flex-1 pb-64 sm:pb-56 lg:pb-20">
         {/* Store Banner */}
         <div className="relative h-32 sm:h-64 bg-slate-900 overflow-hidden">
           <img
@@ -860,7 +860,7 @@ export default function StorefrontPage() {
         </div>
 
         {/* Dedicated Mobile Safe Scroll Clearance: Guarantees store inventory and CTAs scroll 100% clear of MobileNavBar */}
-        <div className="h-28 lg:hidden" aria-hidden="true" />
+        <div className="h-44 sm:h-36 lg:hidden" aria-hidden="true" />
       </main>
 
       {/* Share Storefront Modal */}

@@ -184,7 +184,7 @@ export default function MoverDetailPage() {
     <div className="min-h-screen bg-white font-sans text-[#101828] flex flex-col justify-between">
       <AppHeader />
 
-      <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-4 sm:py-6 md:py-10 flex flex-col gap-4 sm:gap-6 pb-56 sm:pb-48 lg:pb-16">
+      <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-4 sm:py-6 md:py-10 flex flex-col gap-4 sm:gap-6 pb-64 sm:pb-56 lg:pb-16">
         {/* Mobile App Navigation Bar (Native App Look) */}
         <div className="md:hidden flex items-center justify-between gap-2 pb-1">
           <button
@@ -518,7 +518,7 @@ export default function MoverDetailPage() {
           </div>
 
           {/* Right Column: Interactive Quote Calculator & Contact Card */}
-          <aside id="mover-booking-section" className="sticky top-24 border border-orange-200/90 rounded-3xl p-6 bg-white shadow-lg space-y-4 scroll-mt-24">
+          <aside id="mover-booking-section" className="relative lg:sticky lg:top-24 border border-orange-200/90 rounded-3xl p-5 sm:p-6 bg-white shadow-lg space-y-4 scroll-mt-24 mb-4">
             {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -708,7 +708,7 @@ export default function MoverDetailPage() {
         </div>
 
         {/* Dedicated Mobile Safe Scroll Clearance: Guarantees form submit buttons scroll 100% clear of sticky action bar */}
-        <div className="h-28 lg:hidden" aria-hidden="true" />
+        <div className="h-44 sm:h-36 lg:hidden" aria-hidden="true" />
       </main>
 
       {/* Mobile App Sticky Action Bar (Direct, Elevated, Never Hidden Behind Menu) */}

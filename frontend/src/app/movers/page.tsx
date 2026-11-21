@@ -110,7 +110,7 @@ export default function MoversPage() {
           On mobile (< lg): Calculator is order-1 (at the very TOP of the page for instant access).
           On desktop (>= lg): Calculator is order-2 (sticky right column).
         */}
-        <aside className="order-1 lg:order-2 sticky top-24 border border-orange-200/90 rounded-3xl p-5 sm:p-6 bg-white shadow-lg space-y-4">
+        <aside className="order-1 lg:order-2 relative lg:sticky lg:top-24 border border-orange-200/90 rounded-3xl p-5 sm:p-6 bg-white shadow-lg space-y-4">
           {/* Header with Title and Category Badge */}
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">

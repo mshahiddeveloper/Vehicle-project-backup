@@ -930,7 +930,7 @@ export default function SubscriptionPage() {
           </section>
 
           {/* Right: Order Summary & Checkout Card */}
-          <aside className="bg-white border border-[#EEF0F2] rounded-3xl p-6 flex flex-col gap-5 shadow-xs sticky top-24">
+          <aside className="bg-white border border-[#EEF0F2] rounded-3xl p-6 flex flex-col gap-5 shadow-xs relative lg:sticky lg:top-24">
             <h3 className="font-heading font-bold text-lg text-[#101828]">
               Order Summary
             </h3>
