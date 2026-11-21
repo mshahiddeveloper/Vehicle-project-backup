@@ -1595,23 +1595,23 @@ export function MobileHomeNativeView() {
             onClick={() => setSearchSheetOpen(false)}
             aria-label="Close search"
           />
-          <div className="bg-white rounded-t-[26px] p-4 pb-8 max-h-[88vh] overflow-y-auto flex flex-col gap-3.5 shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
-            <div className="w-10 h-1.5 rounded-full bg-[#D0D5DD] mx-auto mb-1 shrink-0" />
+          <div className="bg-white rounded-t-[26px] p-4 pb-6 max-h-[92vh] overflow-y-auto flex flex-col gap-2.5 shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
+            <div className="w-10 h-1.5 rounded-full bg-[#D0D5DD] mx-auto mb-0.5 shrink-0" />
 
-            <div className="flex items-center justify-between pb-1">
-              <h3 className="font-heading font-extrabold text-[20px] text-[#101828]">
+            <div className="flex items-center justify-between pb-0.5">
+              <h3 className="font-heading font-extrabold text-[19px] text-[#101828]">
                 {curService?.title || 'Rent a Car'}
               </h3>
               <button
                 type="button"
                 onClick={() => setSearchSheetOpen(false)}
-                className="h-8 px-3 rounded-full bg-[#F2F4F7] hover:bg-slate-200 font-semibold text-xs text-slate-700 cursor-pointer transition"
+                className="h-7.5 px-3 rounded-full bg-[#F2F4F7] hover:bg-slate-200 font-semibold text-xs text-slate-700 cursor-pointer transition"
               >
                 Cancel
               </button>
             </div>
 
-            {/* 5-Column Segmented Grid Switcher (100% visible, no horizontal scroll, Movers never cut off) */}
+            {/* 5-Column Segmented Grid Switcher (Movers 100% visible, no horizontal scroll) */}
             <div className="grid grid-cols-5 gap-1 p-1 bg-[#F4F6F8] rounded-2xl border border-[#EEF0F2]">
               {services.map((s, idx) => {
                 const Icon = s.icon;
@@ -1621,13 +1621,13 @@ export function MobileHomeNativeView() {
                     key={s.id}
                     type="button"
                     onClick={() => setActiveServiceIdx(idx)}
-                    className={`flex flex-col items-center justify-center py-2 px-0.5 rounded-xl transition cursor-pointer select-none ${
+                    className={`flex flex-col items-center justify-center py-1.5 px-0.5 rounded-xl transition cursor-pointer select-none ${
                       isSelected
                         ? 'bg-white text-[#0B6B4F] shadow-2xs font-extrabold border border-[#DCE7E1]'
                         : 'text-[#667085] hover:text-[#101828] font-semibold'
                     }`}
                   >
-                    <Icon className={`w-4 h-4 mb-1 shrink-0 ${isSelected ? 'text-[#0B6B4F]' : 'text-slate-400'}`} />
+                    <Icon className={`w-4 h-4 mb-0.5 shrink-0 ${isSelected ? 'text-[#0B6B4F]' : 'text-slate-400'}`} />
                     <span className="text-[10px] leading-[1.15] text-center tracking-tight">
                       {s.label}
                     </span>
@@ -1636,94 +1636,91 @@ export function MobileHomeNativeView() {
               })}
             </div>
 
-            {/* Live Search & Model Keyword Input Box */}
-            <div className="flex flex-col gap-2">
-              <div className="relative flex items-center">
-                <Search className="absolute left-3.5 w-4.5 h-4.5 text-[#0B6B4F] stroke-[2.2]" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={
-                    activeServiceIdx === 0
-                      ? 'Type name, model or city (e.g. Corolla, Civic, Karachi...)'
-                      : activeServiceIdx === 1
-                      ? 'Type driver name, city, tag (e.g. Tariq, Executive...)'
-                      : activeServiceIdx === 2
-                      ? 'Type city or car (e.g. Lahore, Islamabad, Civic...)'
-                      : activeServiceIdx === 3
-                      ? 'Type area or corridor (e.g. DHA, Gulberg...)'
-                      : 'Type truck or area (e.g. Shehzore, Johar Town...)'
-                  }
-                  className="w-full h-12 pl-10 pr-10 rounded-2xl bg-[#F4F6F8] border border-[#D0D5DD] text-sm font-semibold text-[#101828] placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:border-[#0B6B4F] focus:bg-white focus:ring-2 focus:ring-[#0B6B4F]/20 shadow-2xs transition"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 w-6 h-6 rounded-full bg-slate-200/80 hover:bg-slate-300 text-slate-600 flex items-center justify-center transition active:scale-90"
-                    aria-label="Clear search"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
+            {/* Self-drive vs With Driver Segmented Toggle (Car Rental Only - At top for clarity) */}
+            {activeServiceIdx === 0 && (
+              <div className="grid grid-cols-2 gap-1 bg-[#F4F6F8] p-1 rounded-xl border border-[#EEF0F2]">
+                <button
+                  type="button"
+                  onClick={() => setIsSelfDrive(true)}
+                  className={`h-8.5 rounded-lg text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                    isSelfDrive
+                      ? 'bg-[#0B6B4F] text-white shadow-xs'
+                      : 'text-[#475467] hover:text-[#101828]'
+                  }`}
+                >
+                  <Car className="w-3.5 h-3.5" />
+                  <span>Self-drive</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsSelfDrive(false)}
+                  className={`h-8.5 rounded-lg text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                    !isSelfDrive
+                      ? 'bg-[#0B6B4F] text-white shadow-xs'
+                      : 'text-[#475467] hover:text-[#101828]'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>With driver</span>
+                </button>
               </div>
+            )}
 
-              {/* Popular Quick Suggestions Chips */}
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 shrink-0">
-                  Quick:
-                </span>
-                {(activeServiceIdx === 0
-                  ? ['Corolla', 'Civic', 'Yaris', 'Fortuner', 'HiAce', 'Prado', 'Karachi', 'Islamabad', 'Automatic']
-                  : activeServiceIdx === 1
-                  ? ['Tariq', 'Executive', 'Highway', 'Monthly', 'Certified Chauffeur', 'Karachi']
-                  : activeServiceIdx === 2
-                  ? ['Lahore', 'Islamabad', 'Karachi', 'Civic', 'Corolla']
-                  : activeServiceIdx === 3
-                  ? ['DHA Phase 5', 'Gulberg', 'Clifton', 'Fast NU', 'Blue Area']
-                  : ['Shehzore', 'Suzuki Ravi', 'Mazda Titan', 'Johar Town', 'DHA']
-                ).map((tag) => {
-                  const isTagActive = searchQuery.toLowerCase().includes(tag.toLowerCase());
-                  return (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => setSearchQuery(tag)}
-                      className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-bold transition cursor-pointer active:scale-95 ${
-                        isTagActive
-                          ? 'bg-[#0B6B4F] text-white shadow-xs'
-                          : 'bg-[#F2F4F7] hover:bg-slate-200 text-slate-700'
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  );
-                })}
-              </div>
+            {/* Live Search & Model Keyword Input Box */}
+            <div className="relative flex items-center">
+              <Search className="absolute left-3.5 w-4 h-4 text-[#0B6B4F] stroke-[2.2]" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={
+                  activeServiceIdx === 0
+                    ? 'Search car name, model or city (e.g. Civic, Fortuner...)'
+                    : activeServiceIdx === 1
+                    ? 'Search driver name, city or tag (e.g. Tariq, Executive...)'
+                    : activeServiceIdx === 2
+                    ? 'Search city or car (e.g. Lahore, Islamabad, Civic...)'
+                    : activeServiceIdx === 3
+                    ? 'Search corridor stop (e.g. DHA, Gulberg...)'
+                    : 'Search truck or area (e.g. Shehzore, Johar Town...)'
+                }
+                className="w-full h-10.5 pl-9.5 pr-9 rounded-xl bg-[#F4F6F8] border border-[#D0D5DD] text-xs font-semibold text-[#101828] placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:border-[#0B6B4F] focus:bg-white focus:ring-2 focus:ring-[#0B6B4F]/20 shadow-2xs transition"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 w-5 h-5 rounded-full bg-slate-200/80 hover:bg-slate-300 text-slate-600 flex items-center justify-center transition active:scale-90 cursor-pointer"
+                  aria-label="Clear search"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
             </div>
 
             {/* Form Fields Card */}
             <div className="border border-[#E4E7EC] rounded-2xl overflow-hidden bg-white divide-y divide-[#EEF0F2]">
               {/* SERVICE 0: CAR RENTAL & SERVICE 1: DRIVERS */}
               {(activeServiceIdx === 0 || activeServiceIdx === 1) && (
-                <div className="flex items-center gap-3 min-h-[58px] px-3.5">
-                  <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                    <MapPin className="w-4 h-4 stroke-[2.2]" />
+                <div className="flex items-center gap-3 h-[48px] px-3.5 hover:bg-slate-50/70 transition">
+                  <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                    <MapPin className="w-3.5 h-3.5 stroke-[2.2]" />
                   </span>
                   <button
                     type="button"
                     onClick={() => setCitySheetOpen(true)}
-                    className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
+                    className="flex-1 flex items-center justify-between text-left border-0 bg-transparent cursor-pointer p-0"
                   >
-                    <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
-                      {activeServiceIdx === 1 ? 'City / Location (شہر)' : 'Where / Pick-up City'}
-                    </span>
-                    <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
-                      <span>{searchWhere || city || 'Select City'}</span>
-                      <ChevronDown className="w-4 h-4 text-slate-400" />
-                    </span>
+                    <div>
+                      <span className="text-[10px] font-bold text-[#667085] uppercase tracking-wide block leading-none mb-0.5">
+                        {activeServiceIdx === 1 ? 'City / Location (شہر)' : 'Pick-up City'}
+                      </span>
+                      <span className="text-xs font-bold text-[#101828]">
+                        {searchWhere || city || 'Select City'}
+                      </span>
+                    </div>
+                    <ChevronDown className="w-4 h-4 text-slate-400" />
                   </button>
                 </div>
               )}
@@ -1731,528 +1728,387 @@ export function MobileHomeNativeView() {
               {/* SERVICE 2: CITY TO CITY */}
               {activeServiceIdx === 2 && (
                 <>
-                  <div className="flex items-center gap-3 min-h-[58px] px-3.5">
-                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                      <MapPin className="w-4 h-4 stroke-[2.2]" />
+                  <div className="flex items-center gap-3 h-[48px] px-3.5">
+                    <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <MapPin className="w-3.5 h-3.5 stroke-[2.2]" />
                     </span>
                     <button
                       type="button"
                       onClick={() => setC2cPickerSheetOpen('from')}
-                      className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
+                      className="flex-1 flex items-center justify-between text-left border-0 bg-transparent cursor-pointer p-0"
                     >
-                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
-                        Leaving from
-                      </span>
-                      <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
-                        <span>{c2cFromCity || city}</span>
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
-                      </span>
+                      <div>
+                        <span className="text-[10px] font-bold text-[#667085] uppercase tracking-wide block leading-none mb-0.5">
+                          Leaving from
+                        </span>
+                        <span className="text-xs font-bold text-[#101828]">
+                          {c2cFromCity || city}
+                        </span>
+                      </div>
+                      <ChevronDown className="w-4 h-4 text-slate-400" />
                     </button>
                     <button
                       type="button"
                       onClick={handleSwapC2cCities}
-                      className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
+                      className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
                       title="Swap routes"
                       aria-label="Swap cities"
                     >
-                      <ArrowUpDown className="w-4 h-4" />
+                      <ArrowUpDown className="w-3.5 h-3.5" />
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-3 min-h-[58px] px-3.5">
-                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                      <Flag className="w-4 h-4 stroke-[2.2]" />
+                  <div className="flex items-center gap-3 h-[48px] px-3.5">
+                    <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <Flag className="w-3.5 h-3.5 stroke-[2.2]" />
                     </span>
                     <button
                       type="button"
                       onClick={() => setC2cPickerSheetOpen('to')}
-                      className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
+                      className="flex-1 flex items-center justify-between text-left border-0 bg-transparent cursor-pointer p-0"
                     >
-                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
-                        Going to (Destination City)
-                      </span>
-                      <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
-                        <span>{c2cToCity}</span>
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
-                      </span>
+                      <div>
+                        <span className="text-[10px] font-bold text-[#667085] uppercase tracking-wide block leading-none mb-0.5">
+                          Going to (Destination City)
+                        </span>
+                        <span className="text-xs font-bold text-[#101828]">
+                          {c2cToCity}
+                        </span>
+                      </div>
+                      <ChevronDown className="w-4 h-4 text-slate-400" />
                     </button>
                   </div>
                 </>
               )}
 
-              {/* SERVICE 3: PICK & DROP SHUTTLES (Corridor pickup & drop stops, no single date picker) */}
+              {/* SERVICE 3: PICK & DROP SHUTTLES */}
               {activeServiceIdx === 3 && (
                 <>
-                  <div className="flex items-center gap-3 min-h-[58px] px-3.5">
-                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                      <MapPin className="w-4 h-4 stroke-[2.2]" />
+                  <div className="flex items-center gap-3 h-[48px] px-3.5">
+                    <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <MapPin className="w-3.5 h-3.5 stroke-[2.2]" />
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setCitySheetOpen(true)}
-                      className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
-                    >
-                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
-                        Commute City
-                      </span>
-                      <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
-                        <span>{shuttleCity || city}</span>
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
-                      </span>
+                    <button type="button" onClick={() => setCitySheetOpen(true)} className="flex-1 flex items-center justify-between text-left border-0 bg-transparent cursor-pointer p-0">
+                      <div>
+                        <span className="text-[10px] font-bold text-[#667085] uppercase tracking-wide block leading-none mb-0.5">Commute City</span>
+                        <span className="text-xs font-bold text-[#101828]">{shuttleCity || city}</span>
+                      </div>
+                      <ChevronDown className="w-4 h-4 text-slate-400" />
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-3 min-h-[58px] px-3.5">
-                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                      <Navigation className="w-4 h-4 stroke-[2.2]" />
+                  <div className="flex items-center gap-3 h-[48px] px-3.5">
+                    <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <Navigation className="w-3.5 h-3.5 stroke-[2.2]" />
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setShuttleAreaSheetOpen('pickup')}
-                      className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
-                    >
-                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
-                        Pick-up area (Home Stop)
-                      </span>
-                      <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
-                        <span>{shuttlePickupArea || 'Select pickup corridor stop'}</span>
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
-                      </span>
+                    <button type="button" onClick={() => setShuttleAreaSheetOpen('pickup')} className="flex-1 flex items-center justify-between text-left border-0 bg-transparent cursor-pointer p-0">
+                      <div className="min-w-0 pr-2">
+                        <span className="text-[10px] font-bold text-[#667085] uppercase tracking-wide block leading-none mb-0.5">Pick-up area (Home Stop)</span>
+                        <span className="text-xs font-bold text-[#101828] truncate block">{shuttlePickupArea || 'Select pickup corridor stop'}</span>
+                      </div>
+                      <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-3 min-h-[58px] px-3.5">
-                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                      <Flag className="w-4 h-4 stroke-[2.2]" />
+                  <div className="flex items-center gap-3 h-[48px] px-3.5">
+                    <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <Flag className="w-3.5 h-3.5 stroke-[2.2]" />
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setShuttleAreaSheetOpen('drop')}
-                      className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
-                    >
-                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
-                        Drop-off (Office or School Stop)
-                      </span>
-                      <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
-                        <span>{shuttleDropArea || 'Select drop-off corridor stop'}</span>
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
-                      </span>
+                    <button type="button" onClick={() => setShuttleAreaSheetOpen('drop')} className="flex-1 flex items-center justify-between text-left border-0 bg-transparent cursor-pointer p-0">
+                      <div className="min-w-0 pr-2">
+                        <span className="text-[10px] font-bold text-[#667085] uppercase tracking-wide block leading-none mb-0.5">Drop-off (Office or School Stop)</span>
+                        <span className="text-xs font-bold text-[#101828] truncate block">{shuttleDropArea || 'Select drop-off corridor stop'}</span>
+                      </div>
+                      <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
                     </button>
                   </div>
                 </>
               )}
 
-              {/* SERVICE 4: MOVERS (Pickup area, drop-off area, and shifting date picker) */}
+              {/* SERVICE 4: MOVERS */}
               {activeServiceIdx === 4 && (
                 <>
-                  <div className="flex items-center gap-3 min-h-[58px] px-3.5">
-                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                      <MapPin className="w-4 h-4 stroke-[2.2]" />
+                  <div className="flex items-center gap-3 h-[48px] px-3.5">
+                    <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <MapPin className="w-3.5 h-3.5 stroke-[2.2]" />
                     </span>
-                    <button type="button" onClick={() => setCitySheetOpen(true)} className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0">
-                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">City / Location (شہر)</span>
-                      <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
-                        <span>{searchWhere || city}</span>
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
-                      </span>
+                    <button type="button" onClick={() => setCitySheetOpen(true)} className="flex-1 flex items-center justify-between text-left border-0 bg-transparent cursor-pointer p-0">
+                      <div>
+                        <span className="text-[10px] font-bold text-[#667085] uppercase tracking-wide block leading-none mb-0.5">City / Location</span>
+                        <span className="text-xs font-bold text-[#101828]">{searchWhere || city}</span>
+                      </div>
+                      <ChevronDown className="w-4 h-4 text-slate-400" />
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-3 min-h-[58px] px-3.5">
-                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                      <Navigation className="w-4 h-4 stroke-[2.2]" />
+                  <div className="flex items-center gap-3 h-[48px] px-3.5">
+                    <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <Navigation className="w-3.5 h-3.5 stroke-[2.2]" />
                     </span>
                     <button
                       type="button"
                       onClick={() => setMoverAreaSheetOpen('from')}
-                      className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
+                      className="flex-1 flex items-center justify-between text-left border-0 bg-transparent cursor-pointer p-0"
                     >
-                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
-                        Pickup Location (کہاں سے)
-                      </span>
-                      <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
-                        <span className={moverFromArea ? 'text-[#0B6B4F] font-bold truncate pr-1' : 'text-slate-400 font-medium'}>
-                          {moverFromArea || 'Select pickup area / sector'}
+                      <div className="min-w-0 pr-2">
+                        <span className="text-[10px] font-bold text-[#667085] uppercase tracking-wide block leading-none mb-0.5">
+                          Pickup Location (کہاں سے)
                         </span>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {moverFromArea && (
-                            <span
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setMoverFromArea('');
-                              }}
-                              className="w-5 h-5 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 flex items-center justify-center text-[10px]"
-                              title="Clear pickup area"
-                            >
-                              ✕
-                            </span>
-                          )}
-                          <ChevronDown className="w-4 h-4 text-slate-400" />
-                        </div>
-                      </span>
+                        <span className={`text-xs truncate block ${moverFromArea ? 'text-[#0B6B4F] font-bold' : 'text-slate-400 font-medium'}`}>
+                          {moverFromArea || 'Select pickup area'}
+                        </span>
+                      </div>
+                      <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-3 min-h-[58px] px-3.5">
-                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                      <Flag className="w-4 h-4 stroke-[2.2]" />
+                  <div className="flex items-center gap-3 h-[48px] px-3.5">
+                    <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <Flag className="w-3.5 h-3.5 stroke-[2.2]" />
                     </span>
                     <button
                       type="button"
                       onClick={() => setMoverAreaSheetOpen('to')}
-                      className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
+                      className="flex-1 flex items-center justify-between text-left border-0 bg-transparent cursor-pointer p-0"
                     >
-                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
-                        Drop-off Location (کہاں تک)
-                      </span>
-                      <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
-                        <span className={moverToArea ? 'text-[#0B6B4F] font-bold truncate pr-1' : 'text-slate-400 font-medium'}>
-                          {moverToArea || 'Select drop-off area / sector'}
+                      <div className="min-w-0 pr-2">
+                        <span className="text-[10px] font-bold text-[#667085] uppercase tracking-wide block leading-none mb-0.5">
+                          Drop-off Location (کہاں تک)
                         </span>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {moverToArea && (
-                            <span
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setMoverToArea('');
-                              }}
-                              className="w-5 h-5 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 flex items-center justify-center text-[10px]"
-                              title="Clear drop-off area"
-                            >
-                              ✕
-                            </span>
-                          )}
-                          <ChevronDown className="w-4 h-4 text-slate-400" />
-                        </div>
-                      </span>
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-3 min-h-[58px] px-3.5">
-                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                      <Calendar className="w-4 h-4 stroke-[2.2]" />
-                    </span>
-                    <span className="flex-1 flex flex-col justify-center">
-                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
-                        Shifting Date
-                      </span>
-                      <input
-                        type="date"
-                        min={todayDateStr}
-                        value={moverDate}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val && val < todayDateStr) {
-                            setMoverDate(todayDateStr);
-                            showToast('Past dates cannot be selected');
-                          } else {
-                            setMoverDate(val);
-                          }
-                        }}
-                        className="border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent"
-                      />
-                    </span>
-                  </div>
-                </>
-              )}
-
-              {/* SERVICE 1: DRIVERS - DUTY DATE */}
-              {activeServiceIdx === 1 && (
-                <div className="flex flex-col gap-2 px-3.5 py-3">
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                      <Calendar className="w-4 h-4 stroke-[2.2]" />
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1 block">
-                        When needed / Starting Date
-                      </span>
-                      <span className="text-sm font-bold text-[#101828] truncate block">
-                        {/* Any Date (Flexible) */}
-                        {(!pickupDate || pickupDate === todayDateStr)
-                          ? `Today (${formatDateDisplay(todayDateStr)})`
-                          : pickupDate === tomorrowDateStr
-                          ? `Tomorrow (${formatDateDisplay(tomorrowDateStr)})`
-                          : formatDateDisplay(pickupDate)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 3 Clean Options: Today (default), Tomorrow, Select Date */}
-                  <div className="grid grid-cols-3 gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPickupDate(todayDateStr);
-                        showToast(`Duty date set to Today (${formatDateDisplay(todayDateStr)})`);
-                      }}
-                      className={`py-2 px-1 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
-                        (!pickupDate || pickupDate === todayDateStr)
-                          ? 'bg-[#0B6B4F] text-white shadow-xs'
-                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                      }`}
-                    >
-                      Today
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPickupDate(tomorrowDateStr);
-                        showToast(`Duty date set to Tomorrow (${formatDateDisplay(tomorrowDateStr)})`);
-                      }}
-                      className={`py-2 px-1 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
-                        pickupDate === tomorrowDateStr
-                          ? 'bg-[#0B6B4F] text-white shadow-xs'
-                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                      }`}
-                    >
-                      Tomorrow
-                    </button>
-
-                    <label
-                      className={`relative flex items-center justify-center py-2 px-1 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
-                        pickupDate && pickupDate !== todayDateStr && pickupDate !== tomorrowDateStr
-                          ? 'bg-[#0B6B4F] text-white shadow-xs'
-                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                      }`}
-                    >
-                      <span className="truncate">
-                        {pickupDate && pickupDate !== todayDateStr && pickupDate !== tomorrowDateStr
-                          ? formatDateDisplay(pickupDate)
-                          : 'Select Date'}
-                      </span>
-                      <input
-                        type="date"
-                        min={todayDateStr}
-                        value={pickupDate}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val && val < todayDateStr) {
-                            setPickupDate(todayDateStr);
-                            showToast('Past dates cannot be selected');
-                          } else if (val) {
-                            setPickupDate(val);
-                            showToast(`Duty date set to ${formatDateDisplay(val)}`);
-                          }
-                        }}
-                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                      />
-                    </label>
-                  </div>
-                </div>
-              )}
-
-              {/* SERVICE 0: CAR RENTALS - PICKUP & RETURN DATES */}
-              {activeServiceIdx === 0 && (
-                <>
-                  <div className="flex flex-col gap-2 px-3.5 py-3">
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                        <Calendar className="w-4 h-4 stroke-[2.2]" />
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-[11px] font-bold text-[#667085] leading-none mb-1 block">
-                          Pick-up date
-                        </span>
-                        <span className="text-sm font-bold text-[#101828] truncate block">
-                          {(!pickupDate || pickupDate === todayDateStr)
-                            ? `Today (${formatDateDisplay(todayDateStr)})`
-                            : pickupDate === tomorrowDateStr
-                            ? `Tomorrow (${formatDateDisplay(tomorrowDateStr)})`
-                            : formatDateDisplay(pickupDate)}
+                        <span className={`text-xs truncate block ${moverToArea ? 'text-[#0B6B4F] font-bold' : 'text-slate-400 font-medium'}`}>
+                          {moverToArea || 'Select drop area'}
                         </span>
                       </div>
-                    </div>
-
-                    {/* 3 Clean Options: Today, Tomorrow, Select Date */}
-                    <div className="grid grid-cols-3 gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPickupDate(todayDateStr);
-                          if (returnDate && returnDate < todayDateStr) setReturnDate(todayDateStr);
-                          showToast(`Pick-up date set to Today (${formatDateDisplay(todayDateStr)})`);
-                        }}
-                        className={`py-2 px-1 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
-                          (!pickupDate || pickupDate === todayDateStr)
-                            ? 'bg-[#0B6B4F] text-white shadow-xs'
-                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                        }`}
-                      >
-                        Today
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPickupDate(tomorrowDateStr);
-                          if (returnDate && returnDate < tomorrowDateStr) setReturnDate(tomorrowDateStr);
-                          showToast(`Pick-up date set to Tomorrow (${formatDateDisplay(tomorrowDateStr)})`);
-                        }}
-                        className={`py-2 px-1 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
-                          pickupDate === tomorrowDateStr
-                            ? 'bg-[#0B6B4F] text-white shadow-xs'
-                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                        }`}
-                      >
-                        Tomorrow
-                      </button>
-                      <label
-                        className={`relative flex items-center justify-center py-2 px-1 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
-                          pickupDate && pickupDate !== todayDateStr && pickupDate !== tomorrowDateStr
-                            ? 'bg-[#0B6B4F] text-white shadow-xs'
-                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                        }`}
-                      >
-                        <span className="truncate">
-                          {pickupDate && pickupDate !== todayDateStr && pickupDate !== tomorrowDateStr
-                            ? formatDateDisplay(pickupDate)
-                            : 'Select Date'}
-                        </span>
-                        <input
-                          type="date"
-                          min={todayDateStr}
-                          value={pickupDate}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (val && val < todayDateStr) {
-                              setPickupDate(todayDateStr);
-                              showToast('Past dates cannot be selected');
-                            } else if (val) {
-                              setPickupDate(val);
-                              if (returnDate && returnDate < val) setReturnDate(val);
-                              showToast(`Pick-up date set to ${formatDateDisplay(val)}`);
-                            }
-                          }}
-                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                        />
-                      </label>
-                    </div>
+                      <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+                    </button>
                   </div>
 
-                  {/* Return date */}
-                  <label className="flex items-center gap-3 min-h-[58px] px-3.5">
-                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                      <Calendar className="w-4 h-4 stroke-[2.2]" />
+                  <label className="relative flex items-center gap-3 h-[48px] px-3.5 cursor-pointer hover:bg-slate-50/70 transition">
+                    <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <Calendar className="w-3.5 h-3.5 stroke-[2.2]" />
                     </span>
-                    <span className="flex-1 flex flex-col justify-center">
-                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
-                        Return date
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[10px] font-bold text-[#667085] uppercase tracking-wide block leading-none mb-0.5">
+                        Shifting Date
                       </span>
-                      <input
-                        type="date"
-                        min={pickupDate || todayDateStr}
-                        value={returnDate}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          const minAllowed = pickupDate || todayDateStr;
-                          if (val && val < minAllowed) {
-                            setReturnDate(minAllowed);
-                            showToast('Return date cannot be before pickup date');
-                          } else {
-                            setReturnDate(val);
-                          }
-                        }}
-                        className="border-0 outline-none p-0 text-sm font-semibold text-[#101828] bg-transparent"
-                      />
+                      <span className="text-xs font-bold text-[#101828]">
+                        {moverDate ? formatDateDisplay(moverDate) : `Today (${formatDateDisplay(todayDateStr)})`}
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-bold text-[#0B6B4F] bg-[#E9F3EE] px-2 py-0.5 rounded-md shrink-0">
+                      Select Date
                     </span>
+                    <input
+                      type="date"
+                      min={todayDateStr}
+                      value={moverDate || todayDateStr}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val && val < todayDateStr) {
+                          setMoverDate(todayDateStr);
+                          showToast('Past dates cannot be selected');
+                        } else if (val) {
+                          setMoverDate(val);
+                        }
+                      }}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    />
                   </label>
                 </>
               )}
 
-              {/* SPECIFIC FILTER OPTIONS FOR CARS: Transmission, Category, Budget */}
-              {activeServiceIdx === 0 && (
-                <>
-                  <div className="flex items-center gap-3 min-h-[58px] px-3.5 hover:bg-slate-50/70 transition">
-                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                      <SlidersHorizontal className="w-4 h-4 stroke-[2.2]" />
+              {/* SERVICE 1: DRIVERS - DUTY DATE (Clean single-tap date picker, NO bulky buttons) */}
+              {activeServiceIdx === 1 && (
+                <label className="relative flex items-center gap-3 h-[50px] px-3.5 cursor-pointer hover:bg-slate-50/70 transition">
+                  <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                    <Calendar className="w-3.5 h-3.5 stroke-[2.2]" />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[10px] font-bold text-[#667085] uppercase tracking-wide block leading-none mb-0.5">
+                      When needed / Starting Date
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setTransmissionSheetOpen(true)}
-                      className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
-                    >
-                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
-                        Transmission
-                      </span>
-                      <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
-                        <span>{selectedTransmission === 'All' ? 'Any transmission' : selectedTransmission}</span>
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
-                      </span>
-                    </button>
+                    <span className="text-xs font-bold text-[#101828] truncate block">
+                      {/* Any Date (Flexible) */}
+                      {(!pickupDate || pickupDate === todayDateStr)
+                        ? `Today (${formatDateDisplay(todayDateStr)})`
+                        : pickupDate === tomorrowDateStr
+                        ? `Tomorrow (${formatDateDisplay(tomorrowDateStr)})`
+                        : formatDateDisplay(pickupDate)}
+                    </span>
                   </div>
+                  <span className="text-[11px] font-bold text-[#0B6B4F] bg-[#E9F3EE] px-2 py-0.5 rounded-md shrink-0">
+                    Select Date
+                  </span>
+                  <input
+                    type="date"
+                    min={todayDateStr}
+                    value={pickupDate || todayDateStr}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val && val < todayDateStr) {
+                        setPickupDate(todayDateStr);
+                        showToast('Past dates cannot be selected');
+                      } else if (val) {
+                        setPickupDate(val);
+                        showToast(`Duty date set to ${formatDateDisplay(val)}`);
+                      }
+                    }}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                </label>
+              )}
 
-                  <div className="flex items-center gap-3 min-h-[58px] px-3.5 hover:bg-slate-50/70 transition">
-                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                      <Car className="w-4 h-4 stroke-[2.2]" />
+              {/* SERVICE 0: CAR RENTALS - PICKUP & RETURN DATES (Clean 2-Column Side-by-Side, NO bulky buttons) */}
+              {activeServiceIdx === 0 && (
+                <div className="grid grid-cols-2 divide-x divide-[#EEF0F2]">
+                  {/* Pick-up date */}
+                  <label className="relative flex items-center gap-2.5 h-[50px] px-3 cursor-pointer hover:bg-slate-50/70 transition">
+                    <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <Calendar className="w-3.5 h-3.5 stroke-[2.2]" />
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setCarCategorySheetOpen(true)}
-                      className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
-                    >
-                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[10px] font-bold text-[#667085] uppercase tracking-wide block leading-none mb-0.5">
+                        Pick-up Date
+                      </span>
+                      <span className="text-xs font-bold text-[#101828] truncate block">
+                        {(!pickupDate || pickupDate === todayDateStr)
+                          ? `Today (${formatDateDisplay(todayDateStr)})`
+                          : formatDateDisplay(pickupDate)}
+                      </span>
+                    </div>
+                    <input
+                      type="date"
+                      min={todayDateStr}
+                      value={pickupDate || todayDateStr}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val && val < todayDateStr) {
+                          setPickupDate(todayDateStr);
+                          showToast('Past dates cannot be selected');
+                        } else if (val) {
+                          setPickupDate(val);
+                          if (returnDate && returnDate < val) setReturnDate(val);
+                          showToast(`Pick-up date: ${formatDateDisplay(val)}`);
+                        }
+                      }}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    />
+                  </label>
+
+                  {/* Return date */}
+                  <label className="relative flex items-center gap-2.5 h-[50px] px-3 cursor-pointer hover:bg-slate-50/70 transition">
+                    <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <Calendar className="w-3.5 h-3.5 stroke-[2.2]" />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[10px] font-bold text-[#667085] uppercase tracking-wide block leading-none mb-0.5">
+                        Return Date
+                      </span>
+                      <span className={`text-xs font-bold truncate block ${returnDate ? 'text-[#101828]' : 'text-slate-400'}`}>
+                        {returnDate ? formatDateDisplay(returnDate) : 'Select return'}
+                      </span>
+                    </div>
+                    <input
+                      type="date"
+                      min={pickupDate || todayDateStr}
+                      value={returnDate}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const minAllowed = pickupDate || todayDateStr;
+                        if (val && val < minAllowed) {
+                          setReturnDate(minAllowed);
+                          showToast('Return date cannot be before pickup date');
+                        } else if (val) {
+                          setReturnDate(val);
+                          showToast(`Return date: ${formatDateDisplay(val)}`);
+                        }
+                      }}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    />
+                  </label>
+                </div>
+              )}
+
+              {/* SERVICE 0: TRANSMISSION (Prominent Inline 3-Pill Switcher - 100% visible, never cut off) */}
+              {activeServiceIdx === 0 && (
+                <div className="flex items-center justify-between h-[46px] px-3.5 hover:bg-slate-50/70 transition">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <SlidersHorizontal className="w-3.5 h-3.5 stroke-[2.2]" />
+                    </span>
+                    <span className="text-xs font-bold text-[#344054]">Transmission</span>
+                  </div>
+                  <div className="flex items-center gap-1 bg-[#F4F6F8] p-1 rounded-xl border border-[#EEF0F2]">
+                    {(['All', 'Automatic', 'Manual'] as const).map((trans) => {
+                      const isSelected = selectedTransmission === trans;
+                      return (
+                        <button
+                          key={trans}
+                          type="button"
+                          onClick={() => {
+                            setSelectedTransmission(trans);
+                            showToast(`Transmission: ${trans === 'All' ? 'Any' : trans}`);
+                          }}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer select-none ${
+                            isSelected
+                              ? 'bg-[#0B6B4F] text-white shadow-xs'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          {trans === 'All' ? 'Any' : trans}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* SERVICE 0: VEHICLE TYPE & DAILY BUDGET (Clean 2-Column Side-by-Side) */}
+              {activeServiceIdx === 0 && (
+                <div className="grid grid-cols-2 divide-x divide-[#EEF0F2]">
+                  <button
+                    type="button"
+                    onClick={() => setCarCategorySheetOpen(true)}
+                    className="flex items-center gap-2 h-[48px] px-3 text-left hover:bg-slate-50/70 transition cursor-pointer border-0 bg-transparent"
+                  >
+                    <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <Car className="w-3.5 h-3.5 stroke-[2.2]" />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[10px] font-bold text-[#667085] uppercase tracking-wide block leading-none mb-0.5">
                         Vehicle Type
                       </span>
-                      <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
-                        <span>{CAR_CATEGORIES[selectedCarCategory] || 'All cars'}</span>
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                      <span className="text-xs font-bold text-[#101828] truncate block">
+                        {CAR_CATEGORIES[selectedCarCategory] || 'All cars'}
                       </span>
-                    </button>
-                  </div>
+                    </div>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  </button>
 
-                  <div className="flex items-center gap-3 min-h-[58px] px-3.5 hover:bg-slate-50/70 transition">
-                    <span className="w-8 h-8 rounded-xl bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
-                      <Clock className="w-4 h-4 stroke-[2.2]" />
+                  <button
+                    type="button"
+                    onClick={() => setPriceSheetOpen(true)}
+                    className="flex items-center gap-2 h-[48px] px-3 text-left hover:bg-slate-50/70 transition cursor-pointer border-0 bg-transparent"
+                  >
+                    <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
+                      <Clock className="w-3.5 h-3.5 stroke-[2.2]" />
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setPriceSheetOpen(true)}
-                      className="flex-1 flex flex-col justify-center text-left border-0 bg-transparent cursor-pointer p-0"
-                    >
-                      <span className="text-[11px] font-bold text-[#667085] leading-none mb-1">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[10px] font-bold text-[#667085] uppercase tracking-wide block leading-none mb-0.5">
                         Daily Budget
                       </span>
-                      <span className="flex items-center justify-between text-sm font-bold text-[#101828]">
-                        <span>{selectedPriceMax ? `Under PKR ${selectedPriceMax.toLocaleString()}` : 'Any budget'}</span>
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                      <span className="text-xs font-bold text-[#101828] truncate block">
+                        {selectedPriceMax ? `< PKR ${selectedPriceMax.toLocaleString()}` : 'Any budget'}
                       </span>
-                    </button>
-                  </div>
-                </>
+                    </div>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  </button>
+                </div>
               )}
             </div>
 
-            {/* Self-drive vs With Driver Toggle (Car Rental Only) */}
-            {activeServiceIdx === 0 && (
-              <div className="grid grid-cols-2 gap-1.5 bg-[#F2F4F7] p-1 rounded-2xl">
-                <button
-                  type="button"
-                  onClick={() => setIsSelfDrive(true)}
-                  className={`h-11 rounded-xl text-sm font-bold transition cursor-pointer ${
-                    isSelfDrive
-                      ? 'bg-white text-[#101828] shadow-xs'
-                      : 'text-[#475467] hover:text-[#101828]'
-                  }`}
-                >
-                  Self-drive
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsSelfDrive(false)}
-                  className={`h-11 rounded-xl text-sm font-bold transition cursor-pointer ${
-                    !isSelfDrive
-                      ? 'bg-white text-[#101828] shadow-xs'
-                      : 'text-[#475467] hover:text-[#101828]'
-                  }`}
-                >
-                  With driver
-                </button>
-              </div>
-            )}
-
             {/* Action Buttons: Reset & Show Listings */}
-            <div className="flex items-center gap-2 pt-1">
+            <div className="flex items-center gap-2 pt-0.5">
               <button
                 type="button"
                 onClick={() => {
@@ -2269,7 +2125,7 @@ export function MobileHomeNativeView() {
                   setMoverToArea('');
                   showToast('Search & filters reset');
                 }}
-                className="h-[52px] px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 active:scale-[0.99] text-slate-700 font-bold text-xs transition cursor-pointer shrink-0"
+                className="h-11 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-[0.99] text-slate-700 font-bold text-xs transition cursor-pointer shrink-0"
               >
                 Reset
               </button>
@@ -2295,38 +2151,26 @@ export function MobileHomeNativeView() {
                       : `Found ${count} listings in ${searchWhere || city}`
                   );
                 }}
-                className="flex-1 h-[52px] rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] active:scale-[0.99] text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2 transition shadow-md cursor-pointer"
+                className="flex-1 h-11 rounded-xl bg-[#0B6B4F] hover:bg-[#08513C] active:scale-[0.99] text-white font-bold text-sm flex items-center justify-center gap-2 transition shadow-md cursor-pointer"
               >
-                <Search className="w-4.5 h-4.5 stroke-[2.4]" />
+                <Search className="w-4 h-4 stroke-[2.4]" />
                 <span className="truncate">
-                  {searchQuery
-                    ? `Show ${
-                        activeServiceIdx === 0
-                          ? filteredCars.length
-                          : activeServiceIdx === 1
-                          ? filteredDrivers.length
-                          : activeServiceIdx === 2
-                          ? filteredRides.length
-                          : activeServiceIdx === 3
-                          ? filteredShuttles.length
-                          : filteredMovers.length
-                      } "${searchQuery}" listings`
-                    : `Show listings (${
-                        activeServiceIdx === 0
-                          ? filteredCars.length
-                          : activeServiceIdx === 1
-                          ? filteredDrivers.length
-                          : activeServiceIdx === 2
-                          ? filteredRides.length
-                          : activeServiceIdx === 3
-                          ? filteredShuttles.length
-                          : filteredMovers.length
-                      })`}
+                  {`Show listings (${
+                    activeServiceIdx === 0
+                      ? filteredCars.length
+                      : activeServiceIdx === 1
+                      ? filteredDrivers.length
+                      : activeServiceIdx === 2
+                      ? filteredRides.length
+                      : activeServiceIdx === 3
+                      ? filteredShuttles.length
+                      : filteredMovers.length
+                  })`}
                 </span>
               </button>
             </div>
 
-            <span className="text-center text-xs text-[#667085]">
+            <span className="text-center text-[11px] text-[#667085] pb-1">
               Pay the owner at pick-up · zero advance deposit
             </span>
           </div>
