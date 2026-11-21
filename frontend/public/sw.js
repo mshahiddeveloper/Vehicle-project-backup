@@ -1,9 +1,11 @@
 // SafarPK Service Worker (Offline Capability & Fast Cache)
-const CACHE_NAME = 'safarpk-cache-v8';
+const CACHE_NAME = 'safarpk-cache-v9';
 const PRECACHE_ASSETS = [
   '/',
   '/manifest.json',
   '/icon.svg',
+  '/icon-192.png',
+  '/icon-512.png',
   '/countries.json',
 ];
 

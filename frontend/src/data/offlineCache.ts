@@ -20,6 +20,19 @@ export interface OfflineMarketplaceCache {
   cachedAt: string;
 }
 
+export function checkIsAppInstalled(): boolean {
+  if (typeof window === 'undefined') return false;
+  const matchMediaMatches =
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(display-mode: standalone)').matches;
+  return (
+    Boolean(matchMediaMatches) ||
+    Boolean((window.navigator as any)?.standalone) ||
+    localStorage.getItem('safarpk_app_installed') === 'true' ||
+    Boolean(typeof document !== 'undefined' && document.referrer?.includes('android-app://'))
+  );
+}
+
 /**
  * Initializes and warms up browser localStorage with all marketplace data.
  * If user disconnects from internet, the app continues to display all listings and profiles.

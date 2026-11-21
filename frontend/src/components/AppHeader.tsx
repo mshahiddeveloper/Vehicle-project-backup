@@ -36,6 +36,7 @@ import { COUNTRIES, CountryInfo, SUPPORTED_CURRENCIES, CurrencyInfo } from '@/da
 import { getActiveUser, RegisteredUser, logoutActiveUser, getUserDashboardPath } from '@/data/userAuth';
 import { useCountry } from '@/app/context/CountryContext';
 import { getSiteBranding, SiteBranding } from '@/data/branding';
+import { checkIsAppInstalled } from '@/data/offlineCache';
 
 interface AppHeaderProps {
   currentCountry?: CountryInfo;
@@ -725,10 +726,20 @@ export function MobileNavigationDrawer({
   useEffect(() => {
     setMounted(true);
     if (typeof window !== 'undefined') {
-      const standalone =
-        window.matchMedia('(display-mode: standalone)').matches ||
-        (window.navigator as any).standalone === true;
-      setIsStandalone(standalone);
+      const updateStandalone = () => {
+        const standalone =
+          window.matchMedia('(display-mode: standalone)').matches ||
+          (window.navigator as any).standalone === true ||
+          checkIsAppInstalled();
+        setIsStandalone(standalone);
+      };
+      updateStandalone();
+      window.addEventListener('safarpk_app_installed', updateStandalone);
+      window.addEventListener('appinstalled', updateStandalone);
+      return () => {
+        window.removeEventListener('safarpk_app_installed', updateStandalone);
+        window.removeEventListener('appinstalled', updateStandalone);
+      };
     }
   }, []);
 

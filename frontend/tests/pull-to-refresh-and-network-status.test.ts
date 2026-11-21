@@ -108,4 +108,31 @@ describe('Global Pull-to-Refresh & Network Status Indicator Tests', () => {
     expect(onlineRestoredConfig.bgColor).toBe('bg-emerald-50');
     expect(onlineRestoredConfig.textColor).toBe('text-[#0B6B4F]');
   });
+
+  it('T6: checkIsAppInstalled identifies installed PWA and hides install options', async () => {
+    const { checkIsAppInstalled } = await import('../src/data/offlineCache');
+
+    // 1. In regular browser without standalone: should return false
+    localStorage.removeItem('safarpk_app_installed');
+    expect(checkIsAppInstalled()).toBe(false);
+
+    // 2. Once installed: sets localStorage flag and returns true
+    localStorage.setItem('safarpk_app_installed', 'true');
+    expect(checkIsAppInstalled()).toBe(true);
+  });
+
+  it('T7: manifest.json has required PNG icons for Android/Chrome direct native install', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const manifestPath = path.resolve(__dirname, '../public/manifest.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+
+    expect(manifest.icons).toBeDefined();
+    expect(manifest.icons.length).toBeGreaterThanOrEqual(2);
+
+    const has192 = manifest.icons.some((i: any) => i.src === '/icon-192.png' && i.sizes === '192x192');
+    const has512 = manifest.icons.some((i: any) => i.src === '/icon-512.png' && i.sizes === '512x512');
+    expect(has192).toBe(true);
+    expect(has512).toBe(true);
+  });
 });
