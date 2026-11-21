@@ -37,6 +37,8 @@ import { getActiveUser, RegisteredUser, logoutActiveUser, getUserDashboardPath }
 import { useCountry } from '@/app/context/CountryContext';
 import { getSiteBranding, SiteBranding } from '@/data/branding';
 import { checkIsAppInstalled } from '@/data/offlineCache';
+import { MobilePullToRefresh } from '@/components/MobilePullToRefresh';
+import { OfflineStatusBanner } from '@/components/OfflineStatusBanner';
 
 interface AppHeaderProps {
   currentCountry?: CountryInfo;
@@ -663,6 +665,12 @@ export function AppHeader({
           </Link>
         </div>
       </div>
+
+      {/* Mobile Animated Pull-to-Refresh Car below header (In-flow, pushes content down) */}
+      <MobilePullToRefresh />
+
+      {/* Dynamic Offline / Back Online Status Banner (In-flow, pushes content down) */}
+      <OfflineStatusBanner />
     </header>
 
     {/* ========================================================================= */}

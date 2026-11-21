@@ -26,6 +26,8 @@ import {
 import { RoleArt } from '@/components/RoleArt';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import { WhatsAppOtpModal } from '@/components/WhatsAppOtpModal';
+import { MobilePullToRefresh } from '@/components/MobilePullToRefresh';
+import { OfflineStatusBanner } from '@/components/OfflineStatusBanner';
 import {
   registerNewUser,
   UserRole,
@@ -266,7 +268,7 @@ function RegisterForm() {
       phoneLocked,
       email: email.trim() || undefined,
       password: password,
-      city: city.trim() || 'Lahore',
+      city: city.trim() || 'Karachi',
       countryCode: 'PK',
       role: mappedRole,
       providerSubtype,
@@ -340,6 +342,8 @@ function RegisterForm() {
             </select>
           </label>
         </div>
+        <MobilePullToRefresh />
+        <OfflineStatusBanner />
       </header>
 
       {/* Main Container */}

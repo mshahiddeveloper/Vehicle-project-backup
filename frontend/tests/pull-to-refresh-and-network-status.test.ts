@@ -135,4 +135,34 @@ describe('Global Pull-to-Refresh & Network Status Indicator Tests', () => {
     expect(has192).toBe(true);
     expect(has512).toBe(true);
   });
+
+  it('T8: In-Header placement contract: AppHeader and Dashboards render MobilePullToRefresh directly under header bar pushing content down', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+
+    const appHeaderSrc = fs.readFileSync(path.resolve(__dirname, '../src/components/AppHeader.tsx'), 'utf-8');
+    expect(appHeaderSrc).toContain('<MobilePullToRefresh />');
+    expect(appHeaderSrc).toContain('<OfflineStatusBanner />');
+
+    const driverSrc = fs.readFileSync(path.resolve(__dirname, '../src/app/driver/page.tsx'), 'utf-8');
+    expect(driverSrc).toContain('<MobilePullToRefresh />');
+    expect(driverSrc).toContain('<OfflineStatusBanner />');
+
+    const customerSrc = fs.readFileSync(path.resolve(__dirname, '../src/app/customer/page.tsx'), 'utf-8');
+    expect(customerSrc).toContain('<MobilePullToRefresh />');
+    expect(customerSrc).toContain('<OfflineStatusBanner />');
+
+    const listerSrc = fs.readFileSync(path.resolve(__dirname, '../src/app/lister/page.tsx'), 'utf-8');
+    expect(listerSrc).toContain('<MobilePullToRefresh />');
+    expect(listerSrc).toContain('<OfflineStatusBanner />');
+
+    const providerSrc = fs.readFileSync(path.resolve(__dirname, '../src/app/provider/page.tsx'), 'utf-8');
+    expect(providerSrc).toContain('<MobilePullToRefresh />');
+    expect(providerSrc).toContain('<OfflineStatusBanner />');
+
+    // Providers must NOT contain MobilePullToRefresh or OfflineStatusBanner as fixed body overlays
+    const providersSrc = fs.readFileSync(path.resolve(__dirname, '../src/app/providers.tsx'), 'utf-8');
+    expect(providersSrc).not.toContain('<MobilePullToRefresh />');
+    expect(providersSrc).not.toContain('<OfflineStatusBanner />');
+  });
 });

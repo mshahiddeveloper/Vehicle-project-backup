@@ -156,6 +156,39 @@ export const INTERCITY_CITIES = [
   'Murree',
 ];
 
+export interface CityOption {
+  name: string;
+  tint: string;
+  isFamous?: boolean;
+  isPartnerCity?: boolean;
+}
+
+// 7 Famous Major Hub Cities in Priority Order (Karachi first, Hyderabad, Lahore, Islamabad, Multan, Faisalabad, Peshawar)
+export const FAMOUS_PAKISTAN_CITIES: CityOption[] = [
+  { name: 'Karachi', tint: '#DCEBE3', isFamous: true },
+  { name: 'Hyderabad', tint: '#EAF0EC', isFamous: true },
+  { name: 'Lahore', tint: '#F3E6D3', isFamous: true },
+  { name: 'Islamabad', tint: '#DDE6F3', isFamous: true },
+  { name: 'Multan', tint: '#F2E4DC', isFamous: true },
+  { name: 'Faisalabad', tint: '#E5ECE3', isFamous: true },
+  { name: 'Peshawar', tint: '#F1E9DF', isFamous: true },
+];
+
+export const formatShortDate = (dateStr: string) => {
+  if (!dateStr) return '';
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const d = new Date(year, month, day);
+      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    }
+  } catch (e) {}
+  return dateStr;
+};
+
 // 1. CAR RENTAL FLEET
 export const CARS_DATA: VehicleCardItem[] = [
   {
@@ -354,6 +387,51 @@ export const CARS_DATA: VehicleCardItem[] = [
     whatsapp: '923218899123',
     rating: 4.8,
   },
+  {
+    id: 'l-14',
+    name: 'Toyota Yaris ATIV CVT',
+    price: 'PKR 6,500',
+    priceNum: 6500,
+    specs: '2024 · Automatic · 1.3 CVT',
+    owner: 'Sindh Star Car Rentals',
+    city: 'Hyderabad',
+    tint: '#EAF0EC',
+    image: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=800&auto=format&fit=crop&q=80',
+    category: 'Sedans',
+    phone: '+92 301 3344556',
+    whatsapp: '923013344556',
+    rating: 4.8,
+  },
+  {
+    id: 'l-15',
+    name: 'Honda Civic Oriel',
+    price: 'PKR 11,000',
+    priceNum: 11000,
+    specs: '2023 · Automatic · Sunroof',
+    owner: 'Latifabad Fleet Hub',
+    city: 'Hyderabad',
+    tint: '#F1EFEA',
+    image: 'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=800&auto=format&fit=crop&q=80',
+    category: 'Sedans',
+    phone: '+92 302 7788990',
+    whatsapp: '923027788990',
+    rating: 4.9,
+  },
+  {
+    id: 'l-16',
+    name: 'Suzuki Cultus VXL AGS',
+    price: 'PKR 4,000',
+    priceNum: 4000,
+    specs: '2024 · Automatic · Fuel Saver',
+    owner: 'Qasim Chowk Motors',
+    city: 'Hyderabad',
+    tint: '#E8F5E9',
+    image: 'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=800&auto=format&fit=crop&q=80',
+    category: 'Economy',
+    phone: '+92 322 9988112',
+    whatsapp: '923229988112',
+    rating: 4.7,
+  },
 ];
 
 // 2. CHAUFFEURS & DRIVERS
@@ -550,6 +628,28 @@ export const DRIVERS_DATA: DriverCardItem[] = [
     category: 'VIP Executive',
     phone: '+92 300 4433221',
     whatsapp: '923004433221',
+    rating: 4.9,
+  },
+  {
+    id: 'drv-10',
+    name: 'Nadeem Abbas',
+    initials: 'NA',
+    tint: '#E0F2FE',
+    exp: '11 years experience',
+    city: 'Hyderabad',
+    avail: 'Available',
+    langs: 'Urdu, Sindhi, Punjabi',
+    city12: 'Rs. 2,600',
+    city12Num: 2600,
+    out: 'Rs. 3,600',
+    monthly: 'Rs. 44,000',
+    tags: ['M-9 Motorway', 'Qasim Chowk navigation', 'VIP Protocol'],
+    police: true,
+    category: 'Daily City',
+    phone: '+92 301 9876543',
+    whatsapp: '923019876543',
+    cnic: '41304-7128912-1',
+    licenseNumber: 'HYD-DL-55210',
     rating: 4.9,
   },
 ];
@@ -1645,6 +1745,21 @@ export const MOVERS_DATA: MoverItem[] = [
     category: 'Mazda (14-17ft)',
     phone: '+92 333 9988776',
     whatsapp: '923339988776',
+    rating: 4.8,
+  },
+  {
+    id: 'mov-11',
+    name: 'Hyderabad Cargo & Shehzore Movers',
+    city: 'Hyderabad',
+    trucks: 'Hyundai Shehzore & Suzuki Ravi · Covered Fleet',
+    base: 'Rs. 4,000',
+    baseNum: 4000,
+    km: 'Rs. 100/km',
+    helper: 'Rs. 900/helper',
+    tags: ['Latifabad & Qasimabad coverage', 'Trained loaders', 'M-9 transit'],
+    category: 'Shehzore (2.5 Ton)',
+    phone: '+92 301 3344556',
+    whatsapp: '923013344556',
     rating: 4.8,
   },
 ];

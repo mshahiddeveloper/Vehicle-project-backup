@@ -159,6 +159,46 @@ const INITIAL_DRIVERS: DriverItem[] = [
     cnic: '35201-7788910-1',
     licenseNumber: 'LHR-DL-67210',
   },
+  {
+    id: 'drv-7',
+    name: 'Kashif Mehmood',
+    initials: 'KM',
+    tint: '#FCE7F3',
+    exp: '9 years',
+    city: 'Karachi',
+    avail: 'Available',
+    langs: 'Urdu, Sindhi, English',
+    city12: 'Rs. 2,600',
+    out: 'Rs. 3,600',
+    monthly: 'Rs. 44,000',
+    tags: ['Clifton & DHA expert', 'Airport navigation', 'Family safe'],
+    police: true,
+    trips: [0, 1, 2],
+    phone: '+92 345 1122334',
+    whatsapp: '923451122334',
+    cnic: '42101-5129841-3',
+    licenseNumber: 'KHI-DL-12345',
+  },
+  {
+    id: 'drv-8',
+    name: 'Nadeem Abbas',
+    initials: 'NA',
+    tint: '#E0F2FE',
+    exp: '11 years',
+    city: 'Hyderabad',
+    avail: 'Available',
+    langs: 'Urdu, Sindhi, Punjabi',
+    city12: 'Rs. 2,600',
+    out: 'Rs. 3,600',
+    monthly: 'Rs. 44,000',
+    tags: ['M-9 Motorway', 'Qasim Chowk navigation', 'VIP Protocol'],
+    police: true,
+    trips: [0, 1, 2],
+    phone: '+92 301 9876543',
+    whatsapp: '923019876543',
+    cnic: '41304-7128912-1',
+    licenseNumber: 'HYD-DL-55210',
+  },
 ];
 
 export default function DriversPage() {
@@ -167,7 +207,7 @@ export default function DriversPage() {
   const isPakistan = !country || country.code === 'PK';
   const [tripType, setTripType] = useState<number>(0); // 0: City, 1: Outstation, 2: Monthly
   const [availOnly, setAvailOnly] = useState<boolean>(false);
-  const [selectedCity, setSelectedCity] = useState<string>('Lahore');
+  const [selectedCity, setSelectedCity] = useState<string>('Karachi');
   const [searchQuery, setSearchQuery] = useState('');
   const [revealedPhones, setRevealedPhones] = useState<Record<string, boolean>>({});
   const [drivers, setDrivers] = useState<DriverItem[]>(INITIAL_DRIVERS);
@@ -373,10 +413,13 @@ export default function DriversPage() {
                 aria-label="Filter by city"
                 className="flex-1 border-0 bg-transparent text-xs sm:text-sm font-extrabold text-[#101828] outline-none cursor-pointer"
               >
-                <option value="Lahore">Lahore</option>
                 <option value="Karachi">Karachi</option>
+                <option value="Hyderabad">Hyderabad</option>
+                <option value="Lahore">Lahore</option>
                 <option value="Islamabad">Islamabad</option>
-                <option value="Rawalpindi">Rawalpindi</option>
+                <option value="Multan">Multan</option>
+                <option value="Faisalabad">Faisalabad</option>
+                <option value="Peshawar">Peshawar</option>
               </select>
             </label>
 

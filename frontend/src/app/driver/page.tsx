@@ -67,6 +67,8 @@ import {
   generateOwnerFollowUpWhatsAppText,
 } from '@/data/chatEngine';
 import { useCountry } from '@/app/context/CountryContext';
+import { MobilePullToRefresh } from '@/components/MobilePullToRefresh';
+import { OfflineStatusBanner } from '@/components/OfflineStatusBanner';
 
 function DriverDashboardContent() {
   const { country } = useCountry();
@@ -711,6 +713,8 @@ function DriverDashboardContent() {
             </div>
           </div>
         </div>
+        <MobilePullToRefresh />
+        <OfflineStatusBanner />
       </header>
 
       {/* Main Grid */}

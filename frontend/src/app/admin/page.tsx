@@ -76,6 +76,8 @@ import {
   setAgentAnalyticsPermission,
 } from '@/data/analyticsEngine';
 import { API_BASE, getApiBaseUrl, formatPKR, maskCnic, maskPhone } from '@/lib/api';
+import { MobilePullToRefresh } from '@/components/MobilePullToRefresh';
+import { OfflineStatusBanner } from '@/components/OfflineStatusBanner';
 import {
   PromoCode,
   SubscriptionPlan,
@@ -1796,6 +1798,8 @@ export default function SuperAdminDashboardPage() {
             ))}
           </div>
         </div>
+        <MobilePullToRefresh />
+        <OfflineStatusBanner />
       </header>
 
       {/* Main Container */}

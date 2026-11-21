@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Globe, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, UserCheck, AlertCircle } from 'lucide-react';
 import { authenticateUser, getUserDashboardPath } from '@/data/userAuth';
+import { MobilePullToRefresh } from '@/components/MobilePullToRefresh';
+import { OfflineStatusBanner } from '@/components/OfflineStatusBanner';
 
 type SupportedLang = 'en' | 'ur' | 'ar' | 'de';
 
@@ -90,6 +92,8 @@ export default function LoginPage() {
             </select>
           </label>
         </div>
+        <MobilePullToRefresh />
+        <OfflineStatusBanner />
       </header>
 
       {/* Main Content Card */}

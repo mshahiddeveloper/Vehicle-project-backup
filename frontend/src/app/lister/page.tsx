@@ -41,6 +41,8 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { MobileNavBar } from '@/components/MobileNavBar';
+import { MobilePullToRefresh } from '@/components/MobilePullToRefresh';
+import { OfflineStatusBanner } from '@/components/OfflineStatusBanner';
 import { API_BASE, formatPKR, maskCnic, maskLicense, maskPhone } from '@/lib/api';
 import { SubscriptionPricingSection } from '@/components/SubscriptionPricingSection';
 import { BillingHistoryManager } from '@/components/BillingHistoryManager';
@@ -1021,6 +1023,8 @@ export default function ListerDashboardPage() {
             </div>
           </div>
         </div>
+        <MobilePullToRefresh />
+        <OfflineStatusBanner />
       </header>
 
       {/* Main Workspace Layout */}

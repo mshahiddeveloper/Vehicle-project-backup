@@ -52,6 +52,8 @@ import {
   syncSubscriptionExpiries,
 } from '@/data/userAuth';
 import { MobileNavBar } from '@/components/MobileNavBar';
+import { MobilePullToRefresh } from '@/components/MobilePullToRefresh';
+import { OfflineStatusBanner } from '@/components/OfflineStatusBanner';
 import { DashboardStoreWidget } from '@/components/DashboardStoreWidget';
 import {
   getUserConversations,
@@ -1278,6 +1280,8 @@ export default function ServiceProviderDashboardPage() {
             </div>
           </div>
         </div>
+        <MobilePullToRefresh />
+        <OfflineStatusBanner />
       </header>
 
       {/* Main Grid */}

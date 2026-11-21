@@ -49,24 +49,18 @@ import {
   CityRideItem,
   ShuttleItem,
   MoverItem,
+  CityOption,
+  FAMOUS_PAKISTAN_CITIES,
+  formatShortDate,
 } from '@/data/marketplaceData';
-import { getActiveUser, RegisteredUser, getUserDashboardPath } from '@/data/userAuth';
+import { getActiveUser, getAllRegisteredUsers, RegisteredUser, getUserDashboardPath } from '@/data/userAuth';
 import { formatPKR, maskPhone } from '@/lib/api';
 import { getStoreSlugForOwner } from '@/data/storefrontEngine';
 import { MobileNavigationDrawer } from '@/components/AppHeader';
 
-const PAKISTAN_CITIES = [
-  { name: 'Lahore', tint: '#F3E6D3' },
-  { name: 'Karachi', tint: '#DCEBE3' },
-  { name: 'Islamabad', tint: '#DDE6F3' },
-  { name: 'Rawalpindi', tint: '#EADFEF' },
-  { name: 'Peshawar', tint: '#F1E9DF' },
-  { name: 'Faisalabad', tint: '#E5ECE3' },
-  { name: 'Multan', tint: '#F2E4DC' },
-  { name: 'Hyderabad', tint: '#EAF0EC' },
-  { name: 'Quetta', tint: '#EFF1EE' },
-  { name: 'Sialkot', tint: '#ECEEF3' },
-];
+export type { CityOption };
+export { FAMOUS_PAKISTAN_CITIES, formatShortDate };
+export const PAKISTAN_CITIES = FAMOUS_PAKISTAN_CITIES;
 
 const TRUST_TAGS = [
   { label: 'Verified owners & drivers', icon: ShieldCheck },
@@ -103,7 +97,8 @@ export const formatDateDisplay = (dateStr: string) => {
 export function MobileHomeNativeView() {
   const router = useRouter();
   const [activeUser, setActiveUser] = useState<RegisteredUser | null>(null);
-  const [city, setCity] = useState<string>('Lahore');
+  const [city, setCity] = useState<string>('Karachi');
+  const [dynamicCities, setDynamicCities] = useState<CityOption[]>(FAMOUS_PAKISTAN_CITIES);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [citySheetOpen, setCitySheetOpen] = useState(false);
   const [citySearchQuery, setCitySearchQuery] = useState('');
@@ -133,11 +128,11 @@ export function MobileHomeNativeView() {
   // Search Sheet Specific Inputs
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const [searchWhere, setSearchWhere] = useState('Lahore');
+  const [searchWhere, setSearchWhere] = useState('Karachi');
   const [pickupDate, setPickupDate] = useState(() => getTodayDateString());
   const [returnDate, setReturnDate] = useState('');
-  const [c2cFromCity, setC2cFromCity] = useState('Lahore');
-  const [c2cToCity, setC2cToCity] = useState('Islamabad');
+  const [c2cFromCity, setC2cFromCity] = useState('Karachi');
+  const [c2cToCity, setC2cToCity] = useState('Hyderabad');
   const [c2cSearchQuery, setC2cSearchQuery] = useState('');
   const [c2cPickerSheetOpen, setC2cPickerSheetOpen] = useState<'from' | 'to' | null>(null);
 
@@ -178,6 +173,51 @@ export function MobileHomeNativeView() {
       setSavedCarIds(Array.from(idsSet));
     } catch (e) {}
   };
+
+  // Dynamically discover and append cities registered by paid/active listers and partners
+  useEffect(() => {
+    const syncPartnerCities = () => {
+      try {
+        const allUsers = getAllRegisteredUsers();
+        const famousSet = new Set(FAMOUS_PAKISTAN_CITIES.map((c) => c.name.toLowerCase()));
+        const partnerCitiesMap = new Map<string, CityOption>();
+
+        allUsers.forEach((u) => {
+          if (
+            u.city &&
+            (u.role === 'LISTER' || u.role === 'DRIVER' || u.role === 'PROVIDER')
+          ) {
+            const raw = u.city.trim();
+            if (raw) {
+              const cap = raw.charAt(0).toUpperCase() + raw.slice(1);
+              const key = cap.toLowerCase();
+              if (!famousSet.has(key) && !partnerCitiesMap.has(key)) {
+                partnerCitiesMap.set(key, {
+                  name: cap,
+                  tint: '#EFF2F5',
+                  isFamous: false,
+                  isPartnerCity: true,
+                });
+              }
+            }
+          }
+        });
+
+        setDynamicCities([
+          ...FAMOUS_PAKISTAN_CITIES,
+          ...Array.from(partnerCitiesMap.values()),
+        ]);
+      } catch (e) {
+        setDynamicCities(FAMOUS_PAKISTAN_CITIES);
+      }
+    };
+
+    syncPartnerCities();
+    window.addEventListener('safarpk_users_updated', syncPartnerCities);
+    return () => {
+      window.removeEventListener('safarpk_users_updated', syncPartnerCities);
+    };
+  }, []);
 
   useEffect(() => {
     setActiveUser(getActiveUser());
@@ -316,20 +356,8 @@ export function MobileHomeNativeView() {
   const curService = services[activeServiceIdx] || services[0];
 
   const PAK_CITIES_LOWER = useMemo(
-    () => [
-      'lahore',
-      'karachi',
-      'islamabad',
-      'rawalpindi',
-      'faisalabad',
-      'multan',
-      'peshawar',
-      'quetta',
-      'sialkot',
-      'gujranwala',
-      'hyderabad',
-    ],
-    []
+    () => dynamicCities.map((c) => c.name.toLowerCase()),
+    [dynamicCities]
   );
 
   const searchTokens = useMemo(() => {
@@ -1553,8 +1581,8 @@ export function MobileHomeNativeView() {
           </div>
 
           <div className="flex gap-2.5 overflow-x-auto px-4 no-scrollbar">
-            {PAKISTAN_CITIES.map((c) => {
-              const active = c.name === city;
+            {dynamicCities.map((c) => {
+              const active = c.name.toLowerCase() === (city || '').toLowerCase();
               return (
                 <button
                   key={c.name}
@@ -1574,8 +1602,17 @@ export function MobileHomeNativeView() {
                     <Building2 className="w-4 h-4 stroke-[2.2]" />
                   </div>
                   <div className="flex flex-col min-w-0">
-                    <span className="font-bold text-sm text-[#101828] truncate">{c.name}</span>
-                    <span className="text-[10px] text-[#667085]">Hub · Active Fleet</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-sm text-[#101828] truncate">{c.name}</span>
+                      {c.isPartnerCity && (
+                        <span className="px-1.5 py-0.2 rounded-full bg-emerald-100 text-[#08513C] text-[9px] font-bold">
+                          Partner
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-[#667085]">
+                      {c.isFamous ? 'Major Hub · Active Fleet' : 'Registered Partner Hub'}
+                    </span>
                   </div>
                 </button>
               );
@@ -1636,39 +1673,45 @@ export function MobileHomeNativeView() {
               })}
             </div>
 
-            {/* Self-drive vs With Driver Segmented Toggle (Car Rental Only - At top for clarity) */}
+            {/* Self-drive vs With Driver Segmented Toggle (Car Rental Only - Clean App Style) */}
             {activeServiceIdx === 0 && (
-              <div className="grid grid-cols-2 gap-1 bg-[#F4F6F8] p-1 rounded-xl border border-[#EEF0F2]">
+              <div className="grid grid-cols-2 gap-1.5 p-1.5 bg-[#F2F5F3] rounded-2xl border border-[#DFE7E2]">
                 <button
                   type="button"
-                  onClick={() => setIsSelfDrive(true)}
-                  className={`h-8.5 rounded-lg text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                  onClick={() => {
+                    setIsSelfDrive(true);
+                    showToast('Self-drive rental selected');
+                  }}
+                  className={`h-10.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer select-none ${
                     isSelfDrive
                       ? 'bg-[#0B6B4F] text-white shadow-xs'
-                      : 'text-[#475467] hover:text-[#101828]'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
                   }`}
                 >
-                  <Car className="w-3.5 h-3.5" />
+                  <Car className="w-4 h-4 stroke-[2.2]" />
                   <span>Self-drive</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsSelfDrive(false)}
-                  className={`h-8.5 rounded-lg text-xs font-extrabold flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                  onClick={() => {
+                    setIsSelfDrive(false);
+                    showToast('Chauffeur / With driver selected');
+                  }}
+                  className={`h-10.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer select-none ${
                     !isSelfDrive
                       ? 'bg-[#0B6B4F] text-white shadow-xs'
-                      : 'text-[#475467] hover:text-[#101828]'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
                   }`}
                 >
-                  <Users className="w-3.5 h-3.5" />
+                  <Users className="w-4 h-4 stroke-[2.2]" />
                   <span>With driver</span>
                 </button>
               </div>
             )}
 
-            {/* Live Search & Model Keyword Input Box */}
+            {/* Live Search & Model Keyword Input Box (Proper Spacious Height & Centered Icon) */}
             <div className="relative flex items-center">
-              <Search className="absolute left-3.5 w-4 h-4 text-[#0B6B4F] stroke-[2.2]" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[#0B6B4F] stroke-[2.2] pointer-events-none" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -1676,25 +1719,25 @@ export function MobileHomeNativeView() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={
                   activeServiceIdx === 0
-                    ? 'Search car name, model or city (e.g. Civic, Fortuner...)'
+                    ? 'Search car name or model (e.g. Civic, Fortuner)'
                     : activeServiceIdx === 1
-                    ? 'Search driver name, city or tag (e.g. Tariq, Executive...)'
+                    ? 'Search driver name, city or tag'
                     : activeServiceIdx === 2
-                    ? 'Search city or car (e.g. Lahore, Islamabad, Civic...)'
+                    ? 'Search city or car model'
                     : activeServiceIdx === 3
-                    ? 'Search corridor stop (e.g. DHA, Gulberg...)'
-                    : 'Search truck or area (e.g. Shehzore, Johar Town...)'
+                    ? 'Search corridor stop (e.g. DHA, Gulberg)'
+                    : 'Search truck type or area'
                 }
-                className="w-full h-10.5 pl-9.5 pr-9 rounded-xl bg-[#F4F6F8] border border-[#D0D5DD] text-xs font-semibold text-[#101828] placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:border-[#0B6B4F] focus:bg-white focus:ring-2 focus:ring-[#0B6B4F]/20 shadow-2xs transition"
+                className="w-full h-11.5 pl-10.5 pr-10 rounded-xl bg-white border border-[#D0D5DD] text-xs sm:text-sm font-semibold text-[#101828] placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:border-[#0B6B4F] focus:ring-2 focus:ring-[#0B6B4F]/20 shadow-xs transition"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 w-5 h-5 rounded-full bg-slate-200/80 hover:bg-slate-300 text-slate-600 flex items-center justify-center transition active:scale-90 cursor-pointer"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-slate-200/80 hover:bg-slate-300 text-slate-700 flex items-center justify-center transition active:scale-90 cursor-pointer"
                   aria-label="Clear search"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
@@ -1703,7 +1746,7 @@ export function MobileHomeNativeView() {
             <div className="border border-[#E4E7EC] rounded-2xl overflow-hidden bg-white divide-y divide-[#EEF0F2]">
               {/* SERVICE 0: CAR RENTAL & SERVICE 1: DRIVERS */}
               {(activeServiceIdx === 0 || activeServiceIdx === 1) && (
-                <div className="flex items-center gap-3 h-[48px] px-3.5 hover:bg-slate-50/70 transition">
+                <div className="flex items-center gap-3 h-[50px] px-3.5 hover:bg-slate-50/70 transition">
                   <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
                     <MapPin className="w-3.5 h-3.5 stroke-[2.2]" />
                   </span>
@@ -1892,7 +1935,7 @@ export function MobileHomeNativeView() {
                         Shifting Date
                       </span>
                       <span className="text-xs font-bold text-[#101828]">
-                        {moverDate ? formatDateDisplay(moverDate) : `Today (${formatDateDisplay(todayDateStr)})`}
+                        {moverDate ? formatShortDate(moverDate) : formatShortDate(todayDateStr)}
                       </span>
                     </div>
                     <span className="text-[11px] font-bold text-[#0B6B4F] bg-[#E9F3EE] px-2 py-0.5 rounded-md shrink-0">
@@ -1917,7 +1960,7 @@ export function MobileHomeNativeView() {
                 </>
               )}
 
-              {/* SERVICE 1: DRIVERS - DUTY DATE (Clean single-tap date picker, NO bulky buttons) */}
+              {/* SERVICE 1: DRIVERS - DUTY DATE (Clean single-tap date picker, NO bulky buttons, NO 'Today' text) */}
               {activeServiceIdx === 1 && (
                 <label className="relative flex items-center gap-3 h-[50px] px-3.5 cursor-pointer hover:bg-slate-50/70 transition">
                   <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
@@ -1929,11 +1972,7 @@ export function MobileHomeNativeView() {
                     </span>
                     <span className="text-xs font-bold text-[#101828] truncate block">
                       {/* Any Date (Flexible) */}
-                      {(!pickupDate || pickupDate === todayDateStr)
-                        ? `Today (${formatDateDisplay(todayDateStr)})`
-                        : pickupDate === tomorrowDateStr
-                        ? `Tomorrow (${formatDateDisplay(tomorrowDateStr)})`
-                        : formatDateDisplay(pickupDate)}
+                      {formatShortDate(pickupDate || todayDateStr)}
                     </span>
                   </div>
                   <span className="text-[11px] font-bold text-[#0B6B4F] bg-[#E9F3EE] px-2 py-0.5 rounded-md shrink-0">
@@ -1950,7 +1989,7 @@ export function MobileHomeNativeView() {
                         showToast('Past dates cannot be selected');
                       } else if (val) {
                         setPickupDate(val);
-                        showToast(`Duty date set to ${formatDateDisplay(val)}`);
+                        showToast(`Duty date set to ${formatShortDate(val)}`);
                       }
                     }}
                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
@@ -1958,7 +1997,7 @@ export function MobileHomeNativeView() {
                 </label>
               )}
 
-              {/* SERVICE 0: CAR RENTALS - PICKUP & RETURN DATES (Clean 2-Column Side-by-Side, NO bulky buttons) */}
+              {/* SERVICE 0: CAR RENTALS - PICKUP & RETURN DATES (Clean 2-Column Side-by-Side, NO 'Today' prefix) */}
               {activeServiceIdx === 0 && (
                 <div className="grid grid-cols-2 divide-x divide-[#EEF0F2]">
                   {/* Pick-up date */}
@@ -1971,9 +2010,7 @@ export function MobileHomeNativeView() {
                         Pick-up Date
                       </span>
                       <span className="text-xs font-bold text-[#101828] truncate block">
-                        {(!pickupDate || pickupDate === todayDateStr)
-                          ? `Today (${formatDateDisplay(todayDateStr)})`
-                          : formatDateDisplay(pickupDate)}
+                        {formatShortDate(pickupDate || todayDateStr)}
                       </span>
                     </div>
                     <input
@@ -1988,7 +2025,7 @@ export function MobileHomeNativeView() {
                         } else if (val) {
                           setPickupDate(val);
                           if (returnDate && returnDate < val) setReturnDate(val);
-                          showToast(`Pick-up date: ${formatDateDisplay(val)}`);
+                          showToast(`Pick-up date: ${formatShortDate(val)}`);
                         }
                       }}
                       className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
@@ -2005,7 +2042,7 @@ export function MobileHomeNativeView() {
                         Return Date
                       </span>
                       <span className={`text-xs font-bold truncate block ${returnDate ? 'text-[#101828]' : 'text-slate-400'}`}>
-                        {returnDate ? formatDateDisplay(returnDate) : 'Select return'}
+                        {returnDate ? formatShortDate(returnDate) : 'Select return'}
                       </span>
                     </div>
                     <input
@@ -2020,7 +2057,7 @@ export function MobileHomeNativeView() {
                           showToast('Return date cannot be before pickup date');
                         } else if (val) {
                           setReturnDate(val);
-                          showToast(`Return date: ${formatDateDisplay(val)}`);
+                          showToast(`Return date: ${formatShortDate(val)}`);
                         }
                       }}
                       className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
@@ -2031,7 +2068,7 @@ export function MobileHomeNativeView() {
 
               {/* SERVICE 0: TRANSMISSION (Prominent Inline 3-Pill Switcher - 100% visible, never cut off) */}
               {activeServiceIdx === 0 && (
-                <div className="flex items-center justify-between h-[46px] px-3.5 hover:bg-slate-50/70 transition">
+                <div className="flex items-center justify-between h-[50px] px-3.5 hover:bg-slate-50/70 transition">
                   <div className="flex items-center gap-2.5">
                     <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
                       <SlidersHorizontal className="w-3.5 h-3.5 stroke-[2.2]" />
@@ -2049,7 +2086,7 @@ export function MobileHomeNativeView() {
                             setSelectedTransmission(trans);
                             showToast(`Transmission: ${trans === 'All' ? 'Any' : trans}`);
                           }}
-                          className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer select-none ${
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer select-none ${
                             isSelected
                               ? 'bg-[#0B6B4F] text-white shadow-xs'
                               : 'text-slate-600 hover:text-slate-900'
@@ -2069,7 +2106,7 @@ export function MobileHomeNativeView() {
                   <button
                     type="button"
                     onClick={() => setCarCategorySheetOpen(true)}
-                    className="flex items-center gap-2 h-[48px] px-3 text-left hover:bg-slate-50/70 transition cursor-pointer border-0 bg-transparent"
+                    className="flex items-center gap-2 h-[50px] px-3 text-left hover:bg-slate-50/70 transition cursor-pointer border-0 bg-transparent"
                   >
                     <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
                       <Car className="w-3.5 h-3.5 stroke-[2.2]" />
@@ -2088,7 +2125,7 @@ export function MobileHomeNativeView() {
                   <button
                     type="button"
                     onClick={() => setPriceSheetOpen(true)}
-                    className="flex items-center gap-2 h-[48px] px-3 text-left hover:bg-slate-50/70 transition cursor-pointer border-0 bg-transparent"
+                    className="flex items-center gap-2 h-[50px] px-3 text-left hover:bg-slate-50/70 transition cursor-pointer border-0 bg-transparent"
                   >
                     <span className="w-7 h-7 rounded-lg bg-[#E9F3EE] text-[#0B6B4F] flex items-center justify-center shrink-0">
                       <Clock className="w-3.5 h-3.5 stroke-[2.2]" />
@@ -2108,7 +2145,7 @@ export function MobileHomeNativeView() {
             </div>
 
             {/* Action Buttons: Reset & Show Listings */}
-            <div className="flex items-center gap-2 pt-0.5">
+            <div className="flex items-center gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => {
@@ -2125,7 +2162,7 @@ export function MobileHomeNativeView() {
                   setMoverToArea('');
                   showToast('Search & filters reset');
                 }}
-                className="h-11 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-[0.99] text-slate-700 font-bold text-xs transition cursor-pointer shrink-0"
+                className="h-11.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-[0.99] text-slate-700 font-bold text-xs sm:text-sm transition cursor-pointer shrink-0"
               >
                 Reset
               </button>
@@ -2234,12 +2271,16 @@ export function MobileHomeNativeView() {
             </div>
 
             <div className="divide-y divide-slate-100 py-1">
-              {PAKISTAN_CITIES
-                .filter((c) => !citySearchQuery || c.name.toLowerCase().includes(citySearchQuery.toLowerCase()))
+              {/* Famous Major Hub Cities */}
+              <div className="px-3 py-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider bg-slate-50 rounded-md mb-1">
+                Major Hubs ({dynamicCities.filter(c => c.isFamous).length})
+              </div>
+              {dynamicCities
+                .filter((c) => c.isFamous && (!citySearchQuery || c.name.toLowerCase().includes(citySearchQuery.toLowerCase())))
                 .map((c) => {
                   const isSelected = activeServiceIdx === 3
-                    ? c.name === (shuttleCity || city)
-                    : c.name === (searchWhere || city);
+                    ? c.name.toLowerCase() === (shuttleCity || city).toLowerCase()
+                    : c.name.toLowerCase() === (searchWhere || city).toLowerCase();
                   return (
                     <button
                       key={c.name}
@@ -2257,18 +2298,85 @@ export function MobileHomeNativeView() {
                         setCitySearchQuery('');
                         showToast(`City set to ${c.name}`);
                       }}
-                      className={`w-full flex items-center justify-between py-3 px-2 text-left hover:bg-slate-50 transition cursor-pointer font-semibold text-[15px] rounded-lg ${
+                      className={`w-full flex items-center justify-between py-3 px-3 text-left hover:bg-slate-50 transition cursor-pointer font-semibold text-[15px] rounded-lg ${
                         isSelected ? 'bg-emerald-50 text-[#0B6B4F] font-bold' : 'text-[#101828]'
                       }`}
                     >
-                      <span className="flex items-center gap-2">
-                        <MapPin className={`w-4 h-4 ${isSelected ? 'text-[#0B6B4F]' : 'text-slate-400'}`} />
+                      <span className="flex items-center gap-2.5">
+                        <MapPin className={`w-4.5 h-4.5 ${isSelected ? 'text-[#0B6B4F]' : 'text-slate-400'}`} />
                         <span>{c.name}</span>
                       </span>
                       {isSelected && <Check className="w-5 h-5 text-[#0B6B4F] stroke-[2.6]" />}
                     </button>
                   );
                 })}
+
+              {/* Dynamic Registered Partner / Lister Cities */}
+              {dynamicCities.some(c => !c.isFamous) && (
+                <>
+                  <div className="px-3 py-1.5 text-[11px] font-bold text-[#0B6B4F] uppercase tracking-wider bg-emerald-50/60 rounded-md mt-2 mb-1">
+                    Registered Partner Cities
+                  </div>
+                  {dynamicCities
+                    .filter((c) => !c.isFamous && (!citySearchQuery || c.name.toLowerCase().includes(citySearchQuery.toLowerCase())))
+                    .map((c) => {
+                      const isSelected = activeServiceIdx === 3
+                        ? c.name.toLowerCase() === (shuttleCity || city).toLowerCase()
+                        : c.name.toLowerCase() === (searchWhere || city).toLowerCase();
+                      return (
+                        <button
+                          key={c.name}
+                          type="button"
+                          onClick={() => {
+                            setCity(c.name);
+                            if (activeServiceIdx === 3) {
+                              setShuttleCity(c.name);
+                              setShuttlePickupArea('');
+                              setShuttleDropArea('');
+                            } else {
+                              setSearchWhere(c.name);
+                            }
+                            setCitySheetOpen(false);
+                            setCitySearchQuery('');
+                            showToast(`City set to ${c.name}`);
+                          }}
+                          className={`w-full flex items-center justify-between py-3 px-3 text-left hover:bg-slate-50 transition cursor-pointer font-semibold text-[15px] rounded-lg ${
+                            isSelected ? 'bg-emerald-50 text-[#0B6B4F] font-bold' : 'text-[#101828]'
+                          }`}
+                        >
+                          <span className="flex items-center gap-2.5">
+                            <MapPin className={`w-4.5 h-4.5 ${isSelected ? 'text-[#0B6B4F]' : 'text-slate-400'}`} />
+                            <span>{c.name}</span>
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[#08513C] text-[10px] font-bold">
+                              Partner City
+                            </span>
+                          </span>
+                          {isSelected && <Check className="w-5 h-5 text-[#0B6B4F] stroke-[2.6]" />}
+                        </button>
+                      );
+                    })}
+                </>
+              )}
+
+              {/* Custom Typed City Fallback */}
+              {citySearchQuery && !dynamicCities.some((c) => c.name.toLowerCase() === citySearchQuery.trim().toLowerCase()) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const raw = citySearchQuery.trim();
+                    const cap = raw.charAt(0).toUpperCase() + raw.slice(1);
+                    setCity(cap);
+                    setSearchWhere(cap);
+                    setCitySheetOpen(false);
+                    setCitySearchQuery('');
+                    showToast(`City set to ${cap}`);
+                  }}
+                  className="w-full mt-2 py-2.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100/70 border border-emerald-200 text-[#08513C] font-bold text-xs flex items-center justify-center gap-2 transition"
+                >
+                  <MapPin className="w-4 h-4 text-[#0B6B4F]" />
+                  <span>Select &ldquo;{citySearchQuery.trim()}&rdquo;</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
