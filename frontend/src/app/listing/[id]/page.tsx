@@ -753,6 +753,58 @@ export default function ListingDetailPage() {
     }
   };
 
+  const handleDirectChat = () => {
+    const user = getActiveUser();
+    if (!user) {
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : `/listing/${car.id}`;
+      router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
+      return;
+    }
+
+    if (user.role === 'VENDOR' || user.role === 'LISTER' || user.role === 'DRIVER') {
+      router.push('/inbox');
+      return;
+    }
+
+    recordClickEvent({
+      clickType: 'CHAT_CLICK',
+      targetId: car.id,
+      targetTitle: car.title,
+      targetCategory: 'CAR_RENTAL',
+      targetOwnerName: car.hostName,
+      city: car.city,
+    });
+
+    const dayRate = formatPrice(car.dailyRate);
+    const convId = startOrOpenConversation({
+      currentUser: user,
+      partnerId: car.ownerId || 'usr-lister-1',
+      partnerName: car.hostName,
+      partnerRole: 'LISTER',
+      partnerPhone: car.hostWhatsapp || car.hostPhone || '+92 300 1234567',
+      about: `Rental Inquiry for ${car.title} (${car.city})`,
+      bookingMetadata: {
+        category: 'rent_a_car',
+        customerName: user.name,
+        customerPhone: user.phone,
+        customerCity: user.city || car.city,
+        providerName: car.hostName,
+        providerManager: car.hostName,
+        providerPhone: car.hostWhatsapp || car.hostPhone || '+92 300 1234567',
+        itemName: car.title,
+        pickupDate: startDate,
+        returnDate: endDate,
+        duration: `${rentalDays} days`,
+        totalEstimate: dayRate + ' /day',
+        serviceMode: withDriver ? 'With Chauffeur' : 'Self-Drive',
+        bookingRef: `CAR-${Math.floor(10000 + Math.random() * 90000)}`,
+      },
+      initialGreeting: `Assalam-o-Alaikum ${car.hostName}! I am interested in renting your ${car.title} in ${car.city}. Is it available?`,
+    });
+
+    router.push(`/inbox?conv=${convId}`);
+  };
+
   const handleInstantWhatsAppChat = () => {
     recordClickEvent({
       clickType: 'WHATSAPP_CLICK',
@@ -1284,7 +1336,7 @@ export default function ListingDetailPage() {
               </div>
             </div>
 
-            {/* Quick Mobile Action Bar: Direct Jump to Booking & WhatsApp */}
+            {/* Quick Mobile Action Bar: Rent Car & In-App Chat */}
             <div className="lg:hidden flex items-center gap-2 p-3 rounded-2xl bg-emerald-50/80 border border-emerald-200 shadow-2xs">
               <button
                 type="button"
@@ -1292,15 +1344,16 @@ export default function ListingDetailPage() {
                 className="flex-1 h-11 px-4 bg-[#0B6B4F] hover:bg-[#08513C] text-white rounded-xl font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition active:scale-[0.99] cursor-pointer"
               >
                 <CalendarCheck className="w-4 h-4 text-emerald-300 shrink-0" />
-                <span>Book Now & Check Dates</span>
+                <span>Rent Car</span>
               </button>
               <button
                 type="button"
-                onClick={handleInstantWhatsAppChat}
-                className="h-11 px-3.5 bg-white hover:bg-slate-50 text-emerald-800 border border-emerald-300 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-[0.99] cursor-pointer shrink-0"
+                onClick={handleDirectChat}
+                className="h-11 px-4 bg-white hover:bg-slate-50 text-emerald-900 border border-emerald-300 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-[0.99] cursor-pointer shrink-0"
+                title="Chat directly on SafarPK"
               >
-                <WhatsAppIcon className="w-4 h-4 text-emerald-700 shrink-0" />
-                <span>WhatsApp</span>
+                <MessageSquare className="w-4 h-4 text-[#0B6B4F] fill-emerald-100 shrink-0" />
+                <span>Chat</span>
               </button>
             </div>
 
@@ -1961,26 +2014,36 @@ export default function ListingDetailPage() {
               <span className="font-heading font-extrabold text-sm text-slate-900">{formatPrice(calculateTotal())}</span>
             </div>
 
-            {/* Streamlined, Direct Actions (WhatsApp, Book Now & Direct Chat, Show Number) */}
+            {/* Streamlined, Direct Actions (WhatsApp, Chat with Host, Book Vehicle) */}
             <div className="flex flex-col gap-2 pt-1">
-              {/* Option 1: WhatsApp Instant Direct Chat */}
+              {/* Option 1: WhatsApp Direct */}
               <button
                 type="button"
                 onClick={handleInstantWhatsAppChat}
                 className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm hover:shadow active:scale-[0.99]"
               >
                 <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
-                <span>Chat on WhatsApp (Direct)</span>
+                <span>WhatsApp</span>
               </button>
 
-              {/* Option 2: Instant Booking & Direct Chat (Syncs to both Customer and Lister dashboards) */}
+              {/* Option 2: In-App Direct Chat */}
+              <button
+                type="button"
+                onClick={handleDirectChat}
+                className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-blue-200" />
+                <span>Chat with Host</span>
+              </button>
+
+              {/* Option 3: Instant Booking */}
               <button
                 type="button"
                 onClick={() => setStep(1)}
                 className="w-full h-11 rounded-xl bg-[#101828] hover:bg-emerald-950 text-white font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm hover:shadow active:scale-[0.99]"
               >
                 <CalendarCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Book Vehicle & Direct Chat</span>
+                <span>Book Vehicle & Check Rates</span>
               </button>
 
               {/* Option 3: Call Host / Show Number */}

@@ -9,7 +9,8 @@ import { MobileNavBar } from '@/components/MobileNavBar';
 import { MOVERS_DATA, MoverItem } from '@/data/marketplaceData';
 import { getStoreSlugForOwner } from '@/data/storefrontEngine';
 import { recordLead, recordClickEvent } from '@/data/activityTracker';
-import { getWhatsAppTargetUrl } from '@/data/chatEngine';
+import { getWhatsAppTargetUrl, startOrOpenConversation } from '@/data/chatEngine';
+import { getActiveUser } from '@/data/userAuth';
 import { useCountry } from '@/app/context/CountryContext';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import {
@@ -155,6 +156,54 @@ export default function MoverDetailPage() {
     const text = `Assalam-o-Alaikum ${mover.name},\n\nI am contacting you from SafarPK regarding Home Shifting & Cargo:\n• Scope: ${houseSize}\n• Approximate Distance: ${estimatedKm} km\n• Helpers Required: ${helpersCount}\n• Estimated Total: ${formatPrice(estimatedCost)}\n\nPlease provide your final quotation and schedule availability.`;
     const waUrl = getWhatsAppTargetUrl(mover.whatsapp || mover.phone, text);
     window.open(waUrl, '_blank');
+  };
+
+  const handleDirectChat = () => {
+    if (!mover) return;
+    const user = getActiveUser();
+    if (!user) {
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : `/movers/${mover.id}`;
+      router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
+      return;
+    }
+
+    if (user.role === 'VENDOR' || user.role === 'LISTER' || user.role === 'DRIVER') {
+      router.push('/inbox');
+      return;
+    }
+
+    recordClickEvent({
+      clickType: 'CHAT_CLICK',
+      targetId: mover.id,
+      targetTitle: mover.name,
+      targetCategory: 'HOME_SHIFTING',
+      targetOwnerName: mover.name,
+      city: mover.city,
+    });
+
+    const convId = startOrOpenConversation({
+      currentUser: user,
+      partnerId: mover.id,
+      partnerName: mover.name,
+      partnerRole: 'LISTER',
+      partnerPhone: mover.whatsapp || mover.phone || '+92 300 1234567',
+      about: `Home Shifting & Cargo: ${mover.name} (${mover.city})`,
+      bookingMetadata: {
+        category: 'mover',
+        customerName: user.name,
+        customerPhone: user.phone,
+        customerCity: user.city || mover.city,
+        providerName: mover.name,
+        providerPhone: mover.whatsapp || mover.phone || '+92 300 1234567',
+        itemName: `${mover.name} (${mover.trucks})`,
+        totalEstimate: formatPrice(estimatedCost),
+        serviceMode: 'Home Shifting & Cargo',
+        bookingRef: `MOV-${Math.floor(10000 + Math.random() * 90000)}`,
+      },
+      initialGreeting: `Assalam-o-Alaikum ${mover.name}! I am looking for shifting services in ${mover.city} for ${houseSize}. Estimated distance: ${estimatedKm} km. Are you available?`,
+    });
+
+    router.push(`/inbox?conv=${convId}`);
   };
 
   const handleCopyShare = () => {
@@ -309,7 +358,7 @@ export default function MoverDetailPage() {
           </div>
         </div>
 
-        {/* Quick Mobile Action Bar: Calculate Quote & Book */}
+        {/* Quick Mobile Action Bar: Calculate Quote & In-App Chat */}
         <div className="lg:hidden flex items-center gap-2 p-3 rounded-2xl bg-orange-50/80 border border-orange-200 shadow-2xs">
           <button
             type="button"
@@ -317,15 +366,16 @@ export default function MoverDetailPage() {
             className="flex-1 h-11 px-4 bg-[#C2410C] hover:bg-[#9A3412] text-white rounded-xl font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition active:scale-[0.99] cursor-pointer"
           >
             <Calculator className="w-4 h-4 text-orange-200 shrink-0" />
-            <span>Calculate Shifting Cost & Book</span>
+            <span>Book Mover</span>
           </button>
           <button
             type="button"
-            onClick={handleWhatsApp}
-            className="h-11 px-3.5 bg-white hover:bg-slate-50 text-emerald-800 border border-emerald-300 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-[0.99] cursor-pointer shrink-0"
+            onClick={handleDirectChat}
+            className="h-11 px-4 bg-white hover:bg-slate-50 text-orange-900 border border-orange-300 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-[0.99] cursor-pointer shrink-0"
+            title="Chat directly on SafarPK"
           >
-            <MessageSquare className="w-4 h-4 text-emerald-600 fill-emerald-100 shrink-0" />
-            <span>WhatsApp</span>
+            <MessageSquare className="w-4 h-4 text-[#C2410C] fill-orange-100 shrink-0" />
+            <span>Chat</span>
           </button>
         </div>
 
@@ -626,7 +676,7 @@ export default function MoverDetailPage() {
               </p>
             </div>
 
-            {/* Direct Contact Buttons (Publicly accessible without login) */}
+            {/* Direct Contact Buttons */}
             <div className="space-y-2 pt-1">
               {/* Instant WhatsApp Button */}
               <button
@@ -634,8 +684,18 @@ export default function MoverDetailPage() {
                 onClick={handleWhatsApp}
                 className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
               >
-                <MessageSquare className="w-4 h-4 fill-white/20" />
-                <span>Chat on WhatsApp</span>
+                <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
+                <span>WhatsApp</span>
+              </button>
+
+              {/* In-App Direct Chat Button */}
+              <button
+                type="button"
+                onClick={handleDirectChat}
+                className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-blue-200" />
+                <span>Chat with Mover</span>
               </button>
 
               {/* Direct Call Button (Click-to-Reveal Pattern) */}

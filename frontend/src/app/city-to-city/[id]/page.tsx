@@ -9,7 +9,8 @@ import { MobileNavBar } from '@/components/MobileNavBar';
 import { CITY_RIDES_DATA, CityRideItem } from '@/data/marketplaceData';
 import { getStoreSlugForOwner } from '@/data/storefrontEngine';
 import { recordLead, recordClickEvent } from '@/data/activityTracker';
-import { getWhatsAppTargetUrl } from '@/data/chatEngine';
+import { getWhatsAppTargetUrl, startOrOpenConversation } from '@/data/chatEngine';
+import { getActiveUser } from '@/data/userAuth';
 import { useCountry } from '@/app/context/CountryContext';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import {
@@ -113,6 +114,55 @@ export default function CityRideDetailPage() {
     const text = `Assalam-o-Alaikum ${ride.op},\n\nI am contacting you from SafarPK regarding your City to City ride:\n• Route: ${ride.fromCity} ➔ ${ride.toCity}\n• Vehicle: ${ride.car}\n• Trip Type: ${tripType === 'return' ? 'Return Trip' : 'One Way'}\n• Travel Date: ${selectedDate}\n• Fare: ${formatPrice(currentFare)}\n\nPlease confirm availability and pickup details.`;
     const waUrl = getWhatsAppTargetUrl(ride.whatsapp || ride.phone, text);
     window.open(waUrl, '_blank');
+  };
+
+  const handleDirectChat = () => {
+    if (!ride) return;
+    const user = getActiveUser();
+    if (!user) {
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : `/city-to-city/${ride.id}`;
+      router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
+      return;
+    }
+
+    if (user.role === 'VENDOR' || user.role === 'LISTER' || user.role === 'DRIVER') {
+      router.push('/inbox');
+      return;
+    }
+
+    recordClickEvent({
+      clickType: 'CHAT_CLICK',
+      targetId: ride.id,
+      targetTitle: `${ride.fromCity} to ${ride.toCity} (${ride.car})`,
+      targetCategory: 'CITY_TO_CITY',
+      targetOwnerName: ride.op,
+      city: ride.fromCity,
+    });
+
+    const convId = startOrOpenConversation({
+      currentUser: user,
+      partnerId: ride.id,
+      partnerName: ride.op,
+      partnerRole: 'LISTER',
+      partnerPhone: ride.whatsapp || ride.phone || '+92 300 1234567',
+      about: `City to City: ${ride.fromCity} ➔ ${ride.toCity} (${ride.car})`,
+      bookingMetadata: {
+        category: 'city_to_city',
+        customerName: user.name,
+        customerPhone: user.phone,
+        customerCity: user.city || ride.fromCity,
+        providerName: ride.op,
+        providerPhone: ride.whatsapp || ride.phone || '+92 300 1234567',
+        itemName: `${ride.fromCity} to ${ride.toCity} (${ride.car})`,
+        pickupDate: selectedDate,
+        totalEstimate: formatPrice(currentFare),
+        serviceMode: tripType === 'return' ? 'Return Trip' : 'One Way',
+        bookingRef: `C2C-${Math.floor(10000 + Math.random() * 90000)}`,
+      },
+      initialGreeting: `Assalam-o-Alaikum ${ride.op}! I am interested in your City to City ride from ${ride.fromCity} to ${ride.toCity} on ${selectedDate}. Are seats/car available?`,
+    });
+
+    router.push(`/inbox?conv=${convId}`);
   };
 
   const handleCopyShare = () => {
@@ -238,7 +288,7 @@ export default function CityRideDetailPage() {
           </div>
         </div>
 
-        {/* Quick Mobile Action Bar: Book Ride & WhatsApp */}
+        {/* Quick Mobile Action Bar: Book Ride & In-App Chat */}
         <div className="lg:hidden flex items-center gap-2 p-3 rounded-2xl bg-blue-50/80 border border-blue-200 shadow-2xs">
           <button
             type="button"
@@ -246,15 +296,16 @@ export default function CityRideDetailPage() {
             className="flex-1 h-11 px-4 bg-blue-700 hover:bg-blue-800 text-white rounded-xl font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition active:scale-[0.99] cursor-pointer"
           >
             <Calendar className="w-4 h-4 text-blue-200 shrink-0" />
-            <span>Book Ride & Select Date</span>
+            <span>Book Ride</span>
           </button>
           <button
             type="button"
-            onClick={handleWhatsApp}
-            className="h-11 px-3.5 bg-white hover:bg-slate-50 text-emerald-800 border border-emerald-300 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-[0.99] cursor-pointer shrink-0"
+            onClick={handleDirectChat}
+            className="h-11 px-4 bg-white hover:bg-slate-50 text-blue-900 border border-blue-300 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-[0.99] cursor-pointer shrink-0"
+            title="Chat directly on SafarPK"
           >
-            <MessageSquare className="w-4 h-4 text-emerald-600 fill-emerald-100 shrink-0" />
-            <span>WhatsApp</span>
+            <MessageSquare className="w-4 h-4 text-blue-600 fill-blue-100 shrink-0" />
+            <span>Chat</span>
           </button>
         </div>
 
@@ -489,7 +540,7 @@ export default function CityRideDetailPage() {
               </p>
             </div>
 
-            {/* Direct Contact Buttons (Publicly accessible without login) */}
+            {/* Direct Contact Buttons */}
             <div className="space-y-2 pt-1">
               {/* Instant WhatsApp Button */}
               <button
@@ -497,8 +548,18 @@ export default function CityRideDetailPage() {
                 onClick={handleWhatsApp}
                 className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
               >
-                <MessageSquare className="w-4 h-4 fill-white/20" />
-                <span>Chat on WhatsApp</span>
+                <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
+                <span>WhatsApp</span>
+              </button>
+
+              {/* In-App Direct Chat Button */}
+              <button
+                type="button"
+                onClick={handleDirectChat}
+                className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-blue-200" />
+                <span>Chat with Operator</span>
               </button>
 
               {/* Direct Call Button (Click to Reveal Pattern) */}

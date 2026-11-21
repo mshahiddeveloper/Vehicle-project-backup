@@ -236,7 +236,7 @@ export default function MoversPage() {
               className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
             >
               <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
-              <span>Chat on WhatsApp</span>
+              <span>WhatsApp</span>
             </button>
 
             {/* Direct Call Button with Click-to-Reveal Pattern */}

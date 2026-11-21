@@ -9,7 +9,8 @@ import { MobileNavBar } from '@/components/MobileNavBar';
 import { SHUTTLES_DATA, ShuttleItem } from '@/data/marketplaceData';
 import { getStoreSlugForOwner } from '@/data/storefrontEngine';
 import { recordLead, recordClickEvent } from '@/data/activityTracker';
-import { getWhatsAppTargetUrl } from '@/data/chatEngine';
+import { getWhatsAppTargetUrl, startOrOpenConversation } from '@/data/chatEngine';
+import { getActiveUser } from '@/data/userAuth';
 import { useCountry } from '@/app/context/CountryContext';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import {
@@ -167,6 +168,54 @@ export default function ShuttleDetailPage() {
     window.open(waUrl, '_blank');
   };
 
+  const handleDirectChat = () => {
+    if (!shuttle) return;
+    const user = getActiveUser();
+    if (!user) {
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : `/shuttles/${shuttle.id}`;
+      router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
+      return;
+    }
+
+    if (user.role === 'VENDOR' || user.role === 'LISTER' || user.role === 'DRIVER') {
+      router.push('/inbox');
+      return;
+    }
+
+    recordClickEvent({
+      clickType: 'CHAT_CLICK',
+      targetId: shuttle.id,
+      targetTitle: `${shuttle.from} to ${shuttle.to} (${shuttle.op})`,
+      targetCategory: 'PICK_AND_DROP',
+      targetOwnerName: shuttle.op,
+      city: shuttle.city,
+    });
+
+    const convId = startOrOpenConversation({
+      currentUser: user,
+      partnerId: shuttle.id,
+      partnerName: shuttle.op,
+      partnerRole: 'LISTER',
+      partnerPhone: shuttle.whatsapp || shuttle.phone || '+92 300 1234567',
+      about: `Pick & Drop: ${shuttle.from} ➔ ${shuttle.to} (${shuttle.op})`,
+      bookingMetadata: {
+        category: 'shuttle',
+        customerName: user.name,
+        customerPhone: user.phone,
+        customerCity: user.city || shuttle.city,
+        providerName: shuttle.op,
+        providerPhone: shuttle.whatsapp || shuttle.phone || '+92 300 1234567',
+        itemName: `${shuttle.from} to ${shuttle.to} (${shuttle.van})`,
+        totalEstimate: `${formatPrice(shuttle.fareNum)} /month`,
+        serviceMode: 'Pick & Drop Shuttle',
+        bookingRef: `SHT-${Math.floor(10000 + Math.random() * 90000)}`,
+      },
+      initialGreeting: `Assalam-o-Alaikum ${shuttle.op}! I am interested in reserving a monthly seat on your route ${shuttle.from} to ${shuttle.to}. Are seats available?`,
+    });
+
+    router.push(`/inbox?conv=${convId}`);
+  };
+
   const handleCopyShare = () => {
     try {
       navigator.clipboard.writeText(window.location.href);
@@ -319,7 +368,7 @@ export default function ShuttleDetailPage() {
           </div>
         </div>
 
-        {/* Quick Mobile Action Bar: Reserve Seat & WhatsApp */}
+        {/* Quick Mobile Action Bar: Reserve Seat & In-App Chat */}
         <div className="lg:hidden flex items-center gap-2 p-3 rounded-2xl bg-teal-50/80 border border-teal-200 shadow-2xs">
           <button
             type="button"
@@ -327,15 +376,16 @@ export default function ShuttleDetailPage() {
             className="flex-1 h-11 px-4 bg-teal-700 hover:bg-teal-800 text-white rounded-xl font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition active:scale-[0.99] cursor-pointer"
           >
             <Calendar className="w-4 h-4 text-teal-200 shrink-0" />
-            <span>Reserve Monthly Seat & Inquiry</span>
+            <span>Reserve Seat</span>
           </button>
           <button
             type="button"
-            onClick={handleWhatsApp}
-            className="h-11 px-3.5 bg-white hover:bg-slate-50 text-emerald-800 border border-emerald-300 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-[0.99] cursor-pointer shrink-0"
+            onClick={handleDirectChat}
+            className="h-11 px-4 bg-white hover:bg-slate-50 text-teal-900 border border-teal-300 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-[0.99] cursor-pointer shrink-0"
+            title="Chat directly on SafarPK"
           >
-            <MessageSquare className="w-4 h-4 text-emerald-600 fill-emerald-100 shrink-0" />
-            <span>WhatsApp</span>
+            <MessageSquare className="w-4 h-4 text-teal-700 fill-teal-100 shrink-0" />
+            <span>Chat</span>
           </button>
         </div>
 
@@ -662,7 +712,7 @@ export default function ShuttleDetailPage() {
               </p>
             </div>
 
-            {/* Direct Contact Buttons (Publicly accessible without login) */}
+            {/* Direct Contact Buttons */}
             <div className="space-y-2 pt-1">
               {/* Instant WhatsApp Button */}
               <button
@@ -670,8 +720,18 @@ export default function ShuttleDetailPage() {
                 onClick={handleWhatsApp}
                 className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
               >
-                <MessageSquare className="w-4 h-4 fill-white/20" />
-                <span>Chat on WhatsApp</span>
+                <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
+                <span>WhatsApp</span>
+              </button>
+
+              {/* In-App Direct Chat Button */}
+              <button
+                type="button"
+                onClick={handleDirectChat}
+                className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-blue-200" />
+                <span>Chat with Operator</span>
               </button>
 
               {/* Direct Call Button (Click-to-Reveal Pattern) */}

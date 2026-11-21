@@ -12,7 +12,8 @@ import {
   slugify,
 } from '@/data/storefrontEngine';
 import { recordLead, recordClickEvent } from '@/data/activityTracker';
-import { getWhatsAppTargetUrl } from '@/data/chatEngine';
+import { getWhatsAppTargetUrl, startOrOpenConversation } from '@/data/chatEngine';
+import { getActiveUser } from '@/data/userAuth';
 import { useCountry } from '@/app/context/CountryContext';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import {
@@ -216,6 +217,67 @@ export default function PublicDriverProfilePage() {
     const text = `Assalam-o-Alaikum ${driver.name},\n\nI want to hire you as a ${isPakistan ? 'verified driver' : 'professional chauffeur'} via SafarPK:\n• Duty Type: ${dutyLabel}\n• Starting Date: ${startDate}\n• Estimated Rate: ${currentRateDisplay}\n\nPlease let me know if you are available and confirm your rate.`;
     const waUrl = getWhatsAppTargetUrl(driver?.whatsapp || driver?.phone || '', text);
     window.open(waUrl, '_blank');
+  };
+
+  const handleDirectChat = () => {
+    if (!driver) return;
+    const user = getActiveUser();
+    if (!user) {
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : `/driver/${slug}`;
+      router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
+      return;
+    }
+
+    // Logged-in Vendor / Driver / Lister: goes to its own inbox / chat room
+    if (user.role === 'VENDOR' || user.role === 'LISTER' || user.role === 'DRIVER') {
+      router.push('/inbox');
+      return;
+    }
+
+    // Logged-in Customer: directly open in-app chat with this driver
+    recordClickEvent({
+      clickType: 'CHAT_CLICK',
+      targetId: driver.id,
+      targetTitle: driver.name,
+      targetCategory: 'DRIVER_PROFILE',
+      targetOwnerName: driver.name,
+      city: driver.city,
+    });
+
+    const dutyLabel =
+      selectedDuty === 'city'
+        ? 'Daily City Duty (12 Hours)'
+        : selectedDuty === 'outstation'
+        ? 'Outstation Tour'
+        : isPakistan
+        ? 'Monthly Dedicated Driver / Captain'
+        : 'Monthly Dedicated Chauffeur';
+
+    const convId = startOrOpenConversation({
+      currentUser: user,
+      partnerId: driver.id,
+      partnerName: driver.name,
+      partnerRole: 'DRIVER',
+      partnerPhone: driver.phone || driver.whatsapp || '+92 300 1234567',
+      about: `Hire Chauffeur ${driver.name} (${driver.city})`,
+      bookingMetadata: {
+        category: 'driver',
+        customerName: user.name,
+        customerPhone: user.phone,
+        customerCity: user.city || driver.city,
+        providerName: driver.name,
+        providerManager: driver.name,
+        providerPhone: driver.phone || driver.whatsapp || '+92 300 1234567',
+        itemName: `${driver.name} (${dutyLabel})`,
+        pickupDate: startDate,
+        totalEstimate: currentRateDisplay,
+        serviceMode: 'Professional Driver Duty',
+        bookingRef: `DRV-${Math.floor(10000 + Math.random() * 90000)}`,
+      },
+      initialGreeting: `Assalam-o-Alaikum ${driver.name}! I am interested in hiring you as a ${isPakistan ? 'driver' : 'chauffeur'} for ${dutyLabel} starting on ${startDate}. Estimated rate: ${currentRateDisplay}. Are you available?`,
+    });
+
+    router.push(`/inbox?conv=${convId}`);
   };
 
   const handleBookingSubmit = (e: React.FormEvent) => {
@@ -424,13 +486,13 @@ export default function PublicDriverProfilePage() {
               onClick={handleWhatsApp}
               className="flex-1 md:flex-initial h-11 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-sm active:scale-[0.99] cursor-pointer"
             >
-              <MessageSquare className="w-4 h-4 fill-white/20" />
-              <span>WhatsApp Chat</span>
+              <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
+              <span>WhatsApp</span>
             </button>
           </div>
         </div>
 
-        {/* Quick Mobile Action Bar: Check Rates & Hire */}
+        {/* Quick Mobile Action Bar: Hire Driver & In-App Chat */}
         <div className="lg:hidden flex items-center gap-2 p-3 rounded-2xl bg-blue-50/80 border border-blue-200 shadow-2xs">
           <button
             type="button"
@@ -438,15 +500,16 @@ export default function PublicDriverProfilePage() {
             className="flex-1 h-11 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition active:scale-[0.99] cursor-pointer"
           >
             <Calendar className="w-4 h-4 text-blue-200 shrink-0" />
-            <span>Check Rates & Hire Driver</span>
+            <span>Hire Driver</span>
           </button>
           <button
             type="button"
-            onClick={handleWhatsApp}
-            className="h-11 px-3.5 bg-white hover:bg-slate-50 text-emerald-800 border border-emerald-300 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-[0.99] cursor-pointer shrink-0"
+            onClick={handleDirectChat}
+            className="h-11 px-4 bg-white hover:bg-slate-50 text-blue-900 border border-blue-300 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-[0.99] cursor-pointer shrink-0"
+            title="Chat directly on SafarPK"
           >
-            <MessageSquare className="w-4 h-4 text-emerald-600 fill-emerald-100 shrink-0" />
-            <span>WhatsApp</span>
+            <MessageSquare className="w-4 h-4 text-blue-600 fill-blue-100 shrink-0" />
+            <span>Chat</span>
           </button>
         </div>
 
@@ -706,7 +769,7 @@ export default function PublicDriverProfilePage() {
               </p>
             </div>
 
-            {/* Direct Contact Buttons (Publicly accessible without login) */}
+            {/* Direct Contact Buttons */}
             <div className="space-y-2 pt-1">
               {/* Instant WhatsApp Button */}
               <button
@@ -714,8 +777,18 @@ export default function PublicDriverProfilePage() {
                 onClick={handleWhatsApp}
                 className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
               >
-                <MessageSquare className="w-4 h-4 fill-white/20" />
-                <span>Chat on WhatsApp</span>
+                <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
+                <span>WhatsApp</span>
+              </button>
+
+              {/* In-App Direct Chat Button */}
+              <button
+                type="button"
+                onClick={handleDirectChat}
+                className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-blue-200" />
+                <span>Chat with Driver</span>
               </button>
 
               {/* Direct Call Button (Click-to-Reveal Pattern) */}
