@@ -243,7 +243,7 @@ export default function ShuttleDetailPage() {
     <div className="min-h-screen bg-white font-sans text-[#101828] flex flex-col justify-between">
       <AppHeader />
 
-      <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-4 sm:py-6 md:py-10 flex flex-col gap-4 sm:gap-6 pb-64 sm:pb-56 lg:pb-16">
+      <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-4 sm:py-6 md:py-10 flex flex-col gap-4 sm:gap-6 pb-24 lg:pb-16">
         {/* Mobile App Navigation Bar (Native App Look & Feel) */}
         <div className="md:hidden flex items-center justify-between gap-2 pb-1">
           <button
@@ -841,9 +841,6 @@ export default function ShuttleDetailPage() {
             )}
           </aside>
         </div>
-
-        {/* Dedicated Mobile Safe Scroll Clearance: Guarantees form submit buttons scroll 100% clear of sticky action bar */}
-        <div className="h-44 sm:h-36 lg:hidden" aria-hidden="true" />
       </main>
 
       {/* Mobile App Sticky Action Bar (Direct, Elevated, Never Hidden Behind Menu) */}
