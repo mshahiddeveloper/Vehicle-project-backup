@@ -140,13 +140,14 @@ export default function PublicDriverProfilePage() {
       ? window.location.href
       : `https://safar.pk/driver/${driver.slug}`;
 
-  const handleCopyLink = () => {
+  const handleCopyShare = () => {
     try {
       navigator.clipboard.writeText(currentProfileUrl);
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
     } catch {}
   };
+  const handleCopyLink = handleCopyShare;
 
   const handleShareWhatsApp = () => {
     const text = encodeURIComponent(

@@ -2143,22 +2143,23 @@ export default function SuperAdminDashboardPage() {
                           <div key={p.id} className="bg-white p-3.5 rounded-xl border border-amber-200/80 shadow-2xs flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                               <div>
-                                <span className="font-extrabold text-xs text-[#101828] block">{p.listerName}</span>
-                                <span className="text-[11px] text-slate-500">{p.packageName} · PKR {p.amountPaid.toLocaleString()}</span>
+                                <span className="font-extrabold text-xs text-[#101828] block">{p.userName}</span>
+                                <span className="text-[11px] text-slate-500">{p.planName} · PKR {p.amountPaid.toLocaleString()}</span>
                               </div>
                               <span className="text-[10px] font-mono px-2 py-0.5 bg-slate-100 rounded text-slate-700">
-                                {p.paymentMethod}
+                                {p.paymentMode}
                               </span>
                             </div>
                             <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100">
-                              {p.receiptUrl && (
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedPaymentForReceipt(p)}
-                                  className="px-2.5 py-1 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer transition"
+                              {p.slipUrl && (
+                                <a
+                                  href={p.slipUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-2.5 py-1 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer transition inline-flex items-center gap-1"
                                 >
                                   View Slip
-                                </button>
+                                </a>
                               )}
                               <button
                                 type="button"
@@ -2166,7 +2167,7 @@ export default function SuperAdminDashboardPage() {
                                   rejectSubscriptionPayment(p.id, 'Super Admin Reject');
                                   setSubscriptionPayments(getAllSubscriptionPayments());
                                   setRegisteredUsersList(getAllRegisteredUsers());
-                                  setAdminNotice(`Payment rejected for ${p.listerName}`);
+                                  setAdminNotice(`Payment rejected for ${p.userName}`);
                                   setTimeout(() => setAdminNotice(null), 3000);
                                 }}
                                 className="px-2.5 py-1 text-xs font-bold text-[#D92D20] bg-rose-50 hover:bg-rose-100 rounded-lg cursor-pointer transition"
@@ -2179,7 +2180,7 @@ export default function SuperAdminDashboardPage() {
                                   approveSubscriptionPayment(p.id, 'Super Admin Instant');
                                   setSubscriptionPayments(getAllSubscriptionPayments());
                                   setRegisteredUsersList(getAllRegisteredUsers());
-                                  setAdminNotice(`✅ Approved payment for ${p.listerName}!`);
+                                  setAdminNotice(`✅ Approved payment for ${p.userName}!`);
                                   setTimeout(() => setAdminNotice(null), 3000);
                                 }}
                                 className="px-3 py-1 text-xs font-bold text-white bg-[#0B6B4F] hover:bg-[#08513C] rounded-lg cursor-pointer transition"
