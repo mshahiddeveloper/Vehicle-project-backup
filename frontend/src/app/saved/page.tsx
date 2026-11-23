@@ -8,6 +8,8 @@ import { MobileNavBar } from '@/components/MobileNavBar';
 import { Heart, Trash2, ArrowRight, Car, User, Bus, Truck, LogIn, UserPlus } from 'lucide-react';
 import { CARS_DATA } from '@/data/marketplaceData';
 import { getActiveUser, RegisteredUser } from '@/data/userAuth';
+// Integrates with safarpk_saved_vehicles and safarpk_saved_items via @/data/wishlist
+import { getSavedWishlistItems, removeWishlistItem } from '@/data/wishlist';
 
 interface SavedItem {
   id: string;
@@ -18,42 +20,6 @@ interface SavedItem {
   href: string;
   contacted?: string;
 }
-
-const INITIAL_SAVED: SavedItem[] = [
-  {
-    id: 's-1',
-    category: 'car',
-    name: 'Honda Civic Oriel Turbo 2024',
-    sub: 'Kashif Motors · Islamabad',
-    price: 'PKR 14,000 / day',
-    href: '/listing/l-1',
-    contacted: '✓ Request sent · Today',
-  },
-  {
-    id: 's-2',
-    category: 'driver',
-    name: 'Imran Khan (Professional Chauffeur)',
-    sub: '12 years exp · Motorway M-2 expert',
-    price: 'Rs. 2,500 / 12 hours',
-    href: '/drivers',
-  },
-  {
-    id: 's-3',
-    category: 'shuttle',
-    name: 'Noor Shuttles (Girls School Route)',
-    sub: 'DHA Phase 5 ➔ Gulberg III · 2 seats left',
-    price: 'Rs. 9,500 / month',
-    href: '/shuttles',
-  },
-  {
-    id: 's-4',
-    category: 'mover',
-    name: 'Al-Makkah Shifting Transport',
-    sub: 'Hyundai Shehzore & Mazda · Covered container',
-    price: 'Rs. 4,500 base fare',
-    href: '/movers',
-  },
-];
 
 export default function SavedItemsPage() {
   const [filterIdx, setFilterIdx] = useState<number>(0); // 0: All, 1: Cars, 2: Drivers, 3: Shuttles, 4: Movers
@@ -72,65 +38,26 @@ export default function SavedItemsPage() {
         return;
       }
 
-      const raw = localStorage.getItem('safarpk_saved_items');
-      let customItems: SavedItem[] = [];
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          customItems = parsed.map((p: any) => {
-            const cat = (p.category || '').toLowerCase();
-            const mappedCat: SavedItem['category'] =
-              cat.includes('driver') ? 'driver' :
-              cat.includes('shuttle') || cat.includes('pick') ? 'shuttle' :
-              cat.includes('mover') || cat.includes('cargo') ? 'mover' : 'car';
+      const savedList = getSavedWishlistItems();
+      const mapped: SavedItem[] = savedList.map((p) => {
+        const cat = (p.category || '').toLowerCase();
+        const mappedCat: SavedItem['category'] =
+          cat.includes('driver') ? 'driver' :
+          cat.includes('shuttle') || cat.includes('pick') ? 'shuttle' :
+          cat.includes('mover') || cat.includes('cargo') ? 'mover' : 'car';
 
-            return {
-              id: p.id || `custom-${Date.now()}-${Math.random()}`,
-              category: mappedCat,
-              name: p.title || p.name || 'Saved Listing',
-              sub: p.specs ? `${p.specs} · ${p.city || 'Karachi'}` : (p.sub || p.city || 'Verified Partner'),
-              price: p.rate || p.price || 'PKR 10,000 / day',
-              href: p.href || (p.id?.startsWith('l-') || p.id?.startsWith('car-') ? `/listing/${p.id}` : `/listing/l-1`),
-              contacted: p.contacted,
-            };
-          });
-        }
-      }
+        return {
+          id: p.id,
+          category: mappedCat,
+          name: p.title || p.name || 'Saved Listing',
+          sub: p.specs ? `${p.specs} · ${p.city || 'Karachi'}` : (p.sub || p.city || 'Verified Partner'),
+          price: p.rate || p.price || 'PKR 10,000 / day',
+          href: p.href || (p.id?.startsWith('l-') || p.id?.startsWith('car-') ? `/listing/${p.id}` : `/listing/l-1`),
+          contacted: p.contacted,
+        };
+      });
 
-      // Also resolve any vehicle IDs saved via mobile vehicle cards (safarpk_saved_vehicles)
-      const rawVehicles = localStorage.getItem('safarpk_saved_vehicles');
-      if (rawVehicles) {
-        try {
-          const vIds = JSON.parse(rawVehicles);
-          if (Array.isArray(vIds)) {
-            for (const vId of vIds) {
-              if (!customItems.some((it) => it.id === vId)) {
-                const foundCar = CARS_DATA.find((c) => c.id === vId);
-                if (foundCar) {
-                  customItems.unshift({
-                    id: foundCar.id,
-                    category: 'car',
-                    name: foundCar.name,
-                    sub: `${foundCar.specs} · ${foundCar.city}`,
-                    price: `${foundCar.price} / day`,
-                    href: `/listing/${foundCar.id}`,
-                  });
-                }
-              }
-            }
-          }
-        } catch (e) {}
-      }
-
-      const seen = new Set<string>();
-      const merged: SavedItem[] = [];
-      for (const item of customItems) {
-        if (!seen.has(item.id)) {
-          seen.add(item.id);
-          merged.push(item);
-        }
-      }
-      setItems(merged);
+      setItems(mapped);
     } catch (e) {
       setItems([]);
     }
@@ -162,28 +89,7 @@ export default function SavedItemsPage() {
 
   const handleRemove = (id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
-    try {
-      if (typeof window !== 'undefined') {
-        const raw = localStorage.getItem('safarpk_saved_items');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) {
-            const updated = parsed.filter((item: any) => (item.id || item) !== id);
-            localStorage.setItem('safarpk_saved_items', JSON.stringify(updated));
-          }
-        }
-        const rawVehicles = localStorage.getItem('safarpk_saved_vehicles');
-        if (rawVehicles) {
-          const parsedVehicles = JSON.parse(rawVehicles);
-          if (Array.isArray(parsedVehicles)) {
-            const updatedVehicles = parsedVehicles.filter((vId: string) => vId !== id);
-            localStorage.setItem('safarpk_saved_vehicles', JSON.stringify(updatedVehicles));
-          }
-        }
-        window.dispatchEvent(new Event('safarpk_saved_updated'));
-        window.dispatchEvent(new Event('safarpk_favorites_updated'));
-      }
-    } catch (e) {}
+    removeWishlistItem(id);
   };
 
   const getCategoryIcon = (cat: SavedItem['category']) => {

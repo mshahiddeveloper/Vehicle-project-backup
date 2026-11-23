@@ -43,6 +43,7 @@ type OperationalRole = 'CUSTOMER' | 'LISTER' | 'DRIVER' | 'PICK_DROP' | 'SHIFTIN
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const returnUrl = searchParams.get('returnUrl') || searchParams.get('redirect') || searchParams.get('from');
 
   const [lang, setLang] = useState<SupportedLang>('en');
   const [accountType, setAccountType] = useState<'customer' | 'partner'>('customer');
@@ -282,6 +283,23 @@ function RegisterForm() {
       return;
     }
 
+    // Asynchronously synchronize user account to Neon PostgreSQL database
+    try {
+      fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: fullName.trim(),
+          phone: phone.trim(),
+          email: email.trim() || undefined,
+          password: password,
+          role: mappedRole,
+          city: city.trim() || 'Karachi',
+          businessName: businessName.trim() || undefined,
+        }),
+      }).catch((e) => console.warn('Neon DB async sync notice:', e));
+    } catch (e) {}
+
     if (res.alreadyExists) {
       setNotice('Matching existing account found! Opening your dashboard directly...');
     }
@@ -292,7 +310,6 @@ function RegisterForm() {
     if (pending.executed) {
       dest = pending.returnUrl || (res.user.role === 'CUSTOMER' ? '/' : getUserDashboardPath(res.user));
     } else if (res.user.role === 'CUSTOMER') {
-      const returnUrl = searchParams.get('returnUrl') || searchParams.get('redirect') || searchParams.get('from');
       dest = returnUrl || '/';
     } else {
       dest = getUserDashboardPath(res.user);

@@ -465,6 +465,7 @@ export default function ServiceProviderDashboardPage() {
 
       // Dynamic Per-Account Isolation & Storage Sync
       const userKey = user?.id || (user?.email ? user.email.replace(/[^a-zA-Z0-9]/g, '_') : 'guest_provider');
+      const isDemo = Boolean(user?.id && user.id.startsWith('usr-demo-'));
       const isShuttleOnly = user.email === 'subhan.shuttles@safarpk.com' || (services.includes('PICK_AND_DROP') && !services.includes('HOME_SHIFTING'));
 
       // 1. Fleet
@@ -472,7 +473,7 @@ export default function ServiceProviderDashboardPage() {
         const savedFleet = localStorage.getItem(`safarpk_provider_fleet_${userKey}`);
         if (savedFleet) {
           let parsed = JSON.parse(savedFleet);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             if (isShuttleOnly) {
               parsed = parsed.map((v: any) => ({
                 ...v,
@@ -483,13 +484,15 @@ export default function ServiceProviderDashboardPage() {
               }));
             }
             setCommercialFleet(parsed);
-            setSelectedCalcVehicleId(parsed[0].id);
+            if (parsed.length > 0) setSelectedCalcVehicleId(parsed[0].id);
           }
-        } else {
+        } else if (isDemo) {
           const initFleet = isShuttleOnly ? DEFAULT_SUBHAN_FLEET : DEFAULT_ALMAKKA_FLEET;
           setCommercialFleet(initFleet);
           setSelectedCalcVehicleId(initFleet[0].id);
           localStorage.setItem(`safarpk_provider_fleet_${userKey}`, JSON.stringify(initFleet));
+        } else {
+          setCommercialFleet([]);
         }
       } catch {}
 
@@ -498,11 +501,13 @@ export default function ServiceProviderDashboardPage() {
         const savedDrivers = localStorage.getItem(`safarpk_provider_drivers_${userKey}`);
         if (savedDrivers) {
           const parsed = JSON.parse(savedDrivers);
-          if (Array.isArray(parsed) && parsed.length > 0) setDriverTeam(parsed);
-        } else {
+          if (Array.isArray(parsed)) setDriverTeam(parsed);
+        } else if (isDemo) {
           const initDrivers = isShuttleOnly ? DEFAULT_SUBHAN_DRIVERS : DEFAULT_ALMAKKA_DRIVERS;
           setDriverTeam(initDrivers);
           localStorage.setItem(`safarpk_provider_drivers_${userKey}`, JSON.stringify(initDrivers));
+        } else {
+          setDriverTeam([]);
         }
       } catch {}
 
@@ -512,10 +517,12 @@ export default function ServiceProviderDashboardPage() {
         if (savedQuotes) {
           const parsed = JSON.parse(savedQuotes);
           if (Array.isArray(parsed)) setQuoteRequests(parsed);
-        } else {
+        } else if (isDemo) {
           const initQuotes = isShuttleOnly ? [] : DEFAULT_ALMAKKA_QUOTES;
           setQuoteRequests(initQuotes);
           localStorage.setItem(`safarpk_provider_quotes_${userKey}`, JSON.stringify(initQuotes));
+        } else {
+          setQuoteRequests([]);
         }
       } catch {}
 
@@ -525,10 +532,12 @@ export default function ServiceProviderDashboardPage() {
         if (savedRoutes) {
           const parsed = JSON.parse(savedRoutes);
           if (Array.isArray(parsed)) setRoutes(parsed);
-        } else {
+        } else if (isDemo) {
           const initRoutes = isShuttleOnly ? DEFAULT_SUBHAN_ROUTES : [];
           setRoutes(initRoutes);
           localStorage.setItem(`safarpk_provider_routes_${userKey}`, JSON.stringify(initRoutes));
+        } else {
+          setRoutes([]);
         }
       } catch {}
     }
@@ -536,25 +545,13 @@ export default function ServiceProviderDashboardPage() {
 
   // Sync Provider In-App Chats
   React.useEffect(() => {
-    const activeProvider = currentUser || {
-      id: 'usr-demo-provider',
-      name: managerName || 'Haji Abdul Rasheed',
-      businessName: companyName || 'Pak Movers & Al-Makkah Logistics',
-      role: 'PROVIDER' as any,
-      city: cityBase || 'Lahore',
-      phone: contactPhone || '+92 321 4409124',
-      countryCode: 'PK',
-      registeredAt: new Date().toISOString(),
-      subscription: { status: 'ACTIVE', quota: 10, usedQuota: 2 },
-      metrics: { viewCount: 0, leadsCount: 0, clickCount: 0, lastActive: 'Now' },
-      activities: [],
-    };
-    const convs = getUserConversations(activeProvider as any);
+    if (!currentUser) return;
+    const convs = getUserConversations(currentUser);
     setProviderConversations(convs);
     if (convs.length > 0 && !activeProviderChatId) {
       setActiveProviderChatId(convs[0].id);
     }
-  }, [currentUser, companyName, contactPhone]);
+  }, [currentUser]);
 
   React.useEffect(() => {
     if (!activeProviderChatId) return;

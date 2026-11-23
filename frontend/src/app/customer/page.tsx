@@ -44,24 +44,118 @@ import {
   DriverBooking,
 } from '@/data/driverBookings';
 
+import { getSavedWishlistItems } from '@/data/wishlist';
+
+const DEMO_CUSTOMER_BOOKINGS = [
+  {
+    id: 'bkg-101',
+    bookingRef: 'BKG-8492',
+    vehicleName: 'Toyota Corolla Altis Grande 2024',
+    assignedVehicleReg: 'LEA-24-9988',
+    city: 'Lahore',
+    startDate: '2026-11-12',
+    endDate: '2026-11-15',
+    dailyRate: 8500,
+    totalAmount: 25500,
+    withDriver: true,
+    pickupArea: 'DHA Phase 5, Lahore',
+    listerPhone: '+923001234567',
+    listerBusinessName: 'Salman Rent a Car & Luxury Fleets',
+    assignedDriver: {
+      name: 'Tariq Mahmood',
+      phone: '+92 301 9821045',
+      cnic: '35201-4412098-5',
+      license: 'VIP Chauffeur (LTV/HTV)',
+      avatar: '👨‍✈️',
+    },
+    status: 'CONFIRMED',
+    paymentStatus: 'PAY_ON_PICKUP',
+    serviceType: 'CAR_RENTAL',
+    vehicleSmartCard: {
+      registrationNo: 'LEA-24-9988',
+      chassisNo: 'NZE140-5019821',
+      engineNo: '2ZR-FE-9812401',
+      ownerName: 'Salman Rent a Car & Luxury Fleets (Pvt) Ltd',
+      taxpayerNtn: '7819201-3',
+      fitnessValidTill: '2026-12-31',
+      tokenTax: 'Paid Lifetime',
+    },
+  },
+  {
+    id: 'bkg-102',
+    bookingRef: 'BKG-4412',
+    vehicleName: 'Honda Civic Oriel Turbo 2024',
+    assignedVehicleReg: 'ISB-24-4412',
+    city: 'Islamabad',
+    startDate: '2026-11-20',
+    endDate: '2026-11-22',
+    dailyRate: 14000,
+    totalAmount: 28000,
+    withDriver: false,
+    pickupArea: 'Centaurus Mall, F-8, Islamabad',
+    listerPhone: '+923007654321',
+    status: 'REQUESTED',
+    paymentStatus: 'PENDING',
+    serviceType: 'CAR_RENTAL',
+  },
+];
+
+const DEMO_LEADS_HISTORY = [
+  {
+    id: 'lead-01',
+    vehicleTitle: 'Toyota Corolla Altis Grande 2024',
+    city: 'Lahore',
+    dailyRate: 8500,
+    createdAt: '2026-11-09T14:20:00Z',
+    status: 'CONTACTED',
+  },
+  {
+    id: 'lead-02',
+    vehicleTitle: 'Toyota HiAce Grand Cabin (14 Seats Shuttle)',
+    city: 'Lahore',
+    dailyRate: 11000,
+    createdAt: '2026-11-08T09:15:00Z',
+    status: 'CONTACTED',
+  },
+];
+
+const DEMO_WISHLIST = [
+  {
+    id: 'w-1',
+    title: 'Toyota Prado TX 2.8D 2023',
+    city: 'Islamabad',
+    dailyRate: 35000,
+    seats: 7,
+    transmission: 'Automatic',
+    img: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=600&auto=format&fit=crop&q=80',
+  },
+  {
+    id: 'w-2',
+    title: 'Hyundai Shehzore D-100 Shifting Truck',
+    city: 'Lahore',
+    dailyRate: 4500,
+    seats: 3,
+    transmission: 'Manual',
+    img: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=600&auto=format&fit=crop&q=80',
+  },
+];
+
 export default function CustomerDashboardPage() {
   const [activeTab, setActiveTab] = useState<
     'overview' | 'bookings' | 'rides' | 'drivers' | 'shifting' | 'wishlist' | 'leads' | 'complaints' | 'profile' | 'security'
   >('overview');
 
-  // Customer State
-  const [customerName, setCustomerName] = useState('Hamza Tariq');
-  const [customerPhone, setCustomerPhone] = useState('+92 300 8472910');
-  const [customerEmail, setCustomerEmail] = useState('hamza.tariq@gmail.com');
-  const [customerCity, setCustomerCity] = useState('Lahore');
-  const [customerCnic, setCustomerCnic] = useState('35202-8172910-3');
-  const [customerLicense, setCustomerLicense] = useState('LHR-DL-449102');
-  const [customerLicenseExpiry, setCustomerLicenseExpiry] = useState('2028-11-20');
+  // Customer State - Initialized clean for real registered users
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [customerCity, setCustomerCity] = useState('');
+  const [customerCnic, setCustomerCnic] = useState('');
+  const [customerLicense, setCustomerLicense] = useState('');
+  const [customerLicenseExpiry, setCustomerLicenseExpiry] = useState('');
   const [showFullCnic, setShowFullCnic] = useState(false);
-  const [licenseDocPreview, setLicenseDocPreview] = useState<string | null>(
-    'https://images.unsplash.com/photo-1544717305-2782549b5136?w=400&auto=format&fit=crop&q=80'
-  );
-  const [licenseFileName, setLicenseFileName] = useState<string | null>('punjab_driving_license.jpg');
+  const [licenseDocPreview, setLicenseDocPreview] = useState<string | null>(null);
+  const [licenseFileName, setLicenseFileName] = useState<string | null>(null);
   const [licenseScanning, setLicenseScanning] = useState(false);
   const [licenseUploadNotice, setLicenseUploadNotice] = useState<string | null>(null);
 
@@ -85,78 +179,16 @@ export default function CustomerDashboardPage() {
     }, 1200);
   };
 
-  // Data states
+  // Data states - Clean default state for real registered users
   const [selectedSmartCardModal, setSelectedSmartCardModal] = useState<any | null>(null);
   const [driverBookings, setDriverBookings] = useState<DriverBooking[]>([]);
-
-  useEffect(() => {
-    setDriverBookings(getDriverBookings());
-    const handleDriverBookings = () => {
-      setDriverBookings(getDriverBookings());
-    };
-    window.addEventListener('safarpk_driver_booking_status_updated', handleDriverBookings);
-    return () => window.removeEventListener('safarpk_driver_booking_status_updated', handleDriverBookings);
-  }, []);
-
-  const [bookings, setBookings] = useState<any[]>([
-    {
-      id: 'bkg-101',
-      bookingRef: 'BKG-8492',
-      vehicleName: 'Toyota Corolla Altis Grande 2024',
-      assignedVehicleReg: 'LEA-24-9988',
-      city: 'Lahore',
-      startDate: '2026-11-12',
-      endDate: '2026-11-15',
-      dailyRate: 8500,
-      totalAmount: 25500,
-      withDriver: true,
-      pickupArea: 'DHA Phase 5, Lahore',
-      listerPhone: '+923001234567',
-      listerBusinessName: 'Salman Rent a Car & Luxury Fleets',
-      assignedDriver: {
-        name: 'Tariq Mahmood',
-        phone: '+92 301 9821045',
-        cnic: '35201-4412098-5',
-        license: 'VIP Chauffeur (LTV/HTV)',
-        avatar: '👨‍✈️',
-      },
-      status: 'CONFIRMED',
-      paymentStatus: 'PAY_ON_PICKUP',
-      serviceType: 'CAR_RENTAL',
-      vehicleSmartCard: {
-        registrationNo: 'LEA-24-9988',
-        chassisNo: 'NZE140-5019821',
-        engineNo: '2ZR-FE-9812401',
-        ownerName: 'Salman Rent a Car & Luxury Fleets (Pvt) Ltd',
-        taxpayerNtn: '7819201-3',
-        fitnessValidTill: '2026-12-31',
-        tokenTax: 'Paid Lifetime',
-      },
-    },
-    {
-      id: 'bkg-102',
-      bookingRef: 'BKG-4412',
-      vehicleName: 'Honda Civic Oriel Turbo 2024',
-      assignedVehicleReg: 'ISB-24-4412',
-      city: 'Islamabad',
-      startDate: '2026-11-20',
-      endDate: '2026-11-22',
-      dailyRate: 14000,
-      totalAmount: 28000,
-      withDriver: false,
-      pickupArea: 'Centaurus Mall, F-8, Islamabad',
-      listerPhone: '+923007654321',
-      status: 'REQUESTED',
-      paymentStatus: 'PENDING',
-      serviceType: 'CAR_RENTAL',
-    },
-  ]);
-
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [leadsHistory, setLeadsHistory] = useState<any[]>([]);
+  const [wishlist, setWishlist] = useState<any[]>([]);
   const [authChecked, setAuthChecked] = useState(false);
 
-  // Load newly submitted bookings from localStorage & enforce Customer role guard
+  // Sync authenticated profile and populate clean user data or demo data
   useEffect(() => {
-    // Sync active authenticated profile
     const user = getActiveUser();
     if (!user) {
       if (typeof window !== 'undefined') {
@@ -172,67 +204,110 @@ export default function CustomerDashboardPage() {
     }
     setAuthChecked(true);
 
-    if (user.name) setCustomerName(user.name);
-    if (user.phone) setCustomerPhone(user.phone);
-    if (user.email) setCustomerEmail(user.email);
-    if (user.city) setCustomerCity(user.city);
-    if (user.nationalId) setCustomerCnic(user.nationalId);
-    if (user.licenseNumber) setCustomerLicense(user.licenseNumber);
+    // Populate user profile info
+    setCustomerName(user.name || 'Valued Member');
+    setCustomerPhone(user.phone || '');
+    setCustomerEmail(user.email || '');
+    setCustomerCity(user.city || 'Lahore');
+    setCustomerCnic(user.nationalId || user.cnicNumber || '');
+    setCustomerLicense(user.licenseNumber || '');
 
+    const isDemo = user.id === 'usr-demo-customer';
+
+    // 1. Bookings: Real user starts with empty array unless they have saved bookings
+    let userBookings: any[] = [];
     try {
-      const saved = localStorage.getItem('safarpk_customer_bookings');
+      const saved =
+        localStorage.getItem(`safarpk_customer_bookings_${user.id}`) ||
+        localStorage.getItem('safarpk_customer_bookings');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setBookings((prev) => {
-            const ids = new Set(parsed.map((p: any) => p.bookingRef));
-            const filteredPrev = prev.filter((p) => !ids.has(p.bookingRef));
-            return [...parsed, ...filteredPrev];
-          });
+          userBookings = parsed;
         }
       }
     } catch (e) {}
+
+    if (userBookings.length === 0 && isDemo) {
+      userBookings = DEMO_CUSTOMER_BOOKINGS;
+      setLicenseDocPreview('https://images.unsplash.com/photo-1544717305-2782549b5136?w=400&auto=format&fit=crop&q=80');
+      setLicenseFileName('punjab_driving_license.jpg');
+      setCustomerCnic('35202-8172910-3');
+      setCustomerLicense('LHR-DL-449102');
+      setCustomerLicenseExpiry('2028-11-20');
+    }
+    setBookings(userBookings);
+
+    // 2. Leads History: Real user starts with empty leads unless they have real inquiries
+    let userLeads: any[] = [];
+    try {
+      const savedLeads =
+        localStorage.getItem(`safarpk_customer_leads_${user.id}`) ||
+        localStorage.getItem('safarpk_customer_leads');
+      if (savedLeads) {
+        const parsed = JSON.parse(savedLeads);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          userLeads = parsed;
+        }
+      }
+    } catch (e) {}
+
+    if (userLeads.length === 0 && isDemo) {
+      userLeads = DEMO_LEADS_HISTORY;
+    }
+    setLeadsHistory(userLeads);
+
+    // 3. Wishlist: Load genuinely saved wishlist items
+    const savedWishlist = getSavedWishlistItems();
+    if (savedWishlist.length > 0) {
+      setWishlist(
+        savedWishlist.map((it) => ({
+          id: it.id,
+          title: it.name || it.title || 'Saved Listing',
+          city: it.city || 'Pakistan',
+          dailyRate: parseInt((it.rate || it.price || '10000').replace(/[^0-9]/g, '')) || 10000,
+          seats: 4,
+          transmission: 'Automatic',
+          img:
+            (it as any).img ||
+            'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=600&auto=format&fit=crop&q=80',
+        }))
+      );
+    } else if (isDemo) {
+      setWishlist(DEMO_WISHLIST);
+    } else {
+      setWishlist([]);
+    }
+
+    // 4. Driver Bookings: Only display driver bookings belonging to this customer
+    const allDriverBookings = getDriverBookings();
+    if (isDemo) {
+      setDriverBookings(allDriverBookings);
+    } else {
+      const userDriverBookings = allDriverBookings.filter(
+        (b) =>
+          (user.phone && b.customerPhone?.replace(/\D/g, '').endsWith(user.phone.replace(/\D/g, '').slice(-9))) ||
+          (user.name && b.customerName?.toLowerCase() === user.name.toLowerCase())
+      );
+      setDriverBookings(userDriverBookings);
+    }
+
+    const handleDriverBookings = () => {
+      const updated = getDriverBookings();
+      if (isDemo) {
+        setDriverBookings(updated);
+      } else {
+        const userDriverBookings = updated.filter(
+          (b) =>
+            (user.phone && b.customerPhone?.replace(/\D/g, '').endsWith(user.phone.replace(/\D/g, '').slice(-9))) ||
+            (user.name && b.customerName?.toLowerCase() === user.name.toLowerCase())
+        );
+        setDriverBookings(userDriverBookings);
+      }
+    };
+    window.addEventListener('safarpk_driver_booking_status_updated', handleDriverBookings);
+    return () => window.removeEventListener('safarpk_driver_booking_status_updated', handleDriverBookings);
   }, []);
-
-  const [leadsHistory, setLeadsHistory] = useState<any[]>([
-    {
-      id: 'lead-01',
-      vehicleTitle: 'Toyota Corolla Altis Grande 2024',
-      city: 'Lahore',
-      dailyRate: 8500,
-      createdAt: '2026-11-09T14:20:00Z',
-      status: 'CONTACTED',
-    },
-    {
-      id: 'lead-02',
-      vehicleTitle: 'Toyota HiAce Grand Cabin (14 Seats Shuttle)',
-      city: 'Lahore',
-      dailyRate: 11000,
-      createdAt: '2026-11-08T09:15:00Z',
-      status: 'CONTACTED',
-    },
-  ]);
-
-  const [wishlist, setWishlist] = useState<any[]>([
-    {
-      id: 'w-1',
-      title: 'Toyota Prado TX 2.8D 2023',
-      city: 'Islamabad',
-      dailyRate: 35000,
-      seats: 7,
-      transmission: 'Automatic',
-      img: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=600&auto=format&fit=crop&q=80',
-    },
-    {
-      id: 'w-2',
-      title: 'Hyundai Shehzore D-100 Shifting Truck',
-      city: 'Lahore',
-      dailyRate: 4500,
-      seats: 3,
-      transmission: 'Manual',
-      img: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=600&auto=format&fit=crop&q=80',
-    },
-  ]);
 
   // Complaints
   const [complaintSubject, setComplaintSubject] = useState('');
@@ -466,13 +541,19 @@ export default function CustomerDashboardPage() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs">
                   <span className="text-[11px] text-slate-400 font-semibold block">Total Rentals</span>
-                  <span className="text-2xl font-black text-slate-900 mt-1 block">12</span>
-                  <span className="text-[10px] text-emerald-600 font-bold mt-1 block">★ 4.9 Customer Rating</span>
+                  <span className="text-2xl font-black text-slate-900 mt-1 block">
+                    {bookings.filter((b) => b.status === 'CONFIRMED' || b.status === 'COMPLETED').length}
+                  </span>
+                  <span className="text-[10px] text-emerald-600 font-bold mt-1 block">
+                    {bookings.length > 0 ? '★ 4.9 Rating' : 'Active Account'}
+                  </span>
                 </div>
                 <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs">
                   <span className="text-[11px] text-slate-400 font-semibold block">Active Requests</span>
                   <span className="text-2xl font-black text-emerald-600 mt-1 block">{bookings.length}</span>
-                  <span className="text-[10px] text-slate-500 mt-1 block">1 Confirmed</span>
+                  <span className="text-[10px] text-slate-500 mt-1 block">
+                    {bookings.filter((b) => b.status === 'CONFIRMED').length} Confirmed
+                  </span>
                 </div>
                 <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs">
                   <span className="text-[11px] text-slate-400 font-semibold block">WhatsApp Leads</span>
@@ -496,48 +577,66 @@ export default function CustomerDashboardPage() {
                 </div>
 
                 <div className="space-y-3">
-                  {bookings.map((b) => (
-                    <div key={b.id} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200">
-                            {b.bookingRef}
-                          </span>
-                          <h4 className="font-bold text-xs text-slate-900">{b.vehicleName}</h4>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            b.status === 'CONFIRMED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                          }`}>
-                            {b.status}
-                          </span>
+                  {bookings.length > 0 ? (
+                    bookings.map((b) => (
+                      <div key={b.id} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200">
+                              {b.bookingRef}
+                            </span>
+                            <h4 className="font-bold text-xs text-slate-900">{b.vehicleName}</h4>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              b.status === 'CONFIRMED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                            }`}>
+                              {b.status}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            {b.startDate} to {b.endDate} · {b.pickupArea} · Total: PKR {formatPKR(b.totalAmount)}
+                          </p>
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-1">
-                          {b.startDate} to {b.endDate} · {b.pickupArea} · Total: PKR {formatPKR(b.totalAmount)}
-                        </p>
-                      </div>
 
-                      <div className="flex items-center gap-2">
-                        {b.status === 'CONFIRMED' && (
-                          <button
-                            type="button"
-                            onClick={() => setSelectedSmartCardModal(b)}
-                            className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer whitespace-nowrap shrink-0"
+                        <div className="flex items-center gap-2">
+                          {b.status === 'CONFIRMED' && (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSmartCardModal(b)}
+                              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer whitespace-nowrap shrink-0"
+                            >
+                              <FileText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              <span>View Documents</span>
+                            </button>
+                          )}
+                          <a
+                            href={`https://wa.me/${(b.listerPhone || '').replace(/[^0-9]/g, '')}?text=Hello%20regarding%20my%20booking%20${b.bookingRef}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-3.5 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition whitespace-nowrap shrink-0"
                           >
-                            <FileText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                            <span>View Documents</span>
-                          </button>
-                        )}
-                        <a
-                          href={`https://wa.me/${b.listerPhone.replace(/[^0-9]/g, '')}?text=Hello%20regarding%20my%20booking%20${b.bookingRef}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-3.5 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition whitespace-nowrap shrink-0"
-                        >
-                          <WhatsAppIcon className="w-3.5 h-3.5 fill-white shrink-0" />
-                          <span>WhatsApp</span>
-                        </a>
+                            <WhatsAppIcon className="w-3.5 h-3.5 fill-white shrink-0" />
+                            <span>WhatsApp</span>
+                          </a>
+                        </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="py-8 text-center flex flex-col items-center justify-center gap-2">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                        <Car className="w-6 h-6" />
+                      </div>
+                      <p className="text-xs font-bold text-slate-800">No Rental Requests Yet</p>
+                      <p className="text-[11px] text-slate-400 max-w-xs leading-relaxed">
+                        When you request or book a vehicle on SafarPK, your active requests and verified vehicle documents will appear here.
+                      </p>
+                      <Link
+                        href="/"
+                        className="mt-1 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                      >
+                        Find a Car to Rent
+                      </Link>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             </div>
@@ -559,132 +658,150 @@ export default function CustomerDashboardPage() {
                 </Link>
               </div>
 
-              <div className="space-y-4">
-                {bookings.map((b) => (
-                  <div key={b.id} className="p-4 rounded-2xl border border-slate-200 space-y-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
-                      <div>
+              {bookings.length > 0 ? (
+                <div className="space-y-4">
+                  {bookings.map((b) => (
+                    <div key={b.id} className="p-4 rounded-2xl border border-slate-200 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                              {b.bookingRef}
+                            </span>
+                            <h4 className="font-bold text-sm text-slate-900">{b.vehicleName}</h4>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              b.withDriver ? 'bg-purple-100 text-purple-800' : 'bg-amber-100 text-amber-800'
+                            }`}>
+                              {b.withDriver ? '👨‍✈️ With Driver' : '🚗 Self-Drive'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-1">
+                            Dates: <strong>{b.startDate}</strong> to <strong>{b.endDate}</strong> · Pickup: {b.pickupArea}
+                          </p>
+                        </div>
+
+                        <div className="flex sm:flex-col items-center sm:items-end justify-between">
+                          <span className="text-xs font-bold text-slate-400">Total Estimate</span>
+                          <span className="text-base font-black text-slate-900">PKR {formatPKR(b.totalAmount)}</span>
+                        </div>
+                      </div>
+
+                      {/* Assigned Chauffeur Details (So Customer Knows Who is Arriving & In Which Vehicle) */}
+                      {b.withDriver && b.assignedDriver ? (
+                        <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shrink-0">
+                              {b.assignedDriver.avatar || '👨‍✈️'}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wide">
+                                  Assigned Company Chauffeur
+                                </span>
+                                <span className="text-[10px] font-bold text-emerald-900 bg-white px-2 py-0.2 rounded-full border border-emerald-300">
+                                  Dispatched with Vehicle
+                                </span>
+                              </div>
+                              <h5 className="font-extrabold text-xs text-slate-900 mt-0.5">
+                                {b.assignedDriver.name} · <span className="text-emerald-800 font-semibold font-mono">Reg: {b.assignedVehicleReg}</span>
+                              </h5>
+                              <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono mt-0.5">
+                                <span className="text-slate-600">Phone: {b.assignedDriver.phone}</span>
+                                <span className="text-slate-300">·</span>
+                                {b.status === 'CONFIRMED' ? (
+                                  <>
+                                    <span className="text-slate-700">CNIC: <strong className="text-slate-900">{b.assignedDriver.cnic || '35201-4412098-5'}</strong></span>
+                                    <span className="text-slate-300">·</span>
+                                    <span className="text-slate-700">Licence: <strong className="text-slate-900">{b.assignedDriver.license || 'LHR-DL-99210'}</strong></span>
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-sans font-bold bg-emerald-100 text-emerald-800">✓ ID Unlocked</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="text-slate-500">CNIC: <strong>{maskPakistaniCnic(b.assignedDriver.cnic || '35201-4412098-5')}</strong></span>
+                                    <span className="text-slate-300">·</span>
+                                    <span className="text-slate-500">Licence: <strong>{maskPakistaniLicense(b.assignedDriver.license || 'LHR-DL-99210')}</strong></span>
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-sans font-bold bg-amber-100 text-amber-800">Unlocks on Confirmation</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <a
+                              href={`https://wa.me/${b.assignedDriver.phone.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(b.assignedDriver.name)},%20I%20am%20your%20customer%20for%20booking%20${b.bookingRef}%20(${encodeURIComponent(b.vehicleName)}).`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-3.5 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-2xs transition whitespace-nowrap shrink-0"
+                            >
+                              <WhatsAppIcon className="w-3.5 h-3.5 fill-white shrink-0" />
+                              <span>WhatsApp</span>
+                            </a>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-2.5 bg-amber-50/70 rounded-xl border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-950">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold">🚗 Self-Drive Key Handover</span>
+                            <span className="text-amber-300">•</span>
+                            <span>Assigned Vehicle Reg: <strong>{b.assignedVehicleReg || 'Assigned on Location'}</strong></span>
+                          </div>
+                          <span className="text-[10px] font-bold text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-300">
+                            Bring Original NADRA CNIC & License for Physical Inspection
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs pt-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                            {b.bookingRef}
-                          </span>
-                          <h4 className="font-bold text-sm text-slate-900">{b.vehicleName}</h4>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            b.withDriver ? 'bg-purple-100 text-purple-800' : 'bg-amber-100 text-amber-800'
-                          }`}>
-                            {b.withDriver ? '👨‍✈️ With Driver' : '🚗 Self-Drive'}
+                          <span className="text-slate-500">Payment Mode:</span>
+                          <span className="font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">
+                            {b.paymentStatus === 'PAY_ON_PICKUP' ? '💵 Cash / Direct on Handover' : '💳 Online Verified'}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-500 mt-1">
-                          Dates: <strong>{b.startDate}</strong> to <strong>{b.endDate}</strong> · Pickup: {b.pickupArea}
-                        </p>
-                      </div>
 
-                      <div className="flex sm:flex-col items-center sm:items-end justify-between">
-                        <span className="text-xs font-bold text-slate-400">Total Estimate</span>
-                        <span className="text-base font-black text-slate-900">PKR {formatPKR(b.totalAmount)}</span>
-                      </div>
-                    </div>
-
-                    {/* Assigned Chauffeur Details (So Customer Knows Who is Arriving & In Which Vehicle) */}
-                    {b.withDriver && b.assignedDriver ? (
-                      <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shrink-0">
-                            {b.assignedDriver.avatar || '👨‍✈️'}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wide">
-                                Assigned Company Chauffeur
-                              </span>
-                              <span className="text-[10px] font-bold text-emerald-900 bg-white px-2 py-0.2 rounded-full border border-emerald-300">
-                                Dispatched with Vehicle
-                              </span>
-                            </div>
-                            <h5 className="font-extrabold text-xs text-slate-900 mt-0.5">
-                              {b.assignedDriver.name} · <span className="text-emerald-800 font-semibold font-mono">Reg: {b.assignedVehicleReg}</span>
-                            </h5>
-                            <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono mt-0.5">
-                              <span className="text-slate-600">Phone: {b.assignedDriver.phone}</span>
-                              <span className="text-slate-300">·</span>
-                              {b.status === 'CONFIRMED' ? (
-                                <>
-                                  <span className="text-slate-700">CNIC: <strong className="text-slate-900">{b.assignedDriver.cnic || '35201-4412098-5'}</strong></span>
-                                  <span className="text-slate-300">·</span>
-                                  <span className="text-slate-700">Licence: <strong className="text-slate-900">{b.assignedDriver.license || 'LHR-DL-99210'}</strong></span>
-                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-sans font-bold bg-emerald-100 text-emerald-800">✓ ID Unlocked</span>
-                                </>
-                              ) : (
-                                <>
-                                  <span className="text-slate-500">CNIC: <strong>{maskPakistaniCnic(b.assignedDriver.cnic || '35201-4412098-5')}</strong></span>
-                                  <span className="text-slate-300">·</span>
-                                  <span className="text-slate-500">Licence: <strong>{maskPakistaniLicense(b.assignedDriver.license || 'LHR-DL-99210')}</strong></span>
-                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-sans font-bold bg-amber-100 text-amber-800">Unlocks on Confirmation</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {b.status === 'CONFIRMED' && (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSmartCardModal(b)}
+                              className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer whitespace-nowrap shrink-0"
+                            >
+                              <FileText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              <span>View Documents</span>
+                            </button>
+                          )}
                           <a
-                            href={`https://wa.me/${b.assignedDriver.phone.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(b.assignedDriver.name)},%20I%20am%20your%20customer%20for%20booking%20${b.bookingRef}%20(${encodeURIComponent(b.vehicleName)}).`}
+                            href={`https://wa.me/${b.listerPhone.replace(/[^0-9]/g, '')}?text=Hello%20regarding%20booking%20${b.bookingRef}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="px-3.5 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-2xs transition whitespace-nowrap shrink-0"
+                            className="px-3.5 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs transition whitespace-nowrap shrink-0"
                           >
                             <WhatsAppIcon className="w-3.5 h-3.5 fill-white shrink-0" />
                             <span>WhatsApp</span>
                           </a>
                         </div>
                       </div>
-                    ) : (
-                      <div className="p-2.5 bg-amber-50/70 rounded-xl border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-950">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold">🚗 Self-Drive Key Handover</span>
-                          <span className="text-amber-300">•</span>
-                          <span>Assigned Vehicle Reg: <strong>{b.assignedVehicleReg || 'Assigned on Location'}</strong></span>
-                        </div>
-                        <span className="text-[10px] font-bold text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-300">
-                          Bring Original NADRA CNIC & License for Physical Inspection
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs pt-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-slate-500">Payment Mode:</span>
-                        <span className="font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">
-                          {b.paymentStatus === 'PAY_ON_PICKUP' ? '💵 Cash / Direct on Handover' : '💳 Online Verified'}
-                        </span>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2">
-                        {b.status === 'CONFIRMED' && (
-                          <button
-                            type="button"
-                            onClick={() => setSelectedSmartCardModal(b)}
-                            className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer whitespace-nowrap shrink-0"
-                          >
-                            <FileText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                            <span>View Documents</span>
-                          </button>
-                        )}
-                        <a
-                          href={`https://wa.me/${b.listerPhone.replace(/[^0-9]/g, '')}?text=Hello%20regarding%20booking%20${b.bookingRef}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-3.5 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs transition whitespace-nowrap shrink-0"
-                        >
-                          <WhatsAppIcon className="w-3.5 h-3.5 fill-white shrink-0" />
-                          <span>WhatsApp</span>
-                        </a>
-                      </div>
                     </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-12 text-center flex flex-col items-center justify-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <Car className="w-6 h-6" />
                   </div>
-                ))}
-              </div>
+                  <h4 className="font-heading font-black text-sm text-slate-900">No Rental Bookings Found</h4>
+                  <p className="text-xs text-slate-500 max-w-sm leading-relaxed">
+                    You haven&apos;t placed any vehicle rental bookings yet. Browse hundreds of verified cars available for self-drive or with a chauffeur.
+                  </p>
+                  <Link
+                    href="/"
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                  >
+                    Browse Available Cars
+                  </Link>
+                </div>
+              )}
             </div>
           )}
 
@@ -942,34 +1059,52 @@ export default function CustomerDashboardPage() {
           {activeTab === 'wishlist' && (
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
               <h3 className="font-extrabold text-base text-slate-900">Saved Vehicles Wishlist</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {wishlist.map((item) => (
-                  <div key={item.id} className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-                    <div className="aspect-[16/10] rounded-xl overflow-hidden bg-slate-200">
-                      <img src={item.img} alt={item.title} className="w-full h-full object-cover" />
+              {wishlist.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {wishlist.map((item) => (
+                    <div key={item.id} className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                      <div className="aspect-[16/10] rounded-xl overflow-hidden bg-slate-200">
+                        <img src={item.img} alt={item.title} className="w-full h-full object-cover" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm text-slate-900">{item.title}</h4>
+                        <p className="text-xs text-slate-500">{item.city} · {item.seats} Seats · {item.transmission}</p>
+                        <span className="text-sm font-black text-slate-900 block mt-1">PKR {formatPKR(item.dailyRate)} / day</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <Link
+                          href="/"
+                          className="flex-1 text-center py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl shadow-xs"
+                        >
+                          Book Now
+                        </Link>
+                        <button
+                          onClick={() => setWishlist((prev) => prev.filter((w) => w.id !== item.id))}
+                          className="px-3 py-2 bg-white text-rose-600 border border-slate-200 rounded-xl text-xs font-bold"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-bold text-sm text-slate-900">{item.title}</h4>
-                      <p className="text-xs text-slate-500">{item.city} · {item.seats} Seats · {item.transmission}</p>
-                      <span className="text-sm font-black text-slate-900 block mt-1">PKR {formatPKR(item.dailyRate)} / day</span>
-                    </div>
-                    <div className="flex gap-2">
-                      <Link
-                        href="/"
-                        className="flex-1 text-center py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl shadow-xs"
-                      >
-                        Book Now
-                      </Link>
-                      <button
-                        onClick={() => setWishlist((prev) => prev.filter((w) => w.id !== item.id))}
-                        className="px-3 py-2 bg-white text-rose-600 border border-slate-200 rounded-xl text-xs font-bold"
-                      >
-                        Remove
-                      </button>
-                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-12 text-center flex flex-col items-center justify-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center">
+                    <Heart className="w-6 h-6" />
                   </div>
-                ))}
-              </div>
+                  <h4 className="font-heading font-black text-sm text-slate-900">Your Wishlist is Empty</h4>
+                  <p className="text-xs text-slate-500 max-w-sm leading-relaxed">
+                    Save cars, drivers, and shuttle routes you like by clicking the heart or bookmark icon while browsing.
+                  </p>
+                  <Link
+                    href="/"
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                  >
+                    Browse Marketplace
+                  </Link>
+                </div>
+              )}
             </div>
           )}
 
@@ -979,19 +1114,31 @@ export default function CustomerDashboardPage() {
               <h3 className="font-extrabold text-base text-slate-900">WhatsApp Inquiries Log</h3>
               <p className="text-xs text-slate-500">Record of all vehicles you contacted directly via WhatsApp.</p>
 
-              <div className="space-y-3">
-                {leadsHistory.map((l) => (
-                  <div key={l.id} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
-                    <div>
-                      <h4 className="font-bold text-xs text-slate-900">{l.vehicleTitle}</h4>
-                      <span className="text-[11px] text-slate-500">{l.city} · PKR {formatPKR(l.dailyRate)}/day</span>
+              {leadsHistory.length > 0 ? (
+                <div className="space-y-3">
+                  {leadsHistory.map((l) => (
+                    <div key={l.id} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+                      <div>
+                        <h4 className="font-bold text-xs text-slate-900">{l.vehicleTitle}</h4>
+                        <span className="text-[11px] text-slate-500">{l.city} · PKR {formatPKR(l.dailyRate)}/day</span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                        Contacted
+                      </span>
                     </div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                      Contacted
-                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-10 text-center flex flex-col items-center justify-center gap-2">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <MessageCircle className="w-5 h-5" />
                   </div>
-                ))}
-              </div>
+                  <h4 className="font-bold text-xs text-slate-800">No WhatsApp Inquiries Logged</h4>
+                  <p className="text-[11px] text-slate-400 max-w-xs leading-relaxed">
+                    When you contact hosts or drivers directly via WhatsApp, your inquiries will be logged here for quick reference.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

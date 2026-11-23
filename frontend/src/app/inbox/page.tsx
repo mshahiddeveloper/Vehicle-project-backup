@@ -455,9 +455,20 @@ function InboxContent() {
                 );
               })
             ) : (
-              <div className="p-8 text-center text-xs text-slate-500 space-y-2">
-                <MessageSquare className="w-8 h-8 text-slate-300 mx-auto" />
-                <p>No conversations found</p>
+              <div className="p-8 py-14 text-center flex flex-col items-center justify-center gap-3">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-[#0B6B4F] flex items-center justify-center">
+                  <MessageSquare className="w-7 h-7" />
+                </div>
+                <h3 className="font-heading font-extrabold text-sm text-slate-800">No Messages Yet</h3>
+                <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
+                  When you inquire or book a vehicle, chauffeur, or shuttle, your direct chat messages with the host will appear here.
+                </p>
+                <Link
+                  href="/"
+                  className="mt-1 px-4 py-2 bg-[#0B6B4F] hover:bg-[#08513C] text-white text-xs font-bold rounded-xl transition shadow-xs"
+                >
+                  Explore Listings
+                </Link>
               </div>
             )}
           </div>
@@ -805,11 +816,25 @@ function InboxContent() {
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-500 space-y-3">
-              <MessageSquare className="w-12 h-12 text-slate-300" />
-              <h3 className="font-bold text-base text-slate-700">No conversation selected</h3>
-              <p className="text-xs max-w-sm text-slate-400">
-                Choose a conversation from the left to read messages and chat directly with verified hosts, drivers, or clients.
+              <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-[#0B6B4F] flex items-center justify-center">
+                <MessageSquare className="w-7 h-7" />
+              </div>
+              <h3 className="font-heading font-extrabold text-base text-slate-800">
+                {conversations.length === 0 ? 'Your Inbox is Clean' : 'No Conversation Selected'}
+              </h3>
+              <p className="text-xs max-w-sm text-slate-500 leading-relaxed">
+                {conversations.length === 0
+                  ? 'You have no active message threads yet. Connect with verified vehicle hosts, drivers, and shuttle operators across Pakistan.'
+                  : 'Choose a conversation from the left to read messages and chat directly with verified hosts, drivers, or clients.'}
               </p>
+              {conversations.length === 0 && (
+                <Link
+                  href="/"
+                  className="mt-1 px-4 py-2 bg-[#0B6B4F] hover:bg-[#08513C] text-white text-xs font-bold rounded-xl transition shadow-xs"
+                >
+                  Browse Vehicles
+                </Link>
+              )}
             </div>
           )}
         </section>

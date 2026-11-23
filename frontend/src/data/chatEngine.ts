@@ -746,7 +746,8 @@ export function getUserConversations(user: RegisteredUser): ChatConversation[] {
   purgeExpiredMessages();
   let convs = getAllConversations().filter((c) => c.participantIds.includes(user.id));
 
-  if (convs.length === 0) {
+  // Only seed sample demo conversations for designated pre-packaged demo user accounts
+  if (convs.length === 0 && user.id && user.id.startsWith('usr-demo-')) {
     convs = seedDefaultConversationsForUser(user);
   }
 

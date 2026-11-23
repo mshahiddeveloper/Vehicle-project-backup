@@ -246,16 +246,26 @@ export default function ListerDashboardPage() {
     }
     if (user.name) setListerName(user.name);
 
-    // Load user's personal fleet if registered non-demo
+    // Load user's personal fleet, driver team & bookings if registered non-demo
     if (user.id !== 'usr-demo-lister') {
       try {
         const userFleet = localStorage.getItem(`safarpk_fleet_${user.id}`);
-        if (userFleet) {
-          setFleetList(JSON.parse(userFleet));
-        } else {
-          setFleetList([]);
-        }
-      } catch (e) {}
+        setFleetList(userFleet ? JSON.parse(userFleet) : []);
+      } catch (e) {
+        setFleetList([]);
+      }
+      try {
+        const userDrivers = localStorage.getItem(`safarpk_lister_drivers_${user.id}`);
+        setListerDriverTeam(userDrivers ? JSON.parse(userDrivers) : []);
+      } catch (e) {
+        setListerDriverTeam([]);
+      }
+      try {
+        const userRequests = localStorage.getItem(`safarpk_lister_bookings_${user.id}`);
+        setIncomingRequests(userRequests ? JSON.parse(userRequests) : []);
+      } catch (e) {
+        setIncomingRequests([]);
+      }
     }
   }, []);
   const [operatingArea, setOperatingArea] = useState('F-10 Markaz');

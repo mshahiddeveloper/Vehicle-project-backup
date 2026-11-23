@@ -26,6 +26,16 @@ export const STORAGE_SAVED_VEHICLES_KEY = 'safarpk_saved_vehicles';
 export const STORAGE_PENDING_WISHLIST_KEY = 'safarpk_pending_wishlist';
 export const STORAGE_WISHLIST_TOAST_KEY = 'safarpk_wishlist_toast';
 
+export function getUserSavedItemsKey(user: RegisteredUser | null): string {
+  if (!user) return STORAGE_SAVED_ITEMS_KEY;
+  return `safarpk_saved_items_${user.id}`;
+}
+
+export function getUserSavedVehiclesKey(user: RegisteredUser | null): string {
+  if (!user) return STORAGE_SAVED_VEHICLES_KEY;
+  return `safarpk_saved_vehicles_${user.id}`;
+}
+
 /**
  * Get genuinely saved wishlist items for the logged-in user.
  * If user is not logged in, returns an empty array.
@@ -37,7 +47,11 @@ export function getSavedWishlistItems(): WishlistItem[] {
 
   try {
     let customItems: WishlistItem[] = [];
-    const raw = localStorage.getItem(STORAGE_SAVED_ITEMS_KEY);
+    const itemsKey = getUserSavedItemsKey(activeUser);
+    let raw = localStorage.getItem(itemsKey);
+    if (!raw && activeUser.id === 'usr-demo-customer') {
+      raw = localStorage.getItem(STORAGE_SAVED_ITEMS_KEY);
+    }
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
@@ -66,8 +80,12 @@ export function getSavedWishlistItems(): WishlistItem[] {
       }
     }
 
-    // Also resolve any vehicle IDs saved via mobile vehicle cards (safarpk_saved_vehicles)
-    const rawVehicles = localStorage.getItem(STORAGE_SAVED_VEHICLES_KEY);
+    // Also resolve any vehicle IDs saved via mobile vehicle cards
+    const vehiclesKey = getUserSavedVehiclesKey(activeUser);
+    let rawVehicles = localStorage.getItem(vehiclesKey);
+    if (!rawVehicles && activeUser.id === 'usr-demo-customer') {
+      rawVehicles = localStorage.getItem(STORAGE_SAVED_VEHICLES_KEY);
+    }
     if (rawVehicles) {
       try {
         const vIds = JSON.parse(rawVehicles);
@@ -119,12 +137,21 @@ export function isItemInWishlist(id: string): boolean {
   if (!activeUser) return false;
 
   try {
-    const rawVehicles = localStorage.getItem(STORAGE_SAVED_VEHICLES_KEY);
+    const vehiclesKey = getUserSavedVehiclesKey(activeUser);
+    let rawVehicles = localStorage.getItem(vehiclesKey);
+    if (!rawVehicles && activeUser.id === 'usr-demo-customer') {
+      rawVehicles = localStorage.getItem(STORAGE_SAVED_VEHICLES_KEY);
+    }
     if (rawVehicles) {
       const parsed = JSON.parse(rawVehicles);
       if (Array.isArray(parsed) && parsed.includes(id)) return true;
     }
-    const rawItems = localStorage.getItem(STORAGE_SAVED_ITEMS_KEY);
+
+    const itemsKey = getUserSavedItemsKey(activeUser);
+    let rawItems = localStorage.getItem(itemsKey);
+    if (!rawItems && activeUser.id === 'usr-demo-customer') {
+      rawItems = localStorage.getItem(STORAGE_SAVED_ITEMS_KEY);
+    }
     if (rawItems) {
       const parsed = JSON.parse(rawItems);
       if (Array.isArray(parsed) && parsed.some((it: any) => (it.id || it) === id)) return true;
@@ -138,10 +165,14 @@ export function isItemInWishlist(id: string): boolean {
  */
 export function saveWishlistItem(item: WishlistItem): void {
   if (typeof window === 'undefined') return;
+  const activeUser = getActiveUser();
+  const itemsKey = getUserSavedItemsKey(activeUser);
+  const vehiclesKey = getUserSavedVehiclesKey(activeUser);
+
   try {
-    // 1. Update safarpk_saved_items
+    // 1. Update user-scoped saved items
     let storedList: any[] = [];
-    const raw = localStorage.getItem(STORAGE_SAVED_ITEMS_KEY);
+    const raw = localStorage.getItem(itemsKey);
     if (raw) {
       try {
         storedList = JSON.parse(raw);
@@ -164,11 +195,11 @@ export function saveWishlistItem(item: WishlistItem): void {
       href: item.href || `/listing/${item.id}`,
       savedAt: new Date().toISOString(),
     });
-    localStorage.setItem(STORAGE_SAVED_ITEMS_KEY, JSON.stringify(storedList));
+    localStorage.setItem(itemsKey, JSON.stringify(storedList));
 
-    // 2. If it is a car or vehicle, update safarpk_saved_vehicles
+    // 2. If it is a car or vehicle, update user-scoped saved vehicles
     let vIds: string[] = [];
-    const rawVehicles = localStorage.getItem(STORAGE_SAVED_VEHICLES_KEY);
+    const rawVehicles = localStorage.getItem(vehiclesKey);
     if (rawVehicles) {
       try {
         vIds = JSON.parse(rawVehicles);
@@ -179,7 +210,7 @@ export function saveWishlistItem(item: WishlistItem): void {
     }
     if (!vIds.includes(item.id)) {
       vIds.unshift(item.id);
-      localStorage.setItem(STORAGE_SAVED_VEHICLES_KEY, JSON.stringify(vIds));
+      localStorage.setItem(vehiclesKey, JSON.stringify(vIds));
     }
 
     // 3. Dispatch events
@@ -195,22 +226,26 @@ export function saveWishlistItem(item: WishlistItem): void {
  */
 export function removeWishlistItem(id: string): void {
   if (typeof window === 'undefined') return;
+  const activeUser = getActiveUser();
+  const itemsKey = getUserSavedItemsKey(activeUser);
+  const vehiclesKey = getUserSavedVehiclesKey(activeUser);
+
   try {
-    const raw = localStorage.getItem(STORAGE_SAVED_ITEMS_KEY);
+    const raw = localStorage.getItem(itemsKey);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
         const updated = parsed.filter((it: any) => (it.id || it) !== id);
-        localStorage.setItem(STORAGE_SAVED_ITEMS_KEY, JSON.stringify(updated));
+        localStorage.setItem(itemsKey, JSON.stringify(updated));
       }
     }
 
-    const rawVehicles = localStorage.getItem(STORAGE_SAVED_VEHICLES_KEY);
+    const rawVehicles = localStorage.getItem(vehiclesKey);
     if (rawVehicles) {
       const parsedVehicles = JSON.parse(rawVehicles);
       if (Array.isArray(parsedVehicles)) {
         const updatedVehicles = parsedVehicles.filter((vId: string) => vId !== id);
-        localStorage.setItem(STORAGE_SAVED_VEHICLES_KEY, JSON.stringify(updatedVehicles));
+        localStorage.setItem(vehiclesKey, JSON.stringify(updatedVehicles));
       }
     }
 

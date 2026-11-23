@@ -181,12 +181,26 @@ function DriverDashboardContent() {
     if (user.bio) {
       setDriverBio(user.bio);
       setEditDriverBio(user.bio);
+    } else if (user.id !== 'usr-demo-driver') {
+      setDriverBio('');
+      setEditDriverBio('');
     }
 
-    // Sync bookings queue
-    setRequests(getDriverBookings());
+    // Sync bookings queue - Filter specifically for this driver if non-demo
+    const isDemo = user.id === 'usr-demo-driver';
+    const filterBookings = () => {
+      const all = getDriverBookings();
+      if (isDemo) return all;
+      return all.filter(
+        (b) =>
+          b.driverId === user.id ||
+          (user.phone && b.driverPhone && b.driverPhone.replace(/\D/g, '').endsWith(user.phone.replace(/\D/g, '').slice(-9)))
+      );
+    };
+
+    setRequests(filterBookings());
     const handleBookingUpdate = () => {
-      setRequests(getDriverBookings());
+      setRequests(filterBookings());
     };
     window.addEventListener('safarpk_driver_booking_status_updated', handleBookingUpdate);
     return () => {
@@ -231,24 +245,13 @@ function DriverDashboardContent() {
 
   // Driver In-App Customer Chats Synchronization
   useEffect(() => {
-    const activeDriver = currentUser || {
-      id: 'usr-demo-driver',
-      name: driverName || 'Tariq Mahmood',
-      role: 'DRIVER' as any,
-      city: driverCity || 'Lahore',
-      phone: driverPhone || '+92 301 9821045',
-      countryCode: 'PK',
-      registeredAt: new Date().toISOString(),
-      subscription: { status: 'ACTIVE', quota: 10, usedQuota: 1 },
-      metrics: { viewCount: 0, leadsCount: 0, clickCount: 0, lastActive: 'Now' },
-      activities: [],
-    };
-    const convs = getUserConversations(activeDriver as any);
+    if (!currentUser) return;
+    const convs = getUserConversations(currentUser);
     setDriverConversations(convs);
     if (convs.length > 0 && !activeDriverChatId) {
       setActiveDriverChatId(convs[0].id);
     }
-  }, [currentUser, driverName, driverPhone]);
+  }, [currentUser]);
 
   useEffect(() => {
     if (!activeDriverChatId) return;
