@@ -282,7 +282,7 @@ export function AppHeader({
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs font-sans transition-all">
+      <header className="sticky top-0 z-[100] bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs font-sans transition-all">
       {/* ========================================================================= */}
       {/* 1. DESKTOP HEADER (Screens md and above)                                 */}
       {/* ========================================================================= */}
@@ -369,7 +369,7 @@ export function AppHeader({
             </button>
 
             {showCountryMenu && (
-              <div className="absolute top-full mt-2 left-0 w-64 max-w-[280px] bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+              <div className="absolute top-full mt-2 left-0 w-64 max-w-[280px] bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-[110] animate-in fade-in slide-in-from-top-1 duration-150">
                 <div className="px-4 py-2 border-b border-slate-100 flex items-center justify-between">
                   <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                     Select Country
@@ -437,7 +437,7 @@ export function AppHeader({
             </button>
 
             {showCurrencyMenu && (
-              <div className="absolute top-full mt-2 left-0 w-72 max-w-[300px] bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+              <div className="absolute top-full mt-2 left-0 w-72 max-w-[300px] bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-[110] animate-in fade-in slide-in-from-top-1 duration-150">
                 <div className="px-4 py-2 border-b border-slate-100 flex items-center justify-between">
                   <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                     Select Currency
@@ -528,7 +528,7 @@ export function AppHeader({
               </button>
 
               {showUserMenu && (
-                <div className="absolute top-full mt-2 right-0 w-56 max-w-[240px] bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                <div className="absolute top-full mt-2 right-0 w-56 max-w-[240px] bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-[110] animate-in fade-in slide-in-from-top-1 duration-150">
                   <div className="px-4 py-2 border-b border-slate-100">
                     <p className="text-sm font-bold text-[#101828] truncate">
                       {activeUser.name}
