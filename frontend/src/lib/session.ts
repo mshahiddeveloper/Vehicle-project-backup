@@ -49,19 +49,23 @@ async function computeHmacSha256(keyStr: string, dataStr: string): Promise<strin
 }
 
 function base64UrlEncode(str: string): string {
-  if (typeof Buffer !== 'undefined') {
-    return Buffer.from(str).toString('base64url');
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) {
+    bin += String.fromCharCode(bytes[i]);
   }
-  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 function base64UrlDecode(b64url: string): string {
-  if (typeof Buffer !== 'undefined') {
-    return Buffer.from(b64url, 'base64url').toString('utf8');
-  }
   let b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
   while (b64.length % 4) b64 += '=';
-  return atob(b64);
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) {
+    bytes[i] = bin.charCodeAt(i);
+  }
+  return new TextDecoder().decode(bytes);
 }
 
 function timingSafeEqualHex(a: string, b: string): boolean {

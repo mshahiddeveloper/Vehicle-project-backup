@@ -20,43 +20,7 @@
   },
   "rewrites": [
     {
-      "source": "/api/auth/(.*)",
-      "destination": {
-        "service": "frontend"
-      }
-    },
-    {
-      "source": "/api/neon-health(.*)",
-      "destination": {
-        "service": "frontend"
-      }
-    },
-    {
-      "source": "/api/upload(.*)",
-      "destination": {
-        "service": "frontend"
-      }
-    },
-    {
-      "source": "/api/track-click(.*)",
-      "destination": {
-        "service": "frontend"
-      }
-    },
-    {
-      "source": "/api/whatsapp-otp(.*)",
-      "destination": {
-        "service": "frontend"
-      }
-    },
-    {
       "source": "/api/v1/(.*)",
-      "destination": {
-        "service": "backend"
-      }
-    },
-    {
-      "source": "/api/(.*)",
       "destination": {
         "service": "backend"
       }
@@ -65,6 +29,12 @@
       "source": "/health",
       "destination": {
         "service": "backend"
+      }
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "frontend"
       }
     },
     {
