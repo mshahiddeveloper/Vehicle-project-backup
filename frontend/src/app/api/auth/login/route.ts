@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getNeonSqlClient } from '@/lib/db';
-import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+async function hashPassword(pwd: string): Promise<string> {
+  const enc = new TextEncoder().encode(pwd + 'safarpk_salt_2026');
+  const buffer = await globalThis.crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+export async function GET() {
+  return NextResponse.json({ status: 'healthy', route: 'auth/login' });
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -74,11 +85,7 @@ export async function POST(req: NextRequest) {
 
     // Password verification
     if (dbUser.passwordHash && password) {
-      const incomingHash = crypto
-        .createHash('sha256')
-        .update(password + 'safarpk_salt_2026')
-        .digest('hex');
-
+      const incomingHash = await hashPassword(password);
       const matchesHash = incomingHash === dbUser.passwordHash;
       const matchesPlain = password === dbUser.passwordHash; // Legacy fallback
 
