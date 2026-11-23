@@ -58,6 +58,32 @@ export default function SavedItemsPage() {
       });
 
       setItems(mapped);
+
+      // Asynchronously fetch and merge any items saved in Neon PostgreSQL DB
+      fetch('/api/wishlist')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((dbData) => {
+          if (dbData && dbData.success && Array.isArray(dbData.items) && dbData.items.length > 0) {
+            const dbMapped: SavedItem[] = dbData.items.map((v: any) => ({
+              id: v.vehicle_id,
+              category: 'car',
+              name: v.title || `${v.brand} ${v.model}`,
+              sub: `${v.model_year || 2024} · ${v.city || 'Pakistan'}`,
+              price: `PKR ${Number(v.daily_rate_pkr || 5000).toLocaleString()} / day`,
+              href: `/listing/${v.vehicle_id}`,
+            }));
+            setItems((prev) => {
+              const combined = [...prev];
+              for (const item of dbMapped) {
+                if (!combined.some((it) => it.id === item.id)) {
+                  combined.unshift(item);
+                }
+              }
+              return combined;
+            });
+          }
+        })
+        .catch(() => {});
     } catch (e) {
       setItems([]);
     }

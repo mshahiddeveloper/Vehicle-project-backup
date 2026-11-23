@@ -31,6 +31,7 @@ import {
   Briefcase,
   HelpCircle,
   Download,
+  KeyRound,
 } from 'lucide-react';
 import { COUNTRIES, CountryInfo, SUPPORTED_CURRENCIES, CurrencyInfo } from '@/data/countries';
 import { getActiveUser, RegisteredUser, logoutActiveUser, getUserDashboardPath } from '@/data/userAuth';
@@ -575,6 +576,15 @@ export function AppHeader({
                     <span>Settings & Profile</span>
                   </Link>
 
+                  <Link
+                    href="/demo-accounts"
+                    onClick={() => setShowUserMenu(false)}
+                    className="flex items-center gap-2.5 px-4 py-2 text-sm text-[#0B6B4F] hover:bg-[#E9F3EE] transition font-semibold"
+                  >
+                    <KeyRound className="w-4 h-4 text-[#0B6B4F]" />
+                    <span>Test Accounts (Demo)</span>
+                  </Link>
+
                   <div className="border-t border-slate-100 my-1" />
 
                   <button
@@ -978,6 +988,26 @@ export function MobileNavigationDrawer({
               </div>
             </div>
           )}
+
+          {/* Quick Demo Test Accounts & Super Admin Portal Links */}
+          <div className="flex items-center gap-2">
+            <Link
+              href="/demo-accounts"
+              onClick={onClose}
+              className="flex-1 py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-[#0B6B4F] text-center font-bold text-xs transition flex items-center justify-center gap-1.5"
+            >
+              <KeyRound className="w-3.5 h-3.5" />
+              <span>Test Accounts (Demo)</span>
+            </Link>
+            <Link
+              href="/sadmin"
+              onClick={onClose}
+              className="py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-center font-bold text-xs transition flex items-center justify-center gap-1.5"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>/sadmin</span>
+            </Link>
+          </div>
 
           {/* ACCORDION SECTION 1: SERVICES (Collapsible, Open by default) */}
           <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-slate-50/50">

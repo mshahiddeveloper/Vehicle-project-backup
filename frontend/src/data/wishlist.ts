@@ -47,70 +47,79 @@ export function getSavedWishlistItems(): WishlistItem[] {
 
   try {
     let customItems: WishlistItem[] = [];
+    
+    // Check both user-scoped items and global fallback items for all authenticated users
     const itemsKey = getUserSavedItemsKey(activeUser);
-    let raw = localStorage.getItem(itemsKey);
-    if (!raw && activeUser.id === 'usr-demo-customer') {
-      raw = localStorage.getItem(STORAGE_SAVED_ITEMS_KEY);
-    }
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        customItems = parsed.map((p: any) => {
-          const cat = (p.category || '').toLowerCase();
-          const mappedCat: WishlistItem['category'] =
-            cat.includes('driver') ? 'driver' :
-            cat.includes('shuttle') || cat.includes('pick') ? 'shuttle' :
-            cat.includes('mover') || cat.includes('cargo') ? 'mover' : 'car';
+    const rawKeys = [itemsKey, STORAGE_SAVED_ITEMS_KEY];
+    
+    for (const key of rawKeys) {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            for (const p of parsed) {
+              const cat = (p.category || '').toLowerCase();
+              const mappedCat: WishlistItem['category'] =
+                cat.includes('driver') ? 'driver' :
+                cat.includes('shuttle') || cat.includes('pick') ? 'shuttle' :
+                cat.includes('mover') || cat.includes('cargo') ? 'mover' : 'car';
 
-          return {
-            id: p.id || `custom-${Date.now()}-${Math.random()}`,
-            category: mappedCat,
-            name: p.title || p.name || 'Saved Listing',
-            title: p.title || p.name || 'Saved Listing',
-            sub: p.specs ? `${p.specs} · ${p.city || 'Karachi'}` : (p.sub || p.city || 'Verified Listing'),
-            specs: p.specs,
-            city: p.city,
-            rate: p.rate || p.price || 'PKR 10,000 / day',
-            price: p.rate || p.price || 'PKR 10,000 / day',
-            href: p.href || (p.id?.startsWith('l-') || p.id?.startsWith('car-') ? `/listing/${p.id}` : `/listing/l-1`),
-            contacted: p.contacted,
-            savedAt: p.savedAt,
-          };
-        });
-      }
-    }
-
-    // Also resolve any vehicle IDs saved via mobile vehicle cards
-    const vehiclesKey = getUserSavedVehiclesKey(activeUser);
-    let rawVehicles = localStorage.getItem(vehiclesKey);
-    if (!rawVehicles && activeUser.id === 'usr-demo-customer') {
-      rawVehicles = localStorage.getItem(STORAGE_SAVED_VEHICLES_KEY);
-    }
-    if (rawVehicles) {
-      try {
-        const vIds = JSON.parse(rawVehicles);
-        if (Array.isArray(vIds)) {
-          for (const vId of vIds) {
-            if (!customItems.some((it) => it.id === vId)) {
-              const foundCar = CARS_DATA.find((c) => c.id === vId);
-              if (foundCar) {
-                customItems.unshift({
-                  id: foundCar.id,
-                  category: 'car',
-                  name: foundCar.name,
-                  title: foundCar.name,
-                  sub: `${foundCar.specs} · ${foundCar.city}`,
-                  specs: foundCar.specs,
-                  city: foundCar.city,
-                  rate: `${foundCar.price} / day`,
-                  price: `${foundCar.price} / day`,
-                  href: `/listing/${foundCar.id}`,
+              const itemId = p.id || `custom-${Date.now()}-${Math.random()}`;
+              if (!customItems.some((it) => it.id === itemId)) {
+                customItems.push({
+                  id: itemId,
+                  category: mappedCat,
+                  name: p.title || p.name || 'Saved Listing',
+                  title: p.title || p.name || 'Saved Listing',
+                  sub: p.specs ? `${p.specs} · ${p.city || 'Karachi'}` : (p.sub || p.city || 'Verified Listing'),
+                  specs: p.specs,
+                  city: p.city,
+                  rate: p.rate || p.price || 'PKR 10,000 / day',
+                  price: p.rate || p.price || 'PKR 10,000 / day',
+                  href: p.href || (p.id?.startsWith('l-') || p.id?.startsWith('car-') ? `/listing/${p.id}` : `/listing/l-1`),
+                  contacted: p.contacted,
+                  savedAt: p.savedAt,
                 });
               }
             }
           }
-        }
-      } catch (e) {}
+        } catch (e) {}
+      }
+    }
+
+    // Also resolve any vehicle IDs saved via mobile vehicle cards or lists
+    const vehiclesKey = getUserSavedVehiclesKey(activeUser);
+    const vehicleKeys = [vehiclesKey, STORAGE_SAVED_VEHICLES_KEY];
+    
+    for (const vKey of vehicleKeys) {
+      const rawVehicles = localStorage.getItem(vKey);
+      if (rawVehicles) {
+        try {
+          const vIds = JSON.parse(rawVehicles);
+          if (Array.isArray(vIds)) {
+            for (const vId of vIds) {
+              if (!customItems.some((it) => it.id === vId)) {
+                const foundCar = CARS_DATA.find((c) => c.id === vId);
+                if (foundCar) {
+                  customItems.unshift({
+                    id: foundCar.id,
+                    category: 'car',
+                    name: foundCar.name,
+                    title: foundCar.name,
+                    sub: `${foundCar.specs} · ${foundCar.city}`,
+                    specs: foundCar.specs,
+                    city: foundCar.city,
+                    rate: `${foundCar.price} / day`,
+                    price: `${foundCar.price} / day`,
+                    href: `/listing/${foundCar.id}`,
+                  });
+                }
+              }
+            }
+          }
+        } catch (e) {}
+      }
     }
 
     // Deduplicate by ID
@@ -137,24 +146,23 @@ export function isItemInWishlist(id: string): boolean {
   if (!activeUser) return false;
 
   try {
-    const vehiclesKey = getUserSavedVehiclesKey(activeUser);
-    let rawVehicles = localStorage.getItem(vehiclesKey);
-    if (!rawVehicles && activeUser.id === 'usr-demo-customer') {
-      rawVehicles = localStorage.getItem(STORAGE_SAVED_VEHICLES_KEY);
-    }
-    if (rawVehicles) {
-      const parsed = JSON.parse(rawVehicles);
-      if (Array.isArray(parsed) && parsed.includes(id)) return true;
-    }
+    const keysToCheck = [
+      getUserSavedVehiclesKey(activeUser),
+      STORAGE_SAVED_VEHICLES_KEY,
+      getUserSavedItemsKey(activeUser),
+      STORAGE_SAVED_ITEMS_KEY,
+    ];
 
-    const itemsKey = getUserSavedItemsKey(activeUser);
-    let rawItems = localStorage.getItem(itemsKey);
-    if (!rawItems && activeUser.id === 'usr-demo-customer') {
-      rawItems = localStorage.getItem(STORAGE_SAVED_ITEMS_KEY);
-    }
-    if (rawItems) {
-      const parsed = JSON.parse(rawItems);
-      if (Array.isArray(parsed) && parsed.some((it: any) => (it.id || it) === id)) return true;
+    for (const key of keysToCheck) {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            if (parsed.some((it: any) => (it?.id || it) === id)) return true;
+          }
+        } catch (e) {}
+      }
     }
   } catch (e) {}
   return false;
@@ -170,52 +178,70 @@ export function saveWishlistItem(item: WishlistItem): void {
   const vehiclesKey = getUserSavedVehiclesKey(activeUser);
 
   try {
-    // 1. Update user-scoped saved items
-    let storedList: any[] = [];
-    const raw = localStorage.getItem(itemsKey);
-    if (raw) {
-      try {
-        storedList = JSON.parse(raw);
-        if (!Array.isArray(storedList)) storedList = [];
-      } catch (e) {
-        storedList = [];
+    // 1. Update user-scoped AND global saved items
+    const updateItems = (key: string) => {
+      let storedList: any[] = [];
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        try {
+          storedList = JSON.parse(raw);
+          if (!Array.isArray(storedList)) storedList = [];
+        } catch (e) {
+          storedList = [];
+        }
       }
-    }
-    // Remove if already present
-    storedList = storedList.filter((it: any) => (it.id || it) !== item.id);
-    storedList.unshift({
-      id: item.id,
-      category: item.category || 'car',
-      title: item.title || item.name,
-      name: item.name || item.title,
-      specs: item.specs || item.sub || '',
-      city: item.city || 'Pakistan',
-      rate: item.rate || item.price || '',
-      price: item.price || item.rate || '',
-      href: item.href || `/listing/${item.id}`,
-      savedAt: new Date().toISOString(),
-    });
-    localStorage.setItem(itemsKey, JSON.stringify(storedList));
+      storedList = storedList.filter((it: any) => (it.id || it) !== item.id);
+      storedList.unshift({
+        id: item.id,
+        category: item.category || 'car',
+        title: item.title || item.name,
+        name: item.name || item.title,
+        specs: item.specs || item.sub || '',
+        city: item.city || 'Pakistan',
+        rate: item.rate || item.price || '',
+        price: item.price || item.rate || '',
+        href: item.href || `/listing/${item.id}`,
+        savedAt: new Date().toISOString(),
+      });
+      localStorage.setItem(key, JSON.stringify(storedList));
+    };
 
-    // 2. If it is a car or vehicle, update user-scoped saved vehicles
-    let vIds: string[] = [];
-    const rawVehicles = localStorage.getItem(vehiclesKey);
-    if (rawVehicles) {
-      try {
-        vIds = JSON.parse(rawVehicles);
-        if (!Array.isArray(vIds)) vIds = [];
-      } catch (e) {
-        vIds = [];
+    updateItems(itemsKey);
+    updateItems(STORAGE_SAVED_ITEMS_KEY);
+
+    // 2. If it is a car or vehicle, update user-scoped AND global saved vehicles
+    const updateVehicles = (vKey: string) => {
+      let vIds: string[] = [];
+      const rawVehicles = localStorage.getItem(vKey);
+      if (rawVehicles) {
+        try {
+          vIds = JSON.parse(rawVehicles);
+          if (!Array.isArray(vIds)) vIds = [];
+        } catch (e) {
+          vIds = [];
+        }
       }
-    }
-    if (!vIds.includes(item.id)) {
-      vIds.unshift(item.id);
-      localStorage.setItem(vehiclesKey, JSON.stringify(vIds));
-    }
+      if (!vIds.includes(item.id)) {
+        vIds.unshift(item.id);
+        localStorage.setItem(vKey, JSON.stringify(vIds));
+      }
+    };
+
+    updateVehicles(vehiclesKey);
+    updateVehicles(STORAGE_SAVED_VEHICLES_KEY);
 
     // 3. Dispatch events
     window.dispatchEvent(new Event('safarpk_saved_updated'));
     window.dispatchEvent(new Event('safarpk_favorites_updated'));
+
+    // 4. Background sync to Neon DB if logged in
+    if (activeUser && activeUser.id) {
+      fetch('/api/wishlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vehicleId: item.id }),
+      }).catch(() => {});
+    }
   } catch (e) {
     console.error('Failed to save wishlist item:', e);
   }
@@ -231,26 +257,49 @@ export function removeWishlistItem(id: string): void {
   const vehiclesKey = getUserSavedVehiclesKey(activeUser);
 
   try {
-    const raw = localStorage.getItem(itemsKey);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        const updated = parsed.filter((it: any) => (it.id || it) !== id);
-        localStorage.setItem(itemsKey, JSON.stringify(updated));
+    const removeFromItems = (key: string) => {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            const updated = parsed.filter((it: any) => (it.id || it) !== id);
+            localStorage.setItem(key, JSON.stringify(updated));
+          }
+        } catch (e) {}
       }
-    }
+    };
 
-    const rawVehicles = localStorage.getItem(vehiclesKey);
-    if (rawVehicles) {
-      const parsedVehicles = JSON.parse(rawVehicles);
-      if (Array.isArray(parsedVehicles)) {
-        const updatedVehicles = parsedVehicles.filter((vId: string) => vId !== id);
-        localStorage.setItem(vehiclesKey, JSON.stringify(updatedVehicles));
+    removeFromItems(itemsKey);
+    removeFromItems(STORAGE_SAVED_ITEMS_KEY);
+
+    const removeFromVehicles = (vKey: string) => {
+      const rawVehicles = localStorage.getItem(vKey);
+      if (rawVehicles) {
+        try {
+          const parsedVehicles = JSON.parse(rawVehicles);
+          if (Array.isArray(parsedVehicles)) {
+            const updatedVehicles = parsedVehicles.filter((vId: string) => vId !== id);
+            localStorage.setItem(vKey, JSON.stringify(updatedVehicles));
+          }
+        } catch (e) {}
       }
-    }
+    };
+
+    removeFromVehicles(vehiclesKey);
+    removeFromVehicles(STORAGE_SAVED_VEHICLES_KEY);
 
     window.dispatchEvent(new Event('safarpk_saved_updated'));
     window.dispatchEvent(new Event('safarpk_favorites_updated'));
+
+    // Background sync deletion to Neon DB if logged in
+    if (activeUser && activeUser.id) {
+      fetch('/api/wishlist', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vehicleId: id }),
+      }).catch(() => {});
+    }
   } catch (e) {
     console.error('Failed to remove wishlist item:', e);
   }

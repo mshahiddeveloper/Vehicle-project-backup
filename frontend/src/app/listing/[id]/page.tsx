@@ -8,6 +8,7 @@ import { AppFooter } from '@/components/AppFooter';
 import { MobileNavBar } from '@/components/MobileNavBar';
 import { recordLead, recordClickEvent, recordIpInquiry } from '@/data/activityTracker';
 import { getActiveUser, setActiveUser, isListingPaused } from '@/data/userAuth';
+import { CARS_DATA } from '@/data/marketplaceData';
 import { setPendingWishlist, consumeWishlistToast } from '@/data/wishlist';
 import { getApiBaseUrl } from '@/lib/api';
 import { startOrOpenConversation, getWhatsAppTargetUrl } from '@/data/chatEngine';
@@ -276,6 +277,83 @@ const VEHICLE_CATALOG: Record<string, VehicleDetail> = {
   },
   'l-3': {
     id: 'l-3',
+    ref: 'LST-381920',
+    title: 'Suzuki Alto VXL AGS 2024',
+    category: 'Economy',
+    bodyType: 'Compact Hatchback',
+    year: 2024,
+    city: 'Karachi',
+    area: 'Clifton Block 4 / Shahrah-e-Faisal',
+    dailyRate: 3500,
+    dailyRateWithDriver: 5500,
+    weeklyRate: 22000,
+    monthlyRate: 78000,
+    mileageDaily: '200 km / day',
+    mileageWeekly: '1,400 km / week',
+    mileageMonthly: '4,500 km / month',
+    extraKmRate: 'PKR 15 / km',
+    extraKmRateNum: 15,
+    serviceScope: 'BOTH',
+    insuranceIncluded: true,
+    insuranceType: 'Standard Fleet Insurance Included',
+    deposit: 15000,
+    transmission: 'Automatic (AGS)',
+    fuelType: 'Petrol (22+ km/L)',
+    engineCapacity: '660cc R06A',
+    horsepower: '39 HP',
+    seats: 4,
+    doors: 5,
+    bags: '1 large bag + 1 small bag',
+    minAge: 21,
+    exteriorColor: 'Cerulean Blue Pearl',
+    interiorColor: 'Grey & Charcoal',
+    interiorFeatures: [
+      'Chilled Air Conditioning & Heating',
+      'Power Windows & Central Locking System',
+      'Electronic Power Steering (EPS)',
+      'Foldable Rear Bench Seat for Extra Luggage',
+    ],
+    safetyFeatures: [
+      'Anti-Lock Braking System (ABS)',
+      'Dual Front Airbags (Driver & Passenger)',
+      'Immobilizer Anti-Theft Key',
+      'High-Mount LED Stop Lamp',
+    ],
+    exteriorFeatures: [
+      '13-Inch Wheels with Full Wheel Caps',
+      'Electrically Retractable Side Mirrors',
+      'Modern Aerodynamic Front Grille',
+    ],
+    comfortFeatures: [
+      'Automatic Auto Gear Shift (AGS)',
+      'Cup Holders and Door Storage Pockets',
+      'Digital Multi-Information Fuel Economy Meter',
+    ],
+    infotainmentFeatures: [
+      '7-Inch Touchscreen Infotainment System',
+      'Bluetooth Hands-Free Calling & Audio',
+      'Front Stereo Speakers with USB Port',
+    ],
+    features: [
+      'Super Fuel Saver (20+ km/L)',
+      'Auto Gear Shift (AGS)',
+      'Chilled Air Conditioning',
+      'Bluetooth Touchscreen Audio',
+      'Karachi City Easy Parking',
+    ],
+    description:
+      'Brand new 2024 Suzuki Alto VXL AGS. Maximum fuel economy in Karachi traffic (20-22 km/litre). Extremely clean interior, dealer maintained. Perfect for city commutes, office meetings, and family visits. Available for self-drive or with professional driver.',
+    images: [
+      'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=800&auto=format&fit=crop&q=80',
+    ],
+    hostName: 'Ahmed Executive Motors',
+    hostPhone: '+92 321 4455667',
+    hostWhatsapp: '923214455667',
+    hostResponseTime: 'Replies in ~3 minutes',
+    ownerId: 'usr-karachi-lister',
+  },
+  'l-4': {
+    id: 'l-4',
     ref: 'LST-890214',
     title: 'Toyota Fortuner Legender 2.8 4x4 2024',
     category: 'SUV',
@@ -283,8 +361,8 @@ const VEHICLE_CATALOG: Record<string, VehicleDetail> = {
     year: 2024,
     city: 'Islamabad',
     area: 'F-7 Markaz, Jinnah Super',
-    dailyRate: 26000,
-    dailyRateWithDriver: 29500,
+    dailyRate: 25000,
+    dailyRateWithDriver: 28500,
     weeklyRate: 165000,
     monthlyRate: 590000,
     mileageDaily: '200 km / day',
@@ -306,41 +384,6 @@ const VEHICLE_CATALOG: Record<string, VehicleDetail> = {
     minAge: 25,
     exteriorColor: 'Dual-Tone Pearl White & Black Roof',
     interiorColor: 'Maroon & Black Premium Leather',
-    interiorFeatures: [
-      'Perforated Maroon & Black Dual-Tone Leather Seats',
-      'Dual-Zone Automatic Climate Control (Front & Rear)',
-      'Illuminated Scuff Plates & Ambient Cabin Lighting',
-      'Power Adjustable Front Passenger & Driver Seats',
-      'Third-Row 50:50 Split Folding Seats',
-    ],
-    safetyFeatures: [
-      '360-Degree Panoramic View Camera System',
-      'Front & Rear Parking Clearance Sonar',
-      'Active Traction Control (A-TRC) & Downhill Assist (DAC)',
-      '7 SRS Airbags (Front, Side, Curtain & Driver Knee)',
-      'Vehicle Stability Control (VSC)',
-      'Vehicle Immobilizer & Security Alarm',
-    ],
-    exteriorFeatures: [
-      '18-Inch Legender Exclusive Alloy Wheels',
-      'Quad-LED Headlights with Sequential Turn Signals',
-      'Power Back Door with Kick Sensor (Hands-Free Tailgate)',
-      'Gloss Black Honeycomb Front Grille',
-      'Aerodynamic Roof Rails',
-    ],
-    comfortFeatures: [
-      'Push Button Start & Smart Entry',
-      'Drive Mode Selector (Eco / Normal / Sport)',
-      'Paddle Shifters for Manual Override',
-      'Wireless Smartphone Charger',
-      'Cooled Upper Glove Box',
-    ],
-    infotainmentFeatures: [
-      '8.9-Inch High-Resolution Touchscreen System',
-      'Apple CarPlay & Android Auto Integration',
-      'JBL Premium 11-Speaker Audio System with Subwoofer',
-      'USB Fast Charging in All 3 Seating Rows',
-    ],
     features: [
       '4x4 Off-Road Capabilities',
       '360 Degree Camera',
@@ -353,29 +396,81 @@ const VEHICLE_CATALOG: Record<string, VehicleDetail> = {
     images: [
       'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=1200&q=80',
     ],
-    hostName: 'Capital VIP Fleets Islamabad',
-    hostPhone: '+92 333 5566778',
-    hostWhatsapp: '923335566778',
+    hostName: 'Capital Fleet Hub',
+    hostPhone: '+92 333 5599182',
+    hostWhatsapp: '923335599182',
     hostResponseTime: 'Replies in ~3 minutes',
+    ownerId: 'usr-isb-lister',
   },
 };
+
+export function resolveCatalogItem(id: string): VehicleDetail {
+  if (VEHICLE_CATALOG[id]) {
+    return VEHICLE_CATALOG[id];
+  }
+
+  const found = CARS_DATA.find((c) => c.id === id);
+  if (found) {
+    const rate = found.priceNum || (Number(found.price?.replace(/\D/g, '')) || 7000);
+    return {
+      id: found.id,
+      ref: `LST-${found.id.toUpperCase()}`,
+      title: found.name,
+      category: found.category || 'Sedan',
+      bodyType: found.category || 'Standard',
+      year: 2024,
+      city: found.city || 'Karachi',
+      area: `${found.city} Central Hub`,
+      dailyRate: rate,
+      dailyRateWithDriver: rate + 2500,
+      weeklyRate: rate * 6,
+      monthlyRate: rate * 22,
+      serviceScope: 'BOTH',
+      insuranceIncluded: true,
+      insuranceType: 'Standard Fleet Insurance Included',
+      deposit: Math.min(30000, rate * 3),
+      transmission: found.specs?.includes('Manual') ? 'Manual' : 'Automatic',
+      fuelType: 'Petrol',
+      seats: found.name.toLowerCase().includes('hiace') ? 14 : found.name.toLowerCase().includes('fortuner') ? 7 : 5,
+      doors: 4,
+      bags: '2 large bags',
+      features: [
+        'Chilled Air Conditioning & Heating',
+        'Fuel Efficient Engine',
+        'Clean & Sanitized Interior',
+        'Direct Host Support',
+      ],
+      description: `Clean and well-maintained ${found.name} in ${found.city}. Available for daily, weekly, or monthly rental with direct host support.`,
+      images: [found.image || 'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=800&auto=format&fit=crop&q=80'],
+      hostName: found.owner || 'SafarPK Verified Host',
+      hostPhone: found.phone || '+92 300 1234567',
+      hostWhatsapp: (found.whatsapp || '923001234567').replace(/\D/g, ''),
+      hostResponseTime: 'Replies in ~5 minutes',
+    };
+  }
+
+  return VEHICLE_CATALOG['l-1'];
+}
 
 export default function ListingDetailPage() {
   const params = useParams();
   const router = useRouter();
   const listingId = (params?.id as string) || 'l-1';
 
-  const [car, setCar] = useState<VehicleDetail>(
-    VEHICLE_CATALOG[listingId] || VEHICLE_CATALOG['l-1']
-  );
+  const [car, setCar] = useState<VehicleDetail>(() => resolveCatalogItem(listingId));
 
-  // Scan localStorage for custom lister vehicles if not in static catalog
+  // Dynamically resolve listing from catalog, custom lister fleet, or Neon DB
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (VEHICLE_CATALOG[listingId]) {
-      setCar(VEHICLE_CATALOG[listingId]);
+
+    // 1. Check static or catalog resolution
+    const resolved = resolveCatalogItem(listingId);
+    if (resolved && resolved.id === listingId) {
+      setCar(resolved);
       return;
     }
+
+    // 2. Scan localStorage for custom lister vehicles
     try {
       const keys = Object.keys(localStorage).filter((k) => k.startsWith('safarpk_fleet_'));
       for (const k of keys) {
@@ -450,11 +545,56 @@ export default function ListingDetailPage() {
               hostWhatsapp: (found.phone || '923001234567').replace(/\D/g, ''),
               hostResponseTime: 'Replies in ~8 minutes',
             });
-            break;
+            return;
           }
         }
       }
     } catch (e) {}
+
+    // 3. Dynamic lookup from Neon DB endpoint if UUID or custom DB listing
+    fetch(`/api/listings/${listingId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.success && data.listing) {
+          const l = data.listing;
+          setCar({
+            id: l.id,
+            ref: l.registration_number || `LST-${l.id.slice(0, 8).toUpperCase()}`,
+            title: l.title,
+            category: l.category || 'Sedan',
+            bodyType: l.category || 'Standard',
+            year: l.model_year || 2024,
+            city: l.city || 'Karachi',
+            area: l.pickup_address || `${l.city} Fleet Hub`,
+            dailyRate: Number(l.daily_rate_pkr) || 5000,
+            dailyRateWithDriver: (Number(l.daily_rate_pkr) || 5000) + 2500,
+            serviceScope: l.with_driver ? 'WITH_DRIVER' : 'BOTH',
+            insuranceIncluded: true,
+            insuranceType: 'Comprehensive Insurance Included',
+            deposit: 25000,
+            transmission: l.transmission || 'Automatic',
+            fuelType: l.fuel_type || 'Petrol',
+            seats: 5,
+            doors: 4,
+            bags: '2 large bags',
+            features: [
+              'Chilled Air Conditioning',
+              'Comprehensive Insurance Included',
+              'Direct Host Fleet Support',
+            ],
+            description: `Official verified fleet listing on SafarPK: ${l.title} in ${l.city}. Fully maintained and sanitized.`,
+            images: Array.isArray(l.image_gallery) && l.image_gallery.length > 0
+              ? l.image_gallery
+              : ['https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=800&auto=format&fit=crop&q=80'],
+            hostName: l.owner_name || 'Verified Fleet Partner',
+            hostPhone: l.owner_phone || '+92 300 1234567',
+            hostWhatsapp: (l.owner_phone || '923001234567').replace(/\D/g, ''),
+            hostResponseTime: 'Replies in ~5 minutes',
+            ownerId: l.owner_id,
+          });
+        }
+      })
+      .catch(() => {});
   }, [listingId]);
 
   const [withDriver, setWithDriver] = useState(car.serviceScope === 'WITH_DRIVER');

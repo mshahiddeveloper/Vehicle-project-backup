@@ -166,37 +166,83 @@ export async function POST(req: NextRequest) {
       `;
 
       if (legacyUsers.length === 0) {
-        return NextResponse.json(
-          { success: false, error: 'No account found with this phone number or email address.' },
-          { status: 404 }
-        );
+        // 3. Check platform_staff table (for agents logging in via regular login)
+        const staffRows = await sql`
+          SELECT id, username, email, phone, password_hash, role, full_name, is_active
+          FROM platform_staff
+          WHERE 
+            LOWER(username) = ${cleanEmail}
+            OR (email IS NOT NULL AND LOWER(email) = ${cleanEmail})
+            OR phone = ${cleanPhone}
+            OR phone LIKE ${'%' + phoneSuffix}
+          LIMIT 1;
+        `;
+
+        if (staffRows.length > 0) {
+          const staff = staffRows[0];
+          if (staff.role === 'SUPER_ADMIN') {
+            return NextResponse.json(
+              { success: false, error: 'Super Admin access is isolated for platform security. Please access via the dedicated administrative portal (/sadmin).' },
+              { status: 403 }
+            );
+          }
+          if (!staff.is_active) {
+            return NextResponse.json(
+              { success: false, error: 'This administrative account has been deactivated.' },
+              { status: 403 }
+            );
+          }
+
+          const isValidStaff = verifyPasswordPbkdf2(password, staff.password_hash);
+          if (!isValidStaff) {
+            return NextResponse.json(
+              { success: false, error: 'Incorrect password. Please verify and try again.' },
+              { status: 401 }
+            );
+          }
+
+          matchedUser = {
+            id: staff.id,
+            phone: staff.phone,
+            email: staff.email,
+            name: staff.full_name,
+            role: staff.role,
+            city: 'Islamabad',
+            countryCode: 'PK',
+          };
+        } else {
+          return NextResponse.json(
+            { success: false, error: 'No account found with this phone number or email address.' },
+            { status: 404 }
+          );
+        }
+      } else {
+        const lu = legacyUsers[0];
+        const isValid = verifyPasswordPbkdf2(password, lu.passwordHash || '');
+        if (!isValid) {
+          return NextResponse.json(
+            { success: false, error: 'Incorrect password. Please verify and try again.' },
+            { status: 401 }
+          );
+        }
+
+        const meta = typeof lu.metadata === 'string' ? JSON.parse(lu.metadata || '{}') : (lu.metadata || {});
+        const role = lu.userType || 'CUSTOMER';
+        const name = meta.name || 'SafarPK Member';
+        const city = meta.city || lu.cp_city || 'Lahore';
+        const businessName = meta.businessName || lu.lp_business_name || undefined;
+
+        matchedUser = {
+          id: lu.id,
+          phone: lu.phone,
+          email: lu.email,
+          name,
+          businessName,
+          role,
+          city,
+          countryCode: 'PK',
+        };
       }
-
-      const lu = legacyUsers[0];
-      const isValid = verifyPasswordPbkdf2(password, lu.passwordHash || '');
-      if (!isValid) {
-        return NextResponse.json(
-          { success: false, error: 'Incorrect password. Please verify and try again.' },
-          { status: 401 }
-        );
-      }
-
-      const meta = typeof lu.metadata === 'string' ? JSON.parse(lu.metadata || '{}') : (lu.metadata || {});
-      const role = lu.userType || 'CUSTOMER';
-      const name = meta.name || 'SafarPK Member';
-      const city = meta.city || lu.cp_city || 'Lahore';
-      const businessName = meta.businessName || lu.lp_business_name || undefined;
-
-      matchedUser = {
-        id: lu.id,
-        phone: lu.phone,
-        email: lu.email,
-        name,
-        businessName,
-        role,
-        city,
-        countryCode: 'PK',
-      };
     }
 
     // 3. Log audit event

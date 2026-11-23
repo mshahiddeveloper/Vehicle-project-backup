@@ -162,18 +162,12 @@ export default function SuperAdminDashboardPage() {
       return;
     }
 
+    // Super Admin portal is isolated at /sadmin
     if (!user) {
-      // In demo / test runner mode, authenticate demo Super Admin
-      const auth = authenticateUser('admin@safarpk.com', 'password123');
-      if (auth.success && auth.user) {
-        user = auth.user;
-      } else {
-        const demoAdmin = DEMO_USERS.find((u) => u.role === 'SUPER_ADMIN');
-        if (demoAdmin) {
-          setActiveUser(demoAdmin);
-          user = demoAdmin;
-        }
+      if (typeof window !== 'undefined') {
+        window.location.replace('/sadmin');
       }
+      return;
     }
 
     const syncFromUrl = () => {

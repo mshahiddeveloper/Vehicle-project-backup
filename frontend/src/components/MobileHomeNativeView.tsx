@@ -55,7 +55,14 @@ import {
 } from '@/data/marketplaceData';
 import { getActiveUser, getAllRegisteredUsers, RegisteredUser, getUserDashboardPath } from '@/data/userAuth';
 import { getUserUnreadMessageCount } from '@/data/chatEngine';
-import { setPendingWishlist, consumeWishlistToast } from '@/data/wishlist';
+import {
+  setPendingWishlist,
+  consumeWishlistToast,
+  saveWishlistItem,
+  removeWishlistItem,
+  getUserSavedItemsKey,
+  getUserSavedVehiclesKey,
+} from '@/data/wishlist';
 import { formatPKR, maskPhone } from '@/lib/api';
 import { getStoreSlugForOwner } from '@/data/storefrontEngine';
 import { MobileNavigationDrawer } from '@/components/AppHeader';
@@ -157,20 +164,27 @@ export function MobileHomeNativeView() {
     try {
       if (typeof window === 'undefined') return;
       const idsSet = new Set<string>();
-      const rawVehicles = localStorage.getItem('safarpk_saved_vehicles');
-      if (rawVehicles) {
-        const parsed = JSON.parse(rawVehicles);
-        if (Array.isArray(parsed)) {
-          parsed.forEach((id: string) => idsSet.add(id));
-        }
-      }
-      const rawItems = localStorage.getItem('safarpk_saved_items');
-      if (rawItems) {
-        const parsedItems = JSON.parse(rawItems);
-        if (Array.isArray(parsedItems)) {
-          parsedItems.forEach((it: any) => {
-            if (it.id) idsSet.add(it.id);
-          });
+      const user = getActiveUser();
+
+      const keysToCheck = [
+        'safarpk_saved_vehicles',
+        'safarpk_saved_items',
+        user ? getUserSavedVehiclesKey(user) : null,
+        user ? getUserSavedItemsKey(user) : null,
+      ].filter(Boolean) as string[];
+
+      for (const k of keysToCheck) {
+        const raw = localStorage.getItem(k);
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              parsed.forEach((it: any) => {
+                if (typeof it === 'string') idsSet.add(it);
+                else if (it?.id) idsSet.add(it.id);
+              });
+            }
+          } catch (e) {}
         }
       }
       setSavedCarIds(Array.from(idsSet));
@@ -269,9 +283,10 @@ export function MobileHomeNativeView() {
 
   const toggleSaveCar = (carId: string, carName: string) => {
     const currentUser = getActiveUser();
+    const foundCar = filteredCars.find((c) => c.id === carId) || CARS_DATA.find((c) => c.id === carId);
+
     if (!currentUser) {
       const currentUrl = typeof window !== 'undefined' ? (window.location.pathname + window.location.search) : '/';
-      const foundCar = filteredCars.find((c) => c.id === carId) || CARS_DATA.find((c) => c.id === carId);
       setPendingWishlist({
         id: carId,
         category: 'car',
@@ -291,48 +306,24 @@ export function MobileHomeNativeView() {
     let updated: string[];
     if (isCurrentlySaved) {
       updated = savedCarIds.filter((id) => id !== carId);
+      removeWishlistItem(carId);
       showToast(`Removed "${carName}" from saved`);
     } else {
       updated = [...savedCarIds, carId];
+      saveWishlistItem({
+        id: carId,
+        category: 'car',
+        title: foundCar?.name || carName,
+        name: foundCar?.name || carName,
+        specs: foundCar?.specs || 'Verified Car Rental',
+        city: foundCar?.city || city,
+        rate: foundCar?.price || 'PKR 12,000 / day',
+        price: foundCar?.price || 'PKR 12,000 / day',
+        href: `/listing/${carId}`,
+      });
       showToast(`Saved "${carName}" to your wishlist!`);
     }
     setSavedCarIds(updated);
-
-    try {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('safarpk_saved_vehicles', JSON.stringify(updated));
-
-        // Interlink with safarpk_saved_items for full desktop & /saved compatibility
-        let storedList: any[] = [];
-        const rawItems = localStorage.getItem('safarpk_saved_items');
-        if (rawItems) {
-          try {
-            storedList = JSON.parse(rawItems);
-          } catch (e) {}
-        }
-
-        if (isCurrentlySaved) {
-          storedList = storedList.filter((item) => (item.id || item) !== carId);
-        } else {
-          const foundCar = filteredCars.find((c) => c.id === carId) || CARS_DATA.find((c) => c.id === carId);
-          storedList = storedList.filter((item) => (item.id || item) !== carId);
-          storedList.unshift({
-            id: carId,
-            title: foundCar?.name || carName,
-            name: foundCar?.name || carName,
-            category: 'Cars',
-            specs: foundCar?.specs || 'Verified Car Rental',
-            city: foundCar?.city || city,
-            rate: foundCar?.price || 'PKR 12,000 / day',
-            price: foundCar?.price || 'PKR 12,000 / day',
-            savedAt: new Date().toISOString(),
-          });
-        }
-        localStorage.setItem('safarpk_saved_items', JSON.stringify(storedList));
-        window.dispatchEvent(new Event('safarpk_saved_updated'));
-        window.dispatchEvent(new Event('safarpk_favorites_updated'));
-      }
-    } catch (e) {}
   };
 
   const handleSwapC2cCities = () => {
