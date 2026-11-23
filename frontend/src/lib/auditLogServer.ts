@@ -98,3 +98,4 @@ export async function logAuditEvent(params: AuditEventParams): Promise<{ success
     return { success: false, error: err?.message || 'Failed to insert audit log' };
   }
 }
+

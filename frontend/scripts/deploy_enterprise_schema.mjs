@@ -293,12 +293,99 @@ async function deploySchema() {
     EXECUTE FUNCTION prevent_audit_log_mutation();
   `;
 
+  // =========================================================================
+  // Additional Essential Tables for 5 Verticals, CTAs & Serverless Reliability
+  // =========================================================================
+
+  // 1. Intercity Trips (Vertical 3 - City to City)
+  console.log('Creating Table: intercity_trips...');
+  await sql`
+    CREATE TABLE IF NOT EXISTS intercity_trips (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      provider_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      origin_city VARCHAR(50) NOT NULL,
+      destination_city VARCHAR(50) NOT NULL,
+      route_via VARCHAR(100) NOT NULL,
+      departure_time TIMESTAMPTZ NOT NULL,
+      vehicle_type VARCHAR(50) NOT NULL,
+      total_seats INT NOT NULL DEFAULT 4,
+      available_seats INT NOT NULL DEFAULT 4,
+      per_seat_fare_pkr NUMERIC(10, 2) NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'SCHEDULED',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_intercity_search ON intercity_trips(origin_city, destination_city, status, departure_time);`;
+
+  // 2. Wishlists (CTA Matrix - Wishlist Heart Icon)
+  console.log('Creating Table: wishlists...');
+  await sql`
+    CREATE TABLE IF NOT EXISTS wishlists (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      vehicle_id UUID NOT NULL REFERENCES vehicle_listings(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT unq_user_vehicle_wishlist UNIQUE (user_id, vehicle_id)
+    );
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_wishlists_user ON wishlists(user_id);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_wishlists_vehicle ON wishlists(vehicle_id);`;
+
+  // 3. Reviews (Post-Booking Verified Ratings)
+  console.log('Creating Table: reviews...');
+  await sql`
+    CREATE TABLE IF NOT EXISTS reviews (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      booking_id UUID NOT NULL UNIQUE REFERENCES bookings(id) ON DELETE CASCADE,
+      customer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      target_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+      comment TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_reviews_target ON reviews(target_user_id, rating);`;
+
+  // 4. OTP Verifications (Serverless Vercel Fluid Compute Persistence)
+  console.log('Creating Table: otp_verifications...');
+  await sql`
+    CREATE TABLE IF NOT EXISTS otp_verifications (
+      phone VARCHAR(20) PRIMARY KEY,
+      otp_hash VARCHAR(255) NOT NULL,
+      attempt_count INT NOT NULL DEFAULT 0,
+      cooldown_until TIMESTAMPTZ NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+
+  // 5. Notifications (Real-time Booking, KYC & Subscription Alerts)
+  console.log('Creating Table: notifications...');
+  await sql`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      type VARCHAR(50) NOT NULL,
+      title VARCHAR(150) NOT NULL,
+      message TEXT NOT NULL,
+      link_url TEXT,
+      is_read BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read, created_at DESC);`;
+
   // 4. Row Level Security Policies
   console.log('Configuring Row Level Security (RLS) with Neon Session Context...');
   await sql`ALTER TABLE users ENABLE ROW LEVEL SECURITY;`;
   await sql`ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;`;
   await sql`ALTER TABLE vehicle_listings ENABLE ROW LEVEL SECURITY;`;
   await sql`ALTER TABLE user_documents ENABLE ROW LEVEL SECURITY;`;
+  await sql`ALTER TABLE intercity_trips ENABLE ROW LEVEL SECURITY;`;
+  await sql`ALTER TABLE wishlists ENABLE ROW LEVEL SECURITY;`;
+  await sql`ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;`;
+  await sql`ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;`;
 
   // Drop existing policies if any to allow idempotent re-runs
   await sql`DROP POLICY IF EXISTS customer_profile_isolation ON users;`;
@@ -306,6 +393,66 @@ async function deploySchema() {
   await sql`DROP POLICY IF EXISTS vehicle_public_and_owner_isolation ON vehicle_listings;`;
   await sql`DROP POLICY IF EXISTS vehicle_owner_mutation_isolation ON vehicle_listings;`;
   await sql`DROP POLICY IF EXISTS user_documents_isolation ON user_documents;`;
+  await sql`DROP POLICY IF EXISTS wishlists_user_isolation ON wishlists;`;
+  await sql`DROP POLICY IF EXISTS reviews_public_read ON reviews;`;
+  await sql`DROP POLICY IF EXISTS reviews_customer_insert ON reviews;`;
+  await sql`DROP POLICY IF EXISTS notifications_user_isolation ON notifications;`;
+  await sql`DROP POLICY IF EXISTS intercity_trips_public_read ON intercity_trips;`;
+  await sql`DROP POLICY IF EXISTS intercity_trips_provider_mutation ON intercity_trips;`;
+
+  // Wishlists RLS
+  await sql`
+    CREATE POLICY wishlists_user_isolation ON wishlists
+      FOR ALL
+      USING (
+        user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
+        OR current_setting('app.current_user_role', true) IN ('SUPER_ADMIN', 'INTERNAL_SYSTEM')
+      );
+  `;
+
+  // Reviews RLS
+  await sql`
+    CREATE POLICY reviews_public_read ON reviews
+      FOR SELECT
+      USING (true);
+  `;
+  await sql`
+    CREATE POLICY reviews_customer_insert ON reviews
+      FOR INSERT
+      WITH CHECK (
+        customer_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
+        OR current_setting('app.current_user_role', true) IN ('SUPER_ADMIN', 'INTERNAL_SYSTEM')
+      );
+  `;
+
+  // Notifications RLS
+  await sql`
+    CREATE POLICY notifications_user_isolation ON notifications
+      FOR ALL
+      USING (
+        user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
+        OR current_setting('app.current_user_role', true) IN ('SUPER_ADMIN', 'INTERNAL_SYSTEM')
+      );
+  `;
+
+  // Intercity Trips RLS
+  await sql`
+    CREATE POLICY intercity_trips_public_read ON intercity_trips
+      FOR SELECT
+      USING (
+        status != 'CANCELLED'
+        OR provider_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
+        OR current_setting('app.current_user_role', true) IN ('SUPER_ADMIN', 'INTERNAL_SYSTEM')
+      );
+  `;
+  await sql`
+    CREATE POLICY intercity_trips_provider_mutation ON intercity_trips
+      FOR ALL
+      USING (
+        provider_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid
+        OR current_setting('app.current_user_role', true) IN ('SUPER_ADMIN', 'INTERNAL_SYSTEM')
+      );
+  `;
 
   // 1. Users table RLS
   await sql`

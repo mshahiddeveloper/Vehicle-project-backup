@@ -96,3 +96,4 @@ export async function checkCurrentSubscriptionQuota(
     maxQuota: sub.max_quota,
   };
 }
+

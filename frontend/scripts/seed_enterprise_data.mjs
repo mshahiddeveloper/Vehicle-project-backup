@@ -411,6 +411,196 @@ async function seedData() {
   `;
   console.log('   Shuttle routes seeded.');
 
+  // 7. Seed Intercity Trips (Vertical 3 - City to City)
+  console.log('7. Seeding Intercity Scheduled Trips (Motorway corridors)...');
+  const intercityRoutes = [
+    {
+      origin: 'Lahore',
+      dest: 'Islamabad',
+      via: 'M-2 Motorway',
+      dep: new Date(Date.now() + 86400000 * 2).toISOString(), // 2 days from now
+      veh: 'Toyota Grand Cabin Executive 2024',
+      total: 10,
+      avail: 6,
+      fare: 3500,
+    },
+    {
+      origin: 'Karachi',
+      dest: 'Hyderabad',
+      via: 'M-9 Motorway',
+      dep: new Date(Date.now() + 86400000 * 1).toISOString(), // Tomorrow
+      veh: 'Toyota Hiace AC Commuter',
+      total: 14,
+      avail: 8,
+      fare: 1500,
+    },
+    {
+      origin: 'Rawalpindi',
+      dest: 'Peshawar',
+      via: 'M-1 Motorway',
+      dep: new Date(Date.now() + 86400000 * 3).toISOString(), // 3 days from now
+      veh: 'Toyota Coaster Saloon',
+      total: 20,
+      avail: 12,
+      fare: 2000,
+    },
+  ];
+
+  for (const ir of intercityRoutes) {
+    await sql`
+      INSERT INTO intercity_trips (
+        provider_id,
+        origin_city,
+        destination_city,
+        route_via,
+        departure_time,
+        vehicle_type,
+        total_seats,
+        available_seats,
+        per_seat_fare_pkr,
+        status,
+        created_at
+      ) VALUES (
+        ${providerId},
+        ${ir.origin},
+        ${ir.dest},
+        ${ir.via},
+        ${ir.dep}::timestamptz,
+        ${ir.veh},
+        ${ir.total},
+        ${ir.avail},
+        ${ir.fare},
+        'SCHEDULED',
+        NOW()
+      )
+      ON CONFLICT DO NOTHING;
+    `;
+  }
+  console.log('   Intercity trips seeded.');
+
+  // 8. Seed Sample Customer, Wishlist, Booking & Review
+  console.log('8. Seeding Sample Customer, Wishlist & Review...');
+  const customerPwd = hashPassword('customer123');
+  const customerRows = await sql`
+    INSERT INTO users (
+      phone,
+      phone_verified,
+      phone_locked,
+      email,
+      password_hash,
+      full_name,
+      role,
+      city,
+      country_code,
+      kyc_status
+    ) VALUES (
+      '+923444444444',
+      TRUE,
+      TRUE,
+      'syber.shah@safarpk.com',
+      ${customerPwd},
+      'Syber Shah',
+      'CUSTOMER',
+      'Karachi',
+      'PK',
+      'VERIFIED'
+    )
+    ON CONFLICT (phone) DO UPDATE SET full_name = EXCLUDED.full_name
+    RETURNING id;
+  `;
+  const customerId = customerRows[0].id;
+
+  // Fetch a vehicle listing ID
+  const vehicleRows = await sql`SELECT id FROM vehicle_listings LIMIT 1;`;
+  if (vehicleRows.length > 0) {
+    const vehicleId = vehicleRows[0].id;
+    // Seed wishlist
+    await sql`
+      INSERT INTO wishlists (user_id, vehicle_id)
+      VALUES (${customerId}, ${vehicleId})
+      ON CONFLICT (user_id, vehicle_id) DO NOTHING;
+    `;
+    console.log('   Wishlist seeded.');
+
+    // Seed completed booking for review
+    const bookingRef = 'SAFAR-REV-SEED-01';
+    const bookingRows = await sql`
+      INSERT INTO bookings (
+        booking_reference,
+        customer_id,
+        lister_id,
+        service_type,
+        vehicle_id,
+        start_date,
+        end_date,
+        pickup_location,
+        total_amount_pkr,
+        payment_status,
+        booking_status
+      ) VALUES (
+        ${bookingRef},
+        ${customerId},
+        ${listerId},
+        'RENT_A_CAR',
+        ${vehicleId},
+        CURRENT_DATE - INTERVAL '5 days',
+        CURRENT_DATE - INTERVAL '3 days',
+        'Lahore Airport',
+        13000,
+        'PAID',
+        'COMPLETED'
+      )
+      ON CONFLICT (booking_reference) DO UPDATE SET booking_status = 'COMPLETED'
+      RETURNING id;
+    `;
+
+    const bookingId = bookingRows[0].id;
+
+    // Seed verified 5-star review
+    await sql`
+      INSERT INTO reviews (
+        booking_id,
+        customer_id,
+        target_user_id,
+        rating,
+        comment
+      ) VALUES (
+        ${bookingId},
+        ${customerId},
+        ${listerId},
+        5,
+        'Flawless rental experience! Clean car, on-time handover at Lahore airport and zero hidden charges.'
+      )
+      ON CONFLICT (booking_id) DO NOTHING;
+    `;
+    console.log('   Verified review seeded.');
+  }
+
+  // 9. Seed Notifications
+  console.log('9. Seeding Notifications...');
+  await sql`
+    INSERT INTO notifications (
+      user_id,
+      type,
+      title,
+      message,
+      link_url
+    ) VALUES (
+      ${adminId},
+      'SYSTEM_ALERT',
+      'SafarPK Enterprise System Live',
+      'All 5 verticals, Row-Level Security, and cryptographic audit chains are fully active on Neon PostgreSQL 16.',
+      '/admin'
+    ), (
+      ${customerId},
+      'KYC_APPROVED',
+      'Account Verified',
+      'Welcome to SafarPK! Your phone and identity verification are complete. Enjoy seamless direct bookings.',
+      '/customer'
+    );
+  `;
+  console.log('   Notifications seeded.');
+
   console.log('🎉 SafarPK Enterprise Database successfully seeded across all 5 verticals!');
 }
 
@@ -420,3 +610,4 @@ seedData()
     console.error('Seeding error:', err);
     process.exit(1);
   });
+

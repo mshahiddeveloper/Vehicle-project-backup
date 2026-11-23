@@ -71,3 +71,4 @@ export async function updateRuleStatus(
   `;
   return true;
 }
+

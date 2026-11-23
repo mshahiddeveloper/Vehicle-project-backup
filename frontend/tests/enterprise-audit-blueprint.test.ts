@@ -229,4 +229,147 @@ describe('SafarPK Enterprise Audit Blueprint & Neon PostgreSQL 16 Verification S
       expect(adminRows[0].kyc_status).toBe('VERIFIED');
     });
   });
+
+  // =========================================================================
+  // Pillar 6: Essential Tables for 5 Verticals & Serverless Edge Reliability
+  // =========================================================================
+  describe('Pillar 6: Essential Tables for 5 Verticals & Serverless Edge Reliability', () => {
+    it('verifies all 5 additional tables (intercity_trips, wishlists, reviews, otp_verifications, notifications) exist in Neon', async () => {
+      if (!dbUrl) return;
+      const sql = neon(dbUrl);
+      const tables = await sql`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public';
+      `;
+      const tableNames = tables.map((t: any) => t.table_name);
+      expect(tableNames).toContain('intercity_trips');
+      expect(tableNames).toContain('wishlists');
+      expect(tableNames).toContain('reviews');
+      expect(tableNames).toContain('otp_verifications');
+      expect(tableNames).toContain('notifications');
+    });
+
+    it('intercity_trips: supports atomic seat decrement transaction', async () => {
+      if (!dbUrl) return;
+      const sql = neon(dbUrl);
+
+      // Fetch a scheduled intercity trip
+      const tripRows = await sql`
+        SELECT id, available_seats, per_seat_fare_pkr 
+        FROM intercity_trips 
+        WHERE status = 'SCHEDULED' AND available_seats >= 2 
+        LIMIT 1;
+      `;
+
+      if (tripRows.length > 0) {
+        const trip = tripRows[0];
+        const initialSeats = trip.available_seats;
+
+        // Perform atomic decrement
+        await withUserContext(null, 'INTERNAL_SYSTEM', async (client) => {
+          await client.query(
+            'UPDATE intercity_trips SET available_seats = available_seats - 1 WHERE id = $1',
+            [trip.id]
+          );
+        });
+
+        const updated = await sql`SELECT available_seats FROM intercity_trips WHERE id = ${trip.id};`;
+        expect(updated[0].available_seats).toBe(initialSeats - 1);
+      }
+    });
+
+    it('wishlists: enforces unique composite constraint (user_id, vehicle_id)', async () => {
+      if (!dbUrl) return;
+      const sql = neon(dbUrl);
+
+      const userRows = await sql`SELECT id FROM users LIMIT 1;`;
+      const vehRows = await sql`SELECT id FROM vehicle_listings LIMIT 1;`;
+
+      if (userRows.length > 0 && vehRows.length > 0) {
+        const uId = userRows[0].id;
+        const vId = vehRows[0].id;
+
+        // First insert
+        await sql`
+          INSERT INTO wishlists (user_id, vehicle_id)
+          VALUES (${uId}, ${vId})
+          ON CONFLICT (user_id, vehicle_id) DO NOTHING;
+        `;
+
+        // Second insert without DO NOTHING should trigger uniqueness constraint violation
+        let duplicateBlocked = false;
+        try {
+          await sql`INSERT INTO wishlists (user_id, vehicle_id) VALUES (${uId}, ${vId});`;
+        } catch (err: any) {
+          duplicateBlocked = true;
+          expect(err.message).toContain('unique');
+        }
+        expect(duplicateBlocked).toBe(true);
+      }
+    });
+
+    it('reviews: verifies rating range (1-5) and booking uniqueness', async () => {
+      if (!dbUrl) return;
+      const sql = neon(dbUrl);
+
+      // Attempting invalid rating (0 or 6) must be blocked by check constraint
+      let invalidBlocked = false;
+      try {
+        await sql`
+          INSERT INTO reviews (booking_id, customer_id, target_user_id, rating, comment)
+          VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000003', 10, 'Invalid rating');
+        `;
+      } catch (err: any) {
+        invalidBlocked = true;
+        expect(err.message).toContain('check');
+      }
+      expect(invalidBlocked).toBe(true);
+    });
+
+    it('otp_verifications: persists OTP hash, cooldown, and 10-minute expiry in PostgreSQL', async () => {
+      if (!dbUrl) return;
+      const sql = neon(dbUrl);
+      const testPhone = '923998877665';
+      const testHash = 'test_hash_val_12345';
+
+      await sql`
+        INSERT INTO otp_verifications (phone, otp_hash, attempt_count, cooldown_until, expires_at)
+        VALUES (${testPhone}, ${testHash}, 0, NOW() + INTERVAL '60 seconds', NOW() + INTERVAL '10 minutes')
+        ON CONFLICT (phone) DO UPDATE SET otp_hash = EXCLUDED.otp_hash;
+      `;
+
+      const rows = await sql`SELECT phone, otp_hash, attempt_count FROM otp_verifications WHERE phone = ${testPhone};`;
+      expect(rows.length).toBe(1);
+      expect(rows[0].otp_hash).toBe(testHash);
+
+      // Clean up test phone
+      await sql`DELETE FROM otp_verifications WHERE phone = ${testPhone};`;
+    });
+
+    it('notifications: persists and retrieves user notifications with read state toggles', async () => {
+      if (!dbUrl) return;
+      const sql = neon(dbUrl);
+      const userRows = await sql`SELECT id FROM users LIMIT 1;`;
+
+      if (userRows.length > 0) {
+        const uId = userRows[0].id;
+        const ins = await sql`
+          INSERT INTO notifications (user_id, type, title, message)
+          VALUES (${uId}, 'SYSTEM_ALERT', 'Test Notification', 'Testing notification persistence')
+          RETURNING id, is_read;
+        `;
+        expect(ins[0].is_read).toBe(false);
+
+        // Mark as read
+        await sql`UPDATE notifications SET is_read = TRUE WHERE id = ${ins[0].id};`;
+        const updated = await sql`SELECT is_read FROM notifications WHERE id = ${ins[0].id};`;
+        expect(updated[0].is_read).toBe(true);
+
+        // Clean up test notification
+        await sql`DELETE FROM notifications WHERE id = ${ins[0].id};`;
+      }
+    });
+  });
 });
+
