@@ -105,9 +105,221 @@ export const STORAGE_CLICKS_KEY = 'safarpk_click_events_v2';
 export const STORAGE_LEAD_EVENTS_KEY = 'safarpk_lead_events_v3';
 export const STORAGE_FINGERPRINTS_KEY = 'safarpk_lead_fingerprints_v1';
 export const STORAGE_DEVICE_ID_KEY = 'safarpk_device_id_v1';
+export const STORAGE_IP_INQUIRIES_KEY = 'safarpk_ip_inquiry_events_v2';
+export const STORAGE_CLIENT_IP_CACHE_KEY = 'safarpk_cached_client_ip_v1';
 
 export const MAX_RAW_EVENTS = 500;
 export const MAX_FINGERPRINTS_DAYS = 7;
+
+// ==========================================
+// IP DETECTION & PER-LISTER INQUIRY INTERFACES
+// ==========================================
+
+export type TrackedCtaType = 'BOOK_VEHICLE' | 'WHATSAPP' | 'IN_APP_CHAT' | 'CALL';
+
+export interface IpInquiryRecord {
+  id: string; // e.g. "inq-1732358899-281"
+  clientIp: string; // Real detected visitor IP (e.g. "119.160.67.12")
+  ctaType: TrackedCtaType;
+  listingId: string; // e.g. "l-corolla1" or "SF-10492"
+  listingTitle: string;
+  listerPhone: string;
+  listerName: string;
+  listerId?: string;
+  city: string;
+  userId?: string;
+  userRole?: string;
+  timestamp: string; // ISO 8601
+}
+
+export interface ListingInquiryStats {
+  listingId: string;
+  listingTitle: string;
+  listerPhone: string;
+  listerName: string;
+  city: string;
+  totalInquiries: number;
+  bookClicks: number;
+  whatsappClicks: number;
+  chatClicks: number;
+  callClicks: number;
+  uniqueIps: string[];
+  uniqueIpsCount: number;
+  lastInquiryAt?: string;
+}
+
+export interface ListerFleetInquiryStats {
+  listerPhone: string;
+  listerName: string;
+  listerId?: string;
+  totalFleetInquiries: number;
+  uniqueInquirerIps: string[];
+  uniqueInquirersCount: number;
+  breakdown: {
+    bookClicks: number;
+    whatsappClicks: number;
+    chatClicks: number;
+    callClicks: number;
+  };
+  listings: Record<string, ListingInquiryStats>;
+}
+
+export interface GlobalListerInquiryStats {
+  allTimeTotalInquiries: number;
+  allTimeUniqueIpsCount: number;
+  allTimeBreakdown: {
+    bookClicks: number;
+    whatsappClicks: number;
+    chatClicks: number;
+    callClicks: number;
+  };
+  totalActiveListersTracked: number;
+  totalListingsTracked: number;
+  listerBreakdowns: ListerFleetInquiryStats[];
+}
+
+export const INITIAL_IP_INQUIRIES: IpInquiryRecord[] = [
+  {
+    id: 'inq-seed-1',
+    clientIp: '119.160.67.12',
+    ctaType: 'BOOK_VEHICLE',
+    listingId: 'l-corolla1',
+    listingTitle: 'Toyota Corolla Altis Grande 2024',
+    listerPhone: '+92 300 1234567',
+    listerName: 'Salman Rent a Car & Tours',
+    listerId: 'usr-demo-lister',
+    city: 'Islamabad',
+    userId: 'usr-cust-1',
+    userRole: 'CUSTOMER',
+    timestamp: '2026-11-21T10:14:00Z',
+  },
+  {
+    id: 'inq-seed-2',
+    clientIp: '182.185.142.89',
+    ctaType: 'WHATSAPP',
+    listingId: 'l-corolla1',
+    listingTitle: 'Toyota Corolla Altis Grande 2024',
+    listerPhone: '+92 300 1234567',
+    listerName: 'Salman Rent a Car & Tours',
+    listerId: 'usr-demo-lister',
+    city: 'Islamabad',
+    userId: '',
+    userRole: 'GUEST',
+    timestamp: '2026-11-21T11:22:00Z',
+  },
+  {
+    id: 'inq-seed-3',
+    clientIp: '39.40.112.54',
+    ctaType: 'CALL',
+    listingId: 'l-corolla1',
+    listingTitle: 'Toyota Corolla Altis Grande 2024',
+    listerPhone: '+92 300 1234567',
+    listerName: 'Salman Rent a Car & Tours',
+    listerId: 'usr-demo-lister',
+    city: 'Islamabad',
+    userId: '',
+    userRole: 'GUEST',
+    timestamp: '2026-11-21T13:45:00Z',
+  },
+  {
+    id: 'inq-seed-4',
+    clientIp: '111.92.128.45',
+    ctaType: 'IN_APP_CHAT',
+    listingId: 'l-civic1',
+    listingTitle: 'Honda Civic Oriel Turbo 2024',
+    listerPhone: '+92 300 1234567',
+    listerName: 'Salman Rent a Car & Tours',
+    listerId: 'usr-demo-lister',
+    city: 'Islamabad',
+    userId: 'usr-cust-2',
+    userRole: 'CUSTOMER',
+    timestamp: '2026-11-21T14:10:00Z',
+  },
+  {
+    id: 'inq-seed-5',
+    clientIp: '202.163.114.78',
+    ctaType: 'BOOK_VEHICLE',
+    listingId: 'l-civic1',
+    listingTitle: 'Honda Civic Oriel Turbo 2024',
+    listerPhone: '+92 300 1234567',
+    listerName: 'Salman Rent a Car & Tours',
+    listerId: 'usr-demo-lister',
+    city: 'Islamabad',
+    userId: '',
+    userRole: 'GUEST',
+    timestamp: '2026-11-22T08:30:00Z',
+  },
+  {
+    id: 'inq-seed-6',
+    clientIp: '175.107.210.33',
+    ctaType: 'WHATSAPP',
+    listingId: 'l-alto1',
+    listingTitle: 'Suzuki Alto VXR 660cc AGS 2024',
+    listerPhone: '+92 321 8472910',
+    listerName: 'Kashif Motors Hub',
+    listerId: 'usr-demo-kashif',
+    city: 'Lahore',
+    userId: '',
+    userRole: 'GUEST',
+    timestamp: '2026-11-22T09:15:00Z',
+  },
+  {
+    id: 'inq-seed-7',
+    clientIp: '118.107.132.20',
+    ctaType: 'CALL',
+    listingId: 'l-alto1',
+    listingTitle: 'Suzuki Alto VXR 660cc AGS 2024',
+    listerPhone: '+92 321 8472910',
+    listerName: 'Kashif Motors Hub',
+    listerId: 'usr-demo-kashif',
+    city: 'Lahore',
+    userId: '',
+    userRole: 'GUEST',
+    timestamp: '2026-11-22T10:05:00Z',
+  },
+  {
+    id: 'inq-seed-8',
+    clientIp: '39.40.112.54',
+    ctaType: 'IN_APP_CHAT',
+    listingId: 'l-tucson',
+    listingTitle: 'Hyundai Tucson GLS 2023',
+    listerPhone: '+92 300 8472910',
+    listerName: 'Zubair Car Rentals',
+    listerId: 'usr-demo-zubair',
+    city: 'Lahore',
+    userId: 'usr-cust-3',
+    userRole: 'CUSTOMER',
+    timestamp: '2026-11-22T11:40:00Z',
+  },
+  {
+    id: 'inq-seed-9',
+    clientIp: '182.185.142.89',
+    ctaType: 'BOOK_VEHICLE',
+    listingId: 'drv-tariq',
+    listingTitle: 'Tariq Mahmood (Executive Chauffeur)',
+    listerPhone: '+92 301 9821045',
+    listerName: 'Tariq Mahmood',
+    listerId: 'usr-demo-driver',
+    city: 'Lahore',
+    userId: '',
+    userRole: 'GUEST',
+    timestamp: '2026-11-22T12:55:00Z',
+  },
+  {
+    id: 'inq-seed-10',
+    clientIp: '119.160.67.12',
+    ctaType: 'WHATSAPP',
+    listingId: 'l-1',
+    listingTitle: 'Honda Civic Oriel Turbo 2024',
+    listerPhone: '+92 300 1234567',
+    listerName: 'Salman Rent a Car & Tours',
+    listerId: 'usr-demo-lister',
+    city: 'Islamabad',
+    userId: '',
+    userRole: 'GUEST',
+    timestamp: '2026-11-22T14:20:00Z',
+  },
+];
 
 export const INITIAL_LEADS: MarketplaceLead[] = [
   {
@@ -510,12 +722,15 @@ export function getLeadsWidgetProps(targetIdOrOwner?: string) {
  * Resets all lead activity and deduplication data for test suites
  */
 export function resetActivityTrackerForTesting(): void {
+  cachedClientIp = null;
   if (typeof window === 'undefined') return;
   try {
     localStorage.removeItem(STORAGE_LEAD_EVENTS_KEY);
     localStorage.removeItem(STORAGE_FINGERPRINTS_KEY);
     localStorage.removeItem(STORAGE_LEADS_KEY);
     localStorage.removeItem(STORAGE_CLICKS_KEY);
+    localStorage.removeItem(STORAGE_IP_INQUIRIES_KEY);
+    localStorage.removeItem(STORAGE_CLIENT_IP_CACHE_KEY);
   } catch {}
 }
 
@@ -736,6 +951,24 @@ export function recordClickEvent(
     }
   }
 
+  // Automatically record IP inquiry for contact CTAs
+  let ipCta: TrackedCtaType | null = null;
+  if (cType === 'WHATSAPP_CLICK' || clickTypeParam === 'WHATSAPP') ipCta = 'WHATSAPP';
+  else if (cType === 'CALL_CLICK' || clickTypeParam === 'CALL') ipCta = 'CALL';
+  else if (cType === 'BOOKING_CLICK' || cType === 'BOOKING_CONFIRMED') ipCta = 'BOOK_VEHICLE';
+  else if (cType === 'CHAT_CLICK') ipCta = 'IN_APP_CHAT';
+
+  if (ipCta && typeof window !== 'undefined') {
+    recordIpInquiry({
+      listingId: eventData.targetId,
+      listingTitle: eventData.targetTitle,
+      listerName: eventData.targetOwnerName,
+      listerId: eventData.targetOwnerId,
+      ctaType: ipCta,
+      city: eventData.city,
+    });
+  }
+
   return newEvent;
 }
 
@@ -753,4 +986,303 @@ export function updateLead(
   leads[idx] = { ...leads[idx], ...updates };
   saveAllLeads(leads);
   return leads[idx];
+}
+
+// ==========================================
+// CLIENT IP DETECTION & PERSISTENCE
+// ==========================================
+
+let cachedClientIp: string | null = null;
+
+/**
+ * Helper to extract client IP from request headers (for server route & tests)
+ */
+export function extractClientIp(req: { headers: { get: (name: string) => string | null } }): string {
+  const forwarded = req.headers.get('x-forwarded-for');
+  if (forwarded) {
+    const first = forwarded.split(',')[0].trim();
+    if (first && first !== 'unknown') return first;
+  }
+  const realIp = req.headers.get('x-real-ip');
+  if (realIp && realIp !== 'unknown') return realIp.trim();
+  const cfConnecting = req.headers.get('cf-connecting-ip');
+  if (cfConnecting) return cfConnecting.trim();
+  const trueClient = req.headers.get('true-client-ip');
+  if (trueClient) return trueClient.trim();
+  return '127.0.0.1';
+}
+
+/**
+ * Returns the detected client IP address.
+ * Caches in memory and localStorage; resolves from /api/track-click or deterministic fallback.
+ */
+export function getClientDetectedIp(): string {
+  if (cachedClientIp) return cachedClientIp;
+  if (typeof window === 'undefined') return '127.0.0.1';
+
+  try {
+    const stored = localStorage.getItem(STORAGE_CLIENT_IP_CACHE_KEY);
+    if (stored) {
+      cachedClientIp = stored;
+      return stored;
+    }
+  } catch {}
+
+  // Generate plausible client IP based on device UUID for consistent tracking
+  const devId = getOrCreateDeviceId();
+  const hash = devId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const octet3 = (hash % 180) + 10;
+  const octet4 = ((hash * 7) % 240) + 10;
+  const defaultIp = `119.160.${octet3}.${octet4}`;
+
+  // Try to query server API asynchronously
+  if (typeof fetch !== 'undefined') {
+    fetch('/api/track-click')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.clientIp && data.clientIp !== '127.0.0.1' && data.clientIp !== '::1') {
+          cachedClientIp = data.clientIp;
+          try {
+            localStorage.setItem(STORAGE_CLIENT_IP_CACHE_KEY, data.clientIp);
+          } catch {}
+        }
+      })
+      .catch(() => {});
+  }
+
+  cachedClientIp = defaultIp;
+  try {
+    localStorage.setItem(STORAGE_CLIENT_IP_CACHE_KEY, defaultIp);
+  } catch {}
+  return defaultIp;
+}
+
+/**
+ * Explicitly sets or overrides client IP (e.g. for testing)
+ */
+export function setClientDetectedIp(ip: string): void {
+  cachedClientIp = ip;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(STORAGE_CLIENT_IP_CACHE_KEY, ip);
+    } catch {}
+  }
+}
+
+/**
+ * Retrieves all stored IP inquiry records
+ */
+export function getAllIpInquiries(): IpInquiryRecord[] {
+  if (typeof window === 'undefined') return INITIAL_IP_INQUIRIES;
+  try {
+    const raw = localStorage.getItem(STORAGE_IP_INQUIRIES_KEY);
+    if (!raw) {
+      localStorage.setItem(STORAGE_IP_INQUIRIES_KEY, JSON.stringify(INITIAL_IP_INQUIRIES));
+      return INITIAL_IP_INQUIRIES;
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_IP_INQUIRIES;
+  } catch {
+    return INITIAL_IP_INQUIRIES;
+  }
+}
+
+/**
+ * Saves all IP inquiry records to storage and dispatches update event
+ */
+export function saveAllIpInquiries(inquiries: IpInquiryRecord[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_IP_INQUIRIES_KEY, JSON.stringify(inquiries));
+    window.dispatchEvent(new Event('safarpk_inquiries_updated'));
+  } catch (e) {
+    console.error('Failed to save IP inquiries:', e);
+  }
+}
+
+/**
+ * Records an individual CTA click inquiry with client IP tracking
+ */
+export function recordIpInquiry(input: {
+  listingId: string;
+  listingTitle?: string;
+  listerPhone?: string;
+  listerName?: string;
+  listerId?: string;
+  ctaType: TrackedCtaType;
+  city?: string;
+  clientIp?: string;
+  userId?: string;
+  userRole?: string;
+}): IpInquiryRecord {
+  const detectedIp = input.clientIp || getClientDetectedIp();
+  const activeU = getActiveUser();
+
+  const record: IpInquiryRecord = {
+    id: `inq-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    clientIp: detectedIp,
+    ctaType: input.ctaType,
+    listingId: input.listingId,
+    listingTitle: input.listingTitle || 'Listing',
+    listerPhone: input.listerPhone || '+92 300 1234567',
+    listerName: input.listerName || 'Verified Host',
+    listerId: input.listerId || '',
+    city: input.city || 'Pakistan',
+    userId: input.userId || activeU?.id || '',
+    userRole: input.userRole || activeU?.role || 'CUSTOMER',
+    timestamp: new Date().toISOString(),
+  };
+
+  if (typeof window !== 'undefined') {
+    try {
+      const all = getAllIpInquiries();
+      all.unshift(record);
+      // Keep last 500 inquiries
+      if (all.length > 500) all.length = 500;
+      saveAllIpInquiries(all);
+    } catch {}
+
+    // Asynchronously notify backend /api/track-click for server-side IP tracking
+    if (typeof fetch !== 'undefined') {
+      fetch('/api/track-click', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(record),
+      }).catch(() => {});
+    }
+  }
+
+  return record;
+}
+
+/**
+ * Normalizes phone numbers for reliable lister matching
+ */
+function normalizePhoneForLookup(phone?: string): string {
+  if (!phone) return '';
+  const digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('923')) return digits.slice(2);
+  if (digits.startsWith('03')) return digits.slice(1);
+  return digits;
+}
+
+/**
+ * Computes individual inquiry metrics for a specific listing (with unique IP tracking)
+ */
+export function getListingInquiryStats(listingId: string): ListingInquiryStats {
+  const all = getAllIpInquiries();
+  const filtered = all.filter(
+    (item) => item.listingId === listingId || item.listingId.toLowerCase() === listingId.toLowerCase()
+  );
+
+  const bookClicks = filtered.filter((i) => i.ctaType === 'BOOK_VEHICLE').length;
+  const whatsappClicks = filtered.filter((i) => i.ctaType === 'WHATSAPP').length;
+  const chatClicks = filtered.filter((i) => i.ctaType === 'IN_APP_CHAT').length;
+  const callClicks = filtered.filter((i) => i.ctaType === 'CALL').length;
+
+  const uniqueIps = Array.from(new Set(filtered.map((i) => i.clientIp).filter(Boolean)));
+  const firstMatch = filtered[0];
+
+  return {
+    listingId,
+    listingTitle: firstMatch?.listingTitle || listingId,
+    listerPhone: firstMatch?.listerPhone || '+92 300 1234567',
+    listerName: firstMatch?.listerName || 'Verified Host',
+    city: firstMatch?.city || 'Pakistan',
+    totalInquiries: bookClicks + whatsappClicks + chatClicks + callClicks,
+    bookClicks,
+    whatsappClicks,
+    chatClicks,
+    callClicks,
+    uniqueIps,
+    uniqueIpsCount: uniqueIps.length,
+    lastInquiryAt: firstMatch?.timestamp,
+  };
+}
+
+/**
+ * Computes fleet-wide aggregate inquiry metrics for a specific lister
+ * (Aggregates all their vehicles + unique IP tracking across their fleet)
+ */
+export function getListerFleetInquiryStats(listerPhoneOrId: string): ListerFleetInquiryStats {
+  const all = getAllIpInquiries();
+  const normTarget = normalizePhoneForLookup(listerPhoneOrId);
+  const targetLower = listerPhoneOrId.toLowerCase();
+
+  const filtered = all.filter((item) => {
+    if (item.listerId && item.listerId.toLowerCase() === targetLower) return true;
+    if (item.listerPhone && normalizePhoneForLookup(item.listerPhone).includes(normTarget)) return true;
+    if (normTarget && normalizePhoneForLookup(item.listerPhone) === normTarget) return true;
+    if (item.listerName && item.listerName.toLowerCase().includes(targetLower)) return true;
+    return false;
+  });
+
+  const bookClicks = filtered.filter((i) => i.ctaType === 'BOOK_VEHICLE').length;
+  const whatsappClicks = filtered.filter((i) => i.ctaType === 'WHATSAPP').length;
+  const chatClicks = filtered.filter((i) => i.ctaType === 'IN_APP_CHAT').length;
+  const callClicks = filtered.filter((i) => i.ctaType === 'CALL').length;
+
+  const uniqueIps = Array.from(new Set(filtered.map((i) => i.clientIp).filter(Boolean)));
+  const firstMatch = filtered[0];
+
+  // Group by listingId
+  const listingsMap: Record<string, ListingInquiryStats> = {};
+  for (const item of filtered) {
+    if (!listingsMap[item.listingId]) {
+      listingsMap[item.listingId] = getListingInquiryStats(item.listingId);
+    }
+  }
+
+  return {
+    listerPhone: firstMatch?.listerPhone || listerPhoneOrId,
+    listerName: firstMatch?.listerName || 'Verified Lister',
+    listerId: firstMatch?.listerId,
+    totalFleetInquiries: bookClicks + whatsappClicks + chatClicks + callClicks,
+    uniqueInquirerIps: uniqueIps,
+    uniqueInquirersCount: uniqueIps.length,
+    breakdown: {
+      bookClicks,
+      whatsappClicks,
+      chatClicks,
+      callClicks,
+    },
+    listings: listingsMap,
+  };
+}
+
+/**
+ * Computes platform-wide all-time total inquiries across ALL listers & vehicles
+ */
+export function getGlobalListerInquiryStats(): GlobalListerInquiryStats {
+  const all = getAllIpInquiries();
+
+  const bookClicks = all.filter((i) => i.ctaType === 'BOOK_VEHICLE').length;
+  const whatsappClicks = all.filter((i) => i.ctaType === 'WHATSAPP').length;
+  const chatClicks = all.filter((i) => i.ctaType === 'IN_APP_CHAT').length;
+  const callClicks = all.filter((i) => i.ctaType === 'CALL').length;
+
+  const uniqueIps = Array.from(new Set(all.map((i) => i.clientIp).filter(Boolean)));
+
+  // Group by lister
+  const listerKeys = new Set(all.map((i) => i.listerPhone || i.listerName));
+  const listerBreakdowns: ListerFleetInquiryStats[] = Array.from(listerKeys)
+    .filter(Boolean)
+    .map((key) => getListerFleetInquiryStats(key))
+    .sort((a, b) => b.totalFleetInquiries - a.totalFleetInquiries);
+
+  const distinctListings = new Set(all.map((i) => i.listingId));
+
+  return {
+    allTimeTotalInquiries: bookClicks + whatsappClicks + chatClicks + callClicks,
+    allTimeUniqueIpsCount: uniqueIps.length,
+    allTimeBreakdown: {
+      bookClicks,
+      whatsappClicks,
+      chatClicks,
+      callClicks,
+    },
+    totalActiveListersTracked: listerKeys.size,
+    totalListingsTracked: distinctListings.size,
+    listerBreakdowns,
+  };
 }

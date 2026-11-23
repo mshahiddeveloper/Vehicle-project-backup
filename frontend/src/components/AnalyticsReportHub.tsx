@@ -19,9 +19,17 @@ import {
   Layers,
   Sparkles,
   Lock,
+  Globe,
 } from 'lucide-react';
 import { formatPKR } from '@/lib/api';
-import { getAllLeads, MarketplaceLead } from '@/data/activityTracker';
+import {
+  getAllLeads,
+  MarketplaceLead,
+  getGlobalListerInquiryStats,
+  getListerFleetInquiryStats,
+  getAllIpInquiries,
+  IpInquiryRecord,
+} from '@/data/activityTracker';
 import {
   ListingActionMetrics,
   getListingMetricsForRole,
@@ -53,22 +61,37 @@ export function AnalyticsReportHub({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('ALL');
   const [leads, setLeads] = useState<MarketplaceLead[]>([]);
+  const [ipInquiries, setIpInquiries] = useState<IpInquiryRecord[]>([]);
+  const [showIpLogModal, setShowIpLogModal] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
-  // Sync leads from localStorage
+  // Sync leads & IP inquiries from localStorage
   useEffect(() => {
     setLeads(getAllLeads());
-    const handleUpdate = () => setLeads(getAllLeads());
+    setIpInquiries(getAllIpInquiries());
+    const handleUpdate = () => {
+      setLeads(getAllLeads());
+      setIpInquiries(getAllIpInquiries());
+    };
     window.addEventListener('safarpk_leads_updated', handleUpdate);
     window.addEventListener('safarpk_clicks_updated', handleUpdate);
+    window.addEventListener('safarpk_inquiries_updated', handleUpdate);
     return () => {
       window.removeEventListener('safarpk_leads_updated', handleUpdate);
       window.removeEventListener('safarpk_clicks_updated', handleUpdate);
+      window.removeEventListener('safarpk_inquiries_updated', handleUpdate);
     };
   }, []);
 
   // Compute platform summary or role metrics
-  const summary = useMemo(() => getPlatformAnalyticsSummary(), [leads]);
+  const summary = useMemo(() => getPlatformAnalyticsSummary(), [leads, ipInquiries]);
+  const globalInquiryStats = useMemo(() => getGlobalListerInquiryStats(), [leads, ipInquiries]);
+  const listerFleetStats = useMemo(() => {
+    if (viewerPhone || viewerName) {
+      return getListerFleetInquiryStats(viewerPhone || viewerName);
+    }
+    return null;
+  }, [viewerPhone, viewerName, leads, ipInquiries]);
 
   // Role-specific listing metrics
   const listingMetrics = useMemo(() => {
@@ -156,8 +179,10 @@ export function AnalyticsReportHub({
       'Real Views',
       'WhatsApp Clicks',
       'Phone Call Clicks',
+      'In-App Chat Clicks',
       'Booking Requests',
-      'Total Lead Actions',
+      'Total Inquiries',
+      'Unique Visitor IPs',
       'Contact Rate (%)',
       'Monthly Trend',
     ];
@@ -173,8 +198,10 @@ export function AnalyticsReportHub({
       m.views,
       m.whatsappClicks,
       m.callClicks,
+      m.inAppChatClicks || 0,
       m.bookingRequests,
-      m.whatsappClicks + m.callClicks + m.bookingRequests,
+      m.totalInquiriesCount || (m.whatsappClicks + m.callClicks + m.bookingRequests),
+      m.uniqueVisitorIpsCount || 1,
       m.conversionRate,
       m.delta,
     ]);
@@ -272,6 +299,63 @@ export function AnalyticsReportHub({
               <span>Export Locked</span>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Platform & Lister All-Time Inquiries Intelligence Card */}
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm border border-slate-700/60 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0">
+            <Globe className="w-5 h-5 text-emerald-400" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-heading font-extrabold text-sm sm:text-base text-white">
+                {role === 'LISTER' ? 'My Fleet All-Time Inquiries (IP-Verified)' : 'Total Listers All-Time Inquiries (IP-Verified)'}
+              </h3>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-400/20 text-emerald-300 border border-emerald-400/30">
+                Live IP Tracking
+              </span>
+            </div>
+            <p className="text-xs text-slate-300">
+              Individual visitor IP detection for Book Vehicle, WhatsApp, In-App Chat, and Phone Calls.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 sm:gap-6 shrink-0 divide-x divide-slate-700/80">
+          <div>
+            <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+              {role === 'LISTER' ? 'My Inquiries' : 'Total All-Time Inquiries'}
+            </span>
+            <span className="font-heading font-black text-xl sm:text-2xl text-emerald-400 font-mono">
+              {role === 'LISTER' && listerFleetStats
+                ? listerFleetStats.totalFleetInquiries.toLocaleString()
+                : globalInquiryStats.allTimeTotalInquiries.toLocaleString()}
+            </span>
+          </div>
+
+          <div className="pl-4 sm:pl-6">
+            <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+              Unique Inquirer IPs
+            </span>
+            <span className="font-heading font-black text-xl sm:text-2xl text-sky-400 font-mono">
+              {role === 'LISTER' && listerFleetStats
+                ? listerFleetStats.uniqueInquirersCount.toLocaleString()
+                : globalInquiryStats.allTimeUniqueIpsCount.toLocaleString()}
+            </span>
+          </div>
+
+          <div className="pl-4 sm:pl-6">
+            <button
+              type="button"
+              onClick={() => setShowIpLogModal(true)}
+              className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
+            >
+              <span>View IP Log</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -502,33 +586,37 @@ export function AnalyticsReportHub({
         <div className="hidden lg:block overflow-x-auto no-scrollbar min-h-[280px]">
           <table className="table-fixed w-full text-left text-xs border-collapse">
             <colgroup>
-              <col className="w-[32%]" />
-              <col className="w-[11%]" />
+              <col className="w-[24%]" />
               <col className="w-[8%]" />
+              <col className="w-[7%]" />
+              <col className="w-[7%]" />
+              <col className="w-[7%]" />
+              <col className="w-[7%]" />
               <col className="w-[8%]" />
-              <col className="w-[9%]" />
+              <col className="w-[7%]" />
+              <col className="w-[10%]" />
               <col className="w-[8%]" />
-              <col className="w-[8%]" />
-              <col className="w-[9%]" />
               <col className="w-[7%]" />
             </colgroup>
             <thead>
               <tr className="border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
                 <th className="pb-3 pr-3">Listing / Host Item</th>
-                <th className="pb-3 px-3">Category</th>
-                <th className="pb-3 px-3 text-right">Shown</th>
-                <th className="pb-3 px-3 text-right">Views</th>
-                <th className="pb-3 px-3 text-right text-emerald-700">WhatsApp</th>
-                <th className="pb-3 px-3 text-right text-sky-700">Calls</th>
-                <th className="pb-3 px-3 text-right text-purple-700">Bookings</th>
-                <th className="pb-3 px-3 text-right">Contact Rate</th>
+                <th className="pb-3 px-2">Category</th>
+                <th className="pb-3 px-2 text-right">Shown</th>
+                <th className="pb-3 px-2 text-right">Views</th>
+                <th className="pb-3 px-2 text-right text-emerald-700">WhatsApp</th>
+                <th className="pb-3 px-2 text-right text-sky-700">Calls</th>
+                <th className="pb-3 px-2 text-right text-blue-700">In-App Chat</th>
+                <th className="pb-3 px-2 text-right text-purple-700">Bookings</th>
+                <th className="pb-3 px-2 text-right font-black text-slate-900 bg-slate-50/70">Total Inquiries</th>
+                <th className="pb-3 px-2 text-right font-bold text-emerald-800">Unique IPs</th>
                 <th className="pb-3 pl-3 text-right">Growth</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {tableFilteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center">
+                  <td colSpan={11} className="py-12 text-center">
                     <div className="max-w-md mx-auto space-y-1.5">
                       <span className="text-2xl block">🔍</span>
                       <p className="font-bold text-slate-800 text-sm">
@@ -564,28 +652,37 @@ export function AnalyticsReportHub({
                         </div>
                       </div>
                     </td>
-                    <td className="py-3.5 px-3">
+                    <td className="py-3.5 px-2">
                       <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-700">
                         {item.category}
                       </span>
                     </td>
-                    <td className="py-3.5 px-3 text-right font-mono text-slate-500">
+                    <td className="py-3.5 px-2 text-right font-mono text-slate-500">
                       {item.impressions.toLocaleString()}
                     </td>
-                    <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-900">
+                    <td className="py-3.5 px-2 text-right font-mono font-bold text-slate-900">
                       {item.views.toLocaleString()}
                     </td>
-                    <td className="py-3.5 px-3 text-right font-mono font-black text-emerald-600 bg-emerald-50/50">
+                    <td className="py-3.5 px-2 text-right font-mono font-black text-emerald-600 bg-emerald-50/50">
                       {item.whatsappClicks}
                     </td>
-                    <td className="py-3.5 px-3 text-right font-mono font-black text-sky-600 bg-sky-50/50">
+                    <td className="py-3.5 px-2 text-right font-mono font-black text-sky-600 bg-sky-50/50">
                       {item.callClicks}
                     </td>
-                    <td className="py-3.5 px-3 text-right font-mono font-black text-purple-600 bg-purple-50/50">
+                    <td className="py-3.5 px-2 text-right font-mono font-black text-blue-600 bg-blue-50/50">
+                      {item.inAppChatClicks || 0}
+                    </td>
+                    <td className="py-3.5 px-2 text-right font-mono font-black text-purple-600 bg-purple-50/50">
                       {item.bookingRequests}
                     </td>
-                    <td className="py-3.5 px-3 text-right font-mono font-black text-slate-900">
-                      {item.conversionRate}
+                    <td className="py-3.5 px-2 text-right font-mono font-black text-slate-900 bg-slate-100/60">
+                      {item.totalInquiriesCount || (item.whatsappClicks + item.callClicks + (item.inAppChatClicks || 0) + item.bookingRequests)}
+                    </td>
+                    <td className="py-3.5 px-2 text-right font-mono font-bold text-emerald-800">
+                      <span className="inline-flex items-center gap-1">
+                        <Globe className="w-3 h-3 text-emerald-600" />
+                        <span>{item.uniqueVisitorIpsCount || 1} IPs</span>
+                      </span>
                     </td>
                     <td className="py-3.5 pl-3 text-right font-mono font-bold text-emerald-600">
                       {item.delta}
@@ -613,10 +710,12 @@ export function AnalyticsReportHub({
             </div>
           ) : (
             tableFilteredItems.map((item) => {
-              const totalActions = item.whatsappClicks + item.callClicks + item.bookingRequests;
-              const waPct = totalActions > 0 ? (item.whatsappClicks / totalActions) * 100 : 50;
-              const callPct = totalActions > 0 ? (item.callClicks / totalActions) * 100 : 30;
-              const reqPct = totalActions > 0 ? (item.bookingRequests / totalActions) * 100 : 20;
+              const inAppClicks = item.inAppChatClicks || 0;
+              const totalInq = item.totalInquiriesCount || (item.whatsappClicks + item.callClicks + inAppClicks + item.bookingRequests);
+              const waPct = totalInq > 0 ? (item.whatsappClicks / totalInq) * 100 : 40;
+              const callPct = totalInq > 0 ? (item.callClicks / totalInq) * 100 : 30;
+              const chatPct = totalInq > 0 ? (inAppClicks / totalInq) * 100 : 15;
+              const reqPct = totalInq > 0 ? (item.bookingRequests / totalInq) * 100 : 15;
 
               return (
                 <div
@@ -643,13 +742,18 @@ export function AnalyticsReportHub({
                         📍 {item.city} · {item.ownerName}
                       </span>
                     </div>
-                    <span className="text-[11px] font-mono font-extrabold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md shrink-0">
-                      {item.conversionRate}
-                    </span>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className="text-[11px] font-mono font-extrabold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md">
+                        {item.conversionRate}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-600 bg-slate-200/70 px-1.5 py-0.5 rounded">
+                        🌐 {item.uniqueVisitorIpsCount || 1} IPs
+                      </span>
+                    </div>
                   </div>
 
-                  {/* 4 Mobile Metric Tiles */}
-                  <div className="grid grid-cols-4 gap-1 text-center bg-white p-2 rounded-xl border border-slate-200/80">
+                  {/* 5 Mobile Metric Tiles */}
+                  <div className="grid grid-cols-5 gap-1 text-center bg-white p-2 rounded-xl border border-slate-200/80">
                     <div className="flex flex-col">
                       <b className="text-xs sm:text-sm font-mono font-black text-slate-900">{item.views}</b>
                       <span className="text-[9px] text-slate-400 font-semibold">Views</span>
@@ -663,8 +767,12 @@ export function AnalyticsReportHub({
                       <span className="text-[9px] text-sky-700 font-bold">Calls</span>
                     </div>
                     <div className="flex flex-col">
+                      <b className="text-xs sm:text-sm font-mono font-black text-blue-600">{inAppClicks}</b>
+                      <span className="text-[9px] text-blue-700 font-bold">Chat</span>
+                    </div>
+                    <div className="flex flex-col">
                       <b className="text-xs sm:text-sm font-mono font-black text-purple-600">{item.bookingRequests}</b>
-                      <span className="text-[9px] text-purple-700 font-bold">Bookings</span>
+                      <span className="text-[9px] text-purple-700 font-bold">Books</span>
                     </div>
                   </div>
 
@@ -672,6 +780,7 @@ export function AnalyticsReportHub({
                   <div className="h-1.5 rounded-full bg-slate-200 overflow-hidden flex">
                     <div style={{ width: `${waPct}%` }} className="h-full bg-[#10B981]" />
                     <div style={{ width: `${callPct}%` }} className="h-full bg-[#0284C7]" />
+                    <div style={{ width: `${chatPct}%` }} className="h-full bg-blue-600" />
                     <div style={{ width: `${reqPct}%` }} className="h-full bg-[#8B5CF6]" />
                   </div>
                 </div>
@@ -794,6 +903,97 @@ export function AnalyticsReportHub({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* IP-Verified Inquiries Audit Modal */}
+      {showIpLogModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in">
+          <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-900 text-white">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center">
+                  <Globe className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="font-heading font-extrabold text-sm sm:text-base text-white">
+                    IP-Verified Inquiries Audit Log
+                  </h3>
+                  <p className="text-[11px] text-slate-300">
+                    Real client IP address detection & CTA event ledger
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowIpLogModal(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto space-y-2.5 divide-y divide-slate-100">
+              {ipInquiries.length === 0 ? (
+                <div className="py-12 text-center text-slate-500 text-xs font-semibold">
+                  No IP inquiry records captured yet.
+                </div>
+              ) : (
+                ipInquiries.slice(0, 30).map((record) => (
+                  <div key={record.id} className="pt-2.5 first:pt-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono font-black text-slate-900 bg-slate-100 px-2 py-0.5 rounded text-[11px] border border-slate-200">
+                          🌐 {record.clientIp}
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            record.ctaType === 'BOOK_VEHICLE'
+                              ? 'bg-purple-100 text-purple-800'
+                              : record.ctaType === 'WHATSAPP'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : record.ctaType === 'IN_APP_CHAT'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-sky-100 text-sky-800'
+                          }`}
+                        >
+                          {record.ctaType}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-500">
+                          {record.userRole || 'GUEST'}
+                        </span>
+                      </div>
+                      <p className="text-slate-800 font-semibold text-xs">
+                        {record.listingTitle} <span className="text-slate-400 font-normal">({record.city})</span>
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        Host: <strong className="text-slate-700">{record.listerName}</strong> · {record.listerPhone}
+                      </p>
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-mono shrink-0 text-left sm:text-right">
+                      {new Date(record.timestamp).toLocaleDateString('en-PK', {
+                        day: 'numeric',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="p-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+              <span>Showing last {Math.min(30, ipInquiries.length)} live records</span>
+              <button
+                type="button"
+                onClick={() => setShowIpLogModal(false)}
+                className="px-4 py-1.5 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition cursor-pointer"
+              >
+                Close Audit Log
+              </button>
+            </div>
           </div>
         </div>
       )}

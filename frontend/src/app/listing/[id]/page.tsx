@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/AppHeader';
 import { AppFooter } from '@/components/AppFooter';
 import { MobileNavBar } from '@/components/MobileNavBar';
-import { recordLead, recordClickEvent } from '@/data/activityTracker';
+import { recordLead, recordClickEvent, recordIpInquiry } from '@/data/activityTracker';
 import { getActiveUser, setActiveUser, isListingPaused } from '@/data/userAuth';
 import { setPendingWishlist, consumeWishlistToast } from '@/data/wishlist';
 import { getApiBaseUrl } from '@/lib/api';
@@ -100,6 +100,7 @@ interface VehicleDetail {
   hostPhone: string;
   hostWhatsapp: string;
   hostResponseTime?: string;
+  ownerId?: string;
 }
 
 const VEHICLE_CATALOG: Record<string, VehicleDetail> = {
@@ -752,12 +753,44 @@ export default function ListingDetailPage() {
     setValidationError('');
   };
 
+  const handleBookVehicleClick = () => {
+    recordIpInquiry({
+      listingId: car.id,
+      listingTitle: car.title,
+      listerPhone: car.hostPhone,
+      listerName: car.hostName,
+      listerId: car.ownerId,
+      ctaType: 'BOOK_VEHICLE',
+      city: car.city,
+    });
+    recordClickEvent({
+      clickType: 'BOOKING_CLICK',
+      targetId: car.id,
+      targetTitle: car.title,
+      targetCategory: 'CAR_RENTAL',
+      targetOwnerId: car.ownerId,
+      targetOwnerName: car.hostName,
+      city: car.city,
+    });
+    setStep(1);
+  };
+
   const handleDirectHostCall = () => {
+    recordIpInquiry({
+      listingId: car.id,
+      listingTitle: car.title,
+      listerPhone: car.hostPhone,
+      listerName: car.hostName,
+      listerId: car.ownerId,
+      ctaType: 'CALL',
+      city: car.city,
+    });
     recordClickEvent({
       clickType: 'CALL_CLICK',
       targetId: car.id,
       targetTitle: car.title,
       targetCategory: 'CAR_RENTAL',
+      targetOwnerId: car.ownerId,
       targetOwnerName: car.hostName,
       city: car.city,
     });
@@ -770,10 +803,16 @@ export default function ListingDetailPage() {
       notes: `Direct phone call initiated from vehicle page for ${car.title}`,
     });
 
+    const isMobile =
+      typeof window !== 'undefined' &&
+      (window.innerWidth < 768 ||
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+          navigator.userAgent
+        ));
     const isAlreadyRevealed = hostPhoneRevealed;
     setHostPhoneRevealed(true);
 
-    if (isAlreadyRevealed || (typeof window !== 'undefined' && window.innerWidth < 768)) {
+    if (isAlreadyRevealed || isMobile) {
       window.location.href = `tel:${car.hostPhone.replace(/[^0-9+]/g, '')}`;
     }
   };
@@ -791,11 +830,21 @@ export default function ListingDetailPage() {
       return;
     }
 
+    recordIpInquiry({
+      listingId: car.id,
+      listingTitle: car.title,
+      listerPhone: car.hostPhone,
+      listerName: car.hostName,
+      listerId: car.ownerId,
+      ctaType: 'IN_APP_CHAT',
+      city: car.city,
+    });
     recordClickEvent({
       clickType: 'CHAT_CLICK',
       targetId: car.id,
       targetTitle: car.title,
       targetCategory: 'CAR_RENTAL',
+      targetOwnerId: car.ownerId,
       targetOwnerName: car.hostName,
       city: car.city,
     });
@@ -817,9 +866,9 @@ export default function ListingDetailPage() {
         providerManager: car.hostName,
         providerPhone: car.hostWhatsapp || car.hostPhone || '+92 300 1234567',
         itemName: car.title,
-        pickupDate: startDate,
-        returnDate: endDate,
-        duration: `${rentalDays} days`,
+        pickupDate: pickupDate,
+        returnDate: returnDate,
+        duration: `${daysCount} days`,
         totalEstimate: dayRate + ' /day',
         serviceMode: withDriver ? 'With Chauffeur' : 'Self-Drive',
         bookingRef: `CAR-${Math.floor(10000 + Math.random() * 90000)}`,
@@ -831,11 +880,21 @@ export default function ListingDetailPage() {
   };
 
   const handleInstantWhatsAppChat = () => {
+    recordIpInquiry({
+      listingId: car.id,
+      listingTitle: car.title,
+      listerPhone: car.hostPhone,
+      listerName: car.hostName,
+      listerId: car.ownerId,
+      ctaType: 'WHATSAPP',
+      city: car.city,
+    });
     recordClickEvent({
       clickType: 'WHATSAPP_CLICK',
       targetId: car.id,
       targetTitle: car.title,
       targetCategory: 'CAR_RENTAL',
+      targetOwnerId: car.ownerId,
       targetOwnerName: car.hostName,
       city: car.city,
     });
@@ -2049,47 +2108,47 @@ export default function ListingDetailPage() {
               <span className="font-heading font-extrabold text-sm text-slate-900">{formatPrice(calculateTotal())}</span>
             </div>
 
-            {/* Streamlined, Direct Actions (WhatsApp, Chat with Host, Book Vehicle) */}
+            {/* Direct Inquiries & Actions (Book Vehicle, WhatsApp, In-App Chat, Show Phone) */}
             <div className="flex flex-col gap-2 pt-1">
-              {/* Option 1: WhatsApp Direct */}
+              {/* Option 1: Book Vehicle (Top Priority) */}
+              <button
+                type="button"
+                onClick={handleBookVehicleClick}
+                className="w-full h-11 rounded-xl bg-[#101828] hover:bg-emerald-950 text-white font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm hover:shadow active:scale-[0.99]"
+              >
+                <CalendarCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Book Vehicle</span>
+              </button>
+
+              {/* Option 2: WhatsApp Direct */}
               <button
                 type="button"
                 onClick={handleInstantWhatsAppChat}
-                className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm hover:shadow active:scale-[0.99]"
+                className="w-full h-11 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm hover:shadow active:scale-[0.99]"
               >
                 <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
                 <span>WhatsApp</span>
               </button>
 
-              {/* Option 2: In-App Direct Chat */}
+              {/* Option 3: In-App Direct Chat (Concise single-line button) */}
               <button
                 type="button"
                 onClick={handleDirectChat}
-                className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
+                className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
               >
-                <MessageSquare className="w-3.5 h-3.5 text-blue-200" />
-                <span>Chat with Host</span>
+                <MessageSquare className="w-3.5 h-3.5 text-blue-100 shrink-0" />
+                <span>In-App Chat</span>
               </button>
 
-              {/* Option 3: Instant Booking */}
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="w-full h-11 rounded-xl bg-[#101828] hover:bg-emerald-950 text-white font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm hover:shadow active:scale-[0.99]"
-              >
-                <CalendarCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Book Vehicle & Check Rates</span>
-              </button>
-
-              {/* Option 3: Call Host / Show Number */}
+              {/* Option 4: Call Host / Reveal Number on Click */}
               <button
                 type="button"
                 onClick={handleDirectHostCall}
-                className="w-full h-10 rounded-xl border border-purple-200 bg-purple-50/70 hover:bg-purple-100 text-purple-900 font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-2xs active:scale-[0.99]"
+                className="w-full h-10 rounded-xl border border-purple-200 bg-purple-50/70 hover:bg-purple-100 text-purple-900 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-2xs active:scale-[0.99]"
                 title={hostPhoneRevealed ? `Call host: ${car.hostPhone}` : 'Click to show phone number'}
               >
                 <Phone className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                <span>{hostPhoneRevealed ? `Call Host: ${car.hostPhone}` : 'Show Phone Number'}</span>
+                <span>{hostPhoneRevealed ? `Call: ${car.hostPhone}` : 'Show Phone Number'}</span>
               </button>
             </div>
 
@@ -2278,11 +2337,11 @@ export default function ListingDetailPage() {
 
           <button
             type="button"
-            onClick={() => setStep(1)}
+            onClick={handleBookVehicleClick}
             className="h-10 px-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-heading font-extrabold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition"
           >
             <CalendarCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>Book</span>
+            <span>Book Vehicle</span>
           </button>
         </div>
       </div>
