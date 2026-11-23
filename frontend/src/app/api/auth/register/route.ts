@@ -68,33 +68,58 @@ export async function POST(req: NextRequest) {
     `;
 
     // 5. Create Profile according to role
-    if (userType === 'CUSTOMER') {
-      const parts = name.split(' ');
-      const firstName = parts[0] || name;
-      const lastName = parts.slice(1).join(' ') || '';
+    const parts = name.split(' ');
+    const firstName = parts[0] || name;
+    const lastName = parts.slice(1).join(' ') || (userType === 'CUSTOMER' ? 'Member' : 'Partner');
 
+    if (userType === 'CUSTOMER') {
       await sql`
-        INSERT INTO "CustomerProfile" (id, "userId", "firstName", "lastName", city, "identityVerified")
-        VALUES (${`cp-${Date.now()}`}, ${userId}, ${firstName}, ${lastName}, ${city || 'Lahore'}, false)
+        INSERT INTO "CustomerProfile" (id, "userId", "firstName", "lastName", city, "identityVerified", "updatedAt")
+        VALUES (${`cp-${Date.now()}`}, ${userId}, ${firstName}, ${lastName}, ${city || 'Lahore'}, false, NOW())
         ON CONFLICT ("userId") DO NOTHING
       `;
     } else if (userType === 'LISTER') {
       await sql`
-        INSERT INTO "ListerProfile" (id, "userId", "businessName", "listerType", city, "isVerified")
-        VALUES (${`lp-${Date.now()}`}, ${userId}, ${businessName || `${name} Fleet`}, 'BUSINESS', ${city || 'Lahore'}, false)
+        INSERT INTO "ListerProfile" (id, "userId", "firstName", "lastName", "businessName", "listerType", city, "updatedAt")
+        VALUES (${`lp-${Date.now()}`}, ${userId}, ${firstName}, ${lastName}, ${businessName || `${name} Fleet`}, 'BUSINESS_LISTER', ${city || 'Lahore'}, NOW())
         ON CONFLICT ("userId") DO NOTHING
       `;
     } else if (userType === 'DRIVER') {
       await sql`
-        INSERT INTO "DriverProfile" (id, "userId", "fullName", city, "licenseCategory", "isAvailable", "isVerified")
-        VALUES (${`dp-${Date.now()}`}, ${userId}, ${name}, ${city || 'Lahore'}, 'LTV', true, false)
+        INSERT INTO "DriverProfile" (id, "userId", "firstName", "lastName", city, "updatedAt")
+        VALUES (${`dp-${Date.now()}`}, ${userId}, ${firstName}, ${lastName}, ${city || 'Lahore'}, NOW())
         ON CONFLICT ("userId") DO NOTHING
       `;
     }
 
+    const userPayload = {
+      id: userId,
+      name: name.trim(),
+      businessName: businessName || undefined,
+      phone: cleanPhone,
+      email: email || undefined,
+      city: city || 'Lahore',
+      countryCode: 'PK',
+      role: userType,
+      registeredAt: new Date().toISOString(),
+      subscription: {
+        status: 'ACTIVE',
+        quota: 10,
+        usedQuota: 0,
+      },
+      metrics: {
+        viewCount: 0,
+        leadsCount: 0,
+        clickCount: 0,
+        lastActive: 'Just now',
+      },
+      activities: [],
+    };
+
     return NextResponse.json({
       success: true,
       userId,
+      user: userPayload,
       message: 'Account successfully registered and persisted in Neon PostgreSQL 16.',
     });
   } catch (error: any) {
@@ -109,3 +134,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+

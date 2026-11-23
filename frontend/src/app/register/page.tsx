@@ -200,7 +200,7 @@ function RegisterForm() {
     signIn: { en: 'Sign in', ur: 'سائن اِن', ar: 'تسجيل الدخول', de: 'Anmelden' },
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setNotice(null);
@@ -254,6 +254,30 @@ function RegisterForm() {
       target = '/provider?mode=commercial_cargo';
     }
 
+    // 1. Synchronously persist user to Neon PostgreSQL database first
+    try {
+      const apiRes = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: fullName.trim(),
+          phone: phone.trim(),
+          email: email.trim() || undefined,
+          password: password,
+          role: mappedRole,
+          city: city.trim() || 'Karachi',
+          businessName: businessName.trim() || undefined,
+        }),
+      });
+      const apiData = await apiRes.json().catch(() => null);
+      if (apiData && apiData.success) {
+        console.log('User persisted into Neon PostgreSQL 16:', apiData.userId);
+      }
+    } catch (e) {
+      console.warn('Neon DB registration call notice:', e);
+    }
+
+    // 2. Register into client storage
     const res = registerNewUser({
       name: fullName.trim(),
       businessName:
@@ -282,23 +306,6 @@ function RegisterForm() {
       setError(res.error || 'Registration failed.');
       return;
     }
-
-    // Asynchronously synchronize user account to Neon PostgreSQL database
-    try {
-      fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: fullName.trim(),
-          phone: phone.trim(),
-          email: email.trim() || undefined,
-          password: password,
-          role: mappedRole,
-          city: city.trim() || 'Karachi',
-          businessName: businessName.trim() || undefined,
-        }),
-      }).catch((e) => console.warn('Neon DB async sync notice:', e));
-    } catch (e) {}
 
     if (res.alreadyExists) {
       setNotice('Matching existing account found! Opening your dashboard directly...');

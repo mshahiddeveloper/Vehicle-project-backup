@@ -4,7 +4,7 @@ import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Globe, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, UserCheck, AlertCircle } from 'lucide-react';
-import { authenticateUser, getUserDashboardPath } from '@/data/userAuth';
+import { authenticateUser, getUserDashboardPath, setActiveUser, RegisteredUser } from '@/data/userAuth';
 import { executePendingWishlistIfAny } from '@/data/wishlist';
 import { MobilePullToRefresh } from '@/components/MobilePullToRefresh';
 import { OfflineStatusBanner } from '@/components/OfflineStatusBanner';
@@ -37,26 +37,103 @@ function LoginContent() {
     create: { en: 'Create account', ur: 'اکاؤنٹ بنائیں', ar: 'إنشاء حساب', de: 'Konto erstellen' },
   };
 
-  const handleSignIn = (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!identifier.trim()) {
+    const cleanId = identifier.trim();
+    if (!cleanId) {
       setError('Please enter your phone number or email.');
       return;
     }
 
     setLoading(true);
 
-    const res = authenticateUser(identifier.trim(), password);
+    try {
+      // 1. Attempt server-side login against Neon PostgreSQL 16
+      const apiRes = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: cleanId, password }),
+      });
+
+      const data = await apiRes.json().catch(() => null);
+
+      if (data && data.success && data.user) {
+        // Hydrate the user into Browser local storage for client-side components & state
+        const loggedUser: RegisteredUser = data.user;
+        setActiveUser(loggedUser);
+
+        // Also ensure this user exists in safarpk_registered_users array in this browser
+        try {
+          const raw = localStorage.getItem('safarpk_registered_users');
+          let users: RegisteredUser[] = raw ? JSON.parse(raw) : [];
+          const idx = users.findIndex((u) => u.id === loggedUser.id || u.phone === loggedUser.phone);
+          if (idx >= 0) {
+            users[idx] = loggedUser;
+          } else {
+            users.push(loggedUser);
+          }
+          localStorage.setItem('safarpk_registered_users', JSON.stringify(users));
+        } catch (e) {}
+
+        // Dispatch auth state change
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('safarpk_auth_state_changed', { detail: loggedUser }));
+        }
+
+        setLoading(false);
+
+        // Execute pending guest wishlist or navigate
+        const pending = executePendingWishlistIfAny();
+        let dest: string;
+        if (pending.executed) {
+          dest = pending.returnUrl || '/saved';
+        } else if (returnUrl) {
+          dest = returnUrl;
+        } else {
+          dest = getUserDashboardPath(loggedUser);
+        }
+        router.push(dest);
+        return;
+      }
+
+      // If server returned specific password error or 404 for non-demo users, report error
+      if (data && data.error && (apiRes.status === 401 || (apiRes.status === 404 && !cleanId.startsWith('usr-demo-')))) {
+        // Check if demo user fallback applies before showing error
+        const localRes = authenticateUser(cleanId, password);
+        if (localRes.success && localRes.user) {
+          setLoading(false);
+          const pending = executePendingWishlistIfAny();
+          let dest: string;
+          if (pending.executed) {
+            dest = pending.returnUrl || '/saved';
+          } else if (returnUrl) {
+            dest = returnUrl;
+          } else {
+            dest = getUserDashboardPath(localRes.user);
+          }
+          router.push(dest);
+          return;
+        }
+
+        setError(data.error);
+        setLoading(false);
+        return;
+      }
+    } catch (apiErr) {
+      console.warn('Neon DB login API call error, falling back to local auth:', apiErr);
+    }
+
+    // 2. Offline / Local fallback (e.g. for demo users or offline mode)
+    const localRes = authenticateUser(cleanId, password);
     setLoading(false);
 
-    if (!res.success || !res.user) {
-      setError(res.error || 'Authentication failed. Please check credentials.');
+    if (!localRes.success || !localRes.user) {
+      setError(localRes.error || 'Authentication failed. Please check credentials.');
       return;
     }
 
-    // Check if there was an in-progress guest wishlist action
     const pending = executePendingWishlistIfAny();
     let dest: string;
     if (pending.executed) {
@@ -64,7 +141,7 @@ function LoginContent() {
     } else if (returnUrl) {
       dest = returnUrl;
     } else {
-      dest = getUserDashboardPath(res.user);
+      dest = getUserDashboardPath(localRes.user);
     }
 
     router.push(dest);
