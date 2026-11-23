@@ -20,6 +20,12 @@
   },
   "rewrites": [
     {
+      "source": "/api/auth/(.*)",
+      "destination": {
+        "service": "frontend"
+      }
+    },
+    {
       "source": "/api/neon-health(.*)",
       "destination": {
         "service": "frontend"
