@@ -40,9 +40,47 @@ export type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number];
 // -----------------------------------------------------------------------------
 
 export function getCloudinaryConfig() {
-  const cloudName = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'safarpk-media';
-  const apiKey = process.env.CLOUDINARY_API_KEY || '123456789012345';
-  const apiSecret = process.env.CLOUDINARY_API_SECRET || 'your_cloudinary_api_secret_key';
+  let cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  let apiKey = process.env.CLOUDINARY_API_KEY;
+  let apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+  // 1. Support CLOUDINARY_URL format (or auto-extract if pasted in connection string)
+  const rawUrl =
+    process.env.CLOUDINARY_URL ||
+    (process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME?.includes('cloudinary://')
+      ? process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME.replace(/^CLOUDINARY_URL=/, '').trim()
+      : undefined);
+
+  if (rawUrl) {
+    try {
+      const parsed = new URL(rawUrl);
+      if (!cloudName) cloudName = parsed.hostname;
+      if (!apiKey) apiKey = parsed.username;
+      if (!apiSecret) apiSecret = parsed.password;
+    } catch {
+      const match = rawUrl.match(/cloudinary:\/\/([^:]+):([^@]+)@(.+)/);
+      if (match) {
+        if (!apiKey) apiKey = match[1];
+        if (!apiSecret) apiSecret = match[2];
+        if (!cloudName) cloudName = match[3];
+      }
+    }
+  }
+
+  // 2. Sanitize cloudName: strip any accidental URI prefixes or credentials to prevent PII/secret leakage
+  if (cloudName && (cloudName.includes('@') || cloudName.includes('cloudinary://'))) {
+    const parts = cloudName.split('@');
+    cloudName = parts[parts.length - 1].trim();
+  }
+
+  // 3. Fallbacks
+  cloudName = cloudName || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'safarpk-media';
+  if (cloudName.includes('@') || cloudName.includes('cloudinary://')) {
+    const parts = cloudName.split('@');
+    cloudName = parts[parts.length - 1].trim();
+  }
+  apiKey = apiKey || '123456789012345';
+  apiSecret = apiSecret || 'your_cloudinary_api_secret_key';
 
   cloudinary.config({
     cloud_name: cloudName,
@@ -334,3 +372,4 @@ export async function uploadToCloudinary(options: UploadOptions): Promise<Upload
     uploadStream.end(buffer);
   });
 }
+

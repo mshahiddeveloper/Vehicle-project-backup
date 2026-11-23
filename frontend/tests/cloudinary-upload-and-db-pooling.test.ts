@@ -5,6 +5,7 @@ import {
   sanitizeUploadFilename,
   generateSignedUploadParams,
   uploadToCloudinary,
+  getCloudinaryConfig,
   MAX_UPLOAD_SIZE_BYTES,
   ALLOWED_FOLDERS,
 } from '../src/lib/cloudinary';
@@ -97,9 +98,9 @@ describe('SafarPK Cloudinary & Neon Production Architecture Suite', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // 3. Signed Upload Parameters
+  // 3. Signed Upload Parameters & Config Sanitization
   // ---------------------------------------------------------------------------
-  describe('Cloudinary Signed Upload Tokens', () => {
+  describe('Cloudinary Signed Upload Tokens & Credentials Sanitization', () => {
     it('generates valid signed upload parameters for approved folders', () => {
       const signed = generateSignedUploadParams('safarpk/vehicles');
       expect(signed.cloudName).toBeDefined();
@@ -112,6 +113,24 @@ describe('SafarPK Cloudinary & Neon Production Architecture Suite', () => {
 
     it('throws error when generating signature for invalid folder', () => {
       expect(() => generateSignedUploadParams('invalid/folder' as any)).toThrow();
+    });
+
+    it('gracefully parses CLOUDINARY_URL and sanitizes accidental secret leaks from public env', () => {
+      const originalEnv = { ...process.env };
+
+      delete process.env.CLOUDINARY_CLOUD_NAME;
+      delete process.env.CLOUDINARY_API_KEY;
+      delete process.env.CLOUDINARY_API_SECRET;
+      delete process.env.CLOUDINARY_URL;
+      process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME =
+        'CLOUDINARY_URL=cloudinary://418736935923198:mm5gpwndpVbGwHmmttHBFNzaQTU@uxoguvcv';
+
+      const config = getCloudinaryConfig();
+      expect(config.cloudName).toBe('uxoguvcv');
+      expect(config.apiKey).toBe('418736935923198');
+      expect(config.apiSecret).toBe('mm5gpwndpVbGwHmmttHBFNzaQTU');
+
+      process.env = originalEnv;
     });
   });
 
@@ -320,3 +339,4 @@ describe('SafarPK Cloudinary & Neon Production Architecture Suite', () => {
     });
   });
 });
+
