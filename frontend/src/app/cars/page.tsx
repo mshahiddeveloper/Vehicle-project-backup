@@ -24,7 +24,13 @@ import { MobileNavBar } from '@/components/MobileNavBar';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import { CARS_DATA, VehicleCardItem } from '@/data/marketplaceData';
 import { isListingPaused, getActiveUser } from '@/data/userAuth';
-import { setPendingWishlist, consumeWishlistToast } from '@/data/wishlist';
+import {
+  setPendingWishlist,
+  consumeWishlistToast,
+  saveWishlistItem,
+  removeWishlistItem,
+  getSavedWishlistItems,
+} from '@/data/wishlist';
 import { formatPKR } from '@/lib/api';
 
 const PAK_CITIES = [
@@ -61,8 +67,8 @@ function CarsDirectoryContent() {
   const paramCat = searchParams?.get('category') || '';
   const paramTrans = searchParams?.get('transmission') || '';
 
-  // State
-  const [selectedCity, setSelectedCity] = useState(paramCity || 'All Cities');
+  // State (Default to Karachi)
+  const [selectedCity, setSelectedCity] = useState(paramCity || 'Karachi');
   const [searchQuery, setSearchQuery] = useState(paramSearch || '');
   const [selectedCategory, setSelectedCategory] = useState(paramCat || 'All Cars');
   const [selectedTransmission, setSelectedTransmission] = useState(paramTrans || 'All');
@@ -79,12 +85,23 @@ function CarsDirectoryContent() {
 
   // Load saved vehicles from storage & pending wishlist toast
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('safarpk_saved_cars');
-      if (saved) setSavedCarIds(JSON.parse(saved));
-    } catch {}
+    const syncSaved = () => {
+      try {
+        const saved = getSavedWishlistItems();
+        setSavedCarIds(saved.map((c) => c.id));
+      } catch {}
+    };
+    syncSaved();
+    window.addEventListener('safarpk_saved_updated', syncSaved);
+    window.addEventListener('safarpk_favorites_updated', syncSaved);
+    window.addEventListener('storage', syncSaved);
     const toast = consumeWishlistToast();
     if (toast) showToast(toast);
+    return () => {
+      window.removeEventListener('safarpk_saved_updated', syncSaved);
+      window.removeEventListener('safarpk_favorites_updated', syncSaved);
+      window.removeEventListener('storage', syncSaved);
+    };
   }, []);
 
   const showToast = (msg: string) => {
@@ -94,16 +111,17 @@ function CarsDirectoryContent() {
 
   const toggleSaveCar = (carId: string, carName: string) => {
     const user = getActiveUser();
+    const foundCar = filteredCars.find((c) => c.id === carId) || CARS_DATA.find((c) => c.id === carId);
+
     if (!user) {
       const currentUrl = typeof window !== 'undefined' ? (window.location.pathname + window.location.search) : '/cars';
-      const foundCar = filteredCars.find((c) => c.id === carId) || CARS_DATA.find((c) => c.id === carId);
       setPendingWishlist({
         id: carId,
         category: 'car',
         title: foundCar?.name || carName,
         name: foundCar?.name || carName,
         specs: foundCar?.specs || 'Verified Car Rental',
-        city: foundCar?.city || selectedCity || 'Pakistan',
+        city: foundCar?.city || selectedCity || 'Karachi',
         rate: foundCar?.price || 'PKR 12,000 / day',
         price: foundCar?.price || 'PKR 12,000 / day',
         href: `/listing/${carId}`,
@@ -112,18 +130,25 @@ function CarsDirectoryContent() {
       return;
     }
 
-    let next: string[];
     if (savedCarIds.includes(carId)) {
-      next = savedCarIds.filter((id) => id !== carId);
+      removeWishlistItem(carId);
+      setSavedCarIds((prev) => prev.filter((id) => id !== carId));
       showToast(`Removed "${carName}" from wishlist`);
     } else {
-      next = [...savedCarIds, carId];
+      saveWishlistItem({
+        id: carId,
+        category: 'car',
+        title: foundCar?.name || carName,
+        name: foundCar?.name || carName,
+        specs: foundCar?.specs || 'Verified Car Rental',
+        city: foundCar?.city || selectedCity || 'Karachi',
+        rate: foundCar?.price || 'PKR 12,000 / day',
+        price: foundCar?.price || 'PKR 12,000 / day',
+        href: `/listing/${carId}`,
+      });
+      setSavedCarIds((prev) => [...prev, carId]);
       showToast(`Added "${carName}" to wishlist ❤️`);
     }
-    setSavedCarIds(next);
-    try {
-      localStorage.setItem('safarpk_saved_cars', JSON.stringify(next));
-    } catch {}
   };
 
   // Filtered & Sorted Cars

@@ -29,35 +29,48 @@ export default function SavedItemsPage() {
   const loadSaved = () => {
     try {
       if (typeof window === 'undefined') return;
-      const user = getActiveUser();
+      let user = getActiveUser();
       setActiveUser(user);
 
-      // Logged out visitors: Wishlist is completely blank and displays friendly login prompt
       if (!user) {
-        setItems([]);
-        return;
+        fetch('/api/auth/me')
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (data?.authenticated && data?.user) {
+              setActiveUser(data.user);
+              user = data.user;
+              // Re-run load once user hydrated
+              window.dispatchEvent(new CustomEvent('safarpk_auth_state_changed', { detail: data.user }));
+            }
+          })
+          .catch(() => {});
       }
 
-      const savedList = getSavedWishlistItems();
-      const mapped: SavedItem[] = savedList.map((p) => {
-        const cat = (p.category || '').toLowerCase();
-        const mappedCat: SavedItem['category'] =
-          cat.includes('driver') ? 'driver' :
-          cat.includes('shuttle') || cat.includes('pick') ? 'shuttle' :
-          cat.includes('mover') || cat.includes('cargo') ? 'mover' : 'car';
+      // Logged out visitors without cookie: Wishlist is completely blank and displays friendly login prompt
+      if (!user) {
+        setItems([]);
+      } else {
+        const savedList = getSavedWishlistItems();
+        const mapped: SavedItem[] = savedList.map((p) => {
+          const cat = (p.category || '').toLowerCase();
+          const mappedCat: SavedItem['category'] =
+            cat.includes('driver') ? 'driver' :
+            cat.includes('shuttle') || cat.includes('pick') ? 'shuttle' :
+            cat.includes('mover') || cat.includes('cargo') ? 'mover' : 'car';
 
-        return {
-          id: p.id,
-          category: mappedCat,
-          name: p.title || p.name || 'Saved Listing',
-          sub: p.specs ? `${p.specs} · ${p.city || 'Karachi'}` : (p.sub || p.city || 'Verified Partner'),
-          price: p.rate || p.price || 'PKR 10,000 / day',
-          href: p.href || (p.id?.startsWith('l-') || p.id?.startsWith('car-') ? `/listing/${p.id}` : `/listing/l-1`),
-          contacted: p.contacted,
-        };
-      });
+          return {
+            id: p.id,
+            category: mappedCat,
+            name: p.title || p.name || 'Saved Listing',
+            sub: p.specs ? `${p.specs} · ${p.city || 'Karachi'}` : (p.sub || p.city || 'Verified Partner'),
+            price: p.rate || p.price || 'PKR 10,000 / day',
+            href: p.href || (p.id?.startsWith('l-') || p.id?.startsWith('car-') ? `/listing/${p.id}` : `/listing/l-1`),
+            contacted: p.contacted,
+          };
+        });
 
-      setItems(mapped);
+        setItems(mapped);
+      }
 
       // Asynchronously fetch and merge any items saved in Neon PostgreSQL DB
       fetch('/api/wishlist')
@@ -66,10 +79,10 @@ export default function SavedItemsPage() {
           if (dbData && dbData.success && Array.isArray(dbData.items) && dbData.items.length > 0) {
             const dbMapped: SavedItem[] = dbData.items.map((v: any) => ({
               id: v.vehicle_id,
-              category: 'car',
-              name: v.title || `${v.brand} ${v.model}`,
-              sub: `${v.model_year || 2024} · ${v.city || 'Pakistan'}`,
-              price: `PKR ${Number(v.daily_rate_pkr || 5000).toLocaleString()} / day`,
+              category: v.category || 'car',
+              name: v.title || 'Saved Listing',
+              sub: v.specs ? `${v.specs} · ${v.city || 'Pakistan'}` : (v.city || 'Pakistan'),
+              price: v.price || 'PKR 5,000 / day',
               href: `/listing/${v.vehicle_id}`,
             }));
             setItems((prev) => {

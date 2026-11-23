@@ -34,7 +34,13 @@ import {
 } from 'lucide-react';
 import { AppHeader } from '@/components/AppHeader';
 import { getActiveUser } from '@/data/userAuth';
-import { setPendingWishlist, consumeWishlistToast } from '@/data/wishlist';
+import {
+  setPendingWishlist,
+  consumeWishlistToast,
+  saveWishlistItem,
+  removeWishlistItem,
+  getSavedWishlistItems,
+} from '@/data/wishlist';
 import { AppFooter } from '@/components/AppFooter';
 import { MobileNavBar } from '@/components/MobileNavBar';
 import { MobileHomeNativeView } from '@/components/MobileHomeNativeView';
@@ -145,8 +151,8 @@ export default function HomePage() {
   // Active Service Tab (0: Rent a Car, 1: Hire Driver, 2: City to City, 3: Pick & Drop, 4: Movers)
   const [activeService, setActiveService] = useState<number>(0);
 
-  // Search Fields for Cars / Rentals
-  const [searchWhere, setSearchWhere] = useState('');
+  // Search Fields for Cars / Rentals (Default to Karachi on desktop)
+  const [searchWhere, setSearchWhere] = useState('Karachi');
   const [searchPickup, setSearchPickup] = useState('');
   const [searchReturn, setSearchReturn] = useState('');
 
@@ -578,20 +584,21 @@ export default function HomePage() {
   useEffect(() => {
     const syncSaved = () => {
       try {
-        const ids = new Set<string>();
-        const raw = localStorage.getItem('safarpk_saved_items');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) {
-            parsed.forEach((item: any) => ids.add(item.id || item));
-          }
+        const savedItems = getSavedWishlistItems();
+        const ids = new Set<string>(savedItems.map((it) => it.id));
+        const rawItems = localStorage.getItem('safarpk_saved_items');
+        if (rawItems) {
+          try {
+            const parsed = JSON.parse(rawItems);
+            if (Array.isArray(parsed)) parsed.forEach((item: any) => ids.add(item.id || item));
+          } catch (e) {}
         }
         const rawVehicles = localStorage.getItem('safarpk_saved_vehicles');
         if (rawVehicles) {
-          const parsedVehicles = JSON.parse(rawVehicles);
-          if (Array.isArray(parsedVehicles)) {
-            parsedVehicles.forEach((id: string) => ids.add(id));
-          }
+          try {
+            const parsed = JSON.parse(rawVehicles);
+            if (Array.isArray(parsed)) parsed.forEach((id: string) => ids.add(id));
+          } catch (e) {}
         }
         setSavedIds(Array.from(ids));
       } catch (e) {}
@@ -628,35 +635,23 @@ export default function HomePage() {
     }
 
     try {
-      let updated: string[];
-      let storedList: any[] = [];
-      const raw = localStorage.getItem('safarpk_saved_items');
-      if (raw) {
-        try {
-          storedList = JSON.parse(raw);
-        } catch (e) {}
-      }
-
       if (savedIds.includes(car.id)) {
-        updated = savedIds.filter((id) => id !== car.id);
-        storedList = storedList.filter((item) => (item.id || item) !== car.id);
+        removeWishlistItem(car.id);
+        setSavedIds((prev) => prev.filter((id) => id !== car.id));
       } else {
-        updated = [...savedIds, car.id];
-        storedList.unshift({
+        saveWishlistItem({
           id: car.id,
+          category: 'car',
           title: car.name,
-          category: 'Cars',
+          name: car.name,
           specs: car.specs,
           city: car.city,
           rate: car.price,
-          savedAt: new Date().toISOString(),
+          price: car.price,
+          href: `/listing/${car.id}`,
         });
+        setSavedIds((prev) => [...prev, car.id]);
       }
-      setSavedIds(updated);
-      localStorage.setItem('safarpk_saved_items', JSON.stringify(storedList));
-      localStorage.setItem('safarpk_saved_vehicles', JSON.stringify(updated));
-      window.dispatchEvent(new Event('safarpk_saved_updated'));
-      window.dispatchEvent(new Event('safarpk_favorites_updated'));
     } catch (e) {}
   };
 
@@ -953,7 +948,7 @@ export default function HomePage() {
         <AppHeader currentCountry={country} onCountryChange={setCountry} />
 
         {/* 2. Hero Section - Sleek Minimal, Compact on Mobile */}
-        <section className="relative z-10 bg-gradient-to-b from-[#F9FBFA] via-[#F4F7F5] to-white border-b border-[#EEF0F2]">
+        <section style={{ zIndex: 1 }} className="relative z-0 bg-gradient-to-b from-[#F9FBFA] via-[#F4F7F5] to-white border-b border-[#EEF0F2]">
         <div className="max-w-[1240px] mx-auto px-3 sm:px-8 pt-2 sm:pt-4 md:pt-6 pb-2 sm:pb-5 flex flex-col gap-2 sm:gap-3.5">
           {/* Minimal Animated Header Copy */}
           <div className="flex flex-col gap-1 sm:gap-2 max-w-[820px]">
@@ -982,7 +977,7 @@ export default function HomePage() {
           </div>
 
           {/* Search Card Container */}
-          <div className="relative bg-white border border-[#E4E7EC] rounded-2xl sm:rounded-3xl shadow-[0_2px_4px_rgba(16,24,40,0.04),0_20px_48px_rgba(16,24,40,0.10)] overflow-visible z-40">
+          <div style={{ zIndex: 10 }} className="relative bg-white border border-[#E4E7EC] rounded-2xl sm:rounded-3xl shadow-[0_2px_4px_rgba(16,24,40,0.04),0_20px_48px_rgba(16,24,40,0.10)] overflow-visible z-40">
             {/* Mobile 5-Service Compact Segmented Selector (All 5 options visible at a glance without cutoff) */}
             <div className="md:hidden p-1 bg-[#F4F6F8] rounded-xl sm:rounded-2xl m-1 sm:m-1.5 border border-[#EEF0F2]">
               <div

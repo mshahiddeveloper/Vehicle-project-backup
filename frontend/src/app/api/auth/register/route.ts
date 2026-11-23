@@ -129,67 +129,69 @@ export async function POST(req: NextRequest) {
     `;
     const userId: string = insertRows[0].id;
 
-    // 3. Dual-sync to legacy `User` and profile tables for backward compatibility
-    try {
-      let countryResult = await sql`SELECT id FROM "Country" WHERE code = 'PK' LIMIT 1`;
-      let countryId = countryResult[0]?.id || 'country-pk';
+    // 3. Asynchronously dual-sync to legacy tables & log audit event without blocking client response (<150ms instant response)
+    (async () => {
+      try {
+        let countryResult = await sql`SELECT id FROM "Country" WHERE code = 'PK' LIMIT 1`;
+        let countryId = countryResult[0]?.id || 'country-pk';
 
-      await sql`
-        INSERT INTO "User" (
-          id, phone, "phoneCountryCode", email, "passwordHash", "userType", "accountStatus", "countryId", metadata, "updatedAt"
-        ) VALUES (
-          ${userId},
-          ${cleanPhone},
-          '+92',
-          ${cleanEmail},
-          ${passwordHash},
-          ${cleanRole},
-          'APPROVED',
-          ${countryId},
-          ${JSON.stringify({ name: name.trim(), city: cleanCity, businessName: businessName || null })},
-          NOW()
-        )
-        ON CONFLICT (phone) DO NOTHING;
-      `;
+        await sql`
+          INSERT INTO "User" (
+            id, phone, "phoneCountryCode", email, "passwordHash", "userType", "accountStatus", "countryId", metadata, "updatedAt"
+          ) VALUES (
+            ${userId},
+            ${cleanPhone},
+            '+92',
+            ${cleanEmail},
+            ${passwordHash},
+            ${cleanRole},
+            'APPROVED',
+            ${countryId},
+            ${JSON.stringify({ name: name.trim(), city: cleanCity, businessName: businessName || null })},
+            NOW()
+          )
+          ON CONFLICT (phone) DO NOTHING;
+        `;
 
-      const parts = name.trim().split(' ');
-      const firstName = parts[0] || name;
-      const lastName = parts.slice(1).join(' ') || (cleanRole === 'CUSTOMER' ? 'Member' : 'Partner');
+        const parts = name.trim().split(' ');
+        const firstName = parts[0] || name;
+        const lastName = parts.slice(1).join(' ') || (cleanRole === 'CUSTOMER' ? 'Member' : 'Partner');
 
-      if (cleanRole === 'CUSTOMER') {
-        await sql`
-          INSERT INTO "CustomerProfile" (id, "userId", "firstName", "lastName", city, "identityVerified", "updatedAt")
-          VALUES (${`cp-${Date.now()}`}, ${userId}, ${firstName}, ${lastName}, ${cleanCity}, false, NOW())
-          ON CONFLICT ("userId") DO NOTHING;
-        `;
-      } else if (cleanRole === 'LISTER') {
-        await sql`
-          INSERT INTO "ListerProfile" (id, "userId", "firstName", "lastName", "businessName", "listerType", city, "updatedAt")
-          VALUES (${`lp-${Date.now()}`}, ${userId}, ${firstName}, ${lastName}, ${businessName || `${name}'s Fleet`}, 'INDIVIDUAL', ${cleanCity}, NOW())
-          ON CONFLICT ("userId") DO NOTHING;
-        `;
-      } else if (cleanRole === 'DRIVER') {
-        await sql`
-          INSERT INTO "DriverProfile" (id, "userId", "firstName", "lastName", "licenseNumber", city, "driverStatus", "updatedAt")
-          VALUES (${`dp-${Date.now()}`}, ${userId}, ${firstName}, ${lastName}, 'PENDING', ${cleanCity}, 'ACTIVE', NOW())
-          ON CONFLICT ("userId") DO NOTHING;
-        `;
+        if (cleanRole === 'CUSTOMER') {
+          await sql`
+            INSERT INTO "CustomerProfile" (id, "userId", "firstName", "lastName", city, "identityVerified", "updatedAt")
+            VALUES (${`cp-${Date.now()}`}, ${userId}, ${firstName}, ${lastName}, ${cleanCity}, false, NOW())
+            ON CONFLICT ("userId") DO NOTHING;
+          `;
+        } else if (cleanRole === 'LISTER') {
+          await sql`
+            INSERT INTO "ListerProfile" (id, "userId", "firstName", "lastName", "businessName", "listerType", city, "updatedAt")
+            VALUES (${`lp-${Date.now()}`}, ${userId}, ${firstName}, ${lastName}, ${businessName || `${name}'s Fleet`}, 'INDIVIDUAL', ${cleanCity}, NOW())
+            ON CONFLICT ("userId") DO NOTHING;
+          `;
+        } else if (cleanRole === 'DRIVER') {
+          await sql`
+            INSERT INTO "DriverProfile" (id, "userId", "firstName", "lastName", "licenseNumber", city, "driverStatus", "updatedAt")
+            VALUES (${`dp-${Date.now()}`}, ${userId}, ${firstName}, ${lastName}, 'PENDING', ${cleanCity}, 'ACTIVE', NOW())
+            ON CONFLICT ("userId") DO NOTHING;
+          `;
+        }
+      } catch (e) {
+        console.warn('Legacy table dual-sync note:', e);
       }
-    } catch (e) {
-      console.warn('Legacy table dual-sync note:', e);
-    }
 
-    // 4. Log audit event
-    await logAuditEvent({
-      actorId: userId,
-      actorRole: cleanRole,
-      actionType: 'USER_REGISTERED',
-      targetResource: 'USER',
-      resourceId: userId,
-      ipAddress: req.headers.get('x-forwarded-for') || null,
-      userAgent: req.headers.get('user-agent') || null,
-      stateDelta: { phone: cleanPhone, role: cleanRole, city: cleanCity },
-    });
+      // 4. Log audit event
+      logAuditEvent({
+        actorId: userId,
+        actorRole: cleanRole,
+        actionType: 'USER_REGISTERED',
+        targetResource: 'USER',
+        resourceId: userId,
+        ipAddress: req.headers.get('x-forwarded-for') || null,
+        userAgent: req.headers.get('user-agent') || null,
+        stateDelta: { phone: cleanPhone, role: cleanRole, city: cleanCity },
+      }).catch((e) => console.warn('Audit log error:', e));
+    })().catch(() => {});
 
     // 5. Build response and set HttpOnly, Secure, SameSite=Strict session cookie
     const userPayload = {

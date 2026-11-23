@@ -245,8 +245,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. Log audit event
-    await logAuditEvent({
+    // 3. Log audit event asynchronously without blocking login response (<150ms instant login)
+    logAuditEvent({
       actorId: matchedUser.id,
       actorRole: matchedUser.role,
       actionType: 'USER_LOGIN_SUCCESS',
@@ -254,7 +254,7 @@ export async function POST(req: NextRequest) {
       resourceId: matchedUser.id,
       ipAddress: req.headers.get('x-forwarded-for') || null,
       userAgent: req.headers.get('user-agent') || null,
-    });
+    }).catch((e) => console.warn('Login audit log note:', e));
 
     // 4. Set HttpOnly, Secure, SameSite=Strict cookie
     const res = NextResponse.json({

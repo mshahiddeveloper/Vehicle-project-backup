@@ -283,7 +283,10 @@ export function AppHeader({
 
   return (
     <>
-      <header className="sticky top-0 z-[1000] bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs font-sans transition-all">
+      <header
+        style={{ zIndex: 1000, position: 'sticky', top: 0 }}
+        className="sticky top-0 z-[1000] bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs font-sans transition-all"
+      >
       {/* ========================================================================= */}
       {/* 1. DESKTOP HEADER (Screens md and above)                                 */}
       {/* ========================================================================= */}
@@ -348,7 +351,7 @@ export function AppHeader({
         {/* Right Section */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           {/* 1. Country Selector Dropdown */}
-          <div className="relative" ref={countryMenuRef}>
+          <div className="relative" ref={countryMenuRef} style={{ zIndex: 1050 }}>
             <button
               type="button"
               onClick={() => {
@@ -370,7 +373,7 @@ export function AppHeader({
             </button>
 
             {showCountryMenu && (
-              <div className="absolute top-full mt-2 left-0 w-64 max-w-[280px] bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-[1050] animate-in fade-in slide-in-from-top-1 duration-150">
+              <div style={{ zIndex: 1100 }} className="absolute top-full mt-2 left-0 w-64 max-w-[280px] bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-[1050] animate-in fade-in slide-in-from-top-1 duration-150">
                 <div className="px-4 py-2 border-b border-slate-100 flex items-center justify-between">
                   <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                     Select Country
@@ -419,7 +422,7 @@ export function AppHeader({
           </div>
 
           {/* 2. Independent Currency Selector Dropdown */}
-          <div className="relative" ref={currencyMenuRef}>
+          <div className="relative" ref={currencyMenuRef} style={{ zIndex: 1050 }}>
             <button
               type="button"
               onClick={() => {
@@ -438,7 +441,7 @@ export function AppHeader({
             </button>
 
             {showCurrencyMenu && (
-              <div className="absolute top-full mt-2 left-0 w-72 max-w-[300px] bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-[1050] animate-in fade-in slide-in-from-top-1 duration-150">
+              <div style={{ zIndex: 1100 }} className="absolute top-full mt-2 left-0 w-72 max-w-[300px] bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-[1050] animate-in fade-in slide-in-from-top-1 duration-150">
                 <div className="px-4 py-2 border-b border-slate-100 flex items-center justify-between">
                   <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                     Select Currency
@@ -495,7 +498,7 @@ export function AppHeader({
 
           {/* User Auth / Profile Dropdown (Desktop) */}
           {activeUser ? (
-            <div className="relative" ref={userMenuRef}>
+            <div className="relative" ref={userMenuRef} style={{ zIndex: 1050 }}>
               <button
                 type="button"
                 onClick={() => {
@@ -529,7 +532,7 @@ export function AppHeader({
               </button>
 
               {showUserMenu && (
-                <div className="absolute top-full mt-2 right-0 w-56 max-w-[240px] bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-[1050] animate-in fade-in slide-in-from-top-1 duration-150">
+                <div style={{ zIndex: 1100 }} className="absolute top-full mt-2 right-0 w-56 max-w-[240px] bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-[1050] animate-in fade-in slide-in-from-top-1 duration-150">
                   <div className="px-4 py-2 border-b border-slate-100">
                     <p className="text-sm font-bold text-[#101828] truncate">
                       {activeUser.name}

@@ -9,7 +9,13 @@ import { MobileNavBar } from '@/components/MobileNavBar';
 import { recordLead, recordClickEvent, recordIpInquiry } from '@/data/activityTracker';
 import { getActiveUser, setActiveUser, isListingPaused } from '@/data/userAuth';
 import { CARS_DATA } from '@/data/marketplaceData';
-import { setPendingWishlist, consumeWishlistToast } from '@/data/wishlist';
+import {
+  setPendingWishlist,
+  consumeWishlistToast,
+  saveWishlistItem,
+  removeWishlistItem,
+  isItemInWishlist,
+} from '@/data/wishlist';
 import { getApiBaseUrl } from '@/lib/api';
 import { startOrOpenConversation, getWhatsAppTargetUrl } from '@/data/chatEngine';
 import { getStoreSlugForOwner } from '@/data/storefrontEngine';
@@ -672,18 +678,7 @@ export default function ListingDetailPage() {
   useEffect(() => {
     try {
       if (typeof window === 'undefined') return;
-      const rawVehicles = localStorage.getItem('safarpk_saved_vehicles');
-      const rawItems = localStorage.getItem('safarpk_saved_items');
-      let saved = false;
-      if (rawVehicles) {
-        const parsed = JSON.parse(rawVehicles);
-        if (Array.isArray(parsed) && parsed.includes(car.id)) saved = true;
-      }
-      if (!saved && rawItems) {
-        const parsed = JSON.parse(rawItems);
-        if (Array.isArray(parsed) && parsed.some((it: any) => (it.id || it) === car.id)) saved = true;
-      }
-      setIsSaved(saved);
+      setIsSaved(isItemInWishlist(car.id));
 
       const toast = consumeWishlistToast();
       if (toast) {
@@ -713,49 +708,26 @@ export default function ListingDetailPage() {
     }
 
     try {
-      const nextSaved = !isSaved;
-      setIsSaved(nextSaved);
-
-      let vIds: string[] = [];
-      const rawVehicles = localStorage.getItem('safarpk_saved_vehicles');
-      if (rawVehicles) {
-        try { vIds = JSON.parse(rawVehicles); } catch (e) {}
-      }
-      if (nextSaved) {
-        if (!vIds.includes(car.id)) vIds.push(car.id);
+      if (isSaved) {
+        removeWishlistItem(car.id);
+        setIsSaved(false);
+        setShareNotice('Removed from saved items');
       } else {
-        vIds = vIds.filter((id) => id !== car.id);
-      }
-      localStorage.setItem('safarpk_saved_vehicles', JSON.stringify(vIds));
-
-      let storedList: any[] = [];
-      const rawItems = localStorage.getItem('safarpk_saved_items');
-      if (rawItems) {
-        try { storedList = JSON.parse(rawItems); } catch (e) {}
-      }
-      if (nextSaved) {
-        storedList = storedList.filter((item) => (item.id || item) !== car.id);
-        storedList.unshift({
+        saveWishlistItem({
           id: car.id,
+          category: 'car',
           title: car.title,
           name: car.title,
-          category: 'Cars',
           specs: `${car.transmission} · ${car.year} · ${car.seats} seats`,
           city: car.city,
           rate: `PKR ${car.dailyRate.toLocaleString()} / day`,
           price: `PKR ${car.dailyRate.toLocaleString()} / day`,
-          savedAt: new Date().toISOString(),
+          href: `/listing/${car.id}`,
         });
-      } else {
-        storedList = storedList.filter((item) => (item.id || item) !== car.id);
+        setIsSaved(true);
+        setShareNotice('Saved to your wishlist! ❤️');
       }
-      localStorage.setItem('safarpk_saved_items', JSON.stringify(storedList));
-
-      window.dispatchEvent(new Event('safarpk_saved_updated'));
-      window.dispatchEvent(new Event('safarpk_favorites_updated'));
-
-      setShareNotice(nextSaved ? 'Saved to wishlist!' : 'Removed from wishlist');
-      setTimeout(() => setShareNotice(null), 2500);
+      setTimeout(() => setShareNotice(null), 3000);
     } catch (e) {}
   };
 

@@ -6,6 +6,25 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  async redirects() {
+    return [
+      {
+        source: '/demo',
+        destination: '/demo-accounts',
+        permanent: false,
+      },
+      {
+        source: '/credentials',
+        destination: '/demo-accounts',
+        permanent: false,
+      },
+      {
+        source: '/test-accounts',
+        destination: '/demo-accounts',
+        permanent: false,
+      },
+    ];
+  },
   async headers() {
     return [
       {
