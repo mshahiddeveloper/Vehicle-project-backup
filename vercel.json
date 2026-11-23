@@ -20,6 +20,24 @@
   },
   "rewrites": [
     {
+      "source": "/api/upload(.*)",
+      "destination": {
+        "service": "frontend"
+      }
+    },
+    {
+      "source": "/api/track-click(.*)",
+      "destination": {
+        "service": "frontend"
+      }
+    },
+    {
+      "source": "/api/whatsapp-otp(.*)",
+      "destination": {
+        "service": "frontend"
+      }
+    },
+    {
       "source": "/api/v1/(.*)",
       "destination": {
         "service": "backend"
