@@ -9,15 +9,23 @@ import {
   AllowedFolder,
 } from '@/lib/cloudinary';
 import { unsealUserSession } from '@/lib/cryptoVault';
+import { getSessionFromRequest } from '@/lib/session';
+import { getNeonSqlClient } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 /**
- * Validates request authentication (JWT, Bearer token, or sealed session)
+ * Validates request authentication (Session Cookie, JWT, Bearer token, or sealed session)
  */
-function authenticateRequest(req: NextRequest): { authenticated: boolean; userId?: string; userRole?: string } {
-  // 1. Check Authorization Bearer header
+async function authenticateRequest(req: NextRequest): Promise<{ authenticated: boolean; userId?: string; userRole?: string }> {
+  // 1. Check server-side HttpOnly signed session cookie
+  const session = await getSessionFromRequest(req);
+  if (session && session.id) {
+    return { authenticated: true, userId: session.id, userRole: session.role };
+  }
+
+  // 2. Check Authorization Bearer header
   const authHeader = req.headers.get('authorization');
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.substring(7).trim();
@@ -34,7 +42,7 @@ function authenticateRequest(req: NextRequest): { authenticated: boolean; userId
     }
   }
 
-  // 2. Check custom session token header
+  // 3. Check custom session token header
   const sessionTokenHeader = req.headers.get('x-session-token');
   if (sessionTokenHeader) {
     const unsealed = unsealUserSession(sessionTokenHeader);
@@ -43,7 +51,7 @@ function authenticateRequest(req: NextRequest): { authenticated: boolean; userId
     }
   }
 
-  // 3. Check explicit user ID header (authenticated internal proxy or client)
+  // 4. Check explicit user ID header (authenticated internal proxy or client)
   const userIdHeader = req.headers.get('x-user-id');
   if (userIdHeader && userIdHeader.trim().length > 0) {
     return {
@@ -53,15 +61,12 @@ function authenticateRequest(req: NextRequest): { authenticated: boolean; userId
     };
   }
 
-  // 4. Check cookies
-  const sessionCookie = req.cookies.get('safarpk_session')?.value || req.cookies.get('auth_token')?.value;
-  if (sessionCookie) {
-    const unsealed = unsealUserSession(sessionCookie);
+  // 5. Check legacy cookies
+  const legacyCookie = req.cookies.get('auth_token')?.value;
+  if (legacyCookie) {
+    const unsealed = unsealUserSession(legacyCookie);
     if (unsealed && unsealed.id) {
       return { authenticated: true, userId: unsealed.id, userRole: unsealed.role };
-    }
-    if (sessionCookie.length >= 10) {
-      return { authenticated: true, userId: 'auth_cookie_user', userRole: 'CUSTOMER' };
     }
   }
 
@@ -72,7 +77,7 @@ function authenticateRequest(req: NextRequest): { authenticated: boolean; userId
  * GET /api/upload - Returns signed upload parameters for direct client uploads
  */
 export async function GET(req: NextRequest) {
-  const auth = authenticateRequest(req);
+  const auth = await authenticateRequest(req);
   if (!auth.authenticated) {
     return NextResponse.json(
       { success: false, error: 'Unauthorized: Authentication required to upload files.' },
@@ -112,7 +117,7 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   // 1. Strict Authentication Check (OWASP ASVS Level 2+)
-  const auth = authenticateRequest(req);
+  const auth = await authenticateRequest(req);
   if (!auth.authenticated) {
     return NextResponse.json(
       { success: false, error: 'Unauthorized: Authentication required to upload files.' },
@@ -212,6 +217,32 @@ export async function POST(req: NextRequest) {
         { success: false, error: uploadResult.error || 'Cloudinary upload failed.' },
         { status: 500 }
       );
+    }
+
+    // 6. Record KYC Document in PostgreSQL user_documents if uploaded to documents vault
+    if (requestedFolder === 'safarpk/documents' && auth.userId && /^[0-9a-f-]{36}$/i.test(auth.userId)) {
+      try {
+        const sql = getNeonSqlClient();
+        const docType = (formData.get('documentType') as string) || 'CNIC';
+        const docNumber = (formData.get('documentNumber') as string) || null;
+        await sql`
+          INSERT INTO user_documents (
+            user_id,
+            document_type,
+            document_file_url,
+            document_number,
+            verification_status
+          ) VALUES (
+            ${auth.userId},
+            ${docType},
+            ${uploadResult.secureUrl},
+            ${docNumber},
+            'PENDING_APPROVAL'
+          );
+        `;
+      } catch (dbErr) {
+        console.warn('user_documents persistence notice:', dbErr);
+      }
     }
 
     return NextResponse.json({

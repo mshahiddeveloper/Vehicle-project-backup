@@ -982,7 +982,7 @@ export default function HomePage() {
           </div>
 
           {/* Search Card Container */}
-          <div className="relative bg-white border border-[#E4E7EC] rounded-2xl sm:rounded-3xl shadow-[0_2px_4px_rgba(16,24,40,0.04),0_20px_48px_rgba(16,24,40,0.10)] overflow-visible z-20">
+          <div className="relative bg-white border border-[#E4E7EC] rounded-2xl sm:rounded-3xl shadow-[0_2px_4px_rgba(16,24,40,0.04),0_20px_48px_rgba(16,24,40,0.10)] overflow-visible z-40">
             {/* Mobile 5-Service Compact Segmented Selector (All 5 options visible at a glance without cutoff) */}
             <div className="md:hidden p-1 bg-[#F4F6F8] rounded-xl sm:rounded-2xl m-1 sm:m-1.5 border border-[#EEF0F2]">
               <div

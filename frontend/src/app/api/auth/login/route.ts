@@ -1,15 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getNeonSqlClient } from '@/lib/db';
+import { setSessionCookie } from '@/lib/session';
+import { logAuditEvent } from '@/lib/auditLogServer';
+import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-async function hashPassword(pwd: string): Promise<string> {
-  const enc = new TextEncoder().encode(pwd + 'safarpk_salt_2026');
-  const buffer = await globalThis.crypto.subtle.digest('SHA-256', enc);
-  return Array.from(new Uint8Array(buffer))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+const VAULT_SALT = 'safarpk_sec_v2_9f83b1c8e2d4a7f05b19e6c384d2a1f7';
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < Math.min(a.length, b.length); i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+function verifyPasswordPbkdf2(plainPassword: string, storedHash: string): boolean {
+  if (!plainPassword || !storedHash) return false;
+
+  // 1. Check if hash is in standard format pbkdf2_sha256$<iter>$<salt>$<hash>
+  if (storedHash.startsWith('pbkdf2_sha256$')) {
+    const parts = storedHash.split('$');
+    if (parts.length === 4) {
+      const iterations = parseInt(parts[1], 10) || 100000;
+      const salt = parts[2];
+      const expectedHash = parts[3];
+
+      const derived = crypto.pbkdf2Sync(plainPassword, salt + VAULT_SALT, iterations, 32, 'sha256');
+      return timingSafeEqual(derived.toString('hex'), expectedHash);
+    }
+  }
+
+  // 2. Fallback check for legacy SHA-256 or demo passwords
+  const enc = crypto.createHash('sha256').update(plainPassword + 'safarpk_salt_2026').digest('hex');
+  if (timingSafeEqual(enc, storedHash)) return true;
+
+  return timingSafeEqual(plainPassword, storedHash);
 }
 
 export async function GET() {
@@ -33,6 +62,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (!password) {
+      return NextResponse.json(
+        { success: false, error: 'Please enter your account password.' },
+        { status: 400 }
+      );
+    }
+
     const trimmed = identifier.trim();
     const cleanPhone = trimmed.replace(/[\s\-\(\)]/g, '');
     const phoneSuffix = cleanPhone.replace(/^\+92|^0092|^0/, '').slice(-9);
@@ -40,126 +76,153 @@ export async function POST(req: NextRequest) {
 
     const sql = getNeonSqlClient();
 
-    // Query User by phone or email, joining their profile
-    const users = await sql`
+    // 1. First check enterprise `users` table
+    let users = await sql`
       SELECT 
-        u.id, 
-        u.phone, 
-        u."phoneCountryCode", 
-        u.email, 
-        u."passwordHash", 
-        u."userType", 
-        u."accountStatus", 
-        u.metadata,
-        u."createdAt",
-        cp.id as cp_id, 
-        cp."firstName" as cp_first_name, 
-        cp."lastName" as cp_last_name, 
-        cp.city as cp_city,
-        lp.id as lp_id, 
-        lp."businessName" as lp_business_name, 
-        lp.city as lp_city,
-        dp.id as dp_id, 
-        dp."firstName" as dp_first_name,
-        dp."lastName" as dp_last_name, 
-        dp.city as dp_city
-      FROM "User" u
-      LEFT JOIN "CustomerProfile" cp ON cp."userId" = u.id
-      LEFT JOIN "ListerProfile" lp ON lp."userId" = u.id
-      LEFT JOIN "DriverProfile" dp ON dp."userId" = u.id
-      WHERE u.phone = ${cleanPhone}
-         OR u.phone = ${'+92' + phoneSuffix}
-         OR u.phone LIKE ${'%' + phoneSuffix}
-         OR LOWER(u.email) = ${cleanEmail}
-      LIMIT 1
+        id, 
+        phone, 
+        email, 
+        password_hash, 
+        full_name, 
+        business_name, 
+        role, 
+        provider_subtype, 
+        city, 
+        country_code, 
+        kyc_status, 
+        is_blocked, 
+        created_at
+      FROM users
+      WHERE 
+        phone = ${cleanPhone}
+        OR phone LIKE ${'%' + phoneSuffix}
+        OR (email IS NOT NULL AND email = ${cleanEmail})
+      LIMIT 1;
     `;
 
-    if (users.length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'No account registered with this phone number or email address.' },
-        { status: 404 }
-      );
-    }
+    let matchedUser: any = null;
 
-    const dbUser = users[0];
-
-    // Password verification
-    if (dbUser.passwordHash && password) {
-      const incomingHash = await hashPassword(password);
-      const matchesHash = incomingHash === dbUser.passwordHash;
-      const matchesPlain = password === dbUser.passwordHash; // Legacy fallback
-
-      if (!matchesHash && !matchesPlain) {
+    if (users.length > 0) {
+      const u = users[0];
+      if (u.is_blocked) {
         return NextResponse.json(
-          { success: false, error: 'Incorrect password. Please verify your password and try again.' },
+          { success: false, error: 'This account has been temporarily suspended. Please contact SafarPK support.' },
+          { status: 403 }
+        );
+      }
+
+      const isValid = verifyPasswordPbkdf2(password, u.password_hash);
+      if (!isValid) {
+        await logAuditEvent({
+          actorId: u.id,
+          actorRole: u.role,
+          actionType: 'USER_LOGIN_FAILED',
+          targetResource: 'USER',
+          resourceId: u.id,
+          ipAddress: req.headers.get('x-forwarded-for') || null,
+          userAgent: req.headers.get('user-agent') || null,
+          stateDelta: { reason: 'INVALID_CREDENTIALS' },
+        });
+
+        return NextResponse.json(
+          { success: false, error: 'Incorrect password. Please verify and try again.' },
           { status: 401 }
         );
       }
-    }
 
-    // Parse metadata
-    let meta: any = {};
-    if (dbUser.metadata) {
-      try {
-        meta = typeof dbUser.metadata === 'string' ? JSON.parse(dbUser.metadata) : dbUser.metadata;
-      } catch (e) {
-        meta = {};
+      matchedUser = {
+        id: u.id,
+        phone: u.phone,
+        email: u.email,
+        name: u.full_name,
+        businessName: u.business_name,
+        role: u.role,
+        providerSubtype: u.provider_subtype,
+        city: u.city,
+        countryCode: u.country_code || 'PK',
+        kycStatus: u.kyc_status,
+      };
+    } else {
+      // 2. Fallback check legacy `User` table
+      const legacyUsers = await sql`
+        SELECT 
+          u.id, 
+          u.phone, 
+          u.email, 
+          u."passwordHash", 
+          u."userType", 
+          u."accountStatus", 
+          u.metadata,
+          cp.city as cp_city,
+          lp."businessName" as lp_business_name
+        FROM "User" u
+        LEFT JOIN "CustomerProfile" cp ON cp."userId" = u.id
+        LEFT JOIN "ListerProfile" lp ON lp."userId" = u.id
+        WHERE 
+          u.phone = ${cleanPhone}
+          OR u.phone LIKE ${'%' + phoneSuffix}
+          OR (u.email IS NOT NULL AND LOWER(u.email) = ${cleanEmail})
+        LIMIT 1;
+      `;
+
+      if (legacyUsers.length === 0) {
+        return NextResponse.json(
+          { success: false, error: 'No account found with this phone number or email address.' },
+          { status: 404 }
+        );
       }
-    }
 
-    // Determine displayName
-    let displayName = meta.name;
-    if (!displayName) {
-      if (dbUser.cp_first_name) {
-        displayName = `${dbUser.cp_first_name} ${dbUser.cp_last_name || ''}`.trim();
-      } else if (dbUser.dp_first_name) {
-        displayName = `${dbUser.dp_first_name} ${dbUser.dp_last_name || ''}`.trim();
-      } else if (dbUser.lp_business_name) {
-        displayName = dbUser.lp_business_name;
-      } else {
-        displayName = 'Valued Member';
+      const lu = legacyUsers[0];
+      const isValid = verifyPasswordPbkdf2(password, lu.passwordHash || '');
+      if (!isValid) {
+        return NextResponse.json(
+          { success: false, error: 'Incorrect password. Please verify and try again.' },
+          { status: 401 }
+        );
       }
+
+      const meta = typeof lu.metadata === 'string' ? JSON.parse(lu.metadata || '{}') : (lu.metadata || {});
+      const role = lu.userType || 'CUSTOMER';
+      const name = meta.name || 'SafarPK Member';
+      const city = meta.city || lu.cp_city || 'Lahore';
+      const businessName = meta.businessName || lu.lp_business_name || undefined;
+
+      matchedUser = {
+        id: lu.id,
+        phone: lu.phone,
+        email: lu.email,
+        name,
+        businessName,
+        role,
+        city,
+        countryCode: 'PK',
+      };
     }
 
-    const userPayload = {
-      id: dbUser.id,
-      name: displayName,
-      businessName: dbUser.lp_business_name || meta.businessName || undefined,
-      phone: dbUser.phone,
-      email: dbUser.email || undefined,
-      city: meta.city || dbUser.cp_city || dbUser.lp_city || dbUser.dp_city || 'Lahore',
-      countryCode: 'PK',
-      role: dbUser.userType || 'CUSTOMER',
-      registeredAt: dbUser.createdAt ? new Date(dbUser.createdAt).toISOString() : new Date().toISOString(),
-      subscription: {
-        status: 'ACTIVE',
-        quota: 10,
-        usedQuota: 0,
-      },
-      metrics: {
-        viewCount: 0,
-        leadsCount: 0,
-        clickCount: 0,
-        lastActive: 'Just now',
-      },
-      activities: [],
-    };
-
-    // Update lastLoginAt asynchronously
-    sql`UPDATE "User" SET "lastLoginAt" = NOW() WHERE id = ${dbUser.id}`.catch(() => {});
-
-    return NextResponse.json({
-      success: true,
-      user: userPayload,
-      message: 'Login successful.',
+    // 3. Log audit event
+    await logAuditEvent({
+      actorId: matchedUser.id,
+      actorRole: matchedUser.role,
+      actionType: 'USER_LOGIN_SUCCESS',
+      targetResource: 'USER',
+      resourceId: matchedUser.id,
+      ipAddress: req.headers.get('x-forwarded-for') || null,
+      userAgent: req.headers.get('user-agent') || null,
     });
+
+    // 4. Set HttpOnly, Secure, SameSite=Strict cookie
+    const res = NextResponse.json({
+      success: true,
+      user: matchedUser,
+      message: 'Authentication successful.',
+    });
+
+    await setSessionCookie(res, matchedUser);
+    return res;
   } catch (error: any) {
-    console.error('Error in login API:', error);
+    console.error('Login API error:', error);
     return NextResponse.json(
-      {
-        success: false,
-        error: error?.message || 'Database error occurred during login.',
-      },
+      { success: false, error: error?.message || 'Internal database authentication failure.' },
       { status: 500 }
     );
   }
