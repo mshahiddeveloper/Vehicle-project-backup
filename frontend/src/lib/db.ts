@@ -2,12 +2,16 @@
  * SafarPK Serverless Database Connection Utility
  * Configured for Neon PostgreSQL 16 on Vercel Fluid Compute
  * 
- * Provides:
- * 1. Connection string validation ensuring required parameters for serverless Neon:
- *    - sslmode=require (Mandatory for Neon encrypted communication)
- *    - pgbouncer=true (Required for Prisma/PgBouncer transaction-mode pooling)
- * 2. Diagnostics utility to inspect connection pooling health on Vercel Fluid Compute.
+ * Best Practices:
+ * - Uses `@neondatabase/serverless` for HTTP one-shot queries and connectionless pooling.
+ * - Supports pooled connection string (with pgbouncer=true) for serverless route handlers.
+ * - Provides connection health test and diagnostics.
  */
+
+import { neon, neonConfig } from '@neondatabase/serverless';
+
+// Suppress browser direct-query warning in Next.js Server Components / Route Handlers
+neonConfig.disableWarningInBrowsers = true;
 
 export interface DatabaseConnectionInfo {
   isConfigured: boolean;
@@ -53,6 +57,48 @@ export function getDatabaseConnectionInfo(): DatabaseConnectionInfo {
 }
 
 /**
+ * Returns a Neon Serverless HTTP query client
+ */
+export function getNeonSqlClient() {
+  const connectionString = process.env.DATABASE_URL || process.env.DATABASE_URL_UNPOOLED;
+  if (!connectionString) {
+    throw new Error('DATABASE_URL is not set in environment.');
+  }
+  return neon(connectionString);
+}
+
+/**
+ * Health check to test live connection to Neon PostgreSQL
+ */
+export async function testNeonDatabaseConnection(): Promise<{
+  connected: boolean;
+  version?: string;
+  tablesCount?: number;
+  error?: string;
+}> {
+  try {
+    const sql = getNeonSqlClient();
+    const versionResult = await sql`SELECT version() as pg_version`;
+    const tablesResult = await sql`
+      SELECT count(*)::int as count 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public'
+    `;
+
+    return {
+      connected: true,
+      version: versionResult[0]?.pg_version,
+      tablesCount: tablesResult[0]?.count,
+    };
+  } catch (err: any) {
+    return {
+      connected: false,
+      error: err?.message || 'Failed to query Neon PostgreSQL database',
+    };
+  }
+}
+
+/**
  * Returns connection options optimized for Vercel Fluid Compute
  */
 export function getFluidComputePoolConfig() {
@@ -62,4 +108,3 @@ export function getFluidComputePoolConfig() {
     idleTimeoutMillis: 10000,
   };
 }
-

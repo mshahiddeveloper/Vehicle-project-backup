@@ -50,3 +50,4 @@ docker-compose.override.yml
 *.tsbuildinfo
 scratch/
 extracted_designs/
+.neon
