@@ -22,7 +22,7 @@ function timingSafeEqual(a: string, b: string): boolean {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { action = 'request', phone, code } = body;
+    const { action = 'request', phone, code, purpose = 'register' } = body;
 
     if (!phone) {
       return NextResponse.json(
@@ -39,6 +39,36 @@ export async function POST(req: NextRequest) {
       : '92' + cleanPhone;
 
     const sql = getNeonSqlClient();
+
+    // =========================================================================
+    // REGISTRATION PRE-CHECK: NEVER SEND OTP TO ALREADY REGISTERED NUMBERS
+    // =========================================================================
+    if (action === 'request' && purpose === 'register') {
+      const localPhone = standardWaPhone.startsWith('92') ? '0' + standardWaPhone.slice(2) : standardWaPhone;
+      const plusPhone = '+' + standardWaPhone;
+
+      const existingUsers = await sql`
+        SELECT id, role, full_name, phone 
+        FROM users 
+        WHERE phone = ${standardWaPhone} 
+           OR phone = ${localPhone} 
+           OR phone = ${plusPhone}
+           OR phone = ${cleanPhone}
+        LIMIT 1;
+      `;
+
+      if (existingUsers.length > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            alreadyRegistered: true,
+            role: existingUsers[0].role,
+            error: 'An account with this phone number is already registered. Please sign in instead.',
+          },
+          { status: 409, headers: { 'Cache-Control': 'no-store' } }
+        );
+      }
+    }
 
     // =========================================================================
     // 1. ACTION: VERIFY

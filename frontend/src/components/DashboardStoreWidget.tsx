@@ -9,12 +9,14 @@ interface DashboardStoreWidgetProps {
   type: 'STORE' | 'DRIVER';
   identifier: string;
   subtitle?: string;
+  isSubscribed?: boolean;
 }
 
 export function DashboardStoreWidget({
   type,
   identifier,
   subtitle,
+  isSubscribed = true,
 }: DashboardStoreWidgetProps) {
   const [copied, setCopied] = useState(false);
 
@@ -50,30 +52,44 @@ export function DashboardStoreWidget({
       {/* Left Info Column */}
       <div className="space-y-3 min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1.5 shadow-2xs">
+          <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-2xs border ${
+            isSubscribed
+              ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+              : 'bg-amber-500/20 text-amber-400 border-amber-500/40'
+          }`}>
             {type === 'STORE' ? <Store className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
             <span>{type === 'STORE' ? 'Public Fleet Storefront' : 'Public Driver Profile'}</span>
           </span>
           <span className="text-xs text-slate-300 font-medium">
-            Open to anyone · No login required
+            {isSubscribed ? 'Open to anyone · No login required' : '⚠️ Subscription required to go live'}
           </span>
         </div>
 
         {/* High-Contrast URL Display Box */}
-        <div className="flex items-center justify-between gap-3 bg-slate-950 border-2 border-emerald-500/50 rounded-2xl px-4 py-3 max-w-xl shadow-inner">
-          <span className="text-emerald-300 font-mono font-black text-sm sm:text-base select-all truncate tracking-wide">
+        <div className={`flex items-center justify-between gap-3 bg-slate-950 border-2 rounded-2xl px-4 py-3 max-w-xl shadow-inner ${
+          isSubscribed ? 'border-emerald-500/50' : 'border-amber-500/50'
+        }`}>
+          <span className={`font-mono font-black text-sm sm:text-base select-all truncate tracking-wide ${
+            isSubscribed ? 'text-emerald-300' : 'text-amber-300'
+          }`}>
             safar.pk{relativePath}
           </span>
-          <span className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0">
-            Live URL
+          <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full border shrink-0 ${
+            isSubscribed
+              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+              : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+          }`}>
+            {isSubscribed ? 'Live URL' : 'Awaiting Subscription'}
           </span>
         </div>
 
         <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl">
-          {subtitle ||
-            (type === 'STORE'
-              ? 'Share your dedicated store link with private clients or on WhatsApp status so customers can browse all your active vehicle listings in one single place.'
-              : 'Share your public chauffeur profile with clients so they can review your licence categories, driving rates, and hire you directly.')}
+          {!isSubscribed
+            ? '⚠️ Your public storefront is currently hidden from customers. Please subscribe to an active plan to publish your live inventory.'
+            : (subtitle ||
+              (type === 'STORE'
+                ? 'Share your dedicated store link with private clients or on WhatsApp status so customers can browse all your active vehicle listings in one single place.'
+                : 'Share your public chauffeur profile with clients so they can review your licence categories, driving rates, and hire you directly.'))}
         </p>
       </div>
 

@@ -36,7 +36,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const cleanPhone = phone.replace(/[\s\-\(\)]/g, '').trim();
+    const rawDigits = phone.replace(/\D/g, '').trim();
+    const standardWaPhone = rawDigits.startsWith('0')
+      ? '92' + rawDigits.slice(1)
+      : rawDigits.startsWith('92')
+      ? rawDigits
+      : rawDigits.length === 10 && rawDigits.startsWith('3')
+      ? '92' + rawDigits
+      : rawDigits;
+    const localPhone = standardWaPhone.startsWith('92') ? '0' + standardWaPhone.slice(2) : standardWaPhone;
+    const plusPhone = '+' + standardWaPhone;
+
+    const cleanPhone = standardWaPhone;
     const cleanEmail = email ? email.trim().toLowerCase() : null;
     const cleanCity = city ? city.trim() : 'Karachi';
     const cleanRole = role || 'CUSTOMER';
@@ -45,74 +56,78 @@ export async function POST(req: NextRequest) {
     const sql = getNeonSqlClient();
     const kmsKey = process.env.KMS_ENCRYPTION_KEY || 'safarpk_master_kms_key_2026';
 
-    // 1. Check if user already exists in enterprise `users` table
+    // 1. Strict Registration Duplicate Guard: NEVER OVERWRITE EXISTING ACCOUNTS
     const existing = await sql`
       SELECT id, role, full_name, phone, email 
       FROM users 
-      WHERE phone = ${cleanPhone} OR (email IS NOT NULL AND email = ${cleanEmail})
+      WHERE phone = ${standardWaPhone}
+         OR phone = ${localPhone}
+         OR phone = ${plusPhone}
+         OR phone = ${rawDigits}
+         OR (email IS NOT NULL AND LOWER(email) = ${cleanEmail})
       LIMIT 1;
     `;
 
-    let userId: string;
+    if (existing.length > 0) {
+      const match = existing[0];
+      const matchType = (match.email && cleanEmail && match.email.toLowerCase() === cleanEmail)
+        ? 'email address'
+        : 'phone number';
+
+      return NextResponse.json(
+        {
+          success: false,
+          alreadyExists: true,
+          error: `An account with this ${matchType} is already registered. Please sign in instead.`,
+          existingRole: match.role,
+        },
+        { status: 409, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+
     let passwordHash = password ? hashPasswordPbkdf2(password) : hashPasswordPbkdf2('password123');
 
-    if (existing.length > 0) {
-      userId = existing[0].id;
-      // Update existing record
-      await sql`
-        UPDATE users SET
-          full_name = ${name.trim()},
-          business_name = ${businessName ? businessName.trim() : null},
-          city = ${cleanCity},
-          role = ${cleanRole}::user_role_enum,
-          provider_subtype = ${cleanSubtype ? cleanSubtype : null}::provider_subtype_enum,
-          password_hash = COALESCE(${password ? passwordHash : null}, password_hash),
-          updated_at = NOW()
-        WHERE id = ${userId};
-      `;
-    } else {
-      // 2. Insert new user with optional pgcrypto encrypted PII
-      const encCnicQuery = cnic ? sql`pgp_sym_encrypt(${cnic.trim()}, ${kmsKey})` : sql`NULL`;
-      const encLicQuery = licenseNumber ? sql`pgp_sym_encrypt(${licenseNumber.trim()}, ${kmsKey})` : sql`NULL`;
+    // 2. Insert new user with optional pgcrypto encrypted PII
+    const encCnicQuery = cnic ? sql`pgp_sym_encrypt(${cnic.trim()}, ${kmsKey})` : sql`NULL`;
+    const encLicQuery = licenseNumber ? sql`pgp_sym_encrypt(${licenseNumber.trim()}, ${kmsKey})` : sql`NULL`;
 
-      const insertRows = await sql`
-        INSERT INTO users (
-          phone,
-          phone_verified,
-          phone_locked,
-          email,
-          email_verified,
-          password_hash,
-          full_name,
-          business_name,
-          role,
-          provider_subtype,
-          city,
-          country_code,
-          kyc_status,
-          encrypted_cnic,
-          encrypted_license
-        ) VALUES (
-          ${cleanPhone},
-          TRUE,
-          TRUE,
-          ${cleanEmail},
-          FALSE,
-          ${passwordHash},
-          ${name.trim()},
-          ${businessName ? businessName.trim() : null},
-          ${cleanRole}::user_role_enum,
-          ${cleanSubtype ? cleanSubtype : null}::provider_subtype_enum,
-          ${cleanCity},
-          'PK',
-          'UNVERIFIED',
-          ${encCnicQuery},
-          ${encLicQuery}
-        )
-        RETURNING id;
-      `;
-      userId = insertRows[0].id;
-    }
+    const insertRows = await sql`
+      INSERT INTO users (
+        phone,
+        phone_verified,
+        phone_locked,
+        email,
+        email_verified,
+        password_hash,
+        full_name,
+        business_name,
+        role,
+        provider_subtype,
+        city,
+        country_code,
+        kyc_status,
+        encrypted_cnic,
+        encrypted_license
+      ) VALUES (
+        ${cleanPhone},
+        TRUE,
+        TRUE,
+        ${cleanEmail},
+        FALSE,
+        ${passwordHash},
+        ${name.trim()},
+        ${businessName ? businessName.trim() : null},
+        ${cleanRole}::user_role_enum,
+        ${cleanSubtype ? cleanSubtype : null}::provider_subtype_enum,
+        ${cleanCity},
+        'PK',
+        'UNVERIFIED',
+        ${encCnicQuery},
+        ${encLicQuery}
+      )
+      RETURNING id;
+    `;
+    const userId: string = insertRows[0].id;
 
     // 3. Dual-sync to legacy `User` and profile tables for backward compatibility
     try {
@@ -134,10 +149,7 @@ export async function POST(req: NextRequest) {
           ${JSON.stringify({ name: name.trim(), city: cleanCity, businessName: businessName || null })},
           NOW()
         )
-        ON CONFLICT (phone) DO UPDATE SET
-          "userType" = EXCLUDED."userType",
-          metadata = EXCLUDED.metadata,
-          "updatedAt" = NOW();
+        ON CONFLICT (phone) DO NOTHING;
       `;
 
       const parts = name.trim().split(' ');

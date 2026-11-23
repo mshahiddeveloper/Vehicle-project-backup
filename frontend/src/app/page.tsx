@@ -953,7 +953,7 @@ export default function HomePage() {
         <AppHeader currentCountry={country} onCountryChange={setCountry} />
 
         {/* 2. Hero Section - Sleek Minimal, Compact on Mobile */}
-        <section className="bg-gradient-to-b from-[#F9FBFA] via-[#F4F7F5] to-white border-b border-[#EEF0F2]">
+        <section className="relative z-10 bg-gradient-to-b from-[#F9FBFA] via-[#F4F7F5] to-white border-b border-[#EEF0F2]">
         <div className="max-w-[1240px] mx-auto px-3 sm:px-8 pt-2 sm:pt-4 md:pt-6 pb-2 sm:pb-5 flex flex-col gap-2 sm:gap-3.5">
           {/* Minimal Animated Header Copy */}
           <div className="flex flex-col gap-1 sm:gap-2 max-w-[820px]">

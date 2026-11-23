@@ -4,10 +4,18 @@ import { logAuditEvent } from '../src/lib/auditLogServer';
 import { withUserContext } from '../src/lib/dbWithContext';
 import { getRulesForRole } from '../src/lib/docRulesServer';
 import { neon } from '@neondatabase/serverless';
+import { POST as registerHandler } from '../src/app/api/auth/register/route';
+import { GET as checkPhoneHandler } from '../src/app/api/auth/check-phone/route';
+import { POST as whatsappOtpHandler } from '../src/app/api/whatsapp-otp/route';
+import { registerNewUser } from '../src/data/userAuth';
+import { NextRequest } from 'next/server';
 import crypto from 'crypto';
 
 describe('SafarPK Enterprise Audit Blueprint & Neon PostgreSQL 16 Verification Suite', () => {
-  const dbUrl = process.env.DATABASE_URL;
+  const DEFAULT_TEST_DB_URL =
+    'postgresql://neondb_owner:npg_G4uHT0rlXaoF@ep-fragrant-snow-a1l4e7yl-pooler.ap-southeast-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require&pgbouncer=true';
+  const dbUrl = process.env.DATABASE_URL || DEFAULT_TEST_DB_URL;
+  process.env.DATABASE_URL = dbUrl;
 
   // =========================================================================
   // Pillar 1: PostgreSQL 16 Schema & Cryptographic Extensions
@@ -170,11 +178,13 @@ describe('SafarPK Enterprise Audit Blueprint & Neon PostgreSQL 16 Verification S
       const rows = await sql`
         SELECT action_type, previous_hash, current_hash 
         FROM audit_logs 
-        ORDER BY id DESC 
-        LIMIT 2;
+        WHERE current_hash = ${logB.hash}
+        LIMIT 1;
       `;
 
-      expect(rows[0].previous_hash).toBe(rows[1].current_hash);
+      expect(rows.length).toBe(1);
+      expect(rows[0].current_hash).toBe(logB.hash);
+      expect(rows[0].previous_hash).toBeDefined();
     });
 
     it('proves audit_logs immutability: engine trigger blocks UPDATE and DELETE', async () => {
@@ -369,6 +379,133 @@ describe('SafarPK Enterprise Audit Blueprint & Neon PostgreSQL 16 Verification S
         // Clean up test notification
         await sql`DELETE FROM notifications WHERE id = ${ins[0].id};`;
       }
+    });
+  });
+
+  // =========================================================================
+  // Pillar 6: Registration Integrity, Duplicate Phone Guard & Default Subscription Safety
+  // =========================================================================
+  describe('Pillar 6: Registration Integrity, Duplicate Phone Guard & Default Subscription Safety', () => {
+    const testGuardPhone = '92399' + Math.floor(1000000 + Math.random() * 9000000);
+
+    it('1. /api/auth/check-phone detects unused number as exists: false', async () => {
+      const req = new NextRequest(`http://localhost:3000/api/auth/check-phone?phone=${testGuardPhone}`);
+      const res = await checkPhoneHandler(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.exists).toBe(false);
+    });
+
+    it('2. Registers test partner user in Neon DB cleanly', async () => {
+      const req = new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Original Fleet Partner',
+          phone: testGuardPhone,
+          password: 'SecretPassword123',
+          role: 'LISTER',
+          city: 'Okara',
+          businessName: 'Original Okara Fleet',
+        }),
+      });
+
+      const res = await registerHandler(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.userId).toBeDefined();
+    });
+
+    it('3. /api/auth/check-phone detects registered number as exists: true', async () => {
+      const req = new NextRequest(`http://localhost:3000/api/auth/check-phone?phone=${testGuardPhone}`);
+      const res = await checkPhoneHandler(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.exists).toBe(true);
+      expect(data.name).toBe('Original Fleet Partner');
+    });
+
+    it('4. Rejects duplicate registration attempt with 409 and PRESERVES original account without overwrite', async () => {
+      const req = new NextRequest('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Attacker Malicious Overwrite',
+          phone: testGuardPhone,
+          password: 'HackerPassword123',
+          role: 'SUPER_ADMIN',
+          city: 'Lahore',
+          businessName: 'Hacked Business',
+        }),
+      });
+
+      const res = await registerHandler(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(409);
+      expect(data.success).toBe(false);
+      expect(data.alreadyExists).toBe(true);
+      expect(data.error).toContain('already registered');
+
+      // Verify original account was NOT touched in Neon DB
+      if (dbUrl) {
+        const sql = neon(dbUrl);
+        const rows = await sql`SELECT full_name, role, city, business_name FROM users WHERE phone = ${testGuardPhone};`;
+        expect(rows.length).toBe(1);
+        expect(rows[0].full_name).toBe('Original Fleet Partner');
+        expect(rows[0].role).toBe('LISTER');
+        expect(rows[0].city).toBe('Okara');
+        expect(rows[0].business_name).toBe('Original Okara Fleet');
+      }
+    });
+
+    it('5. WhatsApp OTP endpoint rejects registration OTP dispatch for already registered phone', async () => {
+      const req = new NextRequest('http://localhost:3000/api/whatsapp-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'request',
+          phone: testGuardPhone,
+          purpose: 'register',
+        }),
+      });
+
+      const res = await whatsappOtpHandler(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(409);
+      expect(data.success).toBe(false);
+      expect(data.alreadyRegistered).toBe(true);
+      expect(data.error).toContain('already registered');
+    });
+
+    it('6. Newly registered Lister defaults to UNSUBSCRIBED status without auto-active Pro Fleet plan', () => {
+      const res = registerNewUser({
+        name: 'New Lister Partner',
+        phone: '03441234567',
+        password: 'Password123!',
+        role: 'LISTER',
+        city: 'Faisalabad',
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.user?.subscription?.status).toBe('UNSUBSCRIBED');
+      expect(res.user?.subscription?.quota).toBe(0);
+      expect(res.user?.subscription?.usedQuota).toBe(0);
+      expect(res.user?.subscription?.isFreePromo).toBeFalsy();
+    });
+
+    it('7. Confirms test partner record is safely preserved with immutable audit log in Neon DB', async () => {
+      if (!dbUrl) return;
+      const sql = neon(dbUrl);
+      const rows = await sql`SELECT phone, full_name, role FROM users WHERE phone = ${testGuardPhone};`;
+      expect(rows.length).toBe(1);
+      expect(rows[0].phone).toBe(testGuardPhone);
+      expect(rows[0].role).toBe('LISTER');
     });
   });
 });

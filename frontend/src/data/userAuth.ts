@@ -779,14 +779,41 @@ export interface WhatsAppOtpResult {
   waLink: string;
   expiresAt: number;
   message: string;
+  error?: string;
+  alreadyRegistered?: boolean;
 }
 
 /**
  * Dispatch a 6-digit WhatsApp verification OTP for free authentic phone authentication
  * with cryptographic random generation, 10-minute expiry, and brute-force attempt limits.
  */
-export function sendWhatsAppVerificationOtp(phone: string): WhatsAppOtpResult {
+export function sendWhatsAppVerificationOtp(
+  phone: string,
+  purpose: 'register' | 'login' | 'reset' = 'register'
+): WhatsAppOtpResult {
   const sanitized = sanitizePakistaniPhone(phone);
+
+  // Pre-check for registration flow: NEVER dispatch OTP to already registered phone numbers
+  if (purpose === 'register' && typeof window !== 'undefined') {
+    try {
+      const all = getAllRegisteredUsers();
+      const normPhone = normalizePhone(sanitized.standard);
+      const existing = all.find((u) => normalizePhone(u.phone) === normPhone);
+      if (existing) {
+        return {
+          success: false,
+          code: '',
+          phoneStandard: sanitized.standard || phone,
+          waLink: '',
+          expiresAt: 0,
+          message: 'An account with this phone number is already registered. Please sign in instead.',
+          error: 'An account with this phone number is already registered. Please sign in instead.',
+          alreadyRegistered: true,
+        };
+      }
+    } catch {}
+  }
+
   // Generate cryptographically secure 6-digit OTP
   const code = generateCryptographicOtp();
   const now = Date.now();
@@ -1145,26 +1172,11 @@ export function registerNewUser(params: {
   });
 
   if (existing) {
-    // If password matches existing account, auto-login into that account
-    if (params.password && existing.password === params.password) {
-      logUserActivity(existing.id, {
-        type: 'LOGIN',
-        title: 'Account Accessed',
-        description: `Existing account opened via matching credentials`,
-      });
-      setActiveUser(existing);
-      return {
-        success: true,
-        user: existing,
-        alreadyExists: true,
-      };
-    }
-
     return {
       success: false,
       user: existing,
       alreadyExists: true,
-      error: `An account with this ${normPhone ? 'phone number' : 'email'} is already registered. Please enter your existing password to log in.`,
+      error: `An account with this ${normPhone ? 'phone number' : 'email'} is already registered. Please sign in instead.`,
     };
   }
 
@@ -2617,8 +2629,8 @@ export function isCategoryFreePromoActive(role: UserRole, subtype?: ProviderSubt
     categoryKey = 'DRIVER';
     targetRoleKey = 'DRIVER';
   } else if (role === 'LISTER') {
-    categoryKey = 'RENT_A_CAR';
-    targetRoleKey = 'CAR_RENTAL';
+    // Lister / Rent a car partners must subscribe to a paid package; no default active free promo
+    return null;
   } else if (role === 'PROVIDER') {
     if (subtype === 'PICK_AND_DROP') {
       categoryKey = 'PICK_AND_DROP';

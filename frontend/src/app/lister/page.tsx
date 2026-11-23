@@ -922,8 +922,8 @@ export default function ListerDashboardPage() {
     setWizardSubmitting(true);
     setTimeout(() => {
       const hasActiveSub = currentUser?.subscription?.status === 'ACTIVE';
-      // If user posts (not draft), save as PENDING_APPROVAL awaiting admin approval or active subscription
-      const vehicleStatus = isDraft ? 'DRAFT' : 'PENDING_APPROVAL';
+      // If user has no active subscription or chooses draft, strictly save as DRAFT/PAUSED
+      const vehicleStatus = (!hasActiveSub || isDraft) ? 'DRAFT' : 'PENDING_APPROVAL';
       const vehicleImg =
         carPhotoSlots.find((p) => p.url)?.url ||
         uploadedPhotos[0]?.url ||
@@ -964,6 +964,8 @@ export default function ListerDashboardPage() {
         infotainmentFeatures:
           selectedInfotainmentFeatures.length > 0 ? selectedInfotainmentFeatures : undefined,
         status: vehicleStatus,
+        isPaused: !hasActiveSub || isDraft,
+        pauseReason: !hasActiveSub ? 'Awaiting Active Subscription Payment' : undefined,
         views: 0,
         leads: 0,
         img: vehicleImg,
@@ -1004,8 +1006,9 @@ export default function ListerDashboardPage() {
         setWizardSuccessMsg('💾 Saved as Draft in your Fleet Roster!');
         setActiveTab('fleet');
       } else if (!hasActiveSub) {
-        setWizardSuccessMsg('🎉 Vehicle saved as Pending! To make this listing LIVE and receive customer inquiries, please activate your subscription pass.');
+        setWizardSuccessMsg('⚠️ Vehicle saved as Draft / Paused! Active subscription is required before listings can be published LIVE.');
         setShowSubscriptionRequiredModal(true);
+        setActiveTab('fleet');
       } else {
         setWizardSuccessMsg(`✅ Vehicle "${carBrand} ${carModel}" saved! Submitted for Admin/Agent approval before going LIVE.`);
         setActiveTab('fleet');
@@ -1076,14 +1079,14 @@ export default function ListerDashboardPage() {
                   ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
                   : currentUser?.subscription?.status === 'PENDING_APPROVAL'
                   ? 'text-amber-800 bg-amber-50 border-amber-300'
-                  : 'text-rose-700 bg-rose-50 border-rose-200'
+                  : 'text-slate-600 bg-slate-100 border-slate-300'
               }`}
             >
               {currentUser?.subscription?.status === 'ACTIVE'
                 ? 'Pro Fleet'
                 : currentUser?.subscription?.status === 'PENDING_APPROVAL'
                 ? 'Pending'
-                : 'Free'}
+                : 'Unsubscribed'}
             </span>
           </div>
 
@@ -1276,7 +1279,11 @@ export default function ListerDashboardPage() {
                   <span className="text-xs uppercase tracking-wider font-bold text-emerald-400">Lister Control Center</span>
                   <h2 className="text-lg sm:text-2xl font-black mt-1">{businessName}</h2>
                   <p className="text-xs sm:text-sm text-white font-medium mt-1.5 leading-relaxed">
-                    Your fleet is currently LIVE in {operatingCity}. Direct booking leads and online booking requests appear instantly below.
+                    {currentUser?.subscription?.status === 'ACTIVE'
+                      ? `Your fleet is currently LIVE in ${operatingCity}. Direct booking leads and online booking requests appear instantly below.`
+                      : currentUser?.subscription?.status === 'PENDING_APPROVAL'
+                      ? `Your subscription payment receipt is under review. Your vehicles are saved as Draft / Paused until approved.`
+                      : `Your subscription is inactive. Your vehicles are saved as Draft / Paused. Please activate a subscription package to publish your fleet live in ${operatingCity}.`}
                   </p>
                 </div>
                 <button
@@ -1291,6 +1298,7 @@ export default function ListerDashboardPage() {
               <DashboardStoreWidget
                 type="STORE"
                 identifier={businessName}
+                isSubscribed={currentUser?.subscription?.status === 'ACTIVE'}
                 subtitle="Share your dedicated store link with private clients or on WhatsApp status to let anyone view all your active vehicles in one place without needing to send individual car links."
               />
 

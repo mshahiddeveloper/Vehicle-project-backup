@@ -29,11 +29,44 @@ export function WhatsAppOtpModal({ isOpen, phone, onClose, onVerified }: WhatsAp
 
   useEffect(() => {
     if (isOpen && sanitized.isValid) {
-      const res = sendWhatsAppVerificationOtp(phone);
-      setOtpInfo(res);
-      setCode(res.code); // Autofill for convenience & immediate one-click testing
-      setResendCooldown(30);
       setError(null);
+      // Pre-check backend DB and request OTP
+      fetch('/api/whatsapp-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'request', phone, purpose: 'register' }),
+      })
+        .then((r) => r.json())
+        .then((apiData) => {
+          if (!apiData.success) {
+            setError(apiData.error || 'This phone number cannot be verified for registration.');
+            setCode('');
+            return;
+          }
+          if (apiData.code) {
+            setCode(apiData.code);
+            setOtpInfo({
+              success: true,
+              code: apiData.code,
+              phoneStandard: apiData.phone || sanitized.standard,
+              waLink: apiData.waLink || '',
+              expiresAt: Date.now() + 600000,
+              message: 'OTP generated successfully.',
+            });
+          }
+        })
+        .catch(() => {
+          // Local fallback check
+          const res = sendWhatsAppVerificationOtp(phone, 'register');
+          setOtpInfo(res);
+          if (!res.success) {
+            setError(res.error || res.message);
+            setCode('');
+          } else {
+            setCode(res.code);
+          }
+        });
+      setResendCooldown(30);
     }
   }, [isOpen, phone]);
 
@@ -50,9 +83,30 @@ export function WhatsAppOtpModal({ isOpen, phone, onClose, onVerified }: WhatsAp
   const handleResend = () => {
     if (resendCooldown > 0) return;
     setError(null);
-    const res = sendWhatsAppVerificationOtp(phone);
-    setOtpInfo(res);
-    setCode(res.code);
+    fetch('/api/whatsapp-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'request', phone, purpose: 'register' }),
+    })
+      .then((r) => r.json())
+      .then((apiData) => {
+        if (!apiData.success) {
+          setError(apiData.error || 'Unable to resend OTP.');
+          return;
+        }
+        if (apiData.code) {
+          setCode(apiData.code);
+        }
+      })
+      .catch(() => {
+        const res = sendWhatsAppVerificationOtp(phone, 'register');
+        setOtpInfo(res);
+        if (!res.success) {
+          setError(res.error || res.message);
+        } else {
+          setCode(res.code);
+        }
+      });
     setResendCooldown(30);
   };
 
@@ -157,6 +211,27 @@ export function WhatsAppOtpModal({ isOpen, phone, onClose, onVerified }: WhatsAp
             <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
               <span>{error}</span>
+            </div>
+          )}
+
+          {/* Error Notice */}
+          {error && (
+            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-bold text-rose-900 leading-snug">{error}</p>
+                {error.includes('already registered') && (
+                  <div className="mt-2.5">
+                    <a
+                      href="/login"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition shadow-xs"
+                    >
+                      <span>Sign In to Account</span>
+                      <span>→</span>
+                    </a>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

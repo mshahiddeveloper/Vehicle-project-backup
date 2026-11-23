@@ -84,6 +84,8 @@ function RegisterForm() {
   const [phone, setPhone] = useState('');
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [phoneLocked, setPhoneLocked] = useState(false);
+  const [phoneRegisteredError, setPhoneRegisteredError] = useState<string | null>(null);
+  const [isCheckingPhone, setIsCheckingPhone] = useState(false);
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -91,10 +93,42 @@ function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(true);
 
+  // Debounced real-time database pre-check to prevent sending OTP to already registered phone numbers
+  useEffect(() => {
+    const sanitized = sanitizePakistaniPhone(phone);
+    if (!sanitized.isValid) {
+      setPhoneRegisteredError(null);
+      setIsCheckingPhone(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        setIsCheckingPhone(true);
+        const res = await fetch(`/api/auth/check-phone?phone=${encodeURIComponent(sanitized.standard)}`);
+        const data = await res.json().catch(() => null);
+        if (data && data.exists) {
+          setPhoneRegisteredError('⚠️ An account with this phone number is already registered. Please sign in instead.');
+          setPhoneVerified(false);
+          setPhoneLocked(false);
+        } else {
+          setPhoneRegisteredError(null);
+        }
+      } catch (err) {
+        console.warn('Phone pre-check network note:', err);
+      } finally {
+        setIsCheckingPhone(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [phone]);
+
   const handlePhoneChange = (raw: string) => {
     if (phoneLocked) return;
     const sanitized = sanitizePakistaniPhone(raw);
     setPhone(sanitized.display);
+    setPhoneRegisteredError(null);
     if (phoneVerified) {
       setPhoneVerified(false);
     }
@@ -105,8 +139,31 @@ function RegisterForm() {
     setPhone(sanitized.display);
     setPhoneVerified(true);
     setPhoneLocked(true);
+    setPhoneRegisteredError(null);
     setNotice('✓ WhatsApp number successfully verified & permanently locked!');
     setTimeout(() => setNotice(null), 4000);
+  };
+
+  const handleOpenOtpModal = async () => {
+    const sanitized = sanitizePakistaniPhone(phone);
+    if (!sanitized.isValid) return;
+
+    // Direct pre-check before opening modal
+    try {
+      setIsCheckingPhone(true);
+      const res = await fetch(`/api/auth/check-phone?phone=${encodeURIComponent(sanitized.standard)}`);
+      const data = await res.json().catch(() => null);
+      if (data && data.exists) {
+        setPhoneRegisteredError('⚠️ An account with this phone number is already registered. Please sign in instead.');
+        return;
+      }
+    } catch (e) {
+      // Proceed if network check fails
+    } finally {
+      setIsCheckingPhone(false);
+    }
+
+    setIsOtpModalOpen(true);
   };
 
   const [error, setError] = useState<string | null>(null);
@@ -232,6 +289,11 @@ function RegisterForm() {
       return;
     }
 
+    if (phoneRegisteredError) {
+      setError(phoneRegisteredError);
+      return;
+    }
+
     setLoading(true);
 
     let mappedRole: UserRole = 'CUSTOMER';
@@ -270,11 +332,17 @@ function RegisterForm() {
         }),
       });
       const apiData = await apiRes.json().catch(() => null);
-      if (apiData && apiData.success) {
-        console.log('User persisted into Neon PostgreSQL 16:', apiData.userId);
+      if (!apiRes.ok || !apiData?.success) {
+        setLoading(false);
+        setError(apiData?.error || 'Registration failed. An account with this phone number is already registered.');
+        return;
       }
-    } catch (e) {
-      console.warn('Neon DB registration call notice:', e);
+      console.log('User persisted into Neon PostgreSQL 16:', apiData.userId);
+    } catch (e: any) {
+      console.warn('Neon DB registration call error:', e);
+      setLoading(false);
+      setError(e?.message || 'Database connection error. Please try again.');
+      return;
     }
 
     // 2. Register into client storage
@@ -307,10 +375,6 @@ function RegisterForm() {
       return;
     }
 
-    if (res.alreadyExists) {
-      setNotice('Matching existing account found! Opening your dashboard directly...');
-    }
-
     // Check if there was an in-progress guest wishlist action
     const pending = executePendingWishlistIfAny();
     let dest: string;
@@ -324,7 +388,7 @@ function RegisterForm() {
 
     setTimeout(() => {
       router.push(dest);
-    }, res.alreadyExists ? 800 : 200);
+    }, 200);
   };
 
   return (
@@ -777,13 +841,13 @@ function RegisterForm() {
                     {!phoneLocked ? (
                       <button
                         type="button"
-                        disabled={!sanitizePakistaniPhone(phone).isValid}
-                        onClick={() => setIsOtpModalOpen(true)}
+                        disabled={!sanitizePakistaniPhone(phone).isValid || isCheckingPhone || Boolean(phoneRegisteredError)}
+                        onClick={handleOpenOtpModal}
                         className="px-3.5 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold transition flex items-center gap-1.5 shrink-0 shadow-xs cursor-pointer active:scale-95"
-                        title="Verify via authentic WhatsApp OTP"
+                        title={phoneRegisteredError ? 'Phone number already registered' : 'Verify via authentic WhatsApp OTP'}
                       >
                         <WhatsAppIcon className="w-3.5 h-3.5" />
-                        <span>Verify WA</span>
+                        <span>{isCheckingPhone ? 'Checking...' : 'Verify WA'}</span>
                       </button>
                     ) : (
                       <div className="px-3 h-11 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-1 shrink-0">
@@ -792,6 +856,25 @@ function RegisterForm() {
                       </div>
                     )}
                   </div>
+
+                  {/* Inline phone already-registered warning banner */}
+                  {phoneRegisteredError && (
+                    <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5 animate-in fade-in duration-200">
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="font-bold text-rose-900 leading-snug">{phoneRegisteredError}</p>
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <Link
+                            href={returnUrl ? `/login?returnUrl=${encodeURIComponent(returnUrl)}` : '/login'}
+                            className="inline-flex items-center gap-1 font-bold text-rose-700 hover:text-rose-900 underline text-xs"
+                          >
+                            <span>Sign in to your account instead</span>
+                            <span>→</span>
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Email (Optional) */}
@@ -909,8 +992,8 @@ function RegisterForm() {
               {/* Submit CTA */}
               <button
                 type="submit"
-                disabled={loading}
-                className="w-full h-12 sm:h-14 px-6 rounded-xl sm:rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] text-white font-heading font-black text-sm sm:text-base flex items-center justify-center gap-2.5 transition-all shadow-md hover:shadow-lg cursor-pointer active:scale-[0.99] mt-3"
+                disabled={loading || Boolean(phoneRegisteredError)}
+                className="w-full h-12 sm:h-14 px-6 rounded-xl sm:rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] text-white font-heading font-black text-sm sm:text-base flex items-center justify-center gap-2.5 transition-all shadow-md hover:shadow-lg cursor-pointer active:scale-[0.99] mt-3 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span>
                   {loading
