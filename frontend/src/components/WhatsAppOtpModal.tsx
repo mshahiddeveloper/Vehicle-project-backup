@@ -22,15 +22,18 @@ export function WhatsAppOtpModal({ isOpen, phone, onClose, onVerified }: WhatsAp
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(30);
-  const [otpInfo, setOtpInfo] = useState<WhatsAppOtpResult | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [devCode, setDevCode] = useState<string | null>(null);
+  const [isDispatched, setIsDispatched] = useState(false);
 
   const sanitized = sanitizePakistaniPhone(phone);
 
   useEffect(() => {
     if (isOpen && sanitized.isValid) {
       setError(null);
-      // Pre-check backend DB and request OTP
+      setCode(''); // Always keep input empty - waiting for real WhatsApp code
+      setIsDispatched(false);
+
+      // Pre-check backend DB and request real WhatsApp OTP dispatch
       fetch('/api/whatsapp-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -40,30 +43,21 @@ export function WhatsAppOtpModal({ isOpen, phone, onClose, onVerified }: WhatsAp
         .then((apiData) => {
           if (!apiData.success) {
             setError(apiData.error || 'This phone number cannot be verified for registration.');
-            setCode('');
             return;
           }
-          if (apiData.code) {
-            setCode(apiData.code);
-            setOtpInfo({
-              success: true,
-              code: apiData.code,
-              phoneStandard: apiData.phone || sanitized.standard,
-              waLink: apiData.waLink || '',
-              expiresAt: Date.now() + 600000,
-              message: 'OTP generated successfully.',
-            });
+          setIsDispatched(true);
+          if (apiData.devCode) {
+            setDevCode(apiData.devCode);
           }
         })
         .catch(() => {
-          // Local fallback check
+          // Local fallback check if offline
           const res = sendWhatsAppVerificationOtp(phone, 'register');
-          setOtpInfo(res);
           if (!res.success) {
             setError(res.error || res.message);
-            setCode('');
           } else {
-            setCode(res.code);
+            setIsDispatched(true);
+            setDevCode(res.code);
           }
         });
       setResendCooldown(30);
@@ -83,6 +77,7 @@ export function WhatsAppOtpModal({ isOpen, phone, onClose, onVerified }: WhatsAp
   const handleResend = () => {
     if (resendCooldown > 0) return;
     setError(null);
+    setCode('');
     fetch('/api/whatsapp-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -94,17 +89,18 @@ export function WhatsAppOtpModal({ isOpen, phone, onClose, onVerified }: WhatsAp
           setError(apiData.error || 'Unable to resend OTP.');
           return;
         }
-        if (apiData.code) {
-          setCode(apiData.code);
+        setIsDispatched(true);
+        if (apiData.devCode) {
+          setDevCode(apiData.devCode);
         }
       })
       .catch(() => {
         const res = sendWhatsAppVerificationOtp(phone, 'register');
-        setOtpInfo(res);
         if (!res.success) {
           setError(res.error || res.message);
         } else {
-          setCode(res.code);
+          setIsDispatched(true);
+          setDevCode(res.code);
         }
       });
     setResendCooldown(30);
@@ -191,43 +187,26 @@ export function WhatsAppOtpModal({ isOpen, phone, onClose, onVerified }: WhatsAp
             </p>
           </div>
 
-          {/* Real-time Push Notification Simulation Banner */}
-          {otpInfo && (
-            <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-950 flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-emerald-800 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  SafarPK WhatsApp Dispatch Gateway
-                </span>
-                <span className="text-[10px] text-emerald-700 font-mono font-bold">Just now</span>
+          {/* Authentic WhatsApp Delivery Status Banner */}
+          {isDispatched && (
+            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200/90 text-emerald-950 flex items-start gap-3.5 shadow-2xs">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                <WhatsAppIcon className="w-5 h-5 text-white" />
               </div>
-              <div className="flex items-center justify-between bg-white/90 p-2.5 rounded-xl border border-emerald-200/80">
-                <div className="text-xs">
-                  <span className="text-slate-500 block text-[10px]">Your 6-Digit Verification Code:</span>
-                  <span className="font-mono font-black text-lg tracking-widest text-emerald-900">
-                    {otpInfo.code.slice(0, 3)} {otpInfo.code.slice(3)}
+              <div className="text-xs flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <span className="font-heading font-black text-sm text-emerald-950 block">
+                    Code Sent via WhatsApp
+                  </span>
+                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded-full">
+                    Just now
                   </span>
                 </div>
-                {otpInfo.waLink && (
-                  <a
-                    href={otpInfo.waLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition shadow-xs"
-                  >
-                    <WhatsAppIcon className="w-3.5 h-3.5" />
-                    <span>Open WA</span>
-                    <ExternalLink className="w-3 h-3 ml-0.5" />
-                  </a>
-                )}
+                <p className="text-slate-600 mt-1 leading-relaxed text-[11px] sm:text-xs">
+                  A 6-digit one-time code has been sent to your WhatsApp on{' '}
+                  <strong className="text-slate-900">{sanitized.standard || phone}</strong>. Please check your WhatsApp messages and enter the code below.
+                </p>
               </div>
-            </div>
-          )}
-
-          {error && (
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-              <span>{error}</span>
             </div>
           )}
 
@@ -290,6 +269,20 @@ export function WhatsAppOtpModal({ isOpen, phone, onClose, onVerified }: WhatsAp
               </span>
             </button>
           </div>
+
+          {/* Dev Sandbox Helper (Only during local development when Meta keys are not yet configured) */}
+          {devCode && (
+            <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-900 text-[11px] flex items-center justify-between">
+              <span className="text-amber-800">Sandbox Test Code (Keys pending):</span>
+              <button
+                type="button"
+                onClick={() => setCode(devCode)}
+                className="px-2 py-0.5 rounded bg-amber-200 hover:bg-amber-300 font-mono font-bold text-amber-950 text-[10px] cursor-pointer"
+              >
+                Fill test OTP ({devCode})
+              </button>
+            </div>
+          )}
 
           {/* CTA Buttons */}
           <div className="pt-2 flex flex-col gap-2">

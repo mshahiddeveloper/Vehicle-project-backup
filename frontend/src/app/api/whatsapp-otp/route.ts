@@ -212,49 +212,98 @@ export async function POST(req: NextRequest) {
         updated_at = NOW();
     `;
 
-    // WhatsApp Dispatch
+    // WhatsApp Dispatch via Meta WhatsApp Cloud API (Official & Free Tier)
     const token = process.env.WHATSAPP_CLOUD_API_TOKEN;
     const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    const templateName = process.env.WHATSAPP_OTP_TEMPLATE_NAME;
+
+    let dispatchedViaMeta = false;
+    let metaErrorMessage = '';
 
     if (token && phoneNumberId) {
       try {
-        await fetch(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
+        let metaPayload: any;
+
+        if (templateName) {
+          // Template-based OTP message (Meta Official Production Standard)
+          metaPayload = {
+            messaging_product: 'whatsapp',
+            recipient_type: 'individual',
+            to: standardWaPhone,
+            type: 'template',
+            template: {
+              name: templateName,
+              language: { code: 'en_US' },
+              components: [
+                {
+                  type: 'body',
+                  parameters: [{ type: 'text', text: otpCode }],
+                },
+                {
+                  type: 'button',
+                  sub_type: 'url',
+                  index: '0',
+                  parameters: [{ type: 'text', text: otpCode }],
+                },
+              ],
+            },
+          };
+        } else {
+          // Direct text message OTP (Supports Developer Test Recipient numbers)
+          metaPayload = {
             messaging_product: 'whatsapp',
             recipient_type: 'individual',
             to: standardWaPhone,
             type: 'text',
             text: {
               preview_url: false,
-              body: `SafarPK Verification Code: ${otpCode}. Valid for 10 minutes. Do not share this code.`,
+              body: `Your SafarPK verification code is: *${otpCode}*\n\nValid for 10 minutes. Do not share this code with anyone.`,
             },
-          }),
+          };
+        }
+
+        const metaRes = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(metaPayload),
         });
+
+        const metaData = await metaRes.json().catch(() => ({}));
+        if (metaRes.ok && metaData.messages) {
+          dispatchedViaMeta = true;
+          console.log(`[WhatsApp OTP] Successfully dispatched to ${standardWaPhone}. Message ID: ${metaData.messages[0]?.id}`);
+        } else {
+          metaErrorMessage = metaData?.error?.message || `Meta API HTTP ${metaRes.status}`;
+          console.warn('[WhatsApp OTP] Meta Cloud API dispatch failed:', metaErrorMessage);
+        }
       } catch (err: any) {
-        console.warn('Meta WhatsApp API dispatch warning:', err?.message);
+        metaErrorMessage = err?.message || 'Network error calling Meta API';
+        console.warn('[WhatsApp OTP] Meta Cloud API exception:', metaErrorMessage);
       }
     }
 
-    const waText = encodeURIComponent(
-      `*SafarPK Verification Code*\nYour secure authentication code is: *${otpCode}*\nValid for 10 minutes.`
-    );
-    const waLink = `https://api.whatsapp.com/send?phone=${standardWaPhone}&text=${waText}`;
+    const isConfigured = Boolean(token && phoneNumberId);
 
     return NextResponse.json(
       {
         success: true,
-        provider: token && phoneNumberId ? 'meta_cloud_api' : 'whatsapp_direct_gateway',
+        provider: isConfigured ? 'meta_cloud_api' : 'sandbox_simulation',
         phone: standardWaPhone,
-        code: otpCode, // Provided for client-side matching & local test runners
-        waLink,
+        dispatched: dispatchedViaMeta,
         expiresInSeconds: 600,
         cooldownSeconds: 60,
-        message: 'OTP generated and persisted in Neon PostgreSQL.',
+        // Only expose devCode if token is NOT configured and NOT in production
+        ...(isConfigured || process.env.NODE_ENV === 'production'
+          ? {}
+          : { devCode: otpCode, isDevDemo: true }),
+        message: dispatchedViaMeta
+          ? 'Verification code sent to your WhatsApp account.'
+          : isConfigured
+          ? `Attempted WhatsApp dispatch: ${metaErrorMessage || 'Check Meta developer dashboard'}`
+          : 'Verification code generated.',
       },
       { headers: { 'Cache-Control': 'no-store' } }
     );
