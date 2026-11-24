@@ -15,8 +15,6 @@ import {
   Flag,
   Search,
   ShieldCheck,
-  MessageCircle,
-  CreditCard,
   Heart,
   ArrowRight,
   Sparkles,
@@ -1973,31 +1971,6 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* Mobile App Quick Trust Bar - Compact, visible on sm+ screens */}
-          <div className="hidden sm:grid grid-cols-3 gap-1.5 p-2 rounded-2xl bg-white border border-[#EEF0F2] shadow-2xs">
-            <div className="flex flex-col items-center justify-center text-center p-1">
-              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-[#0B6B4F] flex items-center justify-center mb-1">
-                <Car className="w-3.5 h-3.5" />
-              </div>
-              <span className="text-[10px] font-extrabold text-[#101828] leading-tight">3.8k+ Fleets</span>
-              <span className="text-[9px] text-[#667085]">Verified hosts</span>
-            </div>
-            <div className="flex flex-col items-center justify-center text-center p-1 border-x border-slate-100">
-              <div className="w-7 h-7 rounded-lg bg-[#E7F8EE] text-[#25D366] flex items-center justify-center mb-1">
-                <WhatsAppIcon className="w-3.5 h-3.5 text-[#25D366]" />
-              </div>
-              <span className="text-[10px] font-extrabold text-[#101828] leading-tight">Direct WhatsApp</span>
-              <span className="text-[9px] text-[#667085]">No middleman</span>
-            </div>
-            <div className="flex flex-col items-center justify-center text-center p-1">
-              <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center mb-1">
-                <ShieldCheck className="w-3.5 h-3.5" />
-              </div>
-              <span className="text-[10px] font-extrabold text-[#101828] leading-tight">Pay at Handover</span>
-              <span className="text-[9px] text-[#667085]">Zero holding</span>
-            </div>
-          </div>
-
           {/* Desktop Only: Simple, Transparent 3-Step Flow */}
           <div className="hidden md:grid grid-cols-3 gap-3 pt-1">
             <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs">
@@ -2029,22 +2002,6 @@ export default function HomePage() {
                 <p className="text-[11px] text-slate-500 truncate">Review vehicle in person and pay host at handover.</p>
               </div>
             </div>
-          </div>
-
-          {/* Desktop Only: Trust Value Pillars */}
-          <div className="hidden md:flex gap-6 sm:gap-8 flex-wrap text-xs sm:text-sm text-[#344054] font-semibold pt-1">
-            <span className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-[#0B6B4F]" />
-              Independent local hosts & fleet partners
-            </span>
-            <span className="flex items-center gap-2">
-              <MessageCircle className="w-4 h-4 text-[#0B6B4F]" />
-              Direct WhatsApp & In-App messaging
-            </span>
-            <span className="flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-[#0B6B4F]" />
-              Direct handover — inspect vehicle and settle with host
-            </span>
           </div>
         </div>
       </section>
