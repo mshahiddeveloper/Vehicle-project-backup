@@ -63,7 +63,8 @@ export function getSavedWishlistItems(): WishlistItem[] {
               const mappedCat: WishlistItem['category'] =
                 cat.includes('driver') ? 'driver' :
                 cat.includes('shuttle') || cat.includes('pick') ? 'shuttle' :
-                cat.includes('mover') || cat.includes('cargo') ? 'mover' : 'car';
+                cat.includes('mover') || cat.includes('cargo') || cat.includes('shifting') ? 'mover' :
+                cat.includes('ride') || cat.includes('city') || cat.includes('intercity') || cat.includes('c2c') ? 'ride' : 'car';
 
               const itemId = p.id || `custom-${Date.now()}-${Math.random()}`;
               if (!customItems.some((it) => it.id === itemId)) {
@@ -77,7 +78,13 @@ export function getSavedWishlistItems(): WishlistItem[] {
                   city: p.city,
                   rate: p.rate || p.price || 'PKR 10,000 / day',
                   price: p.rate || p.price || 'PKR 10,000 / day',
-                  href: p.href || (p.id?.startsWith('l-') || p.id?.startsWith('car-') ? `/listing/${p.id}` : `/listing/l-1`),
+                  href: p.href || (
+                    mappedCat === 'ride' || p.id?.startsWith('r-') || p.id?.startsWith('c2c-') ? `/city-to-city/${p.id}` :
+                    mappedCat === 'shuttle' || p.id?.startsWith('s-') ? `/shuttles/${p.id}` :
+                    mappedCat === 'mover' || p.id?.startsWith('m-') ? `/movers/${p.id}` :
+                    mappedCat === 'driver' || p.id?.startsWith('d-') ? `/drivers/${p.id}` :
+                    (p.id?.startsWith('l-') || p.id?.startsWith('car-') ? `/listing/${p.id}` : `/listing/l-1`)
+                  ),
                   contacted: p.contacted,
                   savedAt: p.savedAt,
                 });

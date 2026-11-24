@@ -20,6 +20,7 @@ import {
   Car,
   Clock,
   Sparkles,
+  Heart,
 } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import {
@@ -27,7 +28,14 @@ import {
   CITY_RIDES_DATA,
   getCustomCityRides,
 } from '@/data/marketplaceData';
-import { isListingPaused } from '@/data/userAuth';
+import { isListingPaused, getActiveUser } from '@/data/userAuth';
+import {
+  saveWishlistItem,
+  removeWishlistItem,
+  getSavedWishlistItems,
+  setPendingWishlist,
+  WishlistItem,
+} from '@/data/wishlist';
 
 const INTERCITY_CITIES = [
   'Karachi',
@@ -58,13 +66,64 @@ export default function CityToCityPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [revealedPhones, setRevealedPhones] = useState<Record<string, boolean>>({});
   const [customRides, setCustomRides] = useState<CityRideItem[]>([]);
+  const [savedRideIds, setSavedRideIds] = useState<string[]>([]);
 
   useEffect(() => {
     setCustomRides(getCustomCityRides());
     const onUpdated = () => setCustomRides(getCustomCityRides());
     window.addEventListener('safarpk_city_rides_updated', onUpdated);
-    return () => window.removeEventListener('safarpk_city_rides_updated', onUpdated);
+
+    const syncSaved = () => {
+      const items = getSavedWishlistItems();
+      const ids = items
+        .filter((it) => it.category === 'ride' || it.id.startsWith('r-') || it.id.startsWith('c2c-'))
+        .map((it) => it.id);
+      setSavedRideIds(ids);
+    };
+    syncSaved();
+    window.addEventListener('safarpk_saved_updated', syncSaved);
+    window.addEventListener('safarpk_favorites_updated', syncSaved);
+    window.addEventListener('safarpk_auth_state_changed', syncSaved);
+
+    return () => {
+      window.removeEventListener('safarpk_city_rides_updated', onUpdated);
+      window.removeEventListener('safarpk_saved_updated', syncSaved);
+      window.removeEventListener('safarpk_favorites_updated', syncSaved);
+      window.removeEventListener('safarpk_auth_state_changed', syncSaved);
+    };
   }, []);
+
+  const handleToggleSaveRide = (e: React.MouseEvent, r: CityRideItem) => {
+    e.stopPropagation();
+    const activeUser = getActiveUser();
+    const fare = isReturnTrip ? r.ret : (r.pricePerSeat || r.one);
+    const rideItem: WishlistItem = {
+      id: r.id,
+      category: 'ride',
+      name: `${r.fromCity} ➔ ${r.toCity}`,
+      title: `${r.fromCity} ➔ ${r.toCity} (${r.car})`,
+      sub: `${r.car} · ${r.duration}`,
+      specs: `${r.car} · ${r.time}`,
+      city: r.fromCity,
+      rate: formatPKR(fare),
+      price: formatPKR(fare),
+      href: `/city-to-city/${r.id}`,
+    };
+
+    if (!activeUser) {
+      setPendingWishlist(rideItem, '/city-to-city');
+      router.push(`/login?pending_wishlist=1&redirect=${encodeURIComponent('/city-to-city')}`);
+      return;
+    }
+
+    if (savedRideIds.includes(r.id)) {
+      removeWishlistItem(r.id);
+      setSavedRideIds((prev) => prev.filter((id) => id !== r.id));
+    } else {
+      saveWishlistItem(rideItem);
+      setSavedRideIds((prev) => [...prev, r.id]);
+    }
+  };
 
   const allRides: CityRideItem[] = [...customRides, ...CITY_RIDES_DATA];
 
@@ -477,35 +536,57 @@ export default function CityToCityPage() {
                       </p>
                     </div>
 
-                    {/* Price Matrix */}
-                    <div className="flex flex-col items-end whitespace-nowrap">
-                      {isCarpool && r.pricePerSeat ? (
-                        <>
-                          <div className="flex items-baseline gap-1">
-                            <span className="font-heading font-extrabold text-xl text-emerald-700">
-                              {formatPKR(r.pricePerSeat)}
+                    {/* Price Matrix & Wishlist Button */}
+                    <div className="flex items-start gap-2.5">
+                      <div className="flex flex-col items-end whitespace-nowrap">
+                        {isCarpool && r.pricePerSeat ? (
+                          <>
+                            <div className="flex items-baseline gap-1">
+                              <span className="font-heading font-extrabold text-xl text-emerald-700">
+                                {formatPKR(r.pricePerSeat)}
+                              </span>
+                              <span className="text-xs text-slate-500 font-bold">/ seat</span>
+                            </div>
+                            <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md mt-0.5">
+                              {r.availableSeats || 1} seat open
                             </span>
-                            <span className="text-xs text-slate-500 font-bold">/ seat</span>
-                          </div>
-                          <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md mt-0.5">
-                            {r.availableSeats || 1} seat open
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="font-heading font-extrabold text-xl text-[#101828]">
-                            {formatPKR(isReturnTrip ? r.ret : r.one)}
-                          </span>
-                          <span className="text-xs text-[#667085]">
-                            {isReturnTrip ? 'Return whole car' : 'One way private'}
-                          </span>
-                          {r.pricePerSeat && (
-                            <span className="text-[10px] text-emerald-700 font-medium">
-                              Or {formatPKR(r.pricePerSeat)}/seat shared
+                          </>
+                        ) : (
+                          <>
+                            <span className="font-heading font-extrabold text-xl text-[#101828]">
+                              {formatPKR(isReturnTrip ? r.ret : r.one)}
                             </span>
-                          )}
-                        </>
-                      )}
+                            <span className="text-xs text-[#667085]">
+                              {isReturnTrip ? 'Return whole car' : 'One way private'}
+                            </span>
+                            {r.pricePerSeat && (
+                              <span className="text-[10px] text-emerald-700 font-medium">
+                                Or {formatPKR(r.pricePerSeat)}/seat shared
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleSaveRide(e, r)}
+                        className={`w-9 h-9 rounded-full flex items-center justify-center transition active:scale-90 shrink-0 cursor-pointer ${
+                          savedRideIds.includes(r.id)
+                            ? 'bg-rose-50 text-rose-600 border border-rose-200 shadow-2xs'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                        }`}
+                        title={savedRideIds.includes(r.id) ? 'Remove from saved' : 'Save route to wishlist'}
+                        aria-label={savedRideIds.includes(r.id) ? 'Remove from saved' : 'Save route to wishlist'}
+                      >
+                        <Heart
+                          className={`w-4 h-4 ${
+                            savedRideIds.includes(r.id)
+                              ? 'fill-rose-600 text-rose-600'
+                              : 'text-slate-600'
+                          }`}
+                        />
+                      </button>
                     </div>
                   </div>
 

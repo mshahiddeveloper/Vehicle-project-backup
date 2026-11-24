@@ -1,18 +1,27 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/AppHeader';
 import { AppFooter } from '@/components/AppFooter';
 import { MobileNavBar } from '@/components/MobileNavBar';
 import { MOVERS_DATA, MoverItem } from '@/data/marketplaceData';
-import { isListingPaused } from '@/data/userAuth';
+import { isListingPaused, getActiveUser } from '@/data/userAuth';
 import { recordLead, recordClickEvent } from '@/data/activityTracker';
 import { getWhatsAppTargetUrl } from '@/data/chatEngine';
-import { Phone, MessageSquare, Truck, ArrowRight, ShieldCheck, Check, Search, ChevronDown, Eye, CheckCircle2 } from 'lucide-react';
+import {
+  saveWishlistItem,
+  removeWishlistItem,
+  getSavedWishlistItems,
+  setPendingWishlist,
+  WishlistItem,
+} from '@/data/wishlist';
+import { Phone, MessageSquare, Truck, ArrowRight, ShieldCheck, Check, Search, ChevronDown, Eye, CheckCircle2, Heart } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 
 export default function MoversPage() {
+  const router = useRouter();
   const [sizeFilter, setSizeFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [revealedPhones, setRevealedPhones] = useState<Record<string, boolean>>({});
@@ -20,6 +29,57 @@ export default function MoversPage() {
   const [estimatedKm, setEstimatedKm] = useState<number>(15);
   const [helpersCount, setHelpersCount] = useState<number>(2);
   const [movers, setMovers] = useState<MoverItem[]>(MOVERS_DATA);
+  const [savedMoverIds, setSavedMoverIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const syncSaved = () => {
+      const items = getSavedWishlistItems();
+      const ids = items
+        .filter((it) => it.category === 'mover' || it.id.startsWith('m-'))
+        .map((it) => it.id);
+      setSavedMoverIds(ids);
+    };
+    syncSaved();
+    window.addEventListener('safarpk_saved_updated', syncSaved);
+    window.addEventListener('safarpk_favorites_updated', syncSaved);
+    window.addEventListener('safarpk_auth_state_changed', syncSaved);
+    return () => {
+      window.removeEventListener('safarpk_saved_updated', syncSaved);
+      window.removeEventListener('safarpk_favorites_updated', syncSaved);
+      window.removeEventListener('safarpk_auth_state_changed', syncSaved);
+    };
+  }, []);
+
+  const handleToggleSaveMover = (e: React.MouseEvent, m: MoverItem) => {
+    e.stopPropagation();
+    const activeUser = getActiveUser();
+    const moverItem: WishlistItem = {
+      id: m.id,
+      category: 'mover',
+      name: m.name,
+      title: `${m.name} (${m.category})`,
+      sub: `${m.trucks} · ${m.city}`,
+      specs: `${m.base} base · ${m.km} · ${m.helper}`,
+      city: m.city,
+      rate: `${m.base} base`,
+      price: `${m.base} base`,
+      href: `/movers/${m.id}`,
+    };
+
+    if (!activeUser) {
+      setPendingWishlist(moverItem, '/movers');
+      router.push(`/login?pending_wishlist=1&redirect=${encodeURIComponent('/movers')}`);
+      return;
+    }
+
+    if (savedMoverIds.includes(m.id)) {
+      removeWishlistItem(m.id);
+      setSavedMoverIds((prev) => prev.filter((id) => id !== m.id));
+    } else {
+      saveWishlistItem(moverItem);
+      setSavedMoverIds((prev) => [...prev, m.id]);
+    }
+  };
 
   const selectedMover = movers.find((m) => m.id === selectedMoverId) || movers[0];
 
@@ -112,9 +172,9 @@ export default function MoversPage() {
           On mobile (< lg): Calculator is order-1 (at the very TOP of the page for instant access).
           On desktop (>= lg): Calculator is order-2 (sticky right column).
         */}
-        <aside className="order-1 lg:order-2 relative lg:sticky lg:top-24 border border-orange-200/90 rounded-3xl p-5 sm:p-6 bg-white shadow-lg space-y-4">
+        <aside className="order-1 lg:order-2 relative lg:sticky lg:top-20 border border-orange-200/90 rounded-3xl p-4 sm:p-5 lg:p-4.5 bg-white shadow-lg space-y-3 max-h-[calc(100vh-5.5rem)] overflow-y-auto no-scrollbar">
           {/* Header with Title and Category Badge */}
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               INSTANT SHIFTING CALCULATOR
             </span>
@@ -124,7 +184,7 @@ export default function MoversPage() {
           </div>
 
           {/* Selected Mover Callout */}
-          <div className="p-3 rounded-2xl bg-orange-50/60 border border-orange-100 flex items-center justify-between gap-2">
+          <div className="p-2.5 rounded-2xl bg-orange-50/60 border border-orange-100 flex items-center justify-between gap-2">
             <span className="text-xs font-semibold text-slate-600 shrink-0">Selected Mover:</span>
             <span className="text-xs font-extrabold text-[#9A3412] truncate text-right" title={selectedMover.name}>
               {selectedMover.name}
@@ -132,7 +192,7 @@ export default function MoversPage() {
           </div>
 
           {/* Distance Slider */}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <div className="flex justify-between items-center text-xs font-semibold text-slate-700">
               <span>Trip Distance: <strong className="text-[#C2410C] font-extrabold text-sm">{estimatedKm} km</strong></span>
             </div>
@@ -153,7 +213,7 @@ export default function MoversPage() {
           </div>
 
           {/* Helpers / Loaders Stepper (Unlimited + Quick Presets) */}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <div className="flex justify-between items-center text-xs font-semibold text-slate-700">
               <span>Loaders / Helpers</span>
               <span className="font-extrabold text-xs text-[#C2410C] bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200">
@@ -203,7 +263,7 @@ export default function MoversPage() {
                     key={num}
                     type="button"
                     onClick={() => setHelpersCount(num)}
-                    className={`h-9 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    className={`h-8 rounded-xl text-xs font-bold transition cursor-pointer ${
                       helpersCount === num
                         ? 'bg-[#C2410C] text-white shadow-sm'
                         : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -217,56 +277,53 @@ export default function MoversPage() {
           </div>
 
           {/* Estimated Shifting Total Box */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-b from-orange-50/80 to-amber-50/40 border border-orange-200 text-center space-y-1 shadow-2xs">
-            <span className="text-[10px] sm:text-[11px] font-bold tracking-wider text-orange-900 uppercase">
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-b from-orange-50/80 to-amber-50/40 border border-orange-200 text-center space-y-0.5 shadow-2xs">
+            <span className="text-[10px] font-bold tracking-wider text-orange-900 uppercase">
               ESTIMATED SHIFTING TOTAL
             </span>
-            <div className="font-heading font-black text-3xl sm:text-4xl text-[#9A3412]">
+            <div className="font-heading font-black text-2xl sm:text-3xl text-[#9A3412]">
               Rs {estimatedCost.toLocaleString('en-US')}
             </div>
-            <p className="text-[11px] sm:text-xs text-[#C2410C] font-medium">
+            <p className="text-[11px] text-[#C2410C] font-medium">
               Base {selectedMover.base} + {estimatedKm}km (Rs. {kmRateNum}/km) + {helpersCount} helpers
             </p>
           </div>
 
           {/* Contact Action Buttons */}
           <div className="space-y-2 pt-1">
-            {/* Instant WhatsApp Button */}
-            <button
-              type="button"
-              onClick={() => handleWhatsApp(selectedMover)}
-              className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
-            >
-              <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
-              <span>WhatsApp</span>
-            </button>
-
-            {/* Direct Call Button with Click-to-Reveal Pattern */}
-            <button
-              type="button"
-              onClick={() => handleCall(selectedMover)}
-              className="w-full h-10 rounded-xl border border-orange-200 bg-orange-50/70 hover:bg-orange-100 text-[#9A3412] font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-2xs active:scale-[0.99]"
-              title={revealedPhones[selectedMover.id] ? `Call ${selectedMover.name}` : 'Click to show phone number'}
-            >
-              <Phone className="w-3.5 h-3.5 text-[#C2410C]" />
-              <span>
-                {revealedPhones[selectedMover.id] ? (
-                  <>Call Host: <span className="font-mono font-bold">{selectedMover.phone}</span></>
-                ) : (
-                  'Show Phone Number'
-                )}
-              </span>
-            </button>
-
-            {/* Request Move Button */}
+            {/* Top: Send Move Request */}
             <button
               type="button"
               onClick={() => handleSendMove(selectedMover)}
-              className="w-full h-10 rounded-xl bg-[#C2410C] hover:bg-[#9A3412] text-white font-heading font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer shadow-sm active:scale-[0.99]"
+              className="w-full h-11 rounded-xl bg-[#C2410C] hover:bg-[#9A3412] text-white font-heading font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition cursor-pointer shadow-sm active:scale-[0.99]"
             >
               <span>Send Move Request to {selectedMover.name.split(' ')[0]}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
+
+            {/* Bottom: 50% Call & 50% WhatsApp in ONE line */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => handleCall(selectedMover)}
+                className="h-10 px-2 rounded-xl border border-orange-200 bg-orange-50/80 hover:bg-orange-100 text-[#9A3412] font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-[0.99] whitespace-nowrap"
+                title={revealedPhones[selectedMover.id] ? `Call ${selectedMover.name}` : 'Click to show phone number'}
+              >
+                <Phone className="w-3.5 h-3.5 text-[#C2410C] shrink-0" />
+                <span className="truncate">
+                  {revealedPhones[selectedMover.id] ? selectedMover.phone : 'Call Host'}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleWhatsApp(selectedMover)}
+                className="h-10 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer shadow-sm active:scale-[0.99] whitespace-nowrap"
+              >
+                <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
+                <span>WhatsApp</span>
+              </button>
+            </div>
           </div>
         </aside>
 
@@ -337,12 +394,19 @@ export default function MoversPage() {
               return (
                 <div
                   key={m.id}
-                  onClick={() => setSelectedMoverId(m.id)}
+                  onClick={() => {
+                    if (isSelected) {
+                      router.push(`/movers/${m.id}`);
+                    } else {
+                      setSelectedMoverId(m.id);
+                    }
+                  }}
                   className={`rounded-[22px] p-5 sm:p-6 grid grid-cols-1 sm:grid-cols-[96px_1fr_auto] gap-5 items-center transition cursor-pointer ${
                     isSelected
                       ? 'border-2 border-orange-500 bg-[#FFF7ED] shadow-md ring-1 ring-orange-500/20'
                       : 'border border-[#EEF0F2] bg-white hover:border-slate-300 hover:shadow-md'
                   }`}
+                  title={isSelected ? `Click again to view full profile of ${m.name}` : `Click to calculate quote with ${m.name}`}
                 >
                   {/* Truck Icon Art */}
                   <div className="w-24 h-24 rounded-2xl flex items-center justify-center shrink-0 transition bg-[#FDECE4] text-[#C2410C]">
@@ -351,27 +415,49 @@ export default function MoversPage() {
 
                   {/* Company Details */}
                   <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Link
-                        href={`/movers/${m.id}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="font-heading font-extrabold text-lg text-[#101828] hover:text-[#C2410C] transition"
-                      >
-                        {m.name}
-                      </Link>
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#EEF4FF] text-[#1D3A8A]">
-                        ✓ Verified company
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
-                        {m.city}
-                      </span>
-                      {isSelected && (
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-900 border border-orange-200 flex items-center gap-1">
-                          <Check className="w-3 h-3 text-[#C2410C]" />
-                          <span>Selected Mover</span>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Link
+                          href={`/movers/${m.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="font-heading font-extrabold text-lg text-[#101828] hover:text-[#C2410C] transition"
+                        >
+                          {m.name}
+                        </Link>
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#EEF4FF] text-[#1D3A8A]">
+                          ✓ Verified company
                         </span>
-                      )}
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+                          {m.city}
+                        </span>
+                        {isSelected && (
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-900 border border-orange-200 flex items-center gap-1">
+                            <Check className="w-3 h-3 text-[#C2410C]" />
+                            <span>Selected Mover</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Wishlist Heart Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleSaveMover(e, m)}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center transition active:scale-90 shrink-0 cursor-pointer ${
+                          savedMoverIds.includes(m.id)
+                            ? 'bg-rose-50 text-rose-600 border border-rose-200 shadow-2xs'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                        }`}
+                        title={savedMoverIds.includes(m.id) ? 'Remove from saved' : 'Save mover to wishlist'}
+                        aria-label={savedMoverIds.includes(m.id) ? 'Remove from saved' : 'Save mover to wishlist'}
+                      >
+                        <Heart
+                          className={`w-4 h-4 ${
+                            savedMoverIds.includes(m.id) ? 'fill-rose-600 text-rose-600' : 'text-slate-600'
+                          }`}
+                        />
+                      </button>
                     </div>
+
                     <p className="text-[13px] text-[#475467] font-medium">{m.trucks}</p>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {m.tags.map((t) => (
@@ -394,21 +480,42 @@ export default function MoversPage() {
                     )}
                   </div>
 
-                  {/* Standardized Action Buttons: Fully legible, no truncation, with View Details */}
+                  {/* Action Buttons: Send Move on top, Call & WhatsApp in line below (50%/50%) */}
                   <div
                     className="flex flex-col gap-2 sm:w-64 shrink-0"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    {/* Top Row: Click-to-Reveal Phone & WhatsApp */}
+                    {/* Top Row: Send Move Request + Details Link */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSendMove(m)}
+                        className="flex-1 h-9 rounded-xl bg-[#C2410C] hover:bg-[#9A3412] text-white font-bold text-xs flex items-center justify-center gap-1 transition cursor-pointer shadow-2xs active:scale-95 whitespace-nowrap"
+                      >
+                        <span>Send Move</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+
+                      <Link
+                        href={`/movers/${m.id}`}
+                        className="h-9 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-2xs cursor-pointer hover:border-slate-300 active:scale-95 whitespace-nowrap"
+                        title="View full listing details"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Details</span>
+                      </Link>
+                    </div>
+
+                    {/* Bottom Row: Call (50%) & WhatsApp (50%) in one line */}
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => handleCall(m)}
-                        className="h-9 px-2.5 rounded-xl border border-orange-200 bg-orange-50/80 hover:bg-orange-100 text-[#9A3412] text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-2xs cursor-pointer active:scale-95 whitespace-nowrap"
+                        className="h-9 px-2 rounded-xl border border-orange-200 bg-orange-50/80 hover:bg-orange-100 text-[#9A3412] text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-2xs cursor-pointer active:scale-95 whitespace-nowrap"
                         title={revealedPhones[m.id] ? `Call ${m.name} (${m.phone})` : 'Click to show phone number'}
                       >
                         <Phone className="w-3.5 h-3.5 text-[#C2410C] shrink-0" />
-                        <span className="font-mono text-xs font-bold whitespace-nowrap">
+                        <span className="font-mono text-xs font-bold whitespace-nowrap truncate">
                           {revealedPhones[m.id] ? m.phone : 'Call'}
                         </span>
                       </button>
@@ -417,31 +524,11 @@ export default function MoversPage() {
                         type="button"
                         aria-label={`WhatsApp ${m.name}`}
                         onClick={() => handleWhatsApp(m)}
-                        className="h-9 px-2.5 rounded-xl border border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 flex items-center justify-center gap-1.5 transition shadow-2xs cursor-pointer active:scale-95 text-xs font-bold whitespace-nowrap"
+                        className="h-9 px-2 rounded-xl border border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 flex items-center justify-center gap-1.5 transition shadow-2xs cursor-pointer active:scale-95 text-xs font-bold whitespace-nowrap"
                         title={`Chat with ${m.name} on WhatsApp`}
                       >
                         <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
                         <span className="text-xs font-bold text-emerald-800">WhatsApp</span>
-                      </button>
-                    </div>
-
-                    {/* Bottom Row: View Details & Send Move Request */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <Link
-                        href={`/movers/${m.id}`}
-                        className="h-9 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-2xs cursor-pointer hover:border-slate-300 active:scale-95 whitespace-nowrap"
-                      >
-                        <Eye className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Details</span>
-                      </Link>
-
-                      <button
-                        type="button"
-                        onClick={() => handleSendMove(m)}
-                        className="h-9 rounded-xl bg-[#C2410C] hover:bg-[#9A3412] text-white font-bold text-xs flex items-center justify-center gap-1 transition cursor-pointer shadow-2xs active:scale-95 whitespace-nowrap"
-                      >
-                        <span>Send Move</span>
-                        <ArrowRight className="w-3 h-3" />
                       </button>
                     </div>
                   </div>

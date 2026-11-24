@@ -11,6 +11,13 @@ import { getStoreSlugForOwner } from '@/data/storefrontEngine';
 import { recordLead, recordClickEvent } from '@/data/activityTracker';
 import { getWhatsAppTargetUrl, startOrOpenConversation } from '@/data/chatEngine';
 import { getActiveUser } from '@/data/userAuth';
+import {
+  saveWishlistItem,
+  removeWishlistItem,
+  getSavedWishlistItems,
+  setPendingWishlist,
+  WishlistItem,
+} from '@/data/wishlist';
 import { useCountry } from '@/app/context/CountryContext';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import {
@@ -58,6 +65,55 @@ export default function CityRideDetailPage() {
   const [phoneRevealed, setPhoneRevealed] = useState(false);
   const [featuresOpen, setFeaturesOpen] = useState(false);
   const [policiesOpen, setPoliciesOpen] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  useEffect(() => {
+    if (!ride) return;
+    const checkSaved = () => {
+      const items = getSavedWishlistItems();
+      setIsSaved(items.some((it) => it.id === ride.id));
+    };
+    checkSaved();
+    window.addEventListener('safarpk_saved_updated', checkSaved);
+    window.addEventListener('safarpk_favorites_updated', checkSaved);
+    window.addEventListener('safarpk_auth_state_changed', checkSaved);
+    return () => {
+      window.removeEventListener('safarpk_saved_updated', checkSaved);
+      window.removeEventListener('safarpk_favorites_updated', checkSaved);
+      window.removeEventListener('safarpk_auth_state_changed', checkSaved);
+    };
+  }, [ride]);
+
+  const handleToggleSaveRide = () => {
+    if (!ride) return;
+    const activeUser = getActiveUser();
+    const rideItem: WishlistItem = {
+      id: ride.id,
+      category: 'ride',
+      name: `${ride.fromCity} ➔ ${ride.toCity}`,
+      title: `${ride.fromCity} ➔ ${ride.toCity} (${ride.car})`,
+      sub: `${ride.car} · ${ride.duration}`,
+      specs: `${ride.car} · ${ride.time}`,
+      city: ride.fromCity,
+      rate: `Rs. ${currentFare.toLocaleString()}`,
+      price: `Rs. ${currentFare.toLocaleString()}`,
+      href: `/city-to-city/${ride.id}`,
+    };
+
+    if (!activeUser) {
+      setPendingWishlist(rideItem, `/city-to-city/${ride.id}`);
+      router.push(`/login?pending_wishlist=1&redirect=${encodeURIComponent(`/city-to-city/${ride.id}`)}`);
+      return;
+    }
+
+    if (isSaved) {
+      removeWishlistItem(ride.id);
+      setIsSaved(false);
+    } else {
+      saveWishlistItem(rideItem);
+      setIsSaved(true);
+    }
+  };
 
   const scrollToBooking = () => {
     if (typeof window !== 'undefined') {
@@ -217,10 +273,23 @@ export default function CityRideDetailPage() {
             <button
               type="button"
               onClick={handleCopyShare}
-              className="w-10 h-10 rounded-2xl border border-slate-200/80 bg-white text-slate-700 flex items-center justify-center hover:bg-slate-50 transition active:scale-95 shadow-2xs"
+              className="w-10 h-10 rounded-2xl border border-slate-200/80 bg-white text-slate-700 flex items-center justify-center hover:bg-slate-50 transition active:scale-95 shadow-2xs cursor-pointer"
               aria-label="Share route"
             >
               {copiedLink ? <Check className="w-4 h-4 text-emerald-600 stroke-[2.5]" /> : <Share2 className="w-4 h-4 text-slate-700" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleToggleSaveRide}
+              className={`w-10 h-10 rounded-2xl border flex items-center justify-center transition active:scale-95 shadow-2xs cursor-pointer ${
+                isSaved
+                  ? 'border-rose-200 bg-rose-50 text-rose-700'
+                  : 'border-slate-200/80 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+              aria-label={isSaved ? 'Remove from wishlist' : 'Save to wishlist'}
+            >
+              <Heart className={`w-4 h-4 ${isSaved ? 'text-rose-600 fill-rose-600' : 'text-slate-700'}`} />
             </button>
           </div>
         </div>
@@ -241,23 +310,39 @@ export default function CityRideDetailPage() {
             </span>
           </nav>
 
-          <button
-            type="button"
-            onClick={handleCopyShare}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
-          >
-            {copiedLink ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Link Copied</span>
-              </>
-            ) : (
-              <>
-                <Share2 className="w-3.5 h-3.5 text-slate-500" />
-                <span>Share Route</span>
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCopyShare}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+            >
+              {copiedLink ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Link Copied</span>
+                </>
+              ) : (
+                <>
+                  <Share2 className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Share Route</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleToggleSaveRide}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition cursor-pointer shadow-2xs ${
+                isSaved
+                  ? 'border-rose-200 bg-rose-50 text-rose-700'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+              aria-label={isSaved ? 'Remove from wishlist' : 'Save to wishlist'}
+            >
+              <Heart className={`w-3.5 h-3.5 ${isSaved ? 'text-rose-600 fill-rose-600' : 'text-slate-500'}`} />
+              <span>{isSaved ? 'Saved' : 'Save'}</span>
+            </button>
+          </div>
         </div>
 
         {/* Route Hero Card */}

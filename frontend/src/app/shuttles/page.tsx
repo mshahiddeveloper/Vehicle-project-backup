@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/AppHeader';
@@ -22,6 +22,7 @@ import {
   Sparkles,
   Users,
   Clock,
+  Heart,
 } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import {
@@ -30,7 +31,14 @@ import {
   CITY_COMMUTE_AREAS,
   matchesShuttleRoute,
 } from '@/data/marketplaceData';
-import { isListingPaused } from '@/data/userAuth';
+import { isListingPaused, getActiveUser } from '@/data/userAuth';
+import {
+  saveWishlistItem,
+  removeWishlistItem,
+  getSavedWishlistItems,
+  setPendingWishlist,
+  WishlistItem,
+} from '@/data/wishlist';
 
 const POPULAR_COMMUTE_CORRIDORS: Record<string, { from: string; to: string; label: string }[]> = {
   Karachi: [
@@ -72,6 +80,58 @@ export default function ShuttlesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [revealedPhones, setRevealedPhones] = useState<Record<string, boolean>>({});
   const [requestedIds, setRequestedIds] = useState<Record<string, boolean>>({});
+  const [savedShuttleIds, setSavedShuttleIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const syncSaved = () => {
+      const items = getSavedWishlistItems();
+      const ids = items
+        .filter((it) => it.category === 'shuttle' || it.id.startsWith('s-'))
+        .map((it) => it.id);
+      setSavedShuttleIds(ids);
+    };
+    syncSaved();
+    window.addEventListener('safarpk_saved_updated', syncSaved);
+    window.addEventListener('safarpk_favorites_updated', syncSaved);
+    window.addEventListener('safarpk_auth_state_changed', syncSaved);
+    return () => {
+      window.removeEventListener('safarpk_saved_updated', syncSaved);
+      window.removeEventListener('safarpk_favorites_updated', syncSaved);
+      window.removeEventListener('safarpk_auth_state_changed', syncSaved);
+    };
+  }, []);
+
+  const handleToggleSaveShuttle = (e: React.MouseEvent, r: ShuttleItem) => {
+    e.stopPropagation();
+    const activeUser = getActiveUser();
+    const fareFormatted = `Rs. ${(r.fareNum || r.fare).toLocaleString()} / month`;
+    const shuttleItem: WishlistItem = {
+      id: r.id,
+      category: 'shuttle',
+      name: `${r.op} (${r.from} ➔ ${r.to})`,
+      title: `${r.op} · ${r.from} to ${r.to}`,
+      sub: `${r.van} · ${r.city}`,
+      specs: `${r.van} · ${r.seats} seats vacant`,
+      city: r.city,
+      rate: fareFormatted,
+      price: fareFormatted,
+      href: `/shuttles/${r.id}`,
+    };
+
+    if (!activeUser) {
+      setPendingWishlist(shuttleItem, '/shuttles');
+      router.push(`/login?pending_wishlist=1&redirect=${encodeURIComponent('/shuttles')}`);
+      return;
+    }
+
+    if (savedShuttleIds.includes(r.id)) {
+      removeWishlistItem(r.id);
+      setSavedShuttleIds((prev) => prev.filter((id) => id !== r.id));
+    } else {
+      saveWishlistItem(shuttleItem);
+      setSavedShuttleIds((prev) => [...prev, r.id]);
+    }
+  };
 
   // Dropdown states for autocompletion
   const [showFromMenu, setShowFromMenu] = useState(false);
@@ -583,11 +643,32 @@ export default function ShuttlesPage() {
                     </div>
                   </div>
 
-                  {/* Col 2: Van info, seats, fare */}
+                  {/* Col 2: Van info, seats, fare & Wishlist */}
                   <div className="flex flex-col gap-2">
-                    <span className="text-[13px] text-[#667085]">
-                      {r.van} · {r.days}
-                    </span>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[13px] text-[#667085]">
+                        {r.van} · {r.days}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleSaveShuttle(e, r)}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center transition active:scale-90 shrink-0 cursor-pointer ${
+                          savedShuttleIds.includes(r.id)
+                            ? 'bg-rose-50 text-rose-600 border border-rose-200 shadow-2xs'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                        }`}
+                        title={savedShuttleIds.includes(r.id) ? 'Remove from saved' : 'Save route to wishlist'}
+                        aria-label={savedShuttleIds.includes(r.id) ? 'Remove from saved' : 'Save route to wishlist'}
+                      >
+                        <Heart
+                          className={`w-4 h-4 ${
+                            savedShuttleIds.includes(r.id)
+                              ? 'fill-rose-600 text-rose-600'
+                              : 'text-slate-600'
+                          }`}
+                        />
+                      </button>
+                    </div>
                     {seatsLeftBadge}
                     <div className="flex items-baseline gap-1">
                       <span className="font-heading font-extrabold text-2xl text-[#101828]">

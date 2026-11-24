@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { AppHeader } from '@/components/AppHeader';
 import { AppFooter } from '@/components/AppFooter';
 import { MobileNavBar } from '@/components/MobileNavBar';
-import { Heart, Trash2, ArrowRight, Car, User, Bus, Truck, LogIn, UserPlus, ShieldCheck } from 'lucide-react';
+import { Heart, Trash2, ArrowRight, Car, User, Bus, Truck, Navigation, LogIn, UserPlus, ShieldCheck } from 'lucide-react';
 import { CARS_DATA } from '@/data/marketplaceData';
 import { getActiveUser, RegisteredUser } from '@/data/userAuth';
 // Integrates with safarpk_saved_vehicles and safarpk_saved_items via @/data/wishlist
@@ -13,7 +13,7 @@ import { getSavedWishlistItems, removeWishlistItem } from '@/data/wishlist';
 
 interface SavedItem {
   id: string;
-  category: 'car' | 'driver' | 'shuttle' | 'mover';
+  category: 'car' | 'driver' | 'ride' | 'shuttle' | 'mover';
   name: string;
   sub: string;
   price: string;
@@ -22,7 +22,7 @@ interface SavedItem {
 }
 
 export default function SavedItemsPage() {
-  const [filterIdx, setFilterIdx] = useState<number>(0); // 0: All, 1: Cars, 2: Drivers, 3: Shuttles, 4: Movers
+  const [filterIdx, setFilterIdx] = useState<number>(0); // 0: All, 1: Cars, 2: Drivers, 3: City to city, 4: Shuttles, 5: Movers
   const [activeUser, setActiveUser] = useState<RegisteredUser | null>(null);
   const [items, setItems] = useState<SavedItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -31,8 +31,18 @@ export default function SavedItemsPage() {
     const lower = (cat || '').toLowerCase();
     if (lower.includes('driver')) return 'driver';
     if (lower.includes('shuttle') || lower.includes('pick')) return 'shuttle';
-    if (lower.includes('mover') || lower.includes('cargo')) return 'mover';
+    if (lower.includes('mover') || lower.includes('cargo') || lower.includes('shifting')) return 'mover';
+    if (lower.includes('ride') || lower.includes('city') || lower.includes('intercity') || lower.includes('c2c')) return 'ride';
     return 'car';
+  };
+
+  const resolveItemHref = (cat: SavedItem['category'], id: string, customHref?: string) => {
+    if (customHref && customHref.length > 1) return customHref;
+    if (cat === 'ride' || id.startsWith('r-') || id.startsWith('c2c-')) return `/city-to-city/${id}`;
+    if (cat === 'shuttle' || id.startsWith('s-')) return `/shuttles/${id}`;
+    if (cat === 'mover' || id.startsWith('m-')) return `/movers/${id}`;
+    if (cat === 'driver' || id.startsWith('d-')) return `/drivers/${id}`;
+    return `/listing/${id}`;
   };
 
   const loadSaved = () => {
@@ -66,28 +76,34 @@ export default function SavedItemsPage() {
       fetch('/api/wishlist')
         .then((r) => (r.ok ? r.json() : null))
         .then((dbData) => {
-          if (dbData && dbData.success && Array.isArray(dbData.items)) {
-            const dbMapped: SavedItem[] = dbData.items.map((v: any) => ({
-              id: v.vehicle_id,
-              category: mapCategory(v.category),
-              name: v.title || 'Saved Listing',
-              sub: v.specs ? `${v.specs} · ${v.city || 'Pakistan'}` : (v.city || 'Pakistan'),
-              price: v.price || 'PKR 5,000 / day',
-              href: `/listing/${v.vehicle_id}`,
-            }));
+          if (dbData && dbData.success && Array.isArray(dbData.items) && dbData.items.length > 0) {
+            const dbMapped: SavedItem[] = dbData.items.map((v: any) => {
+              const cat = mapCategory(v.category);
+              return {
+                id: v.vehicle_id,
+                category: cat,
+                name: v.title || 'Saved Listing',
+                sub: v.specs ? `${v.specs} · ${v.city || 'Pakistan'}` : (v.city || 'Pakistan'),
+                price: v.price || 'PKR 5,000 / day',
+                href: resolveItemHref(cat, v.vehicle_id, v.href),
+              };
+            });
             setItems(dbMapped);
           } else {
             // DB returned no items — fall back to localStorage
             const savedList = getSavedWishlistItems();
-            const mapped: SavedItem[] = savedList.map((p) => ({
-              id: p.id,
-              category: mapCategory(p.category || ''),
-              name: p.title || p.name || 'Saved Listing',
-              sub: p.specs ? `${p.specs} · ${p.city || 'Karachi'}` : (p.sub || p.city || 'Verified Partner'),
-              price: p.rate || p.price || 'PKR 10,000 / day',
-              href: p.href || (p.id?.startsWith('l-') || p.id?.startsWith('car-') ? `/listing/${p.id}` : `/listing/l-1`),
-              contacted: p.contacted,
-            }));
+            const mapped: SavedItem[] = savedList.map((p) => {
+              const cat = mapCategory(p.category || '');
+              return {
+                id: p.id,
+                category: cat,
+                name: p.title || p.name || 'Saved Listing',
+                sub: p.specs ? `${p.specs} · ${p.city || 'Karachi'}` : (p.sub || p.city || 'Verified Partner'),
+                price: p.rate || p.price || 'PKR 10,000 / day',
+                href: resolveItemHref(cat, p.id, p.href),
+                contacted: p.contacted,
+              };
+            });
             setItems(mapped);
           }
           setIsLoading(false);
@@ -127,13 +143,14 @@ export default function SavedItemsPage() {
     };
   }, []);
 
-  const chips = ['All', 'Cars', 'Drivers', 'Pick & drop', 'Movers'];
+  const chips = ['All', 'Cars', 'Drivers', 'City to city', 'Pick & drop', 'Movers'];
 
   const filtered = items.filter((item) => {
     if (filterIdx === 1) return item.category === 'car';
     if (filterIdx === 2) return item.category === 'driver';
-    if (filterIdx === 3) return item.category === 'shuttle';
-    if (filterIdx === 4) return item.category === 'mover';
+    if (filterIdx === 3) return item.category === 'ride';
+    if (filterIdx === 4) return item.category === 'shuttle';
+    if (filterIdx === 5) return item.category === 'mover';
     return true;
   });
 
@@ -154,6 +171,12 @@ export default function SavedItemsPage() {
         return (
           <div className="w-12 h-12 rounded-2xl bg-[#FEF3F2] flex items-center justify-center shrink-0">
             <User className="w-6 h-6 text-[#B45309]" />
+          </div>
+        );
+      case 'ride':
+        return (
+          <div className="w-12 h-12 rounded-2xl bg-[#E0F2FE] flex items-center justify-center shrink-0">
+            <Navigation className="w-6 h-6 text-[#0369A1]" />
           </div>
         );
       case 'shuttle':

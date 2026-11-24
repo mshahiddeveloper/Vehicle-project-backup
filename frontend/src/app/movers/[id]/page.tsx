@@ -11,6 +11,13 @@ import { getStoreSlugForOwner } from '@/data/storefrontEngine';
 import { recordLead, recordClickEvent } from '@/data/activityTracker';
 import { getWhatsAppTargetUrl, startOrOpenConversation } from '@/data/chatEngine';
 import { getActiveUser } from '@/data/userAuth';
+import {
+  saveWishlistItem,
+  removeWishlistItem,
+  getSavedWishlistItems,
+  setPendingWishlist,
+  WishlistItem,
+} from '@/data/wishlist';
 import { useCountry } from '@/app/context/CountryContext';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import {
@@ -59,43 +66,51 @@ export default function MoverDetailPage() {
 
   useEffect(() => {
     if (!mover) return;
-    try {
-      const raw = localStorage.getItem('safarpk_saved_items');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.some((it: any) => it.id === mover.id || it.name === mover.name)) {
-          setIsSaved(true);
-        }
-      }
-    } catch {}
+    const checkSaved = () => {
+      const items = getSavedWishlistItems();
+      setIsSaved(items.some((it) => it.id === mover.id));
+    };
+    checkSaved();
+    window.addEventListener('safarpk_saved_updated', checkSaved);
+    window.addEventListener('safarpk_favorites_updated', checkSaved);
+    window.addEventListener('safarpk_auth_state_changed', checkSaved);
+    return () => {
+      window.removeEventListener('safarpk_saved_updated', checkSaved);
+      window.removeEventListener('safarpk_favorites_updated', checkSaved);
+      window.removeEventListener('safarpk_auth_state_changed', checkSaved);
+    };
   }, [mover]);
 
+  // safarpk_saved_items synchronization via central wishlist manager
   const handleToggleSaveMover = () => {
     if (!mover) return;
-    try {
-      const raw = localStorage.getItem('safarpk_saved_items');
-      let list = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(list)) list = [];
-      const already = list.some((it: any) => it.id === mover.id || it.name === mover.name);
-      if (already) {
-        list = list.filter((it: any) => it.id !== mover.id && it.name !== mover.name);
-        setIsSaved(false);
-      } else {
-        list.unshift({
-          id: mover.id,
-          category: 'mover',
-          name: mover.name,
-          sub: `${mover.trucks} · ${mover.city}`,
-          price: `${mover.baseFare} base fare`,
-          href: `/movers/${mover.id}`,
-          savedAt: new Date().toISOString(),
-        });
-        setIsSaved(true);
-      }
-      localStorage.setItem('safarpk_saved_items', JSON.stringify(list));
-      window.dispatchEvent(new Event('safarpk_saved_updated'));
-      window.dispatchEvent(new Event('safarpk_favorites_updated'));
-    } catch {}
+    const activeUser = getActiveUser();
+    const moverItem: WishlistItem = {
+      id: mover.id,
+      category: 'mover',
+      name: mover.name,
+      title: `${mover.name} (${mover.category})`,
+      sub: `${mover.trucks} · ${mover.city}`,
+      specs: `${mover.base} base · ${mover.km} · ${mover.helper}`,
+      city: mover.city,
+      rate: `${mover.base} base`,
+      price: `${mover.base} base`,
+      href: `/movers/${mover.id}`,
+    };
+
+    if (!activeUser) {
+      setPendingWishlist(moverItem, `/movers/${mover.id}`);
+      router.push(`/login?pending_wishlist=1&redirect=${encodeURIComponent(`/movers/${mover.id}`)}`);
+      return;
+    }
+
+    if (isSaved) {
+      removeWishlistItem(mover.id);
+      setIsSaved(false);
+    } else {
+      saveWishlistItem(moverItem);
+      setIsSaved(true);
+    }
   };
 
   const scrollToBooking = () => {
