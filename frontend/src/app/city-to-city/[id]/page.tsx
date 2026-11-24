@@ -10,7 +10,7 @@ import { CITY_RIDES_DATA, CityRideItem } from '@/data/marketplaceData';
 import { getStoreSlugForOwner } from '@/data/storefrontEngine';
 import { recordLead, recordClickEvent } from '@/data/activityTracker';
 import { getWhatsAppTargetUrl, startOrOpenConversation } from '@/data/chatEngine';
-import { getActiveUser } from '@/data/userAuth';
+import { getActiveUser, isListingPaused } from '@/data/userAuth';
 import {
   saveWishlistItem,
   removeWishlistItem,
@@ -49,8 +49,7 @@ export default function CityRideDetailPage() {
   const ride: CityRideItem | undefined = useMemo(() => {
     return (
       CITY_RIDES_DATA.find((r) => r.id === id) ||
-      CITY_RIDES_DATA.find((r) => r.id.toLowerCase() === id.toLowerCase()) ||
-      CITY_RIDES_DATA[0]
+      CITY_RIDES_DATA.find((r) => r.id.toLowerCase() === id.toLowerCase())
     );
   }, [id]);
 
@@ -124,7 +123,7 @@ export default function CityRideDetailPage() {
     }
   };
 
-  const currentFare = tripType === 'return' ? ride.ret : ride.one;
+  const currentFare = tripType === 'return' ? (ride?.ret || 0) : (ride?.one || 0);
 
   const handleCall = () => {
     setPhoneRevealed(true);
@@ -242,6 +241,36 @@ export default function CityRideDetailPage() {
     setBookingSuccess(true);
   };
 
+  if (!ride) {
+    return (
+      <div className="min-h-screen bg-[#F7F8FA] flex flex-col justify-between font-sans">
+        <AppHeader />
+        <main className="max-w-xl mx-auto px-4 py-20 text-center space-y-4">
+          <div className="w-16 h-16 rounded-3xl bg-slate-200 text-slate-700 flex items-center justify-center mx-auto text-2xl font-bold shadow-inner">
+            <Car className="w-8 h-8 text-slate-600" />
+          </div>
+          <h1 className="font-heading font-black text-2xl sm:text-3xl text-slate-900 tracking-tight">
+            Intercity Route Not Found
+          </h1>
+          <p className="text-sm text-slate-600 leading-relaxed">
+            The city-to-city route listing you requested is not available or may have been updated.
+          </p>
+          <div className="pt-2 flex items-center justify-center gap-3">
+            <Link
+              href="/city-to-city"
+              className="px-6 py-3 bg-[#0B6B4F] hover:bg-[#08513C] text-white rounded-2xl font-heading font-extrabold text-sm transition shadow-md"
+            >
+              Browse All Intercity Routes
+            </Link>
+          </div>
+        </main>
+        <AppFooter />
+        <MobileNavBar />
+      </div>
+    );
+  }
+
+  const isPaused = isListingPaused(ride.id, ride.op);
   const storeSlug = getStoreSlugForOwner(ride.op);
 
   return (
@@ -249,6 +278,48 @@ export default function CityRideDetailPage() {
       <AppHeader />
 
       <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-4 sm:py-6 md:py-10 flex flex-col gap-4 sm:gap-6 pb-24 lg:pb-16">
+        {/* Paused Route Notice */}
+        {isPaused && (
+          <div className="p-5 sm:p-6 bg-amber-50 border-2 border-amber-400 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm animate-in fade-in">
+            <div className="space-y-1.5 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-200 text-amber-900 uppercase tracking-wider">
+                  ⚠️ Route Offline · Renewal Due
+                </span>
+                <span className="text-xs text-amber-800 font-bold">Operator Subscription Inactive</span>
+              </div>
+              <p className="text-xs sm:text-sm text-amber-950 leading-relaxed">
+                <strong>For Passengers:</strong> This intercity route is temporarily offline due to operator subscription renewal. Please browse alternative active routes.
+              </p>
+              <p className="text-xs text-amber-800">
+                <strong>For Route Operator:</strong> Sign in to your dashboard to renew your subscription and reactivate your live routes.
+              </p>
+            </div>
+            <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+              <Link
+                href="/login?returnUrl=/subscription"
+                className="h-10 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs transition flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                Operator Sign In to Renew
+              </Link>
+              <a
+                href={`https://wa.me/923001234567?text=${encodeURIComponent(`Assalam-o-Alaikum Admin, I am operator for route ${ride.fromCity} to ${ride.toCity} (${ride.id}) and need help with subscription renewal.`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="h-10 px-3.5 rounded-xl border border-amber-400 bg-white hover:bg-amber-100 text-amber-900 font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-2xs"
+              >
+                <WhatsAppIcon className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                <span>Admin Support</span>
+              </a>
+              <Link
+                href="/city-to-city"
+                className="h-10 px-3.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-2xs"
+              >
+                Browse All Routes
+              </Link>
+            </div>
+          </div>
+        )}
         {/* Mobile App Navigation Bar (Native App Look) */}
         <div className="md:hidden flex items-center justify-between gap-2 pb-1">
           <button
@@ -584,6 +655,37 @@ export default function CityRideDetailPage() {
 
           {/* Right Column: Pricing & Contact Card */}
           <aside id="city-ride-booking-section" className="relative lg:sticky lg:top-24 border border-slate-200/90 rounded-3xl p-5 sm:p-6 bg-white shadow-lg space-y-5 scroll-mt-24 mb-4">
+            {isPaused ? (
+              <div className="space-y-4 py-2">
+                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 flex items-start gap-3">
+                  <span className="text-xl">⚠️</span>
+                  <div className="text-xs space-y-1">
+                    <strong className="block font-heading font-extrabold text-sm text-amber-900">
+                      Route Temporarily Offline
+                    </strong>
+                    <p className="text-amber-800 leading-relaxed">
+                      Online seat booking is temporarily paused for this operator due to scheduled subscription renewal.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-1">
+                  <Link
+                    href="/city-to-city"
+                    className="w-full h-11 rounded-xl bg-[#0B6B4F] hover:bg-[#08513C] text-white font-heading font-extrabold text-xs flex items-center justify-center gap-2 transition shadow cursor-pointer"
+                  >
+                    Browse Other Intercity Routes
+                  </Link>
+                  <Link
+                    href="/login?returnUrl=/subscription"
+                    className="w-full h-10 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-950 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                  >
+                    Operator Sign In to Renew
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <>
             {/* Trip Type Selector */}
             <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl">
               <button
@@ -725,40 +827,57 @@ export default function CityRideDetailPage() {
                 </p>
               </form>
             )}
+            </>
+            )}
           </aside>
         </div>
       </main>
 
       {/* Mobile App Sticky Action Bar (Direct, Elevated, Never Hidden Behind Menu) */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl flex items-center gap-2 z-50">
-        <button
-          type="button"
-          onClick={handleCall}
-          className="flex-1 h-12 rounded-2xl border border-purple-200 bg-purple-50 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition shadow-2xs"
-          title={phoneRevealed ? ride.phone : 'Click to show phone number'}
-        >
-          <Phone className="w-4 h-4 text-purple-600 shrink-0" />
-          <span className="truncate">{phoneRevealed ? ride.phone : 'Show Number'}</span>
-        </button>
+      {isPaused ? (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 p-3 bg-amber-50/95 backdrop-blur-md border-t-2 border-amber-300 shadow-2xl flex items-center justify-between z-50">
+          <div className="min-w-0 pr-2">
+            <span className="text-xs font-black text-amber-900 block truncate">Route Offline</span>
+            <span className="text-[10px] text-amber-700 block truncate">Operator renewal due</span>
+          </div>
+          <Link
+            href="/city-to-city"
+            className="h-10 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs flex items-center gap-1 shadow-md"
+          >
+            Browse Routes
+          </Link>
+        </div>
+      ) : (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl flex items-center gap-2 z-50">
+          <button
+            type="button"
+            onClick={handleCall}
+            className="flex-1 h-12 rounded-2xl border border-purple-200 bg-purple-50 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition shadow-2xs"
+            title={phoneRevealed ? ride.phone : 'Click to show phone number'}
+          >
+            <Phone className="w-4 h-4 text-purple-600 shrink-0" />
+            <span className="truncate">{phoneRevealed ? ride.phone : 'Show Number'}</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={handleWhatsApp}
-          className="flex-1 h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
-        >
-          <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
-          <span>WhatsApp</span>
-        </button>
+          <button
+            type="button"
+            onClick={handleWhatsApp}
+            className="flex-1 h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
+          >
+            <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
+            <span>WhatsApp</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={scrollToBooking}
-          className="flex-1 h-12 rounded-2xl bg-[#101828] hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
-        >
-          <Calendar className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>Book Ride</span>
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={scrollToBooking}
+            className="flex-1 h-12 rounded-2xl bg-[#101828] hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
+          >
+            <Calendar className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>Book Ride</span>
+          </button>
+        </div>
+      )}
 
       <div className="hidden md:block">
         <AppFooter />

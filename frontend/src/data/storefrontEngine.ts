@@ -15,6 +15,9 @@ import {
   RegisteredUser,
   SafarServiceType,
   getApprovedServicesForUser,
+  SubscriptionStatus,
+  isProviderSubscriptionActive,
+  isListingPaused,
 } from './userAuth';
 
 export interface StoreData {
@@ -40,7 +43,15 @@ export interface StoreData {
     shuttles: ShuttleItem[];
     movers: MoverItem[];
   };
+  cars?: VehicleCardItem[];
+  rides?: CityRideItem[];
+  shuttles?: ShuttleItem[];
+  movers?: MoverItem[];
   totalListingsCount: number;
+  isSubscriptionActive: boolean;
+  subscriptionStatus: SubscriptionStatus;
+  secureToken: string;
+  secureStoreUrl: string;
 }
 
 export interface DriverProfileData {
@@ -69,6 +80,26 @@ export interface DriverProfileData {
   tags: string[];
   policeVerified: boolean;
   joinedDate: string;
+  isSubscriptionActive: boolean;
+  subscriptionStatus: SubscriptionStatus;
+  secureToken: string;
+}
+
+/**
+ * Generates an encrypted / deterministic secure token for any store or driver.
+ * (e.g. sp-8f2a1b2026) for private, obfuscated shareable URLs.
+ */
+export function getStoreSecureToken(identifier: string): string {
+  if (!identifier) return 'sp-safarpk';
+  let hash = 0;
+  const seed = `safarpk_sec_v3_${identifier.toLowerCase().trim()}`;
+  for (let i = 0; i < seed.length; i++) {
+    hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+    hash |= 0;
+  }
+  const hex = Math.abs(hash).toString(16).padStart(8, '0');
+  const cleanSuffix = identifier.replace(/\D/g, '').slice(-4) || '2026';
+  return `sp-${hex.slice(0, 6)}${cleanSuffix}`;
 }
 
 /**
@@ -183,16 +214,24 @@ const KNOWN_STORES: Record<
 };
 
 /**
- * Retrieve a public Store by its unique slug or business identifier
+ * Retrieve a public Store by its unique slug, secure token, or business identifier
  */
 export function getStoreDataBySlug(slugOrId: string): StoreData | null {
+  if (!slugOrId) return null;
   const normSlug = slugify(slugOrId);
 
-  // 1. Check registered users first
+  // 1. Check registered users first (supports vanity slug, raw ID, and secure token sp-...)
   const allUsers = getAllRegisteredUsers();
   const matchedUser = allUsers.find((u) => {
     const uSlug = slugify(u.businessName || u.name);
-    return uSlug === normSlug || u.id === slugOrId || slugify(u.id) === normSlug;
+    const uToken = getStoreSecureToken(u.id);
+    return (
+      uSlug === normSlug ||
+      u.id === slugOrId ||
+      slugify(u.id) === normSlug ||
+      uToken === normSlug ||
+      uToken.toLowerCase() === slugOrId.toLowerCase()
+    );
   });
 
   // Collect listings for this store
@@ -223,13 +262,170 @@ export function getStoreDataBySlug(slugOrId: string): StoreData | null {
     } else {
       primaryService = 'RENT_A_CAR';
     }
-  } else {
-    // Check known stores or match across catalog
-    const matchingCar = CARS_DATA.find((c) => slugify(c.owner) === normSlug || c.owner.toLowerCase().includes(normSlug.replace(/-/g, ' ')));
-    const matchingMover = MOVERS_DATA.find((m) => slugify(m.name) === normSlug || m.name.toLowerCase().includes(normSlug.replace(/-/g, ' ')));
-    const matchingShuttle = SHUTTLES_DATA.find((s) => slugify(s.op) === normSlug || s.op.toLowerCase().includes(normSlug.replace(/-/g, ' ')));
-    const matchingRide = CITY_RIDES_DATA.find((r) => slugify(r.op) === normSlug || r.op.toLowerCase().includes(normSlug.replace(/-/g, ' ')));
 
+    const isSubActive = isProviderSubscriptionActive(matchedUser);
+    const secureToken = getStoreSecureToken(matchedUser.id);
+    const secureStoreUrl = `/store/${secureToken}`;
+    const subscriptionStatus: SubscriptionStatus = matchedUser.subscription?.status || 'UNSUBSCRIBED';
+
+    // STRICT SUBSCRIPTION ENFORCEMENT:
+    // If the provider has no ACTIVE subscription, their storefront is OFFLINE & listings are hidden
+    if (!isSubActive) {
+      return {
+        id: matchedUser.id,
+        slug: normSlug,
+        name: businessName,
+        ownerName,
+        phone,
+        whatsapp,
+        city,
+        address: `${city}, Pakistan`,
+        about: `Official verified partner storefront for ${businessName}. This storefront is currently offline pending partner subscription renewal.`,
+        logoText: businessName.slice(0, 2).toUpperCase(),
+        tint: '#0B6B4F',
+        bannerImage: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=1200&auto=format&fit=crop&q=80',
+        memberSince,
+        verifiedBadge: false,
+        primaryService,
+        approvedServices,
+        listings: {
+          cars: [],
+          rides: [],
+          shuttles: [],
+          movers: [],
+        },
+        cars: [],
+        rides: [],
+        shuttles: [],
+        movers: [],
+        totalListingsCount: 0,
+        isSubscriptionActive: false,
+        subscriptionStatus,
+        secureToken,
+        secureStoreUrl,
+      };
+    }
+
+    // Active Subscriber: Load user's actual live fleet without dummy fillers
+    const normTarget = slugify(businessName);
+    let cars: VehicleCardItem[] = [];
+    let rides: CityRideItem[] = [];
+    let shuttles: ShuttleItem[] = [];
+    let movers: MoverItem[] = [];
+
+    if (primaryService === 'RENT_A_CAR') {
+      if (typeof window !== 'undefined') {
+        try {
+          const rawFleet = localStorage.getItem(`safarpk_fleet_${matchedUser.id}`);
+          if (rawFleet) {
+            const list = JSON.parse(rawFleet);
+            if (Array.isArray(list)) {
+              cars = list
+                .filter((c: any) => !isListingPaused(c.id, matchedUser.id))
+                .map((c: any) => ({
+                  id: c.id,
+                  name: c.title || `${c.brand || ''} ${c.model || ''}`,
+                  category: c.category || 'Sedan',
+                  city: c.city || matchedUser.city || 'Islamabad',
+                  specs: `${c.transmission || 'Automatic'} · ${c.fuelType || 'Petrol'} · ${c.seats || 5} Seats`,
+                  price: `PKR ${(c.dailyRate || 5000).toLocaleString()} / day`,
+                  priceNum: c.dailyRate || 5000,
+                  owner: businessName,
+                  phone,
+                  whatsapp,
+                  image: c.images?.[0] || c.image || 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=800&auto=format&fit=crop&q=80',
+                  featured: false,
+                }));
+            }
+          }
+        } catch {}
+      }
+
+      // Also include any catalog cars assigned to this user
+      const catalogCars = CARS_DATA.filter((c) => {
+        const cSlug = slugify(c.owner);
+        return (cSlug === normTarget || normTarget.includes(cSlug) || cSlug.includes(normTarget)) && !isListingPaused(c.id, matchedUser.id);
+      });
+      for (const cc of catalogCars) {
+        if (!cars.some((c) => c.id === cc.id)) {
+          cars.push(cc);
+        }
+      }
+    } else if (primaryService === 'CITY_TO_CITY') {
+      rides = CITY_RIDES_DATA.filter((r) => {
+        const rSlug = slugify(r.op);
+        return (rSlug === normTarget || normTarget.includes(rSlug) || rSlug.includes(normTarget)) && !isListingPaused(r.id, matchedUser.id);
+      });
+    } else if (primaryService === 'PICK_AND_DROP') {
+      shuttles = SHUTTLES_DATA.filter((s) => {
+        const sSlug = slugify(s.op);
+        return (sSlug === normTarget || normTarget.includes(sSlug) || sSlug.includes(normTarget)) && !isListingPaused(s.id, matchedUser.id);
+      });
+    } else if (primaryService === 'HOME_SHIFTING') {
+      movers = MOVERS_DATA.filter((m) => {
+        const mSlug = slugify(m.name);
+        return (mSlug === normTarget || normTarget.includes(mSlug) || mSlug.includes(normTarget)) && !isListingPaused(m.id, matchedUser.id);
+      });
+    }
+
+    const totalCount =
+      primaryService === 'RENT_A_CAR'
+        ? cars.length
+        : primaryService === 'CITY_TO_CITY'
+        ? rides.length
+        : primaryService === 'PICK_AND_DROP'
+        ? shuttles.length
+        : movers.length;
+
+    const known = KNOWN_STORES[normSlug] || KNOWN_STORES[slugify(businessName)];
+
+    return {
+      id: matchedUser.id,
+      slug: normSlug,
+      name: businessName,
+      ownerName,
+      phone: known?.phone || phone,
+      whatsapp: known?.whatsapp || whatsapp,
+      city: known?.city || city,
+      address: `${known?.city || city}, Pakistan`,
+      about:
+        known?.about ||
+        `Independent ${primaryService === 'RENT_A_CAR' ? 'car rental fleet' : primaryService === 'CITY_TO_CITY' ? 'intercity ride operator' : primaryService === 'PICK_AND_DROP' ? 'commuter shuttle provider' : 'home shifting fleet'} store for ${businessName}. Connect directly via WhatsApp.`,
+      logoText: businessName.slice(0, 2).toUpperCase(),
+      tint: '#0B6B4F',
+      bannerImage:
+        known?.bannerImage ||
+        'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=1200&auto=format&fit=crop&q=80',
+      memberSince: known?.memberSince || memberSince,
+      verifiedBadge: true,
+      primaryService,
+      approvedServices: [primaryService],
+      listings: {
+        cars,
+        rides,
+        shuttles,
+        movers,
+      },
+      cars,
+      rides,
+      shuttles,
+      movers,
+      totalListingsCount: totalCount,
+      isSubscriptionActive: true,
+      subscriptionStatus: 'ACTIVE',
+      secureToken,
+      secureStoreUrl,
+    };
+  }
+
+  // 2. Check known stores or match across catalog
+  const matchingCar = CARS_DATA.find((c) => slugify(c.owner) === normSlug || getStoreSecureToken(c.owner) === normSlug);
+  const matchingMover = MOVERS_DATA.find((m) => slugify(m.name) === normSlug || getStoreSecureToken(m.name) === normSlug);
+  const matchingShuttle = SHUTTLES_DATA.find((s) => slugify(s.op) === normSlug || getStoreSecureToken(s.op) === normSlug);
+  const matchingRide = CITY_RIDES_DATA.find((r) => slugify(r.op) === normSlug || getStoreSecureToken(r.op) === normSlug);
+  const known = KNOWN_STORES[normSlug] || KNOWN_STORES[slugify(slugOrId)];
+
+  if (matchingCar || matchingMover || matchingShuttle || matchingRide || known) {
     if (matchingCar) {
       businessName = matchingCar.owner;
       ownerName = matchingCar.owner;
@@ -262,114 +458,125 @@ export function getStoreDataBySlug(slugOrId: string): StoreData | null {
       city = matchingRide.fromCity || city;
       primaryService = 'CITY_TO_CITY';
       approvedServices = ['CITY_TO_CITY'];
-    } else {
-      // Fallback: derive title from slug
-      businessName = normSlug
-        .split('-')
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(' ');
+    } else if (known) {
+      businessName = normSlug.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
       ownerName = businessName;
+      phone = known.phone;
+      whatsapp = known.whatsapp;
+      city = known.city;
       primaryService = 'RENT_A_CAR';
       approvedServices = ['RENT_A_CAR'];
     }
-  }
 
-  // Strictly isolate listings to the provider's own approved service
-  const normTarget = slugify(businessName);
-  let cars: VehicleCardItem[] = [];
-  let rides: CityRideItem[] = [];
-  let shuttles: ShuttleItem[] = [];
-  let movers: MoverItem[] = [];
+    const normTarget = slugify(businessName);
+    let cars: VehicleCardItem[] = [];
+    let rides: CityRideItem[] = [];
+    let shuttles: ShuttleItem[] = [];
+    let movers: MoverItem[] = [];
 
-  if (primaryService === 'RENT_A_CAR') {
-    cars = CARS_DATA.filter((c) => {
-      const cSlug = slugify(c.owner);
-      return cSlug === normTarget || normTarget.includes(cSlug) || cSlug.includes(normTarget);
-    });
-    if (cars.length === 0) cars.push(CARS_DATA[0]);
-  } else if (primaryService === 'CITY_TO_CITY') {
-    rides = CITY_RIDES_DATA.filter((r) => {
-      const rSlug = slugify(r.op);
-      return rSlug === normTarget || normTarget.includes(rSlug) || rSlug.includes(normTarget);
-    });
-    if (rides.length === 0) rides.push(CITY_RIDES_DATA[0]);
-  } else if (primaryService === 'PICK_AND_DROP') {
-    shuttles = SHUTTLES_DATA.filter((s) => {
-      const sSlug = slugify(s.op);
-      return sSlug === normTarget || normTarget.includes(sSlug) || sSlug.includes(normTarget);
-    });
-    if (shuttles.length === 0) shuttles.push(SHUTTLES_DATA[0]);
-  } else if (primaryService === 'HOME_SHIFTING') {
-    movers = MOVERS_DATA.filter((m) => {
-      const mSlug = slugify(m.name);
-      return mSlug === normTarget || normTarget.includes(mSlug) || mSlug.includes(normTarget);
-    });
-    if (movers.length === 0) movers.push(MOVERS_DATA[0]);
-  }
+    if (primaryService === 'RENT_A_CAR') {
+      cars = CARS_DATA.filter((c) => {
+        const cSlug = slugify(c.owner);
+        return (cSlug === normTarget || normTarget.includes(cSlug) || cSlug.includes(normTarget)) && !isListingPaused(c.id, c.owner);
+      });
+    } else if (primaryService === 'CITY_TO_CITY') {
+      rides = CITY_RIDES_DATA.filter((r) => {
+        const rSlug = slugify(r.op);
+        return (rSlug === normTarget || normTarget.includes(rSlug) || rSlug.includes(normTarget)) && !isListingPaused(r.id, r.op);
+      });
+    } else if (primaryService === 'PICK_AND_DROP') {
+      shuttles = SHUTTLES_DATA.filter((s) => {
+        const sSlug = slugify(s.op);
+        return (sSlug === normTarget || normTarget.includes(sSlug) || sSlug.includes(normTarget)) && !isListingPaused(s.id, s.op);
+      });
+    } else if (primaryService === 'HOME_SHIFTING') {
+      movers = MOVERS_DATA.filter((m) => {
+        const mSlug = slugify(m.name);
+        return (mSlug === normTarget || normTarget.includes(mSlug) || mSlug.includes(normTarget)) && !isListingPaused(m.id, m.name);
+      });
+    }
 
-  const totalCount =
-    primaryService === 'RENT_A_CAR'
-      ? cars.length
-      : primaryService === 'CITY_TO_CITY'
-      ? rides.length
-      : primaryService === 'PICK_AND_DROP'
-      ? shuttles.length
-      : movers.length;
+    const totalCount =
+      primaryService === 'RENT_A_CAR'
+        ? cars.length
+        : primaryService === 'CITY_TO_CITY'
+        ? rides.length
+        : primaryService === 'PICK_AND_DROP'
+        ? shuttles.length
+        : movers.length;
 
-  const known = KNOWN_STORES[normSlug] || KNOWN_STORES[slugify(businessName)];
+    const secureToken = getStoreSecureToken(businessName);
 
-  return {
-    id: matchedUser ? matchedUser.id : `store-${normSlug}`,
-    slug: normSlug,
-    name: businessName,
-    ownerName,
-    phone: known?.phone || phone,
-    whatsapp: known?.whatsapp || whatsapp,
-    city: known?.city || city,
-    address: `${known?.city || city}, Pakistan`,
-    about:
-      known?.about ||
-      `Independent ${primaryService === 'RENT_A_CAR' ? 'car rental fleet' : primaryService === 'CITY_TO_CITY' ? 'intercity ride operator' : primaryService === 'PICK_AND_DROP' ? 'commuter shuttle provider' : 'home shifting fleet'} store for ${businessName}. Connect directly via WhatsApp.`,
-    logoText: businessName.slice(0, 2).toUpperCase(),
-    tint: '#0B6B4F',
-    bannerImage:
-      known?.bannerImage ||
-      'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=1200&auto=format&fit=crop&q=80',
-    memberSince: known?.memberSince || memberSince,
-    verifiedBadge: true,
-    primaryService,
-    approvedServices: [primaryService],
-    listings: {
+    return {
+      id: `store-${normSlug}`,
+      slug: normSlug,
+      name: businessName,
+      ownerName,
+      phone: known?.phone || phone,
+      whatsapp: known?.whatsapp || whatsapp,
+      city: known?.city || city,
+      address: `${known?.city || city}, Pakistan`,
+      about:
+        known?.about ||
+        `Independent verified ${primaryService === 'RENT_A_CAR' ? 'car rental fleet' : primaryService === 'CITY_TO_CITY' ? 'intercity ride operator' : primaryService === 'PICK_AND_DROP' ? 'commuter shuttle provider' : 'home shifting fleet'} store for ${businessName}. Connect directly via WhatsApp.`,
+      logoText: businessName.slice(0, 2).toUpperCase(),
+      tint: '#0B6B4F',
+      bannerImage:
+        known?.bannerImage ||
+        'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=1200&auto=format&fit=crop&q=80',
+      memberSince: known?.memberSince || memberSince,
+      verifiedBadge: true,
+      primaryService,
+      approvedServices: [primaryService],
+      listings: {
+        cars,
+        rides,
+        shuttles,
+        movers,
+      },
       cars,
       rides,
       shuttles,
       movers,
-    },
-    totalListingsCount: totalCount,
-  };
+      totalListingsCount: totalCount,
+      isSubscriptionActive: true,
+      subscriptionStatus: 'ACTIVE',
+      secureToken,
+      secureStoreUrl: `/store/${secureToken}`,
+    };
+  }
+
+  // 3. Unknown store slug - STRICT 404. Never synthesize a fake store!
+  return null;
 }
 
 /**
  * Retrieve public driver profile by slug or driver ID
  */
 export function getDriverProfileBySlug(slugOrId: string): DriverProfileData | null {
+  if (!slugOrId) return null;
   const norm = slugify(slugOrId);
 
   // Check in DRIVERS_DATA
   const matched = DRIVERS_DATA.find((d) => {
-    return slugify(d.name) === norm || d.id === slugOrId || slugify(d.id) === norm;
+    return slugify(d.name) === norm || d.id === slugOrId || slugify(d.id) === norm || getStoreSecureToken(d.id) === norm;
   });
 
   // Also check in registered users for role === 'DRIVER'
   const allUsers = getAllRegisteredUsers();
   const matchedUser = allUsers.find((u) => {
-    return u.role === 'DRIVER' && (slugify(u.name) === norm || u.id === slugOrId || slugify(u.id) === norm);
+    return (
+      u.role === 'DRIVER' &&
+      (slugify(u.name) === norm ||
+        u.id === slugOrId ||
+        slugify(u.id) === norm ||
+        getStoreSecureToken(u.id) === norm)
+    );
   });
 
   if (!matched && !matchedUser) {
-    // If not found, fallback to first driver as default template so link never 404s
-    const fallback = DRIVERS_DATA[0];
-    return buildDriverProfile(fallback, norm);
+    // Return null when driver is not found! Never silently fallback to wrong person
+    return null;
   }
 
   if (matched) {
@@ -378,6 +585,10 @@ export function getDriverProfileBySlug(slugOrId: string): DriverProfileData | nu
 
   // Build from registered user
   const u = matchedUser!;
+  const isSubActive = isProviderSubscriptionActive(u);
+  const secureToken = getStoreSecureToken(u.id);
+  const subscriptionStatus: SubscriptionStatus = u.subscription?.status || 'UNSUBSCRIBED';
+
   const nameParts = (u.name || '').trim().split(/\s+/).filter(Boolean);
   const initials = nameParts.length > 0
     ? nameParts.map((n) => n[0] || '').join('').slice(0, 2).toUpperCase()
@@ -392,7 +603,7 @@ export function getDriverProfileBySlug(slugOrId: string): DriverProfileData | nu
     phone: u.phone || '+92 300 8472910',
     whatsapp: u.phone ? u.phone.replace(/\D/g, '') : '923008472910',
     city: u.city || 'Lahore',
-    avail: 'Available',
+    avail: isSubActive ? 'Available' : 'Offline',
     exp: '8 years experience',
     yearsExpNum: 8,
     langs: ['Urdu', 'English', 'Punjabi'],
@@ -409,6 +620,9 @@ export function getDriverProfileBySlug(slugOrId: string): DriverProfileData | nu
     tags: ['Family safe', 'M-2 Motorway expert', 'Punctual & Non-smoker'],
     policeVerified: true,
     joinedDate: u.registeredAt ? new Date(u.registeredAt).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : 'Jan 2024',
+    isSubscriptionActive: isSubActive,
+    subscriptionStatus,
+    secureToken,
   };
 }
 
@@ -436,6 +650,8 @@ function buildDriverProfile(d: DriverCardItem, slug: string): DriverProfileData 
     vTypes.push('Light Trucks & Coaster Buses');
   }
 
+  const secureToken = getStoreSecureToken(d.id);
+
   return {
     id: d.id,
     slug: slugify(d.name),
@@ -448,24 +664,22 @@ function buildDriverProfile(d: DriverCardItem, slug: string): DriverProfileData 
     avail: d.avail || 'Available',
     exp: d.exp || '7 years',
     yearsExpNum: yrsNum,
-    langs: d.langs ? d.langs.split(',').map((s) => s.trim()) : ['Urdu', 'English'],
-    bio: `${d.name} is an experienced independent chauffeur based in ${d.city} with ${d.exp}. Specializes in smooth driving, motorway navigation, and corporate protocol.`,
+    langs: ['Urdu', 'Punjabi', 'English'],
+    bio: `${d.name} is a highly rated ${d.category} driver based in ${d.city} with ${d.exp} of incident-free road service. Available for direct booking.`,
     licenceCategories: cats,
-    licenceNumberMasked: d.licenseNumber || 'LHR-DL-98210',
+    licenceNumberMasked: d.licenseNumber || 'PK-DL-*****',
     vehicleTypesCanDrive: vTypes,
-    servicesOffered: [
-      'Daily City (12 Hours)',
-      'Outstation Motorway Trips',
-      'Monthly Full-Time Chauffeur',
-      'VIP Airport Pickup & Protocol',
-    ],
-    workPreference: 'Self-Employed & Direct Hire',
+    servicesOffered: ['12-Hour City Duty', 'Outstation Touring', 'Airport Transfer', 'Intercity Drive'],
+    workPreference: 'Direct Customer Chauffeur',
     driverOnlyService: true,
-    dailyRate12h: d.city12Num || 2500,
-    outstationDailyRate: parseInt((d.out || '').replace(/\D/g, ''), 10) || 3500,
-    monthlySalaryEstimate: parseInt((d.monthly || '').replace(/\D/g, ''), 10) || 45000,
-    tags: tags.length > 0 ? tags : ['Punctual', 'Verified Licence', 'Family Safe'],
-    policeVerified: d.police !== undefined ? d.police : true,
-    joinedDate: 'Joined March 2024',
+    dailyRate12h: d.dailyRate,
+    outstationDailyRate: Math.round(d.dailyRate * 1.4),
+    monthlySalaryEstimate: Math.round(d.dailyRate * 18),
+    tags,
+    policeVerified: true,
+    joinedDate: 'Verified 2023',
+    isSubscriptionActive: true,
+    subscriptionStatus: 'ACTIVE',
+    secureToken,
   };
 }

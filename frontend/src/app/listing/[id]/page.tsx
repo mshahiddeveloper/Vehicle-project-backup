@@ -410,7 +410,7 @@ const VEHICLE_CATALOG: Record<string, VehicleDetail> = {
   },
 };
 
-export function resolveCatalogItem(id: string): VehicleDetail {
+export function resolveCatalogItem(id: string): VehicleDetail | null {
   if (VEHICLE_CATALOG[id]) {
     return VEHICLE_CATALOG[id];
   }
@@ -452,18 +452,19 @@ export function resolveCatalogItem(id: string): VehicleDetail {
       hostPhone: found.phone || '+92 300 1234567',
       hostWhatsapp: (found.whatsapp || '923001234567').replace(/\D/g, ''),
       hostResponseTime: 'Replies in ~5 minutes',
+      ownerId: found.owner,
     };
   }
 
-  return VEHICLE_CATALOG['l-1'];
+  return null;
 }
 
 export default function ListingDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const listingId = (params?.id as string) || 'l-1';
+  const listingId = (params?.id as string) || '';
 
-  const [car, setCar] = useState<VehicleDetail>(() => resolveCatalogItem(listingId));
+  const [car, setCar] = useState<VehicleDetail | null>(() => resolveCatalogItem(listingId));
 
   // Dynamically resolve listing from catalog, custom lister fleet, or Neon DB
   useEffect(() => {
@@ -603,7 +604,7 @@ export default function ListingDetailPage() {
       .catch(() => {});
   }, [listingId]);
 
-  const [withDriver, setWithDriver] = useState(car.serviceScope === 'WITH_DRIVER');
+  const [withDriver, setWithDriver] = useState(car?.serviceScope === 'WITH_DRIVER');
   const [hostPhoneRevealed, setHostPhoneRevealed] = useState(false);
   const [specsOpen, setSpecsOpen] = useState(false);
   const [featuresOpen, setFeaturesOpen] = useState(false);
@@ -622,12 +623,12 @@ export default function ListingDetailPage() {
   };
 
   useEffect(() => {
-    if (car.serviceScope === 'WITH_DRIVER') {
+    if (car?.serviceScope === 'WITH_DRIVER') {
       setWithDriver(true);
-    } else if (car.serviceScope === 'WITHOUT_DRIVER') {
+    } else if (car?.serviceScope === 'WITHOUT_DRIVER') {
       setWithDriver(false);
     }
-  }, [car.serviceScope]);
+  }, [car?.serviceScope]);
 
   const pickupInputRef = useRef<HTMLInputElement>(null);
   const returnInputRef = useRef<HTMLInputElement>(null);
@@ -677,7 +678,7 @@ export default function ListingDetailPage() {
 
   useEffect(() => {
     try {
-      if (typeof window === 'undefined') return;
+      if (typeof window === 'undefined' || !car) return;
       setIsSaved(isItemInWishlist(car.id));
 
       const toast = consumeWishlistToast();
@@ -686,7 +687,7 @@ export default function ListingDetailPage() {
         setTimeout(() => setShareNotice(null), 3000);
       }
     } catch (e) {}
-  }, [car.id]);
+  }, [car?.id]);
 
   const handleToggleSave = () => {
     const user = getActiveUser();
@@ -840,6 +841,7 @@ export default function ListingDetailPage() {
   const formatPKR = (v: number) => formatPrice(v);
 
   const calculateTotal = () => {
+    if (!car) return 0;
     const baseDaily = withDriver ? car.dailyRateWithDriver : car.dailyRate;
     return baseDaily * daysCount;
   };
@@ -1244,18 +1246,81 @@ export default function ListingDetailPage() {
     }
   };
 
+  if (!car) {
+    return (
+      <div className="min-h-screen bg-[#F7F8FA] flex flex-col justify-between font-sans">
+        <AppHeader />
+        <main className="max-w-xl mx-auto px-4 py-20 text-center space-y-4">
+          <div className="w-16 h-16 rounded-3xl bg-slate-200 text-slate-700 flex items-center justify-center mx-auto text-2xl font-bold shadow-inner">
+            <Car className="w-8 h-8 text-slate-600" />
+          </div>
+          <h1 className="font-heading font-black text-2xl sm:text-3xl text-slate-900 tracking-tight">
+            Vehicle Listing Not Found
+          </h1>
+          <p className="text-sm text-slate-600 leading-relaxed">
+            The vehicle listing you are looking for is no longer available or the link is invalid.
+          </p>
+          <div className="pt-2 flex items-center justify-center gap-3">
+            <Link
+              href="/cars"
+              className="px-6 py-3 bg-[#0B6B4F] hover:bg-[#08513C] text-white rounded-2xl font-heading font-extrabold text-sm transition shadow-md"
+            >
+              Browse All Available Cars
+            </Link>
+          </div>
+        </main>
+        <AppFooter />
+        <MobileNavBar />
+      </div>
+    );
+  }
+
+  const isPaused = isListingPaused(car.id, car.ownerId || car.hostName || car.hostPhone);
+
   return (
     <div className="min-h-screen bg-white font-sans text-[#101828] flex flex-col">
       <AppHeader />
 
       <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-4 sm:py-6 md:py-10 flex flex-col gap-4 sm:gap-6 pb-24 lg:pb-16">
         {/* Paused Listing Notice */}
-        {isListingPaused(car.id, car.hostPhone) && (
-          <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl flex items-center gap-3 text-amber-900 text-xs font-semibold shadow-xs">
-            <span className="text-xl">⏸️</span>
-            <div>
-              <span className="font-bold block text-sm">Listing Currently Paused / Inactive</span>
-              This vehicle listing is currently paused. Please browse other verified fleet options.
+        {isPaused && (
+          <div className="p-5 sm:p-6 bg-amber-50 border-2 border-amber-400 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm animate-in fade-in">
+            <div className="space-y-1.5 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-200 text-amber-900 uppercase tracking-wider">
+                  ⚠️ Listing Offline · Renewal Due
+                </span>
+                <span className="text-xs text-amber-800 font-bold">Host Subscription Inactive</span>
+              </div>
+              <p className="text-xs sm:text-sm text-amber-950 leading-relaxed">
+                <strong>For Customers:</strong> This vehicle listing is temporarily offline for host subscription renewal. Please browse other active fleets in {car.city}.
+              </p>
+              <p className="text-xs text-amber-800">
+                <strong>For Host / Owner:</strong> Sign in to your dashboard to renew your subscription and reactivate your live vehicle listings.
+              </p>
+            </div>
+            <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+              <Link
+                href="/login?returnUrl=/subscription"
+                className="h-10 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs transition flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                Host Sign In to Renew
+              </Link>
+              <a
+                href={`https://wa.me/923001234567?text=${encodeURIComponent(`Assalam-o-Alaikum Admin, I am the owner of listing ${car.title} (${car.id}) and need help with subscription renewal.`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="h-10 px-3.5 rounded-xl border border-amber-400 bg-white hover:bg-amber-100 text-amber-900 font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-2xs"
+              >
+                <WhatsAppIcon className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                <span>Admin Support</span>
+              </a>
+              <Link
+                href={`/cars?city=${encodeURIComponent(car.city)}`}
+                className="h-10 px-3.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-2xs"
+              >
+                Browse {car.city} Cars
+              </Link>
             </div>
           </div>
         )}
@@ -2067,6 +2132,39 @@ export default function ListingDetailPage() {
 
           {/* Right Column: Sleek, Minimalist Booking Card */}
           <aside id="booking-section" className="relative lg:sticky lg:top-24 border border-slate-200/90 rounded-3xl p-4 sm:p-6 bg-white shadow-lg flex flex-col gap-3.5 transition-all w-full max-w-full overflow-hidden scroll-mt-24 mb-4">
+            {isPaused ? (
+              <div className="space-y-4 py-2">
+                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="text-xs space-y-1">
+                    <strong className="block font-heading font-extrabold text-sm text-amber-900">
+                      Listing Temporarily Offline
+                    </strong>
+                    <p className="text-amber-800 leading-relaxed">
+                      This host fleet inventory is currently unavailable for online reservations due to scheduled subscription renewal.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-1">
+                  <Link
+                    href={`/cars?city=${encodeURIComponent(car.city)}`}
+                    className="w-full h-11 rounded-xl bg-[#0B6B4F] hover:bg-[#08513C] text-white font-heading font-extrabold text-xs flex items-center justify-center gap-2 transition shadow cursor-pointer"
+                  >
+                    <Car className="w-4 h-4" />
+                    <span>Browse Active Cars in {car.city}</span>
+                  </Link>
+
+                  <Link
+                    href="/login?returnUrl=/subscription"
+                    className="w-full h-10 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-950 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                  >
+                    <span>Host Sign In to Renew</span>
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <>
             {/* Price & Status Row */}
             <div className="flex items-center justify-between pb-1 border-b border-slate-100">
               <div>
@@ -2269,6 +2367,8 @@ export default function ListingDetailPage() {
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span>Direct host booking · Settle payment & inspect vehicle at handover</span>
             </div>
+            </>
+            )}
           </aside>
 
           {/* Quick Booking Modal (Clean, Non-Intrusive Drawer / Dialog) */}
@@ -2415,48 +2515,63 @@ export default function ListingDetailPage() {
       </main>
 
       {/* Floating Sticky Booking Bar for Mobile (Clean, Bottom-0, Dedicated, Never Hidden Behind Menu) */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 py-2.5 flex items-center justify-between shadow-2xl">
-        <div className="min-w-0 pr-2">
-          <div className="flex items-baseline gap-1">
-            <span className="font-heading font-black text-sm sm:text-base text-slate-900 truncate">
-              {formatPrice(withDriver ? car.dailyRateWithDriver : car.dailyRate)}
-            </span>
-            <span className="text-[10px] text-slate-500">/day</span>
+      {isPaused ? (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-amber-50/95 backdrop-blur-md border-t-2 border-amber-300 px-4 py-2.5 flex items-center justify-between shadow-2xl">
+          <div className="min-w-0 pr-2">
+            <span className="text-xs font-black text-amber-900 block truncate">Listing Offline</span>
+            <span className="text-[10px] text-amber-700 block truncate">Host renewal pending</span>
           </div>
-          <span className="text-[10px] font-bold text-[#0B6B4F] block truncate">
-            {daysCount}d · {formatPrice(calculateTotal())}
-          </span>
+          <Link
+            href={`/cars?city=${encodeURIComponent(car.city)}`}
+            className="h-9 px-3.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs flex items-center gap-1 shadow-md"
+          >
+            Browse Other Cars
+          </Link>
         </div>
+      ) : (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 py-2.5 flex items-center justify-between shadow-2xl">
+          <div className="min-w-0 pr-2">
+            <div className="flex items-baseline gap-1">
+              <span className="font-heading font-black text-sm sm:text-base text-slate-900 truncate">
+                {formatPrice(withDriver ? car.dailyRateWithDriver : car.dailyRate)}
+              </span>
+              <span className="text-[10px] text-slate-500">/day</span>
+            </div>
+            <span className="text-[10px] font-bold text-[#0B6B4F] block truncate">
+              {daysCount}d · {formatPrice(calculateTotal())}
+            </span>
+          </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            type="button"
-            onClick={handleDirectHostCall}
-            className="w-10 h-10 rounded-2xl border border-purple-200 bg-purple-50 text-purple-950 flex items-center justify-center shadow-2xs active:scale-95 transition"
-            title={hostPhoneRevealed ? `Call host directly: ${car.hostPhone}` : 'Click to call host'}
-          >
-            <Phone className="w-4 h-4 text-purple-600" />
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={handleDirectHostCall}
+              className="w-10 h-10 rounded-2xl border border-purple-200 bg-purple-50 text-purple-950 flex items-center justify-center shadow-2xs active:scale-95 transition"
+              title={hostPhoneRevealed ? `Call host directly: ${car.hostPhone}` : 'Click to call host'}
+            >
+              <Phone className="w-4 h-4 text-purple-600" />
+            </button>
 
-          <button
-            type="button"
-            onClick={handleInstantWhatsAppChat}
-            className="h-10 px-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-extrabold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition"
-          >
-            <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
-            <span>WhatsApp</span>
-          </button>
+            <button
+              type="button"
+              onClick={handleInstantWhatsAppChat}
+              className="h-10 px-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-extrabold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition"
+            >
+              <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
+              <span>WhatsApp</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={handleBookVehicleClick}
-            className="h-10 px-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-heading font-extrabold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition"
-          >
-            <CalendarCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>Book Vehicle</span>
-          </button>
+            <button
+              type="button"
+              onClick={handleBookVehicleClick}
+              className="h-10 px-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-heading font-extrabold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition"
+            >
+              <CalendarCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>Book Vehicle</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="hidden md:block">
         <AppFooter />

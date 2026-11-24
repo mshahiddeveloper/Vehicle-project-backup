@@ -156,6 +156,8 @@ export default function PublicDriverProfilePage() {
     );
   }
 
+  const isSubActive = driver.isSubscriptionActive && !isListingPaused(driver.id, driver.name);
+
   const currentProfileUrl =
     typeof window !== 'undefined'
       ? window.location.href
@@ -438,6 +440,49 @@ export default function PublicDriverProfilePage() {
           </div>
         </div>
 
+        {/* Inactive Chauffeur Subscription Alert */}
+        {!isSubActive && (
+          <div className="p-5 sm:p-6 bg-amber-50 border-2 border-amber-400 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm animate-in fade-in">
+            <div className="space-y-1.5 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-200 text-amber-900 uppercase tracking-wider">
+                  ⚠️ Profile Offline · Renewal Due
+                </span>
+                <span className="text-xs text-amber-800 font-bold">Driver Subscription Inactive</span>
+              </div>
+              <p className="text-xs sm:text-sm text-amber-950 leading-relaxed">
+                <strong>For Passengers:</strong> This chauffeur profile is temporarily offline due to subscription renewal. Please browse alternative verified drivers in {driver.city}.
+              </p>
+              <p className="text-xs text-amber-800">
+                <strong>For Driver / Chauffeur:</strong> Sign in to your dashboard to renew your subscription and reactivate your public profile.
+              </p>
+            </div>
+            <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+              <Link
+                href="/login?returnUrl=/subscription"
+                className="h-10 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs transition flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                Driver Sign In to Renew
+              </Link>
+              <a
+                href={`https://wa.me/923001234567?text=${encodeURIComponent(`Assalam-o-Alaikum Admin, I am driver ${driver.name} (${driver.id}) and need help with subscription renewal.`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="h-10 px-3.5 rounded-xl border border-amber-400 bg-white hover:bg-amber-100 text-amber-900 font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-2xs"
+              >
+                <WhatsAppIcon className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                <span>Admin Support</span>
+              </a>
+              <Link
+                href="/drivers"
+                className="h-10 px-3.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-2xs"
+              >
+                Browse Drivers
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Driver Profile Header Card */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="flex items-center gap-5">
@@ -494,6 +539,12 @@ export default function PublicDriverProfilePage() {
 
           {/* Quick Direct Actions on Header */}
           <div className="flex items-center gap-2 w-full md:w-auto">
+            {!isSubActive ? (
+              <span className="px-4 py-2 rounded-xl bg-amber-100 text-amber-900 text-xs font-bold border border-amber-300">
+                ⚠️ Renewal Pending · Direct Contact Offline
+              </span>
+            ) : (
+              <>
             {/* Purple Click-to-Reveal Phone Button */}
             <button
               type="button"
@@ -519,6 +570,8 @@ export default function PublicDriverProfilePage() {
               <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
               <span>WhatsApp</span>
             </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -733,6 +786,37 @@ export default function PublicDriverProfilePage() {
 
           {/* Right Column: Rates Matrix & Hire Inquiry */}
           <aside id="driver-booking-section" className="relative lg:sticky lg:top-24 border border-slate-200/90 rounded-3xl p-5 sm:p-6 bg-white shadow-lg space-y-5 scroll-mt-24 mb-4">
+            {!isSubActive ? (
+              <div className="space-y-4 py-2 text-center">
+                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 flex items-start gap-3 text-left">
+                  <span className="text-xl">⚠️</span>
+                  <div className="text-xs space-y-1">
+                    <strong className="block font-heading font-extrabold text-sm text-amber-900">
+                      Chauffeur Currently Offline
+                    </strong>
+                    <p className="text-amber-800 leading-relaxed">
+                      Direct booking is temporarily paused because this driver's subscription plan is awaiting renewal.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-1">
+                  <Link
+                    href="/drivers"
+                    className="w-full h-11 rounded-xl bg-[#0B6B4F] hover:bg-[#08513C] text-white font-heading font-extrabold text-xs flex items-center justify-center gap-2 transition shadow cursor-pointer"
+                  >
+                    Browse Active Chauffeurs
+                  </Link>
+                  <Link
+                    href="/login?returnUrl=/subscription"
+                    className="w-full h-10 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-950 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                  >
+                    Driver Sign In to Renew
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <>
             <h3 className="font-heading font-bold text-base text-slate-900">
               Standard Rates Matrix
             </h3>
@@ -887,40 +971,57 @@ export default function PublicDriverProfilePage() {
                 </p>
               </form>
             )}
+            </>
+            )}
           </aside>
         </div>
       </main>
 
       {/* Mobile App Sticky Action Bar (Direct, Elevated, Never Hidden Behind Menu) */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl flex items-center gap-2 z-50">
-        <button
-          type="button"
-          onClick={handleCall}
-          className="flex-1 h-12 rounded-2xl border border-purple-200 bg-purple-50 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer shadow-2xs"
-          title={phoneRevealed ? (driver?.phone || 'Available') : 'Show Number'}
-        >
-          <Phone className="w-4 h-4 text-purple-600 shrink-0" />
-          <span className="truncate">{phoneRevealed ? (driver?.phone || 'Available') : 'Show Number'}</span>
-        </button>
+      {!isSubActive ? (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 p-3 bg-amber-50/95 backdrop-blur-md border-t-2 border-amber-300 shadow-2xl flex items-center justify-between z-50">
+          <div className="min-w-0 pr-2">
+            <span className="text-xs font-black text-amber-900 block truncate">Profile Offline</span>
+            <span className="text-[10px] text-amber-700 block truncate">Driver renewal pending</span>
+          </div>
+          <Link
+            href="/drivers"
+            className="h-10 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs flex items-center gap-1 shadow-md"
+          >
+            Browse Drivers
+          </Link>
+        </div>
+      ) : (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl flex items-center gap-2 z-50">
+          <button
+            type="button"
+            onClick={handleCall}
+            className="flex-1 h-12 rounded-2xl border border-purple-200 bg-purple-50 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer shadow-2xs"
+            title={phoneRevealed ? (driver?.phone || 'Available') : 'Show Number'}
+          >
+            <Phone className="w-4 h-4 text-purple-600 shrink-0" />
+            <span className="truncate">{phoneRevealed ? (driver?.phone || 'Available') : 'Show Number'}</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={handleWhatsApp}
-          className="flex-1 h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer shadow-md"
-        >
-          <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
-          <span>WhatsApp</span>
-        </button>
+          <button
+            type="button"
+            onClick={handleWhatsApp}
+            className="flex-1 h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer shadow-md"
+          >
+            <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
+            <span>WhatsApp</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={scrollToBooking}
-          className="flex-1 h-12 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer shadow-md"
-        >
-          <Calendar className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>Hire Driver</span>
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={scrollToBooking}
+            className="flex-1 h-12 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer shadow-md"
+          >
+            <Calendar className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>Hire Driver</span>
+          </button>
+        </div>
+      )}
 
       <div className="hidden md:block">
         <AppFooter />

@@ -2409,6 +2409,44 @@ export function getPausedListingIds(): string[] {
   }
 }
 
+/**
+ * Strictly verifies whether a provider has an ACTIVE, paid, or authorized subscription.
+ * - Regular customers (CUSTOMER) and Staff/Admins are always free and active.
+ * - Service providers (LISTER, DRIVER, PROVIDER) MUST have status === 'ACTIVE'.
+ * - If status is UNSUBSCRIBED, PENDING_APPROVAL, PAUSED, EXPIRED, or REJECTED, returns false.
+ */
+export function isProviderSubscriptionActive(user: RegisteredUser | null | undefined): boolean {
+  if (!user) return false;
+  if (user.role === 'CUSTOMER' || user.role === 'SUPER_ADMIN' || user.role === 'AGENT') {
+    return true;
+  }
+  return user.subscription?.status === 'ACTIVE';
+}
+
+/**
+ * Checks whether the owner of a listing or storefront has an active subscription.
+ */
+export function isOwnerSubscriptionActive(ownerIdentifier: string | undefined | null): boolean {
+  if (!ownerIdentifier) return true;
+  if (typeof window === 'undefined') return true;
+  try {
+    const all = getAllRegisteredUsers();
+    const cleanOwner = ownerIdentifier.replace(/\D/g, '');
+    const owner = all.find(
+      (u) =>
+        u.id === ownerIdentifier ||
+        (cleanOwner && u.phone && u.phone.replace(/\D/g, '').endsWith(cleanOwner.slice(-10))) ||
+        (u.email && u.email.toLowerCase() === ownerIdentifier.toLowerCase()) ||
+        (u.businessName && u.businessName.toLowerCase() === ownerIdentifier.toLowerCase()) ||
+        (u.name && u.name.toLowerCase() === ownerIdentifier.toLowerCase())
+    );
+    if (owner) {
+      return isProviderSubscriptionActive(owner);
+    }
+  } catch {}
+  return true;
+}
+
 export function isListingPaused(listingId: string, ownerIdentifier?: string): boolean {
   if (typeof window === 'undefined') return false;
   try {
@@ -2422,10 +2460,13 @@ export function isListingPaused(listingId: string, ownerIdentifier?: string): bo
         (u) =>
           u.id === ownerIdentifier ||
           (cleanOwner && u.phone && u.phone.replace(/\D/g, '').endsWith(cleanOwner.slice(-10))) ||
-          (u.email && u.email.toLowerCase() === ownerIdentifier.toLowerCase())
+          (u.email && u.email.toLowerCase() === ownerIdentifier.toLowerCase()) ||
+          (u.businessName && u.businessName.toLowerCase() === ownerIdentifier.toLowerCase()) ||
+          (u.name && u.name.toLowerCase() === ownerIdentifier.toLowerCase())
       );
-      if (owner && owner.subscription) {
-        if (owner.subscription.status === 'PAUSED' || owner.subscription.status === 'EXPIRED') {
+      if (owner && owner.role !== 'CUSTOMER') {
+        // Any provider without an ACTIVE subscription has their listings paused immediately
+        if (!isProviderSubscriptionActive(owner)) {
           return true;
         }
       }

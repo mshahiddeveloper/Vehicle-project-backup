@@ -154,8 +154,8 @@ function CarsDirectoryContent() {
   // Filtered & Sorted Cars
   const filteredCars = useMemo(() => {
     return CARS_DATA.filter((car) => {
-      // Exclude paused listings
-      if (isListingPaused(car.id)) return false;
+      // Exclude paused listings or inactive host subscriptions
+      if (isListingPaused(car.id, car.owner)) return false;
 
       // City filter
       if (selectedCity && selectedCity !== 'All Cities') {

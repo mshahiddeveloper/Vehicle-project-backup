@@ -33,7 +33,11 @@ import {
   ShieldCheck,
   Star,
   Users,
+  AlertTriangle,
+  Clock,
+  Lock,
 } from 'lucide-react';
+import { getActiveUser } from '@/data/userAuth';
 
 export default function StorefrontPage() {
   const params = useParams();
@@ -46,6 +50,7 @@ export default function StorefrontPage() {
   }, [slug]);
 
   const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedTokenLink, setCopiedTokenLink] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [headerPhoneRevealed, setHeaderPhoneRevealed] = useState(false);
   const [revealedPhones, setRevealedPhones] = useState<Record<string, boolean>>({});
@@ -310,14 +315,20 @@ export default function StorefrontPage() {
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            type="button"
-            onClick={handleDirectWhatsApp}
-            className="w-10 h-10 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center transition active:scale-95 shadow-2xs"
-            aria-label="WhatsApp Store"
-          >
-            <WhatsAppIcon className="w-4 h-4 text-white" />
-          </button>
+          {store.isSubscriptionActive ? (
+            <button
+              type="button"
+              onClick={handleDirectWhatsApp}
+              className="w-10 h-10 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center transition active:scale-95 shadow-2xs"
+              aria-label="WhatsApp Store"
+            >
+              <WhatsAppIcon className="w-4 h-4 text-white" />
+            </button>
+          ) : (
+            <span className="px-2.5 py-1 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-bold">
+              Renewal Due
+            </span>
+          )}
           <button
             type="button"
             onClick={() => setShowShareModal(true)}
@@ -393,29 +404,47 @@ export default function StorefrontPage() {
 
             {/* Direct Contact Bar & Share */}
             <div className="flex flex-wrap items-center gap-2.5 self-stretch sm:self-auto shrink-0">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDirectCall();
-                }}
-                className="flex-1 sm:flex-initial h-10 px-4 rounded-xl border border-purple-200 bg-purple-50/70 hover:bg-purple-100 text-purple-900 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95"
-                title={headerPhoneRevealed ? `Call ${store.name} (${store.phone})` : 'Click to show phone number'}
-              >
-                <Phone className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                <span className="font-mono text-xs font-bold">
-                  {headerPhoneRevealed ? store.phone : 'Show Phone Number'}
-                </span>
-              </button>
+              {store.isSubscriptionActive ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDirectCall();
+                    }}
+                    className="flex-1 sm:flex-initial h-10 px-4 rounded-xl border border-purple-200 bg-purple-50/70 hover:bg-purple-100 text-purple-900 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs active:scale-95"
+                    title={headerPhoneRevealed ? `Call ${store.name} (${store.phone})` : 'Click to show phone number'}
+                  >
+                    <Phone className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                    <span className="font-mono text-xs font-bold">
+                      {headerPhoneRevealed ? store.phone : 'Show Phone Number'}
+                    </span>
+                  </button>
 
-              <button
-                type="button"
-                onClick={handleDirectWhatsApp}
-                className="flex-1 sm:flex-initial h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer shadow-sm"
-              >
-                <MessageSquare className="w-3.5 h-3.5 fill-white/20" />
-                <span>Direct WhatsApp</span>
-              </button>
+                  <button
+                    type="button"
+                    onClick={handleDirectWhatsApp}
+                    className="flex-1 sm:flex-initial h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer shadow-sm"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 fill-white/20" />
+                    <span>Direct WhatsApp</span>
+                  </button>
+                </>
+              ) : (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-3.5 py-2 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Renewal Pending</span>
+                  </span>
+                  <Link
+                    href={`/login?returnUrl=${encodeURIComponent('/subscription')}`}
+                    className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+                  >
+                    <Lock className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Host Sign In</span>
+                  </Link>
+                </div>
+              )}
 
               <button
                 type="button"
@@ -428,6 +457,79 @@ export default function StorefrontPage() {
               </button>
             </div>
           </div>
+
+          {/* Store Offline / Subscription Renewal Due Banner for Inactive Stores */}
+          {!store.isSubscriptionActive && (
+            <div className="mt-6 bg-gradient-to-br from-amber-50 via-white to-amber-50/40 border border-amber-200 rounded-3xl p-6 sm:p-8 shadow-md space-y-6 animate-in fade-in">
+              <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-400/40 text-amber-600 flex items-center justify-center shrink-0 shadow-xs">
+                    <AlertTriangle className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-base sm:text-lg font-heading font-black text-slate-900">
+                        Storefront Temporarily Inactive
+                      </h2>
+                      <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                        Renewal Due ({store.subscriptionStatus})
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-2xl">
+                      This service provider's storefront ({store.name}) is temporarily paused for scheduled subscription renewal. In accordance with SafarPK marketplace policies, vehicle inventory and direct WhatsApp contact are temporarily on hold until the partner subscription is renewed.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Customer quick redirect */}
+                <Link
+                  href={
+                    store.primaryService === 'RENT_A_CAR' ? `/cars?city=${encodeURIComponent(store.city)}` :
+                    store.primaryService === 'CITY_TO_CITY' ? `/city-to-city?city=${encodeURIComponent(store.city)}` :
+                    store.primaryService === 'PICK_AND_DROP' ? `/shuttles?city=${encodeURIComponent(store.city)}` :
+                    `/movers?city=${encodeURIComponent(store.city)}`
+                  }
+                  className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shrink-0 shadow-sm"
+                >
+                  <span>Browse Active Fleets in {store.city}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+
+              {/* Service Provider / Host Action Notice */}
+              <div className="p-4 sm:p-5 bg-white/90 backdrop-blur-xs rounded-2xl border border-amber-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Are you the manager or owner of {store.name}?</span>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-normal">
+                    Your partner subscription is currently <strong>{store.subscriptionStatus}</strong>. Sign in to your dashboard to renew your subscription plan and immediately republish your inventory to live customers.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap shrink-0">
+                  <Link
+                    href={`/login?returnUrl=${encodeURIComponent('/subscription')}`}
+                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Sign In to Renew Subscription</span>
+                  </Link>
+
+                  <a
+                    href={`https://wa.me/923000000001?text=${encodeURIComponent(`Assalam-o-Alaikum SafarPK Platform Administration, I need assistance renewing/activating subscription for partner store: ${store.name} (${store.slug})`)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-4 py-2.5 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                  >
+                    <WhatsAppIcon className="w-3.5 h-3.5" />
+                    <span>Contact Admin Support</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* About / Store Description */}
           {store.about && (
@@ -461,8 +563,42 @@ export default function StorefrontPage() {
             </span>
           </div>
 
-          {/* Listings Grid */}
-          <div className="mt-6 space-y-10">
+          {/* Listings Grid or Offline Notice */}
+          {!store.isSubscriptionActive ? (
+            <div className="mt-8 text-center py-16 px-4 bg-white rounded-3xl border border-slate-200 shadow-xs space-y-3">
+              <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center mx-auto shadow-2xs">
+                <Lock className="w-6 h-6" />
+              </div>
+              <h3 className="font-heading font-extrabold text-lg text-slate-900">
+                Fleet Listings Offline
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+                All inventory from {store.name} is temporarily hidden from public directories until partner subscription renewal is completed.
+              </p>
+              <div className="pt-2">
+                <Link
+                  href={`/login?returnUrl=${encodeURIComponent('/subscription')}`}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                >
+                  <Lock className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Host Sign In to Reactivate</span>
+                </Link>
+              </div>
+            </div>
+          ) : store.totalListingsCount === 0 ? (
+            <div className="mt-8 text-center py-12 px-4 bg-white rounded-3xl border border-slate-200 shadow-xs space-y-2">
+              <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                <Car className="w-6 h-6" />
+              </div>
+              <h3 className="font-heading font-extrabold text-base text-slate-800">
+                No Live Vehicles Published Yet
+              </h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                This verified host has not published any vehicles yet. Please check back soon or browse other fleets in {store.city}.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-6 space-y-10">
             {/* 1. CARS */}
             {store.primaryService === 'RENT_A_CAR' && cars.length > 0 && (
               <div className="space-y-4">
@@ -856,7 +992,8 @@ export default function StorefrontPage() {
                 </div>
               </div>
             )}
-          </div>
+            </div>
+          )}
         </div>
       </main>
 
@@ -884,21 +1021,55 @@ export default function StorefrontPage() {
             </div>
 
             <p className="text-xs text-slate-600">
-              Share this single link with customers to showcase all your active vehicles and advertised services on SafarPK.
+              Share either your custom public storefront link or your encrypted secure link with customers to showcase your verified fleet.
             </p>
 
-            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between gap-2">
-              <span className="font-mono text-xs text-slate-800 truncate select-all">
-                {currentStoreUrl}
-              </span>
-              <button
-                type="button"
-                onClick={handleCopyLink}
-                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shrink-0 flex items-center gap-1 cursor-pointer"
-              >
-                {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copiedLink ? 'Copied!' : 'Copy'}</span>
-              </button>
+            <div className="space-y-3">
+              <div>
+                <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                  1. Public Custom Store URL
+                </label>
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between gap-2">
+                  <span className="font-mono text-xs text-slate-800 truncate select-all">
+                    {currentStoreUrl}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopyLink}
+                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shrink-0 flex items-center gap-1 cursor-pointer"
+                  >
+                    {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedLink ? 'Copied!' : 'Copy'}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700 block mb-1 flex items-center gap-1">
+                  <Lock className="w-3 h-3 text-emerald-600" />
+                  <span>2. Encrypted / Secure Share Link</span>
+                </label>
+                <div className="p-3 bg-emerald-50/50 rounded-2xl border border-emerald-200 flex items-center justify-between gap-2">
+                  <span className="font-mono text-xs text-emerald-900 truncate select-all">
+                    {(typeof window !== 'undefined' ? window.location.origin : 'https://safar.pk') + store.secureStoreUrl}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        const origin = typeof window !== 'undefined' ? window.location.origin : 'https://safar.pk';
+                        navigator.clipboard.writeText(`${origin}${store.secureStoreUrl}`);
+                        setCopiedTokenLink(true);
+                        setTimeout(() => setCopiedTokenLink(false), 2500);
+                      } catch {}
+                    }}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shrink-0 flex items-center gap-1 cursor-pointer"
+                  >
+                    {copiedTokenLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedTokenLink ? 'Copied!' : 'Copy'}</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="pt-2">
