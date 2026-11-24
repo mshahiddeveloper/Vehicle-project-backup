@@ -1051,14 +1051,14 @@ export default function HomePage() {
                 {/* Field 1: Commute City / Hub */}
                 <div
                   ref={shuttleCityRef}
-                  className="col-span-12 sm:col-span-6 md:col-span-3 flex items-center gap-2.5 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-3 rounded-xl sm:rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] focus-within:bg-white focus-within:border-[#0B6B4F] focus-within:ring-2 focus-within:ring-[#0B6B4F]/10 transition relative cursor-pointer"
+                  className="col-span-12 sm:col-span-6 md:col-span-2 flex items-center gap-2 sm:gap-2.5 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-2.5 sm:px-3 rounded-xl sm:rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] focus-within:bg-white focus-within:border-[#0B6B4F] focus-within:ring-2 focus-within:ring-[#0B6B4F]/10 transition relative cursor-pointer"
                   onClick={() => setShowShuttleCityMenu(!showShuttleCityMenu)}
                 >
                   <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white border border-[#EAECF0] text-[#0B6B4F] flex items-center justify-center shrink-0 shadow-2xs">
                     <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </div>
                   <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    <span className="text-[10px] sm:text-[11px] font-bold text-[#475467] leading-none mb-0.5 sm:mb-1">
+                    <span className="text-[10px] sm:text-[11px] font-bold text-[#475467] leading-none mb-0.5 sm:mb-1 truncate">
                       City / Hub
                     </span>
                     <div className="text-xs sm:text-sm font-extrabold text-[#101828] truncate">
@@ -1101,13 +1101,13 @@ export default function HomePage() {
                 {/* Field 2: From (Boarding / Pick-up Area or Corridor Stop) */}
                 <div
                   ref={shuttlePickupRef}
-                  className="col-span-12 sm:col-span-6 md:col-span-3.5 flex items-center gap-2.5 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-3 rounded-xl sm:rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] focus-within:bg-white focus-within:border-[#0B6B4F] focus-within:ring-2 focus-within:ring-[#0B6B4F]/10 transition relative cursor-text"
+                  className="col-span-12 sm:col-span-6 md:col-span-4 flex items-center gap-2.5 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-3 rounded-xl sm:rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] focus-within:bg-white focus-within:border-[#0B6B4F] focus-within:ring-2 focus-within:ring-[#0B6B4F]/10 transition relative cursor-text"
                 >
                   <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white border border-[#EAECF0] text-emerald-700 flex items-center justify-center shrink-0 shadow-2xs">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
                   </div>
                   <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    <span className="text-[10px] sm:text-[11px] font-bold text-[#475467] leading-none mb-0.5 sm:mb-1">
+                    <span className="text-[10px] sm:text-[11px] font-bold text-[#475467] leading-none mb-0.5 sm:mb-1 truncate">
                       Pick-up Area / Stop (From)
                     </span>
                     <input
@@ -1162,13 +1162,13 @@ export default function HomePage() {
                 {/* Field 3: To (Drop-off Area / Institution / Destination) */}
                 <div
                   ref={shuttleDropRef}
-                  className="col-span-12 sm:col-span-6 md:col-span-3.5 flex items-center gap-2.5 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-3 rounded-xl sm:rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] focus-within:bg-white focus-within:border-[#0B6B4F] focus-within:ring-2 focus-within:ring-[#0B6B4F]/10 transition relative cursor-text"
+                  className="col-span-12 sm:col-span-6 md:col-span-4 flex items-center gap-2.5 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-3 rounded-xl sm:rounded-2xl bg-[#F7F8FA] border border-[#EEF0F2] focus-within:bg-white focus-within:border-[#0B6B4F] focus-within:ring-2 focus-within:ring-[#0B6B4F]/10 transition relative cursor-text"
                 >
                   <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white border border-[#EAECF0] text-purple-700 flex items-center justify-center shrink-0 shadow-2xs">
                     <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-700" />
                   </div>
                   <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    <span className="text-[10px] sm:text-[11px] font-bold text-[#475467] leading-none mb-0.5 sm:mb-1">
+                    <span className="text-[10px] sm:text-[11px] font-bold text-[#475467] leading-none mb-0.5 sm:mb-1 truncate">
                       Drop-off Area / Institution (To)
                     </span>
                     <input
@@ -1223,7 +1223,7 @@ export default function HomePage() {
                 {/* Find Routes Button */}
                 <button
                   type="submit"
-                  className="col-span-12 sm:col-span-6 md:col-span-2 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-4 rounded-xl sm:rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] active:scale-[0.99] text-white font-extrabold text-xs sm:text-sm md:text-base flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition cursor-pointer"
+                  className="col-span-12 sm:col-span-6 md:col-span-2 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-3 sm:px-4 rounded-xl sm:rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] active:scale-[0.99] text-white font-extrabold text-xs sm:text-sm md:text-base flex items-center justify-center gap-1.5 sm:gap-2 shadow-md hover:shadow-lg transition cursor-pointer whitespace-nowrap"
                 >
                   <Search className="w-4 h-4 shrink-0" />
                   <span>Find routes</span>
@@ -1431,7 +1431,7 @@ export default function HomePage() {
                 {/* Field 4: Find Trucks Submit Button */}
                 <button
                   type="submit"
-                  className="col-span-12 sm:col-span-6 md:col-span-2 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-4 rounded-xl sm:rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] active:scale-[0.99] text-white font-extrabold text-xs sm:text-sm md:text-base flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition cursor-pointer"
+                  className="col-span-12 sm:col-span-6 md:col-span-2 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-3 sm:px-4 rounded-xl sm:rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] active:scale-[0.99] text-white font-extrabold text-xs sm:text-sm md:text-base flex items-center justify-center gap-1.5 sm:gap-2 shadow-md hover:shadow-lg transition cursor-pointer whitespace-nowrap"
                 >
                   <Search className="w-4 h-4 shrink-0" />
                   <span>{isPakistan ? 'Find trucks' : 'Find movers'}</span>
@@ -1664,7 +1664,7 @@ export default function HomePage() {
                 {/* Field 5: Find Rides Button */}
                 <button
                   type="submit"
-                  className="col-span-12 sm:col-span-12 md:col-span-2 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-4 rounded-xl sm:rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] active:scale-[0.99] text-white font-extrabold text-xs sm:text-sm md:text-base flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition cursor-pointer"
+                  className="col-span-12 sm:col-span-12 md:col-span-2 min-h-[46px] sm:min-h-[52px] md:min-h-[60px] px-3 sm:px-4 rounded-xl sm:rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] active:scale-[0.99] text-white font-extrabold text-xs sm:text-sm md:text-base flex items-center justify-center gap-1.5 sm:gap-2 shadow-md hover:shadow-lg transition cursor-pointer whitespace-nowrap"
                 >
                   <Search className="w-4 h-4 shrink-0" />
                   <span>Find rides</span>
