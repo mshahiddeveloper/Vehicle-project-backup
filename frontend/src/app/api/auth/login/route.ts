@@ -257,11 +257,19 @@ export async function POST(req: NextRequest) {
     }).catch((e) => console.warn('Login audit log note:', e));
 
     // 4. Set HttpOnly, Secure, SameSite=Strict cookie
-    const res = NextResponse.json({
-      success: true,
-      user: matchedUser,
-      message: 'Authentication successful.',
-    });
+    const res = NextResponse.json(
+      {
+        success: true,
+        user: matchedUser,
+        message: 'Authentication successful.',
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, max-age=0',
+          Pragma: 'no-cache',
+        },
+      }
+    );
 
     await setSessionCookie(res, matchedUser);
     return res;

@@ -239,7 +239,15 @@ export function saveWishlistItem(item: WishlistItem): void {
       fetch('/api/wishlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vehicleId: item.id }),
+        body: JSON.stringify({
+          vehicleId: item.id,
+          category: item.category,
+          title: item.title || item.name,
+          city: item.city,
+          price: item.price || item.rate,
+          specs: item.specs,
+          image: '',
+        }),
       }).catch(() => {});
     }
   } catch (e) {
@@ -294,10 +302,8 @@ export function removeWishlistItem(id: string): void {
 
     // Background sync deletion to Neon DB if logged in
     if (activeUser && activeUser.id) {
-      fetch('/api/wishlist', {
+      fetch(`/api/wishlist?vehicleId=${encodeURIComponent(id)}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vehicleId: id }),
       }).catch(() => {});
     }
   } catch (e) {

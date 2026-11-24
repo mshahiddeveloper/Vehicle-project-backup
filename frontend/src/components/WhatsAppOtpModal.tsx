@@ -110,19 +110,36 @@ export function WhatsAppOtpModal({ isOpen, phone, onClose, onVerified }: WhatsAp
     setResendCooldown(30);
   };
 
-  const handleVerify = (e: React.FormEvent) => {
+  const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    const check = verifyWhatsAppOtpCode(phone, code);
-    setLoading(false);
+    try {
+      // 1. Verify against Neon PostgreSQL otp_verifications table
+      const res = await fetch('/api/whatsapp-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify', phone, code: code.trim() }),
+      });
+      const data = await res.json().catch(() => null);
 
-    if (!check.success) {
-      setError(check.error || 'Verification failed. Please check the code.');
-      return;
+      if (!res.ok || !data?.success) {
+        setLoading(false);
+        setError(data?.error || 'Verification failed. Incorrect or expired code.');
+        return;
+      }
+    } catch (apiErr) {
+      // Fallback to local check if offline
+      const check = verifyWhatsAppOtpCode(phone, code);
+      if (!check.success) {
+        setLoading(false);
+        setError(check.error || 'Verification failed. Please check the code.');
+        return;
+      }
     }
 
+    setLoading(false);
     onVerified(sanitized.standard);
     onClose();
   };

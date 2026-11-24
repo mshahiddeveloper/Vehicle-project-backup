@@ -1250,7 +1250,7 @@ export function registerNewUser(params: {
         };
       }
       return {
-        status: 'UNSUBSCRIBED' as SubscriptionStatus,
+        status: (params.role === 'CUSTOMER' ? 'ACTIVE' : 'UNSUBSCRIBED') as SubscriptionStatus,
         quota: 0,
         usedQuota: 0,
       };

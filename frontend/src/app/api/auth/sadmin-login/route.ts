@@ -154,12 +154,20 @@ export async function POST(req: NextRequest) {
       isStaff: true,
     };
 
-    const res = NextResponse.json({
-      success: true,
-      message: 'Administrative authentication successful',
-      user: userPayload,
-      redirectUrl: '/sadmin',
-    });
+    const res = NextResponse.json(
+      {
+        success: true,
+        message: 'Administrative authentication successful',
+        user: userPayload,
+        redirectUrl: '/sadmin',
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, max-age=0',
+          Pragma: 'no-cache',
+        },
+      }
+    );
 
     await setSessionCookie(res, {
       id: staff.id,

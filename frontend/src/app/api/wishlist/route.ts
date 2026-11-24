@@ -216,7 +216,12 @@ export async function DELETE(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url);
-    const vehicleId = searchParams.get('vehicleId');
+    let vehicleId = searchParams.get('vehicleId');
+
+    if (!vehicleId) {
+      const body = await req.json().catch(() => ({}));
+      vehicleId = body.vehicleId;
+    }
 
     if (!vehicleId) {
       return NextResponse.json({ success: false, error: 'vehicleId is required' }, { status: 400 });

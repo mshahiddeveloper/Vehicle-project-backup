@@ -26,11 +26,19 @@ export async function GET(req: NextRequest) {
 
     const unreadCount = rows.filter((r: any) => !r.is_read).length;
 
-    return NextResponse.json({
-      success: true,
-      notifications: rows,
-      unreadCount,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        notifications: rows,
+        unreadCount,
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, max-age=0',
+          Pragma: 'no-cache',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Notifications GET error:', error);
     return NextResponse.json(

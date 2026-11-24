@@ -32,6 +32,18 @@
       }
     },
     {
+      "source": "/demo-accounts",
+      "destination": {
+        "service": "frontend"
+      }
+    },
+    {
+      "source": "/sadmin",
+      "destination": {
+        "service": "frontend"
+      }
+    },
+    {
       "source": "/api/(.*)",
       "destination": {
         "service": "frontend"

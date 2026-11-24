@@ -48,12 +48,20 @@ export async function GET(req: NextRequest) {
         ? (rows.reduce((acc: number, cur: any) => acc + cur.rating, 0) / rows.length).toFixed(1)
         : null;
 
-      return NextResponse.json({
-        success: true,
-        reviews: rows,
-        count: rows.length,
-        averageRating: avgRating,
-      });
+      return NextResponse.json(
+        {
+          success: true,
+          reviews: rows,
+          count: rows.length,
+          averageRating: avgRating,
+        },
+        {
+          headers: {
+            'Cache-Control': 'no-store, max-age=0',
+            Pragma: 'no-cache',
+          },
+        }
+      );
     }
 
     return NextResponse.json(

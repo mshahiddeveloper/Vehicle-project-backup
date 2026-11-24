@@ -204,12 +204,20 @@ export async function POST(req: NextRequest) {
       city: cleanCity,
     };
 
-    const res = NextResponse.json({
-      success: true,
-      userId,
-      user: userPayload,
-      message: 'Account successfully registered and persisted into Neon PostgreSQL 16.',
-    });
+    const res = NextResponse.json(
+      {
+        success: true,
+        userId,
+        user: userPayload,
+        message: 'Account successfully registered and persisted into Neon PostgreSQL 16.',
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, max-age=0',
+          Pragma: 'no-cache',
+        },
+      }
+    );
 
     await setSessionCookie(res, userPayload);
     return res;

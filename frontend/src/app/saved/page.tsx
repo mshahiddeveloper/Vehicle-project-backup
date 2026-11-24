@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { AppHeader } from '@/components/AppHeader';
 import { AppFooter } from '@/components/AppFooter';
 import { MobileNavBar } from '@/components/MobileNavBar';
-import { Heart, Trash2, ArrowRight, Car, User, Bus, Truck, LogIn, UserPlus } from 'lucide-react';
+import { Heart, Trash2, ArrowRight, Car, User, Bus, Truck, LogIn, UserPlus, ShieldCheck } from 'lucide-react';
 import { CARS_DATA } from '@/data/marketplaceData';
 import { getActiveUser, RegisteredUser } from '@/data/userAuth';
 // Integrates with safarpk_saved_vehicles and safarpk_saved_items via @/data/wishlist
@@ -25,6 +25,15 @@ export default function SavedItemsPage() {
   const [filterIdx, setFilterIdx] = useState<number>(0); // 0: All, 1: Cars, 2: Drivers, 3: Shuttles, 4: Movers
   const [activeUser, setActiveUser] = useState<RegisteredUser | null>(null);
   const [items, setItems] = useState<SavedItem[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  const mapCategory = (cat: string): SavedItem['category'] => {
+    const lower = (cat || '').toLowerCase();
+    if (lower.includes('driver')) return 'driver';
+    if (lower.includes('shuttle') || lower.includes('pick')) return 'shuttle';
+    if (lower.includes('mover') || lower.includes('cargo')) return 'mover';
+    return 'car';
+  };
 
   const loadSaved = () => {
     try {
@@ -46,59 +55,61 @@ export default function SavedItemsPage() {
           .catch(() => {});
       }
 
-      // Logged out visitors without cookie: Wishlist is completely blank and displays friendly login prompt
+      // Logged out visitors without cookie: show login prompt
       if (!user) {
         setItems([]);
-      } else {
-        const savedList = getSavedWishlistItems();
-        const mapped: SavedItem[] = savedList.map((p) => {
-          const cat = (p.category || '').toLowerCase();
-          const mappedCat: SavedItem['category'] =
-            cat.includes('driver') ? 'driver' :
-            cat.includes('shuttle') || cat.includes('pick') ? 'shuttle' :
-            cat.includes('mover') || cat.includes('cargo') ? 'mover' : 'car';
-
-          return {
-            id: p.id,
-            category: mappedCat,
-            name: p.title || p.name || 'Saved Listing',
-            sub: p.specs ? `${p.specs} · ${p.city || 'Karachi'}` : (p.sub || p.city || 'Verified Partner'),
-            price: p.rate || p.price || 'PKR 10,000 / day',
-            href: p.href || (p.id?.startsWith('l-') || p.id?.startsWith('car-') ? `/listing/${p.id}` : `/listing/l-1`),
-            contacted: p.contacted,
-          };
-        });
-
-        setItems(mapped);
+        setIsLoading(false);
+        return;
       }
 
-      // Asynchronously fetch and merge any items saved in Neon PostgreSQL DB
+      // DB-first: fetch from Neon DB as the primary source
       fetch('/api/wishlist')
         .then((r) => (r.ok ? r.json() : null))
         .then((dbData) => {
-          if (dbData && dbData.success && Array.isArray(dbData.items) && dbData.items.length > 0) {
+          if (dbData && dbData.success && Array.isArray(dbData.items)) {
             const dbMapped: SavedItem[] = dbData.items.map((v: any) => ({
               id: v.vehicle_id,
-              category: v.category || 'car',
+              category: mapCategory(v.category),
               name: v.title || 'Saved Listing',
               sub: v.specs ? `${v.specs} · ${v.city || 'Pakistan'}` : (v.city || 'Pakistan'),
               price: v.price || 'PKR 5,000 / day',
               href: `/listing/${v.vehicle_id}`,
             }));
-            setItems((prev) => {
-              const combined = [...prev];
-              for (const item of dbMapped) {
-                if (!combined.some((it) => it.id === item.id)) {
-                  combined.unshift(item);
-                }
-              }
-              return combined;
-            });
+            setItems(dbMapped);
+          } else {
+            // DB returned no items — fall back to localStorage
+            const savedList = getSavedWishlistItems();
+            const mapped: SavedItem[] = savedList.map((p) => ({
+              id: p.id,
+              category: mapCategory(p.category || ''),
+              name: p.title || p.name || 'Saved Listing',
+              sub: p.specs ? `${p.specs} · ${p.city || 'Karachi'}` : (p.sub || p.city || 'Verified Partner'),
+              price: p.rate || p.price || 'PKR 10,000 / day',
+              href: p.href || (p.id?.startsWith('l-') || p.id?.startsWith('car-') ? `/listing/${p.id}` : `/listing/l-1`),
+              contacted: p.contacted,
+            }));
+            setItems(mapped);
           }
+          setIsLoading(false);
         })
-        .catch(() => {});
+        .catch(() => {
+          // API call failed — fall back to localStorage
+          const savedList = getSavedWishlistItems();
+          const mapped: SavedItem[] = savedList.map((p) => ({
+            id: p.id,
+            category: mapCategory(p.category || ''),
+            name: p.title || p.name || 'Saved Listing',
+            sub: p.specs ? `${p.specs} · ${p.city || 'Karachi'}` : (p.sub || p.city || 'Verified Partner'),
+            price: p.rate || p.price || 'PKR 10,000 / day',
+            href: p.href || (p.id?.startsWith('l-') || p.id?.startsWith('car-') ? `/listing/${p.id}` : `/listing/l-1`),
+            contacted: p.contacted,
+          }));
+          setItems(mapped);
+          setIsLoading(false);
+        });
     } catch (e) {
       setItems([]);
+      setIsLoading(false);
     }
   };
 
@@ -193,34 +204,55 @@ export default function SavedItemsPage() {
         </div>
 
         {/* Wishlist Content Section */}
-        {!activeUser ? (
-          <div className="p-8 sm:p-12 rounded-3xl bg-white border border-[#EEF0F2] text-center flex flex-col items-center gap-4 shadow-xs mt-1">
-            <div className="w-16 h-16 rounded-3xl bg-rose-50 border border-rose-100 flex items-center justify-center text-[#D92D20] shadow-2xs">
-              <Heart className="w-8 h-8 fill-rose-500/20 text-[#D92D20]" />
+        {isLoading ? (
+          <div className="flex flex-col gap-3">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="bg-white border border-[#EEF0F2] rounded-2xl p-4 flex items-center gap-3 shadow-2xs animate-pulse"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-slate-200 shrink-0" />
+                <div className="flex-1 min-w-0 flex flex-col gap-2">
+                  <div className="h-4 w-3/4 bg-slate-200 rounded" />
+                  <div className="h-3 w-1/2 bg-slate-100 rounded" />
+                  <div className="h-4 w-1/3 bg-slate-200 rounded" />
+                </div>
+                <div className="w-10 h-10 rounded-full bg-slate-100 shrink-0" />
+              </div>
+            ))}
+          </div>
+        ) : !activeUser ? (
+          <div className="p-8 sm:p-12 rounded-3xl bg-white border border-[#EEF0F2] text-center flex flex-col items-center gap-5 shadow-sm mt-1">
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-rose-50 to-pink-100 border border-rose-200/60 flex items-center justify-center text-rose-500 shadow-sm">
+              <Heart className="w-8 h-8 fill-rose-500 text-rose-500" />
             </div>
-            <div className="max-w-md flex flex-col gap-1.5">
-              <h2 className="font-heading font-black text-xl sm:text-2xl text-[#101828]">
+            <div className="max-w-md flex flex-col gap-2">
+              <h2 className="font-heading font-black text-2xl text-[#101828]">
                 Sign in to view your Saved items
               </h2>
-              <p className="text-xs sm:text-sm text-[#667085] leading-relaxed">
-                Your saved vehicles, verified chauffeurs, and daily commute routes are synced to your account so you can access them anytime across all your devices.
+              <p className="text-sm text-[#475467] leading-relaxed">
+                Your saved vehicles, verified chauffeurs, and commuter routes sync in real time across the app and website.
               </p>
             </div>
-            <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xs mt-2">
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-md pt-2">
               <Link
                 href="/login?returnUrl=/saved"
-                className="flex-1 h-11 px-5 rounded-xl bg-[#0B6B4F] text-white font-bold text-xs sm:text-sm flex items-center justify-center hover:bg-[#08513C] shadow-xs transition gap-2"
+                className="w-full sm:flex-1 h-12 px-6 rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] text-white font-heading font-bold text-sm flex items-center justify-center shadow-md hover:shadow-lg transition-all gap-2 cursor-pointer active:scale-[0.99]"
               >
-                <LogIn className="w-4 h-4" />
+                <LogIn className="w-4 h-4 stroke-[2.5]" />
                 <span>Sign In</span>
               </Link>
               <Link
                 href="/register?returnUrl=/saved"
-                className="flex-1 h-11 px-5 rounded-xl bg-white border border-[#D0D5DD] text-[#344054] font-bold text-xs sm:text-sm flex items-center justify-center hover:bg-slate-50 transition gap-2"
+                className="w-full sm:flex-1 h-12 px-6 rounded-2xl bg-white border-2 border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-800 font-heading font-bold text-sm flex items-center justify-center transition-all gap-2 cursor-pointer active:scale-[0.99]"
               >
-                <UserPlus className="w-4 h-4" />
+                <UserPlus className="w-4 h-4 text-[#0B6B4F] stroke-[2.5]" />
                 <span>Create Free Account</span>
               </Link>
+            </div>
+            <div className="pt-2 text-xs text-slate-500 flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <span>Fast access with phone number or email</span>
             </div>
           </div>
         ) : filtered.length > 0 ? (
@@ -269,19 +301,22 @@ export default function SavedItemsPage() {
             </p>
           </div>
         ) : (
-          <div className="p-12 rounded-3xl bg-white border border-[#EEF0F2] text-center flex flex-col items-center gap-3 shadow-2xs">
-            <Heart className="w-10 h-10 text-slate-300" />
-            <h3 className="font-heading font-extrabold text-lg text-[#101828]">
+          <div className="p-12 rounded-3xl bg-white border border-[#EEF0F2] text-center flex flex-col items-center gap-3 shadow-sm">
+            <div className="w-16 h-16 rounded-3xl bg-slate-100 flex items-center justify-center text-slate-400 mb-1">
+              <Heart className="w-8 h-8" />
+            </div>
+            <h3 className="font-heading font-black text-xl text-[#101828]">
               Nothing saved in this category
             </h3>
-            <p className="text-xs text-[#667085] max-w-sm">
-              Tap the bookmark or heart icon on any car, driver, or shuttle listing to save it here.
+            <p className="text-sm text-[#667085] max-w-sm">
+              Tap the heart icon on any car, driver, or shuttle listing across the site to save it to your wishlist.
             </p>
             <Link
-              href="/"
-              className="mt-2 h-10 px-5 rounded-xl bg-[#0B6B4F] text-white font-bold text-xs flex items-center justify-center hover:bg-[#08513C] transition"
+              href="/cars"
+              className="mt-3 h-12 px-6 rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] text-white font-heading font-bold text-sm flex items-center justify-center shadow-md hover:shadow-lg transition gap-2 active:scale-[0.99]"
             >
-              Explore Listings
+              <Car className="w-4 h-4" />
+              <span>Explore Car Listings</span>
             </Link>
           </div>
         )}

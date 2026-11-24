@@ -54,15 +54,28 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'Listing not found' }, { status: 404 });
     }
 
-    return NextResponse.json({
-      success: true,
-      listing: rows[0],
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        listing: rows[0],
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, max-age=0',
+          Pragma: 'no-cache',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Fetch listing error:', error);
     return NextResponse.json(
       { success: false, error: error?.message || 'Failed to fetch listing' },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      }
     );
   }
 }
