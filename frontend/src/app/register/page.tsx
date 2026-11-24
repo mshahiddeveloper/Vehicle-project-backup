@@ -36,6 +36,7 @@ import {
   sanitizePakistaniPhone,
 } from '@/data/userAuth';
 import { executePendingWishlistIfAny } from '@/data/wishlist';
+import { fetchSystemSettings, getLocalSystemSettings } from '@/data/systemSettings';
 
 type SupportedLang = 'en' | 'ur' | 'ar' | 'de';
 type OperationalRole = 'CUSTOMER' | 'LISTER' | 'DRIVER' | 'PICK_DROP' | 'SHIFTING';
@@ -92,6 +93,18 @@ function RegisterForm() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(true);
+  const [waOtpRequired, setWaOtpRequired] = useState(false);
+
+  // Synchronize dynamic WhatsApp verification requirement from Super Admin system settings
+  useEffect(() => {
+    try {
+      const local = getLocalSystemSettings();
+      setWaOtpRequired(Boolean(local.whatsappVerificationEnabled));
+      fetchSystemSettings().then((s) => {
+        setWaOtpRequired(Boolean(s.whatsappVerificationEnabled));
+      });
+    } catch {}
+  }, []);
 
   // Debounced real-time database pre-check to prevent sending OTP to already registered phone numbers
   useEffect(() => {
@@ -294,6 +307,12 @@ function RegisterForm() {
       return;
     }
 
+    if (waOtpRequired && !phoneVerified) {
+      setError('WhatsApp verification is active. Please verify your phone number via WhatsApp OTP to complete registration.');
+      setIsOtpModalOpen(true);
+      return;
+    }
+
     setLoading(true);
 
     let mappedRole: UserRole = 'CUSTOMER';
@@ -358,8 +377,8 @@ function RegisterForm() {
           ? `${fullName.trim()} Cargo Logistics`
           : undefined),
       phone: phone.trim(),
-      phoneVerified,
-      phoneLocked,
+      phoneVerified: waOtpRequired ? phoneVerified : true,
+      phoneLocked: waOtpRequired ? phoneLocked : false,
       email: email.trim() || undefined,
       password: password,
       city: city.trim() || 'Karachi',
@@ -800,11 +819,15 @@ function RegisterForm() {
                   <span className="text-xs font-bold text-[#344054] flex items-center justify-between">
                     <span className="flex items-center gap-1.5 flex-wrap">
                       <span>{T.phone.en}</span>
-                      {phoneVerified && (
+                      {phoneVerified ? (
                         <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full flex items-center gap-1">
                           <Check className="w-2.5 h-2.5 text-emerald-700" /> Verified
                         </span>
-                      )}
+                      ) : !waOtpRequired ? (
+                        <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <ShieldCheck className="w-2.5 h-2.5 text-emerald-600" /> Direct Registration Active
+                        </span>
+                      ) : null}
                     </span>
                     {lang !== 'en' && (
                       <span className="text-[11px] font-semibold text-emerald-700" dir={lang === 'ur' || lang === 'ar' ? 'rtl' : 'ltr'}>
@@ -837,23 +860,33 @@ function RegisterForm() {
                       />
                     </div>
 
-                    {/* WhatsApp OTP Verification Trigger */}
-                    {!phoneLocked ? (
-                      <button
-                        type="button"
-                        disabled={!sanitizePakistaniPhone(phone).isValid || isCheckingPhone || Boolean(phoneRegisteredError)}
-                        onClick={handleOpenOtpModal}
-                        className="px-3.5 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold transition flex items-center gap-1.5 shrink-0 shadow-xs cursor-pointer active:scale-95"
-                        title={phoneRegisteredError ? 'Phone number already registered' : 'Verify via authentic WhatsApp OTP'}
-                      >
-                        <WhatsAppIcon className="w-3.5 h-3.5" />
-                        <span>{isCheckingPhone ? 'Checking...' : 'Verify WA'}</span>
-                      </button>
+                    {/* WhatsApp OTP Verification Trigger - Conditional based on Super Admin toggle */}
+                    {waOtpRequired ? (
+                      !phoneLocked ? (
+                        <button
+                          type="button"
+                          disabled={!sanitizePakistaniPhone(phone).isValid || isCheckingPhone || Boolean(phoneRegisteredError)}
+                          onClick={handleOpenOtpModal}
+                          className="px-3.5 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold transition flex items-center gap-1.5 shrink-0 shadow-xs cursor-pointer active:scale-95"
+                          title={phoneRegisteredError ? 'Phone number already registered' : 'Verify via authentic WhatsApp OTP'}
+                        >
+                          <WhatsAppIcon className="w-3.5 h-3.5" />
+                          <span>{isCheckingPhone ? 'Checking...' : 'Verify WA'}</span>
+                        </button>
+                      ) : (
+                        <div className="px-3 h-11 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-1 shrink-0">
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Verified</span>
+                        </div>
+                      )
                     ) : (
-                      <div className="px-3 h-11 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-1 shrink-0">
-                        <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Verified</span>
-                      </div>
+                      /* When WA OTP is disabled by Super Admin, show subtle ready status when valid */
+                      sanitizePakistaniPhone(phone).isValid && !phoneRegisteredError && (
+                        <div className="px-3.5 h-11 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-1.5 shrink-0">
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="hidden sm:inline">Ready</span>
+                        </div>
+                      )
                     )}
                   </div>
 

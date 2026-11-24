@@ -368,6 +368,15 @@ export default function AdminConsolePage() {
           href: '/admin?tab=agents',
           icon: Lock,
         },
+        {
+          id: 'whatsapp_verification_settings',
+          label: 'WhatsApp registration verification',
+          desc: 'Enable or deactivate WhatsApp OTP requirement for all public registrations',
+          href: '/sadmin?tab=settings',
+          icon: ShieldCheck,
+          badge: 'Super Admin',
+          badgeColor: 'emerald',
+        },
       ],
     },
   ], [users, pendingPayments, leads, promoCodes]);

@@ -47,11 +47,11 @@ export function getSavedWishlistItems(): WishlistItem[] {
 
   try {
     let customItems: WishlistItem[] = [];
-    
+
     // Check both user-scoped items and global fallback items for all authenticated users
     const itemsKey = getUserSavedItemsKey(activeUser);
     const rawKeys = [itemsKey, STORAGE_SAVED_ITEMS_KEY];
-    
+
     for (const key of rawKeys) {
       const raw = localStorage.getItem(key);
       if (raw) {
@@ -62,9 +62,9 @@ export function getSavedWishlistItems(): WishlistItem[] {
               const cat = (p.category || '').toLowerCase();
               const mappedCat: WishlistItem['category'] =
                 cat.includes('driver') ? 'driver' :
-                cat.includes('shuttle') || cat.includes('pick') ? 'shuttle' :
-                cat.includes('mover') || cat.includes('cargo') || cat.includes('shifting') ? 'mover' :
-                cat.includes('ride') || cat.includes('city') || cat.includes('intercity') || cat.includes('c2c') ? 'ride' : 'car';
+                  cat.includes('shuttle') || cat.includes('pick') ? 'shuttle' :
+                    cat.includes('mover') || cat.includes('cargo') || cat.includes('shifting') ? 'mover' :
+                      cat.includes('ride') || cat.includes('city') || cat.includes('intercity') || cat.includes('c2c') ? 'ride' : 'car';
 
               const itemId = p.id || `custom-${Date.now()}-${Math.random()}`;
               if (!customItems.some((it) => it.id === itemId)) {
@@ -80,10 +80,10 @@ export function getSavedWishlistItems(): WishlistItem[] {
                   price: p.rate || p.price || 'PKR 10,000 / day',
                   href: p.href || (
                     mappedCat === 'ride' || p.id?.startsWith('r-') || p.id?.startsWith('c2c-') ? `/city-to-city/${p.id}` :
-                    mappedCat === 'shuttle' || p.id?.startsWith('s-') ? `/shuttles/${p.id}` :
-                    mappedCat === 'mover' || p.id?.startsWith('m-') ? `/movers/${p.id}` :
-                    mappedCat === 'driver' || p.id?.startsWith('d-') ? `/drivers/${p.id}` :
-                    (p.id?.startsWith('l-') || p.id?.startsWith('car-') ? `/listing/${p.id}` : `/listing/l-1`)
+                      mappedCat === 'shuttle' || p.id?.startsWith('s-') ? `/shuttles/${p.id}` :
+                        mappedCat === 'mover' || p.id?.startsWith('m-') ? `/movers/${p.id}` :
+                          mappedCat === 'driver' || p.id?.startsWith('d-') ? `/drivers/${p.id}` :
+                            (p.id?.startsWith('l-') || p.id?.startsWith('car-') ? `/listing/${p.id}` : `/listing/l-1`)
                   ),
                   contacted: p.contacted,
                   savedAt: p.savedAt,
@@ -91,14 +91,14 @@ export function getSavedWishlistItems(): WishlistItem[] {
               }
             }
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     }
 
     // Also resolve any vehicle IDs saved via mobile vehicle cards or lists
     const vehiclesKey = getUserSavedVehiclesKey(activeUser);
     const vehicleKeys = [vehiclesKey, STORAGE_SAVED_VEHICLES_KEY];
-    
+
     for (const vKey of vehicleKeys) {
       const rawVehicles = localStorage.getItem(vKey);
       if (rawVehicles) {
@@ -125,7 +125,7 @@ export function getSavedWishlistItems(): WishlistItem[] {
               }
             }
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     }
 
@@ -168,10 +168,10 @@ export function isItemInWishlist(id: string): boolean {
           if (Array.isArray(parsed)) {
             if (parsed.some((it: any) => (it?.id || it) === id)) return true;
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     }
-  } catch (e) {}
+  } catch (e) { }
   return false;
 }
 
@@ -255,7 +255,7 @@ export function saveWishlistItem(item: WishlistItem): void {
           specs: item.specs,
           image: '',
         }),
-      }).catch(() => {});
+      }).catch(() => { });
     }
   } catch (e) {
     console.error('Failed to save wishlist item:', e);
@@ -281,7 +281,7 @@ export function removeWishlistItem(id: string): void {
             const updated = parsed.filter((it: any) => (it.id || it) !== id);
             localStorage.setItem(key, JSON.stringify(updated));
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     };
 
@@ -297,7 +297,7 @@ export function removeWishlistItem(id: string): void {
             const updatedVehicles = parsedVehicles.filter((vId: string) => vId !== id);
             localStorage.setItem(vKey, JSON.stringify(updatedVehicles));
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     };
 
@@ -311,7 +311,7 @@ export function removeWishlistItem(id: string): void {
     if (activeUser && activeUser.id) {
       fetch(`/api/wishlist?vehicleId=${encodeURIComponent(id)}`, {
         method: 'DELETE',
-      }).catch(() => {});
+      }).catch(() => { });
     }
   } catch (e) {
     console.error('Failed to remove wishlist item:', e);
@@ -331,7 +331,7 @@ export function setPendingWishlist(item: WishlistItem, returnUrl: string): void 
       timestamp: Date.now(),
     };
     localStorage.setItem(STORAGE_PENDING_WISHLIST_KEY, JSON.stringify(payload));
-  } catch (e) {}
+  } catch (e) { }
 }
 
 /**
@@ -355,7 +355,7 @@ export function clearPendingWishlist(): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.removeItem(STORAGE_PENDING_WISHLIST_KEY);
-  } catch (e) {}
+  } catch (e) { }
 }
 
 /**
@@ -368,7 +368,7 @@ export function setWishlistToast(msg: string): void {
   } catch (e) {
     try {
       localStorage.setItem(STORAGE_WISHLIST_TOAST_KEY, msg);
-    } catch (e2) {}
+    } catch (e2) { }
   }
 }
 
@@ -384,7 +384,7 @@ export function consumeWishlistToast(): string | null {
       localStorage.removeItem(STORAGE_WISHLIST_TOAST_KEY);
       return msg;
     }
-  } catch (e) {}
+  } catch (e) { }
   return null;
 }
 

@@ -30,6 +30,8 @@ import {
 import { getActiveUser, setActiveUser, RegisteredUser, getAllRegisteredUsers, saveAllRegisteredUsers } from '@/data/userAuth';
 import { getPausedListingIds, toggleListingPause } from '@/data/userAuth';
 import { CARS_DATA } from '@/data/marketplaceData';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
+import { fetchSystemSettings, updateSystemSettings, getLocalSystemSettings } from '@/data/systemSettings';
 
 interface StaffUser {
   id: string;
@@ -51,7 +53,7 @@ export default function SuperAdminPortalPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'kyc' | 'listings' | 'subscriptions' | 'audit' | 'database'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'kyc' | 'listings' | 'subscriptions' | 'audit' | 'database' | 'settings'>('overview');
 
   // Operational State
   const [usersList, setUsersList] = useState<RegisteredUser[]>([]);
@@ -60,6 +62,10 @@ export default function SuperAdminPortalPage() {
   const [dbStatus, setDbStatus] = useState<any>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+
+  // Dynamic WhatsApp Verification State (Default: Disabled)
+  const [waOtpEnabled, setWaOtpEnabled] = useState(false);
+  const [isTogglingWa, setIsTogglingWa] = useState(false);
 
   // Check existing session
   useEffect(() => {
@@ -77,6 +83,13 @@ export default function SuperAdminPortalPage() {
           isStaff: true,
         });
       }
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tab = urlParams.get('tab');
+        if (tab && ['overview', 'kyc', 'listings', 'subscriptions', 'audit', 'database', 'settings'].includes(tab)) {
+          setActiveTab(tab as any);
+        }
+      }
       refreshData();
     } catch (e) {}
   }, []);
@@ -87,6 +100,13 @@ export default function SuperAdminPortalPage() {
       setUsersList(allUsers);
       setPausedListings(getPausedListingIds());
 
+      // Fetch live dynamic system settings (WhatsApp OTP Verification status)
+      fetchSystemSettings()
+        .then((s) => {
+          if (s) setWaOtpEnabled(Boolean(s.whatsappVerificationEnabled));
+        })
+        .catch(() => {});
+
       // Fetch live DB health
       fetch('/api/neon-health')
         .then((r) => (r.ok ? r.json() : null))
@@ -95,6 +115,29 @@ export default function SuperAdminPortalPage() {
         })
         .catch(() => {});
     } catch (e) {}
+  };
+
+  const handleToggleWhatsAppVerification = async () => {
+    try {
+      setIsTogglingWa(true);
+      const targetState = !waOtpEnabled;
+      const res = await updateSystemSettings({ whatsappVerificationEnabled: targetState });
+      if (res.success) {
+        setWaOtpEnabled(targetState);
+        setActionNotice(
+          targetState
+            ? '🟢 WhatsApp OTP verification has been ACTIVATED for all new registrations.'
+            : '⚪ WhatsApp OTP verification has been DEACTIVATED. Direct registration is active.'
+        );
+        setTimeout(() => setActionNotice(null), 4500);
+      } else {
+        setErrorMsg(res.error || 'Failed to update WhatsApp verification setting.');
+      }
+    } catch (err: any) {
+      setErrorMsg('Failed to update WhatsApp verification setting.');
+    } finally {
+      setIsTogglingWa(false);
+    }
   };
 
   const handleStaffLogin = async (e: React.FormEvent) => {
@@ -142,6 +185,13 @@ export default function SuperAdminPortalPage() {
         },
       };
       setActiveUser(mappedActiveUser);
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tab = urlParams.get('tab');
+        if (tab && ['overview', 'kyc', 'listings', 'subscriptions', 'audit', 'database', 'settings'].includes(tab)) {
+          setActiveTab(tab as any);
+        }
+      }
       refreshData();
     } catch (err: any) {
       setErrorMsg(err?.message || 'Server error occurred during staff login.');
@@ -456,6 +506,19 @@ export default function SuperAdminPortalPage() {
             <Database className="w-4 h-4" />
             <span>Neon DB Inspector</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition whitespace-nowrap flex items-center gap-2 ${
+              activeTab === 'settings'
+                ? 'bg-emerald-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>Security & WhatsApp</span>
+            <span className={`w-2 h-2 rounded-full ${waOtpEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
+          </button>
         </div>
 
         {/* TAB 1: OVERVIEW */}
@@ -487,6 +550,113 @@ export default function SuperAdminPortalPage() {
                 <div className="text-slate-400 text-xs font-semibold mb-1">Database Engine</div>
                 <div className="text-3xl font-extrabold text-emerald-400 tracking-tight">Neon PG 16</div>
                 <div className="text-xs text-slate-400 mt-2">Serverless WebSocket Pooler</div>
+              </div>
+            </div>
+
+            {/* WhatsApp Verification Master Control Card */}
+            <div className="p-6 bg-slate-900 border border-slate-800 rounded-3xl relative overflow-hidden shadow-2xl">
+              <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
+
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+                <div className="flex items-start gap-4">
+                  <div
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border transition-all ${
+                      waOtpEnabled
+                        ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400 shadow-lg shadow-emerald-500/20'
+                        : 'bg-slate-800/80 border-slate-700 text-slate-400'
+                    }`}
+                  >
+                    <WhatsAppIcon className="w-6 h-6" />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h2 className="text-base font-bold text-white tracking-tight">
+                        WhatsApp OTP Registration Verification
+                      </h2>
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase flex items-center gap-1.5 ${
+                          waOtpEnabled
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                            : 'bg-slate-800 text-slate-300 border border-slate-700'
+                        }`}
+                      >
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            waOtpEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'
+                          }`}
+                        />
+                        {waOtpEnabled ? 'Active (OTP Required)' : 'Deactivated (Direct Registration)'}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-300 mt-1.5 max-w-2xl leading-relaxed">
+                      {waOtpEnabled
+                        ? '🟢 WhatsApp OTP verification is currently REQUIRED for all new registrations. Users must receive and verify a 6-digit WhatsApp OTP before their account is activated.'
+                        : '⚪ WhatsApp OTP verification is currently DEACTIVATED as requested. New users can register immediately using their mobile number without waiting for an OTP.'}
+                    </p>
+
+                    <div className="flex items-center gap-3 mt-3 text-[11px] text-slate-400 font-mono flex-wrap">
+                      <span>
+                        Engine:{' '}
+                        <strong className="text-slate-200">Neon PostgreSQL (system_settings)</strong>
+                      </span>
+                      <span>•</span>
+                      <span>
+                        Control: <strong className="text-emerald-400">Super Admin Exclusive</strong>
+                      </span>
+                      <span>•</span>
+                      <span>
+                        Current Status:{' '}
+                        <strong className={waOtpEnabled ? 'text-emerald-400' : 'text-slate-300'}>
+                          {waOtpEnabled ? 'MANDATORY_OTP' : 'BYPASS_ACTIVE'}
+                        </strong>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Big Interactive Toggle Switch */}
+                <div className="flex flex-col items-start lg:items-end gap-2 shrink-0">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-semibold text-slate-300">
+                      {waOtpEnabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={isTogglingWa}
+                      onClick={handleToggleWhatsAppVerification}
+                      className={`relative inline-flex h-9 w-18 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 ${
+                        waOtpEnabled ? 'bg-emerald-600' : 'bg-slate-700'
+                      }`}
+                      role="switch"
+                      aria-checked={waOtpEnabled}
+                      title={
+                        waOtpEnabled
+                          ? 'Click to deactivate WhatsApp verification'
+                          : 'Click to activate WhatsApp verification'
+                      }
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-8 w-8 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out flex items-center justify-center text-[10px] font-black ${
+                          waOtpEnabled ? 'translate-x-9 text-emerald-700' : 'translate-x-0 text-slate-600'
+                        }`}
+                      >
+                        {isTogglingWa ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-600" />
+                        ) : waOtpEnabled ? (
+                          'ON'
+                        ) : (
+                          'OFF'
+                        )}
+                      </span>
+                    </button>
+                  </div>
+
+                  <span className="text-[11px] text-slate-400 font-medium">
+                    {waOtpEnabled ? 'Click switch to deactivate' : 'Click switch to activate'}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -726,11 +896,114 @@ export default function SuperAdminPortalPage() {
                     'reviews',
                     'otp_verifications',
                     'notifications',
+                    'system_settings',
                   ].map((tbl) => (
                     <span key={tbl} className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800">
                       ✓ {tbl}
                     </span>
                   ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 6: SECURITY & SETTINGS */}
+        {activeTab === 'settings' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-lg font-bold text-white">Platform Security & Access Control Settings</h2>
+              <p className="text-xs text-slate-400">Configure global authentication gates, verification rules, and database security switches</p>
+            </div>
+
+            <div className="p-6 bg-slate-900 border border-slate-800 rounded-3xl space-y-6">
+              {/* WhatsApp OTP Verification Master Switch */}
+              <div className="p-6 bg-slate-950 border border-slate-800 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="flex items-start gap-4">
+                  <div
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${
+                      waOtpEnabled
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/10'
+                        : 'bg-slate-900 border-slate-800 text-slate-500'
+                    }`}
+                  >
+                    <WhatsAppIcon className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-white">WhatsApp Registration Verification Gate</h3>
+                      <span
+                        className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
+                          waOtpEnabled
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}
+                      >
+                        {waOtpEnabled ? 'ENABLED' : 'DISABLED'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1 max-w-xl">
+                      {waOtpEnabled
+                        ? 'Every new customer and partner is required to complete 6-digit WhatsApp OTP verification before their account is created.'
+                        : 'WhatsApp verification is currently turned OFF. Users can complete registration immediately with their phone number.'}
+                    </p>
+                    <div className="mt-2 text-[11px] text-slate-500">
+                      Persistent Table: <code className="text-emerald-400">system_settings (key: whatsapp_verification)</code>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={isTogglingWa}
+                    onClick={handleToggleWhatsAppVerification}
+                    className={`px-5 py-2.5 rounded-xl font-bold text-xs transition flex items-center gap-2 shadow-lg disabled:opacity-50 cursor-pointer ${
+                      waOtpEnabled
+                        ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                        : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/40'
+                    }`}
+                  >
+                    {isTogglingWa ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Updating...</span>
+                      </>
+                    ) : waOtpEnabled ? (
+                      <>
+                        <X className="w-3.5 h-3.5 text-rose-400" />
+                        <span>Deactivate Verification</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-white" />
+                        <span>Enable WhatsApp Verification</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Security Audit & Policies */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl">
+                  <div className="text-xs font-bold text-white flex items-center gap-2 mb-1">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                    <span>Direct Registration Policy</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    When WhatsApp verification is disabled, Pakistani phone numbers (+92) are sanitized and validated with duplicate checks directly against the database without requiring SMS or WhatsApp delivery.
+                  </p>
+                </div>
+
+                <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl">
+                  <div className="text-xs font-bold text-white flex items-center gap-2 mb-1">
+                    <Lock className="w-4 h-4 text-sky-400" />
+                    <span>Admin State Persistence</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Settings changed by Super Admin are permanently stored in Neon PostgreSQL and synchronized globally across all user sessions and server restarts.
+                  </p>
                 </div>
               </div>
             </div>
