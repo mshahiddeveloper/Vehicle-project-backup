@@ -17,6 +17,7 @@ import { getActiveUser, isListingPaused } from '@/data/userAuth';
 import { setPendingWishlist, consumeWishlistToast } from '@/data/wishlist';
 import { useCountry } from '@/app/context/CountryContext';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
+import { UnifiedMobileStickyBar } from '@/components/UnifiedDetailKit';
 import {
   ShieldCheck,
   Phone,
@@ -997,35 +998,17 @@ export default function PublicDriverProfilePage() {
           </Link>
         </div>
       ) : (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl flex items-center gap-2 z-50">
-          <button
-            type="button"
-            onClick={handleCall}
-            className="flex-1 h-12 rounded-2xl border border-purple-200 bg-purple-50 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer shadow-2xs"
-            title={phoneRevealed ? (driver?.phone || 'Available') : 'Show Number'}
-          >
-            <Phone className="w-4 h-4 text-purple-600 shrink-0" />
-            <span className="truncate">{phoneRevealed ? (driver?.phone || 'Available') : 'Show Number'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleWhatsApp}
-            className="flex-1 h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer shadow-md"
-          >
-            <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
-            <span>WhatsApp</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={scrollToBooking}
-            className="flex-1 h-12 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer shadow-md"
-          >
-            <Calendar className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>Hire Driver</span>
-          </button>
-        </div>
+        <UnifiedMobileStickyBar
+          priceText={formatPrice(selectedDuty === 'monthly' ? (driver?.monthlyNum || 45000) : selectedDuty === 'outstation' ? (driver?.outNum || 3500) : (driver?.city12Num || 2500))}
+          unitText={selectedDuty === 'monthly' ? '/mo' : '/day'}
+          subText={`${driver?.name} · ${driver?.city}`}
+          onCall={handleCall}
+          onChat={handleDirectChat}
+          onWhatsApp={handleWhatsApp}
+          onBook={handleDirectChat}
+          bookLabel="Book"
+          phoneTitle={phoneRevealed ? (driver?.phone || 'Available') : 'Show Number'}
+        />
       )}
 
       <div className="hidden md:block">

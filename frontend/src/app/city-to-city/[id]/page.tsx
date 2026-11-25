@@ -20,6 +20,7 @@ import {
 } from '@/data/wishlist';
 import { useCountry } from '@/app/context/CountryContext';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
+import { UnifiedMobileStickyBar } from '@/components/UnifiedDetailKit';
 import {
   MapPin,
   Calendar,
@@ -1118,35 +1119,17 @@ export default function CityRideDetailPage() {
           </Link>
         </div>
       ) : (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl flex items-center gap-2 z-50">
-          <button
-            type="button"
-            onClick={handleCall}
-            className="flex-1 h-12 rounded-2xl border border-purple-200 bg-purple-50 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition shadow-2xs"
-            title={phoneRevealed ? ride.phone : 'Click to show phone number'}
-          >
-            <Phone className="w-4 h-4 text-purple-600 shrink-0" />
-            <span className="truncate">{phoneRevealed ? ride.phone : 'Show Number'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleWhatsApp}
-            className="flex-1 h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
-          >
-            <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
-            <span>WhatsApp</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleDirectChat}
-            className="flex-[1.4] h-12 rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] text-white text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
-          >
-            <MessageSquare className="w-4 h-4 text-emerald-200 shrink-0" />
-            <span>Book &amp; Chat</span>
-          </button>
-        </div>
+        <UnifiedMobileStickyBar
+          priceText={formatPrice(currentFare)}
+          unitText={bookingMode === 'seat' && supportsSeatSharing ? '/seat' : '/car'}
+          subText={`${ride.fromCity} → ${ride.toCity}`}
+          onCall={handleCall}
+          onChat={handleDirectChat}
+          onWhatsApp={handleWhatsApp}
+          onBook={handleDirectChat}
+          bookLabel="Book"
+          phoneTitle={phoneRevealed ? ride.phone : 'Click to show phone number'}
+        />
       )}
 
       <div className="hidden md:block">

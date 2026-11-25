@@ -20,6 +20,7 @@ import {
 } from '@/data/wishlist';
 import { useCountry } from '@/app/context/CountryContext';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
+import { UnifiedMobileStickyBar } from '@/components/UnifiedDetailKit';
 import {
   MapPin,
   Calendar,
@@ -1014,35 +1015,17 @@ export default function ShuttleDetailPage() {
           </Link>
         </div>
       ) : (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl flex items-center gap-2 z-50">
-          <button
-            type="button"
-            onClick={handleCall}
-            className="flex-1 h-12 rounded-2xl border border-teal-200 bg-teal-50 text-teal-900 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition shadow-2xs"
-            title={phoneRevealed ? shuttle.phone : 'Click to call host'}
-          >
-            <Phone className="w-4 h-4 text-teal-600 shrink-0" />
-            <span className="truncate">{phoneRevealed ? shuttle.phone : 'Show Number'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleWhatsApp}
-            className="flex-1 h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
-          >
-            <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
-            <span>WhatsApp</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={scrollToBooking}
-            className="flex-1 h-12 rounded-2xl bg-[#101828] hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
-          >
-            <Calendar className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>Reserve Seat</span>
-          </button>
-        </div>
+        <UnifiedMobileStickyBar
+          priceText={formatPrice(shuttle.fareNum || shuttle.fare)}
+          unitText="/month"
+          subText={`${shuttle.from} → ${shuttle.to}`}
+          onCall={handleCall}
+          onChat={handleDirectChat}
+          onWhatsApp={handleWhatsApp}
+          onBook={handleDirectChat}
+          bookLabel="Book"
+          phoneTitle={phoneRevealed ? shuttle.phone : 'Click to call host'}
+        />
       )}
 
       <div className="hidden md:block">

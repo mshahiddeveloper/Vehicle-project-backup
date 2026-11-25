@@ -22,6 +22,13 @@ import { getStoreSlugForOwner } from '@/data/storefrontEngine';
 import { useCountry } from '@/app/context/CountryContext';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import {
+  DETAIL_PAGE_CANVAS_CLASS,
+  DETAIL_CARD_CLASS,
+  UnifiedHostCard,
+  UnifiedAccordionCard,
+  UnifiedMobileStickyBar,
+} from '@/components/UnifiedDetailKit';
+import {
   getRenterDocRequirement,
   isMasterDocAskEnabled,
   DocRequirement,
@@ -1326,10 +1333,10 @@ export default function ListingDetailPage() {
   const isPaused = isListingPaused(car.id, car.ownerId || car.hostName || car.hostPhone);
 
   return (
-    <div className="min-h-screen bg-white font-sans text-[#101828] flex flex-col">
+    <div className={DETAIL_PAGE_CANVAS_CLASS}>
       <AppHeader />
 
-      <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-4 sm:py-6 md:py-10 flex flex-col gap-4 sm:gap-6 pb-24 lg:pb-16">
+      <main className="flex-1 max-w-[1240px] w-full mx-auto px-4 sm:px-8 py-4 sm:py-6 md:py-10 flex flex-col gap-4 sm:gap-5 pb-28 lg:pb-16">
         {/* Paused Listing Notice */}
         {isPaused && (
           <div className="p-5 sm:p-6 bg-amber-50 border-2 border-amber-400 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm animate-in fade-in">
@@ -1490,167 +1497,102 @@ export default function ListingDetailPage() {
               </p>
             </div>
 
-            {/* 1. Rental Pricing Plans (Daily, Weekly, Monthly) - OneClickDrive inspired */}
-            <div className="flex flex-col gap-3 p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-50 to-white border border-slate-200/90 shadow-2xs">
-              <div className="flex items-center justify-between">
-                <h3 className="font-heading font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-emerald-600" />
-                  <span>Rental Pricing & Mileage Plans</span>
+            {/* 1. Rental Plans Card (V2 Unified Design) */}
+            <div className={`${DETAIL_CARD_CLASS} flex flex-col gap-3.5`}>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <h3 className="font-heading font-extrabold text-base text-[#101828]">
+                  Rental plans
                 </h3>
-                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                  Direct Rates · No Hidden Fees
+                <span className="text-[11px] font-bold text-[#0B6B4F] bg-[#E9F3EE] px-2.5 py-1 rounded-full">
+                  Direct rates · No hidden fees
                 </span>
               </div>
 
-              {/* Service Scope Badges & Fuel Status */}
-              <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                {car.serviceScope === 'WITH_DRIVER' ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
-                    <Users className="w-3.5 h-3.5 text-blue-600" />
-                    {isPakistan ? 'With Driver / Captain Only' : 'With Chauffeur Only'}
-                  </span>
-                ) : car.serviceScope === 'WITHOUT_DRIVER' ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-50 text-purple-800 border border-purple-200">
-                    <Key className="w-3.5 h-3.5 text-purple-600" />
-                    Self-Drive (Without Driver) Only
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                    <Check className="w-3.5 h-3.5 text-emerald-600" />
-                    Self-Drive & {isPakistan ? 'With Driver' : 'With Chauffeur'} Both Available
-                  </span>
-                )}
-
-                {car.fuelIncluded && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300">
-                    <Fuel className="w-3.5 h-3.5 text-amber-600" />
-                    Fuel Included Package {car.fuelKmAllowance ? `(${car.fuelKmAllowance})` : ''}
-                  </span>
-                )}
-              </div>
-
-              {/* All-Inclusive Fuel & Driver Package Highlight Box */}
-              {car.fuelIncluded && (
-                <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-200 flex items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-amber-500/15 text-amber-800 flex items-center justify-center font-bold shrink-0">
-                      <Fuel className="w-4 h-4 text-amber-700" />
-                    </div>
-                    <div>
-                      <strong className="text-amber-950 font-bold block text-xs sm:text-sm">
-                        All-Inclusive Fuel & Driver Package
-                      </strong>
-                      <span className="text-amber-800 text-[11px]">
-                        {car.fuelKmAllowance
-                          ? `Includes vehicle rent, driver service & fuel up to ${car.fuelKmAllowance}.`
-                          : 'Includes vehicle rent, driver service & fuel package.'}{' '}
-                        Extra kilometers billed separately at host rate.
-                      </span>
-                    </div>
-                  </div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-200 text-amber-900 px-2 py-0.5 rounded-md border border-amber-300 shrink-0">
-                    Package Included
-                  </span>
-                </div>
-              )}
-
-              {/* Tier Cards Grid - Responsive & Strictly Conditional */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-                {/* Daily Plan (Always present) */}
-                <div className="p-3.5 rounded-xl border-2 border-emerald-600/30 bg-emerald-50/40 flex flex-col justify-between gap-1 shadow-2xs">
+              {/* Tier Cards Grid (Daily, Weekly, Monthly) */}
+              <div className="grid grid-cols-3 gap-2">
+                {/* Daily Plan */}
+                <div className="p-3 rounded-2xl border-2 border-[#0B6B4F] bg-[#F6FBF8] flex flex-col justify-between gap-1">
                   <div>
-                    <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800">Daily Plan</span>
-                    <div className="flex items-baseline gap-1 mt-0.5">
-                      <span className="font-heading font-extrabold text-xl sm:text-2xl text-slate-900">
-                        {formatPrice(withDriver ? car.dailyRateWithDriver : car.dailyRate)}
-                      </span>
-                      <span className="text-xs text-slate-500 font-medium">/ day</span>
-                    </div>
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#0B6B4F] block">DAILY</span>
+                    <span className="font-heading font-black text-sm sm:text-lg text-[#101828] block mt-0.5">
+                      {formatPrice(withDriver ? car.dailyRateWithDriver : car.dailyRate)}
+                    </span>
                   </div>
-                  {car.mileageDaily ? (
-                    <div className="text-[11px] font-semibold text-slate-600 flex items-center gap-1 pt-1.5 border-t border-emerald-200/60">
-                      <Gauge className="w-3 h-3 text-emerald-600 shrink-0" />
-                      <span>{car.mileageDaily}</span>
-                    </div>
-                  ) : car.fuelIncluded && car.fuelKmAllowance ? (
-                    <div className="text-[11px] font-semibold text-amber-800 flex items-center gap-1 pt-1.5 border-t border-emerald-200/60">
-                      <Fuel className="w-3 h-3 text-amber-600 shrink-0" />
-                      <span>{car.fuelKmAllowance} (Fuel Included)</span>
-                    </div>
-                  ) : (
-                    <div className="text-[11px] font-medium text-slate-500 flex items-center gap-1 pt-1.5 border-t border-emerald-200/60">
-                      <Gauge className="w-3 h-3 text-emerald-600 shrink-0" />
-                      <span>Unlimited / Host Terms</span>
-                    </div>
-                  )}
+                  <span className="text-[10px] font-semibold text-[#475467] truncate">
+                    {car.mileageDaily || car.fuelKmAllowance || '200 km / day'}
+                  </span>
                 </div>
 
-                {/* Weekly Plan (Only if provided by lister) */}
-                {car.weeklyRate && car.weeklyRate > 0 ? (
-                  <div className="p-3.5 rounded-xl border border-slate-200 bg-white flex flex-col justify-between gap-1 shadow-2xs">
-                    <div>
-                      <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Weekly Plan</span>
-                      <div className="flex items-baseline gap-1 mt-0.5">
-                        <span className="font-heading font-extrabold text-xl sm:text-2xl text-slate-900">
-                          {formatPrice(car.weeklyRate)}
-                        </span>
-                        <span className="text-xs text-slate-500 font-medium">/ week</span>
-                      </div>
-                    </div>
-                    {car.mileageWeekly && (
-                      <div className="text-[11px] font-semibold text-slate-600 flex items-center gap-1 pt-1.5 border-t border-slate-100">
-                        <Gauge className="w-3 h-3 text-slate-500 shrink-0" />
-                        <span>{car.mileageWeekly}</span>
-                      </div>
-                    )}
+                {/* Weekly Plan */}
+                <div className="p-3 rounded-2xl border border-[#E4E7EC] bg-white flex flex-col justify-between gap-1">
+                  <div>
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#667085] block">WEEKLY</span>
+                    <span className="font-heading font-black text-sm sm:text-lg text-[#101828] block mt-0.5">
+                      {car.weeklyRate && car.weeklyRate > 0
+                        ? formatPrice(car.weeklyRate)
+                        : formatPrice((withDriver ? car.dailyRateWithDriver : car.dailyRate) * 6)}
+                    </span>
                   </div>
-                ) : null}
+                  <span className="text-[10px] font-semibold text-[#667085] truncate">
+                    {car.mileageWeekly || '1,400 km / wk'}
+                  </span>
+                </div>
 
-                {/* Monthly Plan (Only if provided by lister) */}
-                {car.monthlyRate && car.monthlyRate > 0 ? (
-                  <div className="p-3.5 rounded-xl border border-slate-200 bg-white flex flex-col justify-between gap-1 shadow-2xs">
-                    <div>
-                      <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Monthly Plan</span>
-                      <div className="flex items-baseline gap-1 mt-0.5">
-                        <span className="font-heading font-extrabold text-xl sm:text-2xl text-slate-900">
-                          {formatPrice(car.monthlyRate)}
-                        </span>
-                        <span className="text-xs text-slate-500 font-medium">/ mo.</span>
-                      </div>
-                    </div>
-                    {car.mileageMonthly && (
-                      <div className="text-[11px] font-semibold text-slate-600 flex items-center gap-1 pt-1.5 border-t border-slate-100">
-                        <Gauge className="w-3 h-3 text-slate-500 shrink-0" />
-                        <span>{car.mileageMonthly}</span>
-                      </div>
-                    )}
+                {/* Monthly Plan */}
+                <div className="p-3 rounded-2xl border border-[#E4E7EC] bg-white flex flex-col justify-between gap-1">
+                  <div>
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#667085] block">MONTHLY</span>
+                    <span className="font-heading font-black text-sm sm:text-lg text-[#101828] block mt-0.5">
+                      {car.monthlyRate && car.monthlyRate > 0
+                        ? formatPrice(car.monthlyRate)
+                        : formatPrice((withDriver ? car.dailyRateWithDriver : car.dailyRate) * 22)}
+                    </span>
                   </div>
-                ) : null}
+                  <span className="text-[10px] font-semibold text-[#667085] truncate">
+                    {car.mileageMonthly || '4,500 km / mo'}
+                  </span>
+                </div>
               </div>
 
-              {/* Pricing Sub-bar: Extra Km, Insurance, Deposit */}
-              <div className="flex flex-wrap items-center gap-y-2 gap-x-4 pt-2 border-t border-slate-200/80 text-xs text-slate-600">
+              {/* Clean Checklist Summary */}
+              <div className="space-y-1.5 pt-2 border-t border-[#EEF2EF] text-xs text-[#475467]">
                 {(car.extraKmRateNum || car.extraKmRate) && (
-                  <span className="flex items-center gap-1">
-                    <span className="text-slate-400">Additional mileage:</span>
-                    <strong className="text-slate-800">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#667085]">Additional mileage:</span>
+                    <strong className="text-[#101828]">
                       {car.extraKmRateNum ? `${formatPrice(car.extraKmRateNum)} / km` : car.extraKmRate}
                     </strong>
-                  </span>
+                  </div>
                 )}
                 {car.insuranceIncluded && (
-                  <span className="flex items-center gap-1 text-emerald-700 font-semibold">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>{car.insuranceType || 'Comprehensive Insurance Included'}</span>
-                  </span>
+                  <div className="flex items-center gap-2 text-[#0B6B4F] font-semibold">
+                    <Check className="w-3.5 h-3.5 shrink-0" />
+                    <span>{car.insuranceType || 'Standard fleet insurance included'}</span>
+                  </div>
                 )}
                 {car.deposit !== undefined && car.deposit > 0 && (
-                  <span className="flex items-center gap-1 text-slate-700">
-                    <Shield className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-3.5 h-3.5 text-[#667085] shrink-0" />
                     <span>
-                      Refundable Deposit: <strong>{formatPrice(car.deposit)}</strong>
+                      Refundable deposit: <strong className="text-[#101828]">{formatPrice(car.deposit)}</strong>
                     </span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 text-[#0B6B4F] shrink-0" />
+                  <span>
+                    {car.serviceScope === 'WITH_DRIVER'
+                      ? isPakistan ? 'With driver / captain only' : 'With chauffeur only'
+                      : car.serviceScope === 'WITHOUT_DRIVER'
+                      ? 'Self-drive (without driver) only'
+                      : `Self-drive & ${isPakistan ? 'with driver' : 'with chauffeur'} both available`}
                   </span>
+                </div>
+                {car.fuelIncluded && (
+                  <div className="flex items-center gap-2 text-amber-800 font-semibold">
+                    <Fuel className="w-3.5 h-3.5 shrink-0" />
+                    <span>Fuel Included Package {car.fuelKmAllowance ? `(${car.fuelKmAllowance})` : ''}</span>
+                  </div>
                 )}
               </div>
             </div>
@@ -2021,50 +1963,12 @@ export default function ListingDetailPage() {
               </div>
             )}
 
-            {/* 4. Host Profile Card */}
-            <Link
-              href={`/store/${getStoreSlugForOwner(car.hostName)}`}
-              className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-slate-50 to-slate-100 hover:from-slate-100 hover:to-slate-200 flex items-center gap-4 border border-slate-200 transition group cursor-pointer"
-              title={`View ${car.hostName}'s Public Storefront`}
-            >
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-slate-900 text-white flex items-center justify-center font-heading font-extrabold text-lg sm:text-xl shrink-0 group-hover:scale-105 transition shadow-sm">
-                {car.hostName.slice(0, 2).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-heading font-extrabold text-sm sm:text-base text-[#101828] group-hover:text-emerald-700 transition truncate">
-                    Hosted by {car.hostName}
-                  </h3>
-                  <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                    Fleet Store ➔
-                  </span>
-                </div>
-                <p className="text-xs text-[#475467] truncate mt-0.5">
-                  SafarPK Certified Fleet Partner · {car.hostResponseTime || 'Replies quickly'}
-                </p>
-              </div>
-              <span className="hidden sm:inline-block px-3 py-1 rounded-full bg-white text-slate-700 text-xs font-bold border border-slate-200 shadow-2xs group-hover:border-slate-300">
-                Certified Host
-              </span>
-            </Link>
-
-            {/* SafarPK Certified Trust & Privacy Shield Card */}
-            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-[#0B6B4F] flex items-center justify-center shrink-0">
-                  <ShieldCheck className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="font-extrabold text-slate-900 block">SafarPK Certified Vehicle & Host</span>
-                  <span className="text-[11px] text-slate-500 block">
-                    Excise Smart Card & host identity certified on file. Full mutual credentials unlock upon booking confirmation.
-                  </span>
-                </div>
-              </div>
-              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-full shrink-0">
-                🛡️ Privacy Shield
-              </span>
-            </div>
+            {/* 4. Host Profile Card + Privacy Shield (Unified V2 Design) */}
+            <UnifiedHostCard
+              hostName={car.hostName}
+              storeHref={`/store/${getStoreSlugForOwner(car.hostName)}`}
+              subtitle={`SafarPK Certified Fleet Partner · ${car.hostResponseTime || 'Replies quickly'}`}
+            />
 
             {/* 5. About This Vehicle (Collapsible Accordion) */}
             {car.description && (
@@ -2570,48 +2474,17 @@ export default function ListingDetailPage() {
           </Link>
         </div>
       ) : (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 py-2.5 flex items-center justify-between shadow-2xl">
-          <div className="min-w-0 pr-2">
-            <div className="flex items-baseline gap-1">
-              <span className="font-heading font-black text-sm sm:text-base text-slate-900 truncate">
-                {formatPrice(withDriver ? car.dailyRateWithDriver : car.dailyRate)}
-              </span>
-              <span className="text-[10px] text-slate-500">/day</span>
-            </div>
-            <span className="text-[10px] font-bold text-[#0B6B4F] block truncate">
-              {daysCount}d · {formatPrice(calculateTotal())}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              onClick={handleDirectHostCall}
-              className="w-10 h-10 rounded-2xl border border-purple-200 bg-purple-50 text-purple-950 flex items-center justify-center shadow-2xs active:scale-95 transition"
-              title={hostPhoneRevealed ? `Call host directly: ${car.hostPhone}` : 'Click to call host'}
-            >
-              <Phone className="w-4 h-4 text-purple-600" />
-            </button>
-
-            <button
-              type="button"
-              onClick={handleInstantWhatsAppChat}
-              className="w-10 h-10 rounded-2xl bg-[#25D366]/15 border border-[#25D366]/40 text-[#075E54] flex items-center justify-center shadow-2xs active:scale-95 transition"
-              title="WhatsApp Host"
-            >
-              <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
-            </button>
-
-            <button
-              type="button"
-              onClick={handleDirectChat}
-              className="h-10 px-4 rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] text-white font-heading font-extrabold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition"
-            >
-              <MessageSquare className="w-4 h-4 text-emerald-200 shrink-0" />
-              <span>Book &amp; Chat</span>
-            </button>
-          </div>
-        </div>
+        <UnifiedMobileStickyBar
+          priceText={formatPrice(withDriver ? car.dailyRateWithDriver : car.dailyRate)}
+          unitText="/day"
+          subText={`${daysCount}d · ${formatPrice(calculateTotal())}`}
+          onCall={handleDirectHostCall}
+          onChat={handleDirectChat}
+          onWhatsApp={handleInstantWhatsAppChat}
+          onBook={handleDirectChat}
+          bookLabel="Book"
+          phoneTitle={hostPhoneRevealed ? `Call host directly: ${car.hostPhone}` : 'Click to call host'}
+        />
       )}
 
       <div className="hidden md:block">

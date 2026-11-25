@@ -20,6 +20,7 @@ import {
 } from '@/data/wishlist';
 import { useCountry } from '@/app/context/CountryContext';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
+import { UnifiedMobileStickyBar } from '@/components/UnifiedDetailKit';
 import {
   MapPin,
   Truck,
@@ -935,35 +936,17 @@ export default function MoverDetailPage() {
           </Link>
         </div>
       ) : (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-2xl flex items-center gap-2 z-50">
-          <button
-            type="button"
-            onClick={handleCall}
-            className="flex-1 h-12 rounded-2xl border border-orange-200 bg-orange-50 text-[#9A3412] text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition shadow-2xs"
-            title={phoneRevealed ? mover.phone : 'Click to show phone number'}
-          >
-            <Phone className="w-4 h-4 text-[#C2410C] shrink-0" />
-            <span className="truncate">{phoneRevealed ? mover.phone : 'Show Number'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleWhatsApp}
-            className="flex-1 h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
-          >
-            <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
-            <span>WhatsApp</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={scrollToBooking}
-            className="flex-1 h-12 rounded-2xl bg-[#C2410C] hover:bg-[#9A3412] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
-          >
-            <Calculator className="w-4 h-4 text-orange-200 shrink-0" />
-            <span>Get Quote</span>
-          </button>
-        </div>
+        <UnifiedMobileStickyBar
+          priceText={formatPrice(estimatedCost)}
+          unitText="est."
+          subText={`${estimatedKm} km · ${helpersCount} helpers`}
+          onCall={handleCall}
+          onChat={handleDirectChat}
+          onWhatsApp={handleWhatsApp}
+          onBook={handleDirectChat}
+          bookLabel="Book"
+          phoneTitle={phoneRevealed ? mover.phone : 'Click to show phone number'}
+        />
       )}
 
       <div className="hidden md:block">
