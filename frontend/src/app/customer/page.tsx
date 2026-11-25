@@ -238,6 +238,32 @@ export default function CustomerDashboardPage() {
     }
     setBookings(userBookings);
 
+    // Fetch live Neon DB bookings for cross-device customer portal sync
+    fetch('/api/bookings', { cache: 'no-store', credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.success && Array.isArray(data.bookings) && data.bookings.length > 0) {
+          const dbMapped: CustomerBooking[] = data.bookings.map((b: any) => ({
+            id: b.booking_reference || b.id,
+            vehicleTitle: b.service_type === 'RENT_A_CAR' ? 'Car Rental Booking' : (b.service_type || 'SafarPK Booking'),
+            listerName: b.lister_name || 'Verified Host',
+            listerPhone: b.lister_phone || '+92 300 1234567',
+            city: b.pickup_location || 'Karachi',
+            pickupDate: b.start_date ? String(b.start_date).slice(0, 10) : '',
+            returnDate: b.end_date ? String(b.end_date).slice(0, 10) : '',
+            totalEstimate: Number(b.total_amount_pkr || 0),
+            status: (b.booking_status || 'PENDING') as any,
+            documentsSubmitted: true,
+            requestedAt: b.created_at ? new Date(b.created_at).toLocaleDateString('en-GB') : 'Recent',
+          }));
+          setBookings((prev) => {
+            const seen = new Set(dbMapped.map((x) => x.id));
+            return [...dbMapped, ...prev.filter((p) => !seen.has(p.id))];
+          });
+        }
+      })
+      .catch(() => {});
+
     // 2. Leads History: Real user starts with empty leads unless they have real inquiries
     let userLeads: any[] = [];
     try {
@@ -513,24 +539,27 @@ export default function CustomerDashboardPage() {
         <main className="lg:col-span-3 space-y-6">
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'overview' && (
-            <div className="space-y-6">
-              {/* Welcome Banner */}
-              <div className="p-6 bg-gradient-to-r from-emerald-800 to-teal-700 text-white rounded-3xl shadow-md">
-                <span className="text-xs uppercase tracking-wider font-extrabold text-emerald-300">Welcome Back</span>
-                <h2 className="text-lg sm:text-2xl font-black mt-1 text-white">Hello, {customerName}!</h2>
-                <p className="text-xs sm:text-sm text-white font-medium mt-1.5 max-w-xl leading-relaxed">
+            <div className="space-y-5">
+              {/* Welcome Banner (High-Contrast V2 Green Card) */}
+              <div className="p-6 bg-[#0B6B4F] text-white rounded-[24px] shadow-md border border-emerald-700/40">
+                <span className="text-[11px] uppercase tracking-wider font-extrabold text-emerald-200 block">
+                  Welcome Back
+                </span>
+                <h2 className="text-xl sm:text-2xl font-black mt-1 text-white">Hello, {customerName}!</h2>
+                <p className="text-xs sm:text-sm text-emerald-50 font-medium mt-1.5 max-w-xl leading-relaxed opacity-95">
                   Manage all your car rentals, scheduled shuttle routes, intercity rides, and cargo quotes in one centralized dashboard.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <Link
                     href="/"
-                    className="px-4 py-2 bg-white text-emerald-900 rounded-xl text-xs font-bold hover:bg-emerald-50 transition shadow"
+                    className="px-4 py-2.5 bg-white text-[#0B6B4F] rounded-xl text-xs font-extrabold hover:bg-emerald-50 transition shadow-sm"
                   >
                     + Book Another Vehicle
                   </Link>
                   <button
+                    type="button"
                     onClick={() => setActiveTab('bookings')}
-                    className="px-4 py-2 bg-emerald-700/60 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold border border-emerald-500/50 transition"
+                    className="px-4 py-2.5 bg-white/15 hover:bg-white/25 text-white rounded-xl text-xs font-bold border border-white/25 transition cursor-pointer"
                   >
                     View Active Requests ({bookings.length})
                   </button>
@@ -539,19 +568,19 @@ export default function CustomerDashboardPage() {
 
               {/* KPI Metrics */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs">
-                  <span className="text-[11px] text-slate-400 font-semibold block">Total Rentals</span>
-                  <span className="text-2xl font-black text-slate-900 mt-1 block">
+                <div className="p-4 bg-white rounded-[22px] border border-[#E6ECE8] shadow-[0_4px_14px_rgba(16,24,40,0.03)]">
+                  <span className="text-[11px] text-[#667085] font-semibold block">Total Rentals</span>
+                  <span className="text-2xl font-black text-[#101828] mt-1 block">
                     {bookings.filter((b) => b.status === 'CONFIRMED' || b.status === 'COMPLETED').length}
                   </span>
-                  <span className="text-[10px] text-emerald-600 font-bold mt-1 block">
+                  <span className="text-[10px] text-[#0B6B4F] font-bold mt-1 block">
                     {bookings.length > 0 ? '★ 4.9 Rating' : 'Active Account'}
                   </span>
                 </div>
-                <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs">
-                  <span className="text-[11px] text-slate-400 font-semibold block">Active Requests</span>
-                  <span className="text-2xl font-black text-emerald-600 mt-1 block">{bookings.length}</span>
-                  <span className="text-[10px] text-slate-500 mt-1 block">
+                <div className="p-4 bg-white rounded-[22px] border border-[#E6ECE8] shadow-[0_4px_14px_rgba(16,24,40,0.03)]">
+                  <span className="text-[11px] text-[#667085] font-semibold block">Active Requests</span>
+                  <span className="text-2xl font-black text-[#0B6B4F] mt-1 block">{bookings.length}</span>
+                  <span className="text-[10px] text-[#475467] mt-1 block">
                     {bookings.filter((b) => b.status === 'CONFIRMED').length} Confirmed
                   </span>
                 </div>

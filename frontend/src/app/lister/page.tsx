@@ -1275,11 +1275,11 @@ export default function ListerDashboardPage() {
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
-              <div className="p-6 bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-3xl shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="p-6 bg-[#101828] text-white rounded-[24px] shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-slate-800">
                 <div>
                   <span className="text-xs uppercase tracking-wider font-bold text-emerald-400">Lister Control Center</span>
-                  <h2 className="text-lg sm:text-2xl font-black mt-1">{businessName}</h2>
-                  <p className="text-xs sm:text-sm text-white font-medium mt-1.5 leading-relaxed">
+                  <h2 className="text-lg sm:text-2xl font-black mt-1 text-white">{businessName}</h2>
+                  <p className="text-xs sm:text-sm text-slate-200 font-medium mt-1.5 leading-relaxed">
                     {currentUser?.subscription?.status === 'ACTIVE'
                       ? `Your fleet is currently LIVE in ${operatingCity}. Direct booking leads and online booking requests appear instantly below.`
                       : currentUser?.subscription?.status === 'PENDING_APPROVAL'
