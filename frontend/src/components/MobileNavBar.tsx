@@ -57,10 +57,10 @@ function MobileNavBarContent() {
     return () => window.removeEventListener('safarpk_active_tab_changed', handleTabEvt);
   }, []);
 
-  // Reset runtimeTab when top-level route changes
+  // Reset runtimeTab when route or query tab changes so rapid taps stay in sync with URL
   useEffect(() => {
     setRuntimeTab(null);
-  }, [pathname]);
+  }, [pathname, searchParams]);
 
   const currentTab = runtimeTab || searchParams.get('tab') || 'overview';
 
@@ -381,7 +381,7 @@ function MobileNavBarContent() {
   return (
     <nav
       aria-label="Mobile Navigation"
-      className="md:hidden fixed bottom-2.5 left-3 right-3 z-50 rounded-full bg-[#0B6B4F] text-white px-2 py-1.5 shadow-[0_12px_32px_rgba(11,107,79,0.38)] border border-emerald-700/40 flex items-center justify-between gap-1 transition-all"
+      className="md:hidden fixed bottom-2.5 left-3 right-3 z-50 rounded-full bg-[#0B6B4F] text-white px-2 py-1.5 shadow-[0_12px_32px_rgba(11,107,79,0.38)] border border-emerald-700/40 grid grid-cols-5 items-center gap-1"
     >
       {tabs.map((tab) => {
         const Icon = tab.icon;
@@ -390,6 +390,7 @@ function MobileNavBarContent() {
           <Link
             key={tab.label}
             href={tab.href}
+            prefetch={true}
             title={tab.label}
             onClick={() => {
               if (tab.tabKey) {
@@ -398,18 +399,22 @@ function MobileNavBarContent() {
                   window.dispatchEvent(new CustomEvent('safarpk_driver_switch_tab', { detail: { tab: tab.tabKey } }));
                 } else if (pathname === '/lister') {
                   window.dispatchEvent(new CustomEvent('safarpk_lister_switch_tab', { detail: { tab: tab.tabKey } }));
+                } else if (pathname === '/provider') {
+                  window.dispatchEvent(new CustomEvent('safarpk_provider_switch_tab', { detail: { tab: tab.tabKey } }));
                 }
+              } else {
+                setRuntimeTab(null);
               }
             }}
-            className={`flex items-center justify-center gap-1.5 rounded-full transition-all duration-150 active:scale-95 min-h-[42px] ${
+            className={`flex items-center justify-center gap-1 rounded-full transition-colors duration-100 active:scale-95 min-h-[42px] min-w-0 touch-manipulation select-none ${
               tab.isActive
-                ? 'bg-white text-[#0B6B4F] font-extrabold px-3.5 py-2 shadow-sm shrink-0'
-                : 'flex-1 text-emerald-100/90 hover:text-white hover:bg-white/10 px-2 py-2'
+                ? 'bg-white text-[#0B6B4F] font-extrabold px-2 py-2 shadow-sm'
+                : 'text-emerald-100/90 hover:text-white hover:bg-white/10 px-1.5 py-2'
             }`}
           >
-            <Icon className={`${isAction && !tab.isActive ? 'w-5 h-5 text-emerald-200' : 'w-4.5 h-4.5'} stroke-[2.2] shrink-0`} />
+            <Icon className={`${isAction && !tab.isActive ? 'w-5 h-5 text-emerald-200' : 'w-4 h-4'} stroke-[2.2] shrink-0`} />
             {tab.isActive && (
-              <span className="text-[11px] leading-tight tracking-tight font-heading truncate max-w-[76px]">
+              <span className="text-[10.5px] leading-tight tracking-tight font-heading truncate">
                 {tab.label}
               </span>
             )}

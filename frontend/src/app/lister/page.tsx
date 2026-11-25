@@ -1303,7 +1303,7 @@ export default function ListerDashboardPage() {
                 <div>
                   <span className="text-xs uppercase tracking-wider font-bold text-emerald-400">Lister Control Center</span>
                   <h2 className="text-lg sm:text-2xl font-black mt-1 text-white">{businessName}</h2>
-                  <p className="text-xs sm:text-sm text-slate-200 font-medium mt-1.5 leading-relaxed">
+                  <p className="text-xs sm:text-sm text-white font-medium mt-1.5 leading-relaxed">
                     {currentUser?.subscription?.status === 'ACTIVE'
                       ? `Your fleet is currently LIVE in ${operatingCity}. Direct booking leads and online booking requests appear instantly below.`
                       : currentUser?.subscription?.status === 'PENDING_APPROVAL'

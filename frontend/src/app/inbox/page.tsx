@@ -72,6 +72,17 @@ function InboxContent() {
   const [autoReplyState, setAutoReplyState] = useState<boolean>(true);
   const [showAutoReplyModal, setShowAutoReplyModal] = useState<boolean>(false);
 
+  // Intercept mobile hardware/browser Back button so CHAT returns to Inbox LIST instead of exiting /inbox
+  useEffect(() => {
+    const handlePopState = () => {
+      if (mobileView === 'CHAT') {
+        setMobileView('LIST');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [mobileView]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // 1. Initial Load & Auth Sync (with Neon DB cross-device hydration)
@@ -107,6 +118,9 @@ function InboxContent() {
       if (convParam && localConvs.some((c) => c.id === convParam)) {
         setActiveConvId(convParam);
         setMobileView('CHAT');
+        if (typeof window !== 'undefined' && window.innerWidth < 768 && !window.history.state?.safarpkInboxChat) {
+          window.history.pushState({ safarpkInboxChat: true, convId: convParam }, '');
+        }
       } else if (localConvs.length > 0 && !activeConvId) {
         setActiveConvId(localConvs[0].id);
       }
@@ -511,6 +525,9 @@ function InboxContent() {
                     onClick={() => {
                       setActiveConvId(c.id);
                       setMobileView('CHAT');
+                      if (typeof window !== 'undefined' && window.innerWidth < 768 && !window.history.state?.safarpkInboxChat) {
+                        window.history.pushState({ safarpkInboxChat: true, convId: c.id }, '');
+                      }
                     }}
                     className={`w-full p-4 text-left flex items-start gap-3 transition cursor-pointer ${
                       selected
@@ -587,7 +604,13 @@ function InboxContent() {
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                   <button
                     type="button"
-                    onClick={() => setMobileView('LIST')}
+                    onClick={() => {
+                      if (typeof window !== 'undefined' && window.history.state?.safarpkInboxChat) {
+                        window.history.back();
+                      } else {
+                        setMobileView('LIST');
+                      }
+                    }}
                     className="md:hidden p-2 -ml-1.5 rounded-full text-slate-700 hover:bg-slate-100 active:scale-95 transition"
                     aria-label="Back to conversations"
                   >

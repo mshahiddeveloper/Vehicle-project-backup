@@ -548,7 +548,7 @@ export default function CustomerDashboardPage() {
                   Welcome Back
                 </span>
                 <h2 className="text-xl sm:text-2xl font-black mt-1 text-white">Hello, {customerName}!</h2>
-                <p className="text-xs sm:text-sm text-emerald-50 font-medium mt-1.5 max-w-xl leading-relaxed opacity-95">
+                <p className="text-xs sm:text-sm text-white font-medium mt-1.5 max-w-xl leading-relaxed">
                   Manage all your car rentals, scheduled shuttle routes, intercity rides, and cargo quotes in one centralized dashboard.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
