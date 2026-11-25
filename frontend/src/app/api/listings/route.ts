@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getNeonSqlClient } from '@/lib/db';
 import { getSessionFromRequest } from '@/lib/session';
+import { isValidYouTubeUrl } from '@/lib/youtubeHelper';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
           v.id, v.owner_id, v.title, v.brand, v.model, v.model_year, v.category,
           v.registration_number, v.city, v.pickup_address, v.daily_rate_pkr,
           v.with_driver, v.transmission, v.fuel_type, v.is_paused, v.pause_reason,
-          v.image_gallery, v.created_at,
+          v.image_gallery, v.youtube_url, v.created_at,
           u.full_name as owner_name, u.business_name, u.phone as owner_phone, u.city as owner_city
         FROM vehicle_listings v
         LEFT JOIN users u ON u.id = v.owner_id
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
           v.id, v.owner_id, v.title, v.brand, v.model, v.model_year, v.category,
           v.registration_number, v.city, v.pickup_address, v.daily_rate_pkr,
           v.with_driver, v.transmission, v.fuel_type, v.is_paused, v.pause_reason,
-          v.image_gallery, v.created_at,
+          v.image_gallery, v.youtube_url, v.created_at,
           u.full_name as owner_name, u.business_name, u.phone as owner_phone, u.city as owner_city
         FROM vehicle_listings v
         LEFT JOIN users u ON u.id = v.owner_id
@@ -58,7 +59,7 @@ export async function GET(req: NextRequest) {
           v.id, v.owner_id, v.title, v.brand, v.model, v.model_year, v.category,
           v.registration_number, v.city, v.pickup_address, v.daily_rate_pkr,
           v.with_driver, v.transmission, v.fuel_type, v.is_paused, v.pause_reason,
-          v.image_gallery, v.created_at,
+          v.image_gallery, v.youtube_url, v.created_at,
           u.full_name as owner_name, u.business_name, u.phone as owner_phone, u.city as owner_city
         FROM vehicle_listings v
         LEFT JOIN users u ON u.id = v.owner_id
@@ -110,7 +111,15 @@ export async function POST(req: NextRequest) {
       transmission,
       fuelType,
       imageGallery,
+      youtubeUrl,
     } = body;
+
+    if (youtubeUrl && String(youtubeUrl).trim() && !isValidYouTubeUrl(String(youtubeUrl))) {
+      return NextResponse.json(
+        { success: false, error: 'Only valid YouTube video links (youtube.com or youtu.be) are accepted.' },
+        { status: 400, headers: NO_STORE_HEADERS }
+      );
+    }
 
     if (!title && !(brand && model)) {
       return NextResponse.json({ success: false, error: 'Vehicle title or brand/model is required.' }, { status: 400, headers: NO_STORE_HEADERS });
@@ -146,7 +155,7 @@ export async function POST(req: NextRequest) {
       INSERT INTO vehicle_listings (
         owner_id, title, brand, model, model_year, category,
         registration_number, city, pickup_address, daily_rate_pkr,
-        with_driver, transmission, fuel_type, is_paused, image_gallery
+        with_driver, transmission, fuel_type, is_paused, image_gallery, youtube_url
       ) VALUES (
         ${session.id}::uuid,
         ${resolvedTitle},
@@ -162,7 +171,8 @@ export async function POST(req: NextRequest) {
         ${transmission || 'Automatic'},
         ${fuelType || 'Petrol'},
         false,
-        ${images}
+        ${images},
+        ${youtubeUrl ? String(youtubeUrl).trim() : null}
       )
       RETURNING *;
     `;

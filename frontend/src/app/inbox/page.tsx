@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { AppHeader } from '@/components/AppHeader';
 import { AppFooter } from '@/components/AppFooter';
 import { MobileNavBar } from '@/components/MobileNavBar';
+import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import { getActiveUser, RegisteredUser, DEMO_USERS } from '@/data/userAuth';
 import {
   getUserConversations,
@@ -542,26 +543,31 @@ function InboxContent() {
 
                   <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#0B6B4F] text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-2xs">
                     {partnerName.slice(0, 2).toUpperCase()}
-                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
                   </div>
 
                   <div className="flex flex-col min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 truncate">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <h2 className="font-heading font-extrabold text-sm sm:text-base text-slate-900 truncate">
-                        {partnerName}
+                        {partnerName.trim().split(/\s+/).slice(0, 2).join(' ')}
                       </h2>
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0 uppercase">
-                        {partnerRole}
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E9F3EE] text-[#0B6B4F] shrink-0">
+                        {partnerRole === 'CUSTOMER'
+                          ? 'Customer'
+                          : meta.category === 'driver' || partnerRole === 'DRIVER'
+                          ? 'Captain'
+                          : meta.category === 'city_to_city'
+                          ? 'City Service'
+                          : meta.category === 'shuttle'
+                          ? 'Pick & Drop'
+                          : meta.category === 'mover'
+                          ? 'Logistics Mover'
+                          : 'Car Rental'}
                       </span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 font-semibold truncate">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                      <span>Online · Verified SafarPK Member</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Right: Action Buttons (Call, WhatsApp, Details, Auto-Reply) */}
+                {/* Right: Action Buttons (Auto-Reply, Call right next to WhatsApp, Clear) */}
                 <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                   {/* Auto-Reply Switch: Strictly for Listers / Drivers / Providers ONLY (Hidden for Customers) */}
                   {isListerOrProvider && (
@@ -581,8 +587,8 @@ function InboxContent() {
                       }`}
                       title={
                         autoReplyState
-                          ? 'Lister Auto-Reply is ON (Customer gets instant inquiry acknowledgement & phone/WhatsApp contact on first message)'
-                          : 'Lister Auto-Reply is OFF (100% manual chatting)'
+                          ? 'Lister Auto-Reply is ON'
+                          : 'Lister Auto-Reply is OFF'
                       }
                     >
                       <Sparkles
@@ -595,7 +601,7 @@ function InboxContent() {
                     </button>
                   )}
 
-                  {/* 1-Tap Direct Call */}
+                  {/* 1-Tap Direct Call (Right next to WhatsApp) */}
                   <a
                     href={`tel:${targetPhone}`}
                     className="h-9 px-2.5 sm:px-3.5 rounded-full sm:rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95 shadow-2xs"
@@ -605,32 +611,17 @@ function InboxContent() {
                     <span className="hidden sm:inline">Call</span>
                   </a>
 
-                  {/* 1-Tap Direct WhatsApp with Pre-filled Message */}
+                  {/* 1-Tap Direct WhatsApp with Pre-filled Listing + Calculation Message */}
                   <a
                     href={followUpWhatsAppUrl}
                     target="_blank"
                     rel="noreferrer"
                     className="h-9 px-3 sm:px-4 rounded-full sm:rounded-xl bg-[#25D366] hover:bg-[#1EBE5D] text-white text-xs font-extrabold flex items-center justify-center gap-1.5 transition active:scale-95 shadow-xs"
-                    title={`Open WhatsApp with pre-filled message`}
+                    title="Send listing details & calculation on WhatsApp"
                   >
-                    <MessageSquare className="w-3.5 h-3.5" />
+                    <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
                     <span className="hidden sm:inline">WhatsApp</span>
                   </a>
-
-                  {/* Details Toggle Button */}
-                  <button
-                    type="button"
-                    onClick={() => setShowDetailsDrawer(!showDetailsDrawer)}
-                    className={`h-9 px-2 sm:px-2.5 rounded-full sm:rounded-xl border text-xs font-bold flex items-center justify-center gap-1 transition ${
-                      showDetailsDrawer
-                        ? 'bg-slate-900 text-white border-slate-900'
-                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
-                    title="Toggle Booking & Contact Details"
-                  >
-                    <Info className="w-4 h-4" />
-                    <span className="hidden lg:inline">Details</span>
-                  </button>
 
                   {/* Clear Chat Trash */}
                   <button

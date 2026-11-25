@@ -17,6 +17,7 @@ import {
   isItemInWishlist,
 } from '@/data/wishlist';
 import { getApiBaseUrl } from '@/lib/api';
+import { getYouTubeCleanLoopEmbedUrl } from '@/lib/youtubeHelper';
 import { startOrOpenConversation, getWhatsAppTargetUrl } from '@/data/chatEngine';
 import { getStoreSlugForOwner } from '@/data/storefrontEngine';
 import { useCountry } from '@/app/context/CountryContext';
@@ -473,6 +474,7 @@ export default function ListingDetailPage() {
 
   const [car, setCar] = useState<VehicleDetail | null>(() => resolveCatalogItem(listingId));
   const [isResolving, setIsResolving] = useState<boolean>(() => !resolveCatalogItem(listingId));
+  const [showVideo, setShowVideo] = useState(false);
 
   // Dynamically resolve listing from catalog, custom lister fleet, or Neon DB
   useEffect(() => {
@@ -558,6 +560,7 @@ export default function ListingDetailPage() {
                 : [
                     'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=600&auto=format&fit=crop&q=80',
                   ],
+              youtubeUrl: found.youtubeUrl || undefined,
               hostName: found.shopName || 'SafarPK Verified Host',
               hostPhone: found.phone || '+92 300 1234567',
               hostWhatsapp: (found.phone || '923001234567').replace(/\D/g, ''),
@@ -604,6 +607,7 @@ export default function ListingDetailPage() {
             images: Array.isArray(l.image_gallery) && l.image_gallery.length > 0
               ? l.image_gallery
               : ['https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=800&auto=format&fit=crop&q=80'],
+            youtubeUrl: l.youtube_url || undefined,
             hostName: l.owner_name || 'Verified Fleet Partner',
             hostPhone: l.owner_phone || '+92 300 1234567',
             hostWhatsapp: (l.owner_phone || '923001234567').replace(/\D/g, ''),
@@ -1393,11 +1397,32 @@ export default function ListingDetailPage() {
         {/* Gallery Grid */}
         <div className="grid grid-cols-1 md:grid-cols-4 md:grid-rows-2 gap-2.5 rounded-3xl overflow-hidden h-72 sm:h-96">
           <div className="md:col-span-2 md:row-span-2 relative bg-slate-100 flex items-center justify-center overflow-hidden">
-            <img
-              src={car.images[0]}
-              alt={car.title}
-              className="w-full h-full object-cover"
-            />
+            {showVideo && getYouTubeCleanLoopEmbedUrl((car as any).youtubeUrl) ? (
+              <iframe
+                src={getYouTubeCleanLoopEmbedUrl((car as any).youtubeUrl)!}
+                title={`${car.title} video`}
+                allow="autoplay; encrypted-media; picture-in-picture"
+                allowFullScreen
+                className="w-full h-full border-0"
+              />
+            ) : (
+              <img
+                src={car.images[0]}
+                alt={car.title}
+                className="w-full h-full object-cover"
+              />
+            )}
+
+            {/* Watch Video / Photos Toggle (Only if Lister provided a YouTube link) */}
+            {getYouTubeCleanLoopEmbedUrl((car as any).youtubeUrl) && (
+              <button
+                type="button"
+                onClick={() => setShowVideo((v) => !v)}
+                className="absolute left-4 bottom-12 z-20 px-3 py-1.5 rounded-full bg-[#101828]/90 hover:bg-[#101828] text-white text-xs font-extrabold shadow-md flex items-center gap-1.5 cursor-pointer transition"
+              >
+                <span>{showVideo ? '📷 Show Photos' : '▶ Watch Video'}</span>
+              </button>
+            )}
 
             {/* Top action overlay (Back, Share, Save) matching App-Detail.dc.html & Page 8 */}
             <button

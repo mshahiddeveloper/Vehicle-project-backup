@@ -39,6 +39,7 @@ export async function GET(
         v.is_paused,
         v.pause_reason,
         v.image_gallery,
+        v.youtube_url,
         v.created_at,
         u.full_name as owner_name,
         u.business_name,

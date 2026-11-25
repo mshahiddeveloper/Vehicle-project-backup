@@ -44,6 +44,7 @@ import { MobileNavBar } from '@/components/MobileNavBar';
 import { MobilePullToRefresh } from '@/components/MobilePullToRefresh';
 import { OfflineStatusBanner } from '@/components/OfflineStatusBanner';
 import { API_BASE, formatPKR, maskCnic, maskLicense, maskPhone } from '@/lib/api';
+import { isValidYouTubeUrl } from '@/lib/youtubeHelper';
 import { SubscriptionPricingSection } from '@/components/SubscriptionPricingSection';
 import { BillingHistoryManager } from '@/components/BillingHistoryManager';
 import { getActiveUser, RegisteredUser, getUserDashboardPath, syncSubscriptionExpiries } from '@/data/userAuth';
@@ -396,7 +397,8 @@ export default function ListerDashboardPage() {
     'Bluetooth Audio & Calling',
   ]);
 
-  // Step 2: Upload Photos (6 Photo Slots)
+  // Step 2: Upload Photos (6 Photo Slots) & Optional YouTube Video Link
+  const [carYoutubeUrl, setCarYoutubeUrl] = useState('');
   const [carPhotoSlots, setCarPhotoSlots] = useState<
     Array<{ id: number; label: string; file: File | null; url: string | null }>
   >([
@@ -970,6 +972,7 @@ export default function ListerDashboardPage() {
         views: 0,
         leads: 0,
         img: vehicleImg,
+        youtubeUrl: carYoutubeUrl && isValidYouTubeUrl(carYoutubeUrl) ? carYoutubeUrl.trim() : undefined,
         driverMode: carDriver,
         transmission: carTransmission === 'AUTOMATIC' ? 'Automatic' : 'Manual',
         acMode: carAcHeater,
@@ -991,6 +994,26 @@ export default function ListerDashboardPage() {
         try {
           localStorage.setItem(`safarpk_fleet_${currentUser.id}`, JSON.stringify(updated));
         } catch (e) {}
+        fetch('/api/listings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: newVehicle.title,
+            brand: newVehicle.brand,
+            model: newVehicle.model,
+            modelYear: newVehicle.year,
+            category: newVehicle.category,
+            registrationNumber: newVehicle.registrationNumber,
+            city: newVehicle.city,
+            pickupAddress: newVehicle.location,
+            dailyRatePkr: newVehicle.dailyRate,
+            withDriver: carDriver !== 'WITHOUT_DRIVER',
+            transmission: newVehicle.transmission,
+            fuelType: 'Petrol',
+            imageGallery: newVehicle.image ? [newVehicle.image] : [],
+            youtubeUrl: newVehicle.youtubeUrl || null,
+          }),
+        }).catch(() => {});
       }
 
       // Synchronize Lister profile details
@@ -2796,6 +2819,36 @@ export default function ListerDashboardPage() {
                         )}
                       </div>
                     ))}
+                  </div>
+
+                  {/* Optional YouTube Vehicle / Intro Video Link */}
+                  <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="text-xs font-extrabold text-slate-900">
+                        Vehicle / Intro Video (YouTube Link Only · Optional)
+                      </label>
+                      {carYoutubeUrl.trim() && (
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            isValidYouTubeUrl(carYoutubeUrl)
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-rose-100 text-rose-700'
+                          }`}
+                        >
+                          {isValidYouTubeUrl(carYoutubeUrl) ? '✓ Valid YouTube Video' : 'YouTube links only'}
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="url"
+                      value={carYoutubeUrl}
+                      onChange={(e) => setCarYoutubeUrl(e.target.value)}
+                      placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
+                      className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-900 outline-none focus:border-[#0B6B4F]"
+                    />
+                    <p className="text-[11px] text-slate-500">
+                      Only YouTube links are accepted. Plays smoothly inside your listing gallery on loop without recommended end-screen videos.
+                    </p>
                   </div>
 
                   {/* Verified Lister Documents OCR (Strictly Controlled by Super Admin docRules) */}
