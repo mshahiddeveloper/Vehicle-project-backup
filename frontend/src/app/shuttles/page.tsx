@@ -81,6 +81,7 @@ export default function ShuttlesPage() {
   const [revealedPhones, setRevealedPhones] = useState<Record<string, boolean>>({});
   const [requestedIds, setRequestedIds] = useState<Record<string, boolean>>({});
   const [savedShuttleIds, setSavedShuttleIds] = useState<string[]>([]);
+  const [dbShuttles, setDbShuttles] = useState<ShuttleItem[]>([]);
 
   useEffect(() => {
     const syncSaved = () => {
@@ -94,6 +95,41 @@ export default function ShuttlesPage() {
     window.addEventListener('safarpk_saved_updated', syncSaved);
     window.addEventListener('safarpk_favorites_updated', syncSaved);
     window.addEventListener('safarpk_auth_state_changed', syncSaved);
+
+    // Fetch live Neon DB shuttle routes
+    fetch('/api/shuttles', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.success && Array.isArray(data.shuttles)) {
+          const mapped: ShuttleItem[] = data.shuttles.map((s: any) => {
+            const fare = Number(s.monthly_fare_pkr || 14000);
+            const parts = String(s.route_name || '').split(/➔|->|to/i).map((p: string) => p.trim());
+            const pickups = Array.isArray(s.pickup_stops) ? s.pickup_stops : [];
+            const drops = Array.isArray(s.dropoff_stops) ? s.dropoff_stops : [];
+            return {
+              id: s.id,
+              op: s.operator || s.operator_name || 'SafarPK Shuttle',
+              city: s.city || 'Karachi',
+              from: parts[0] || pickups[0] || s.city || 'Main Hub',
+              to: parts[1] || drops[0] || 'City Center',
+              stops: [...pickups, ...drops],
+              van: s.vehicle_model || 'Toyota Hiace AC',
+              fare: `Rs. ${fare.toLocaleString()}`,
+              fareNum: fare,
+              seats: Number(s.available_seats || 6),
+              timing: `${s.morning_departure_time || '07:45'} - ${s.evening_return_time || '17:30'}`,
+              tags: [s.category || 'Office & Corporate', 'AC Van'],
+              phone: s.operator_phone || s.phone || '+92 300 1234567',
+              whatsapp: (s.operator_phone || s.phone || '923001234567').replace(/\D/g, ''),
+              category: s.category || 'Office & Corporate',
+              tint: '#DCEBE3',
+            };
+          });
+          setDbShuttles(mapped);
+        }
+      })
+      .catch(() => {});
+
     return () => {
       window.removeEventListener('safarpk_saved_updated', syncSaved);
       window.removeEventListener('safarpk_favorites_updated', syncSaved);
@@ -142,9 +178,10 @@ export default function ShuttlesPage() {
     return CITY_COMMUTE_AREAS[selectedCity] || CITY_COMMUTE_AREAS['Karachi'] || [];
   }, [selectedCity]);
 
-  // Intermediate Stop Corridor Matching & Filtering
+  // Intermediate Stop Corridor Matching & Filtering (Neon DB + Catalog)
   const filteredShuttles = useMemo(() => {
-    return SHUTTLES_DATA.filter((shuttle) => {
+    const combined = [...dbShuttles, ...SHUTTLES_DATA];
+    return combined.filter((shuttle) => {
       if (isListingPaused(shuttle.id, shuttle.phone)) return false;
       // 1. Audience / Gender filter
       if (audienceFilter === 'Girls' && !shuttle.tags.some((t) => t.toLowerCase().includes('girl'))) {

@@ -101,9 +101,9 @@ describe('Review Verification Suite: Critical Bug Fixes & Requirements Coverage'
       expect(listingPageSource).toContain('1 / 8');
     });
 
-    it('F2.4: Desktop home page synchronizes with both storage keys and event types', () => {
-      expect(desktopPageSource).toContain('safarpk_saved_vehicles');
-      expect(desktopPageSource).toContain('safarpk_saved_items');
+    it('F2.4: Desktop home page synchronizes with central wishlist manager and auth state events', () => {
+      expect(desktopPageSource).toContain('getSavedWishlistItems');
+      expect(desktopPageSource).toContain('safarpk_auth_state_changed');
       expect(desktopPageSource).toContain('safarpk_favorites_updated');
       expect(desktopPageSource).toContain('safarpk_saved_updated');
     });

@@ -44,11 +44,49 @@ export default function ShuttleDetailPage() {
   const { country, formatPrice } = useCountry();
   const isPakistan = !country || country.code === 'PK';
 
+  const [dbShuttle, setDbShuttle] = useState<ShuttleItem | undefined>(undefined);
   const shuttle: ShuttleItem | undefined = useMemo(() => {
     return (
       SHUTTLES_DATA.find((s) => s.id === id) ||
-      SHUTTLES_DATA.find((s) => s.id.toLowerCase() === id.toLowerCase())
+      SHUTTLES_DATA.find((s) => s.id.toLowerCase() === id.toLowerCase()) ||
+      dbShuttle
     );
+  }, [id, dbShuttle]);
+
+  useEffect(() => {
+    if (SHUTTLES_DATA.some((s) => s.id.toLowerCase() === id.toLowerCase())) return;
+    fetch('/api/shuttles', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.success && Array.isArray(data.shuttles)) {
+          const s = data.shuttles.find((x: any) => x.id === id);
+          if (s) {
+            const fare = Number(s.monthly_fare_pkr || 14000);
+            const parts = String(s.route_name || '').split(/➔|->|to/i).map((p: string) => p.trim());
+            const pickups = Array.isArray(s.pickup_stops) ? s.pickup_stops : [];
+            const drops = Array.isArray(s.dropoff_stops) ? s.dropoff_stops : [];
+            setDbShuttle({
+              id: s.id,
+              op: s.operator || s.operator_name || 'SafarPK Shuttle',
+              city: s.city || 'Karachi',
+              from: parts[0] || pickups[0] || s.city || 'Main Hub',
+              to: parts[1] || drops[0] || 'City Center',
+              stops: [...pickups, ...drops],
+              van: s.vehicle_model || 'Toyota Hiace AC',
+              fare: `Rs. ${fare.toLocaleString()}`,
+              fareNum: fare,
+              seats: Number(s.available_seats || 6),
+              timing: `${s.morning_departure_time || '07:45'} - ${s.evening_return_time || '17:30'}`,
+              tags: [s.category || 'Office & Corporate', 'AC Van'],
+              phone: s.operator_phone || s.phone || '+92 300 1234567',
+              whatsapp: (s.operator_phone || s.phone || '923001234567').replace(/\D/g, ''),
+              category: s.category || 'Office & Corporate',
+              tint: '#DCEBE3',
+            });
+          }
+        }
+      })
+      .catch(() => {});
   }, [id]);
 
   const isGirlsOnly = useMemo(() => {

@@ -180,12 +180,6 @@ export async function POST(req: NextRequest) {
 
         if (staffRows.length > 0) {
           const staff = staffRows[0];
-          if (staff.role === 'SUPER_ADMIN') {
-            return NextResponse.json(
-              { success: false, error: 'Super Admin access is isolated for platform security. Please access via the dedicated administrative portal (/sadmin).' },
-              { status: 403 }
-            );
-          }
           if (!staff.is_active) {
             return NextResponse.json(
               { success: false, error: 'This administrative account has been deactivated.' },

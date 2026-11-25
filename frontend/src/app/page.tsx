@@ -583,32 +583,21 @@ export default function HomePage() {
     const syncSaved = () => {
       try {
         const savedItems = getSavedWishlistItems();
-        const ids = new Set<string>(savedItems.map((it) => it.id));
-        const rawItems = localStorage.getItem('safarpk_saved_items');
-        if (rawItems) {
-          try {
-            const parsed = JSON.parse(rawItems);
-            if (Array.isArray(parsed)) parsed.forEach((item: any) => ids.add(item.id || item));
-          } catch (e) {}
-        }
-        const rawVehicles = localStorage.getItem('safarpk_saved_vehicles');
-        if (rawVehicles) {
-          try {
-            const parsed = JSON.parse(rawVehicles);
-            if (Array.isArray(parsed)) parsed.forEach((id: string) => ids.add(id));
-          } catch (e) {}
-        }
-        setSavedIds(Array.from(ids));
-      } catch (e) {}
+        setSavedIds(savedItems.map((it) => it.id));
+      } catch (e) {
+        setSavedIds([]);
+      }
     };
 
     syncSaved();
     window.addEventListener('safarpk_saved_updated', syncSaved);
     window.addEventListener('safarpk_favorites_updated', syncSaved);
+    window.addEventListener('safarpk_auth_state_changed', syncSaved);
     window.addEventListener('storage', syncSaved);
     return () => {
       window.removeEventListener('safarpk_saved_updated', syncSaved);
       window.removeEventListener('safarpk_favorites_updated', syncSaved);
+      window.removeEventListener('safarpk_auth_state_changed', syncSaved);
       window.removeEventListener('storage', syncSaved);
     };
   }, []);
@@ -694,7 +683,7 @@ export default function HomePage() {
       label: 'Rent a car',
       shortLabel: 'Rent Car',
       icon: Car,
-      href: '/listing/l-1',
+      href: '/cars',
       go: 'Search cars',
       hint: isPakistan
         ? 'Self-drive or with driver · pay the owner at pick-up, nothing online'
@@ -3085,7 +3074,7 @@ export default function HomePage() {
                 title: 'Rent a car',
                 text: 'Self-drive sedans, SUVs and luxury cars by the day.',
                 icon: Car,
-                href: '/listing/l-1',
+                href: '/cars',
               },
               {
                 title: isPakistan ? 'Hire a driver' : 'Hire a chauffeur',

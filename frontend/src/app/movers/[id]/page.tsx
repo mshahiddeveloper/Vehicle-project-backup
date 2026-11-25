@@ -44,11 +44,46 @@ export default function MoverDetailPage() {
   const id = (params?.id as string) || '';
   const { formatPrice } = useCountry();
 
+  const [dbMover, setDbMover] = useState<MoverItem | undefined>(undefined);
   const mover: MoverItem | undefined = useMemo(() => {
     return (
       MOVERS_DATA.find((m) => m.id === id) ||
-      MOVERS_DATA.find((m) => m.id.toLowerCase() === id.toLowerCase())
+      MOVERS_DATA.find((m) => m.id.toLowerCase() === id.toLowerCase()) ||
+      dbMover
     );
+  }, [id, dbMover]);
+
+  useEffect(() => {
+    if (MOVERS_DATA.some((m) => m.id.toLowerCase() === id.toLowerCase())) return;
+    fetch('/api/movers', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.success && Array.isArray(data.movers)) {
+          const found = data.movers.find((m: any) => m.id === id);
+          if (found) {
+            const base = Number(found.base_rate_pkr || 4500);
+            const km = Number(found.per_km_rate_pkr || 120);
+            const helper = Number(found.per_helper_rate_pkr || 1000);
+            setDbMover({
+              id: found.id,
+              name: found.company_name,
+              category: found.category || 'Home Shifting',
+              city: found.city || 'Karachi',
+              trucks: found.trucks || found.truck_type || 'Hyundai Shehzore',
+              base: `Rs. ${base.toLocaleString()}`,
+              baseNum: base,
+              km: `Rs. ${km}/km`,
+              helper: `Rs. ${helper.toLocaleString()}/helper`,
+              tags: Array.isArray(found.features) ? found.features : ['Trained loaders'],
+              phone: found.phone || found.owner_phone || '+92 300 4412987',
+              whatsapp: (found.phone || found.owner_phone || '923004412987').replace(/\D/g, ''),
+              rating: Number(found.rating || 4.8),
+              tint: '#F3E6D3',
+            });
+          }
+        }
+      })
+      .catch(() => {});
   }, [id]);
 
   const [copiedLink, setCopiedLink] = useState(false);

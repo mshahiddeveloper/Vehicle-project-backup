@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/AppHeader';
@@ -211,6 +211,42 @@ export default function DriversPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [revealedPhones, setRevealedPhones] = useState<Record<string, boolean>>({});
   const [drivers, setDrivers] = useState<DriverItem[]>(INITIAL_DRIVERS);
+
+  useEffect(() => {
+    fetch('/api/drivers', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.success && Array.isArray(data.drivers) && data.drivers.length > 0) {
+          const mapped: DriverItem[] = data.drivers.map((d: any) => {
+            const daily = Number(d.daily_12h_rate_pkr || 3000);
+            const out = Number(d.outstation_daily_rate_pkr || 4000);
+            const name = d.name || d.full_name || 'Verified Captain';
+            const initials = name.split(' ').map((p: string) => p[0]).join('').slice(0, 2).toUpperCase();
+            return {
+              id: d.id,
+              name,
+              initials: initials || 'VC',
+              tint: '#E6F2EC',
+              exp: `${d.experience_years || 5} years`,
+              city: d.city || 'Karachi',
+              avail: d.duty_status === 'BUSY' ? 'Busy' : 'Available',
+              langs: Array.isArray(d.languages) ? d.languages.join(', ') : 'Urdu, English',
+              city12: `Rs. ${daily.toLocaleString()}`,
+              out: `Rs. ${out.toLocaleString()}`,
+              monthly: `Rs. ${(daily * 18).toLocaleString()}`,
+              tags: Array.isArray(d.vehicle_expertise) ? d.vehicle_expertise : ['Sedan', 'SUV'],
+              police: Boolean(d.verified_chauffeur ?? true),
+              trips: [0, 1, 2],
+              phone: d.driver_phone || d.phone || '+92 300 1234567',
+              whatsapp: (d.driver_phone || d.phone || '923001234567').replace(/\D/g, ''),
+            };
+          });
+          const seenNames = new Set(mapped.map((m) => m.name.toLowerCase()));
+          setDrivers([...mapped, ...INITIAL_DRIVERS.filter((i) => !seenNames.has(i.name.toLowerCase()))]);
+        }
+      })
+      .catch(() => {});
+  }, []);
   const [requestModalDriver, setRequestModalDriver] = useState<DriverItem | null>(null);
   const [requestNote, setRequestNote] = useState('');
   const [requestDate, setRequestDate] = useState('2026-11-20');

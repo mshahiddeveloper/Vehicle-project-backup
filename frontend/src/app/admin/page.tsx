@@ -61,6 +61,7 @@ import {
 import { AgentPermissionEditor } from '@/components/AgentPermissionEditor';
 import { SubscriptionFollowUpDesk } from '@/components/SubscriptionFollowUpDesk';
 import { AdminBrandingTab } from '@/components/AdminBrandingTab';
+import { AdminSystemControlTab } from '@/components/AdminSystemControlTab';
 import {
   getAllCountryDocRules,
   getDocRulesForCountry,
@@ -143,7 +144,7 @@ import {
 
 export default function SuperAdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'services' | 'listings' | 'plans' | 'promocodes' | 'promotions' | 'featured' | 'doc_rules' | 'directory' | 'analytics' | 'leads' | 'subscription_leads' | 'agents' | 'stealthAudit' | 'legal' | 'countries' | 'branding'
+    'overview' | 'system' | 'services' | 'listings' | 'plans' | 'promocodes' | 'promotions' | 'featured' | 'doc_rules' | 'directory' | 'analytics' | 'leads' | 'subscription_leads' | 'agents' | 'stealthAudit' | 'legal' | 'countries' | 'branding'
   >('overview');
 
   // Directory category & role filters
@@ -162,10 +163,10 @@ export default function SuperAdminDashboardPage() {
       return;
     }
 
-    // Super Admin portal is isolated at /sadmin
+    // Security Guard: Redirect unauthenticated visitors to unified login
     if (!user) {
       if (typeof window !== 'undefined') {
-        window.location.replace('/sadmin');
+        window.location.replace('/login?returnUrl=/admin');
       }
       return;
     }
@@ -1811,6 +1812,7 @@ export default function SuperAdminDashboardPage() {
           <div className="flex items-center gap-1.5 min-w-max text-xs font-semibold">
             {[
               { id: 'overview', label: 'Overview' },
+              { id: 'system', label: 'System & DB' },
               { id: 'directory', label: 'Directory' },
               { id: 'listings', label: 'Listings' },
               { id: 'plans', label: 'Packages' },
@@ -1923,6 +1925,11 @@ export default function SuperAdminDashboardPage() {
                 label: 'Promo codes',
                 icon: Tag,
                 badge: promoCodes.length,
+              },
+              {
+                id: 'system',
+                label: 'System, DB & WhatsApp OTP',
+                icon: ShieldCheck,
               },
               {
                 id: 'listings',
@@ -5276,6 +5283,8 @@ export default function SuperAdminDashboardPage() {
           {/* ========================================================================= */}
           {/* TAB: PORTAL BRANDING & CUSTOM LOGOS (DESKTOP & MOBILE)                    */}
           {/* ========================================================================= */}
+          {activeTab === 'system' && <AdminSystemControlTab />}
+
           {activeTab === 'branding' && <AdminBrandingTab />}
 
 

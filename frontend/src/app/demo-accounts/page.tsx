@@ -59,7 +59,7 @@ const TEST_ACCOUNTS: TestAccount[] = [
     email: 'superadmin@safarpk.com',
     password: 'SuperAdmin@SafarPK2026!',
     assignedInventory: 'Full platform oversight, KYC verification, listings pause/unpause, tamper-evident audit logs',
-    targetDashboard: '/sadmin',
+    targetDashboard: '/admin',
     isStaff: true,
   },
   // 2. Staff Agent
@@ -76,7 +76,7 @@ const TEST_ACCOUNTS: TestAccount[] = [
     email: 'agent@safarpk.com',
     password: 'Agent@SafarPK2026!',
     assignedInventory: 'Partner KYC review, license validation, and listing compliance',
-    targetDashboard: '/sadmin',
+    targetDashboard: '/admin',
     isStaff: true,
   },
   // 3. Karachi Lister
@@ -286,11 +286,11 @@ export default function DemoAccountsPage() {
 
             <div className="flex items-center gap-2">
               <Link
-                href="/sadmin"
+                href="/admin"
                 className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-md transition flex items-center gap-2"
               >
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>Super Admin Portal (/sadmin)</span>
+                <span>Unified Admin Panel (/admin)</span>
               </Link>
             </div>
           </div>

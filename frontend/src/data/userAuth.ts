@@ -1586,13 +1586,23 @@ export function extendUserSubscription(
 }
 
 /**
- * User logout
+ * User logout - clears local session, wishlist cache, and server HttpOnly cookie
  */
 export function logoutUser(): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.removeItem(STORAGE_ACTIVE_SESSION_KEY);
+    localStorage.removeItem('safarpk_saved_items');
+    localStorage.removeItem('safarpk_saved_vehicles');
+    localStorage.removeItem('safarpk_pending_wishlist');
     window.dispatchEvent(new Event('safarpk_auth_state_changed'));
+    window.dispatchEvent(new Event('safarpk_saved_updated'));
+    window.dispatchEvent(new Event('safarpk_favorites_updated'));
+    fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+      keepalive: true,
+    }).catch(() => {});
   } catch (e) {}
 }
 

@@ -43,6 +43,39 @@ export default function MoversPage() {
     window.addEventListener('safarpk_saved_updated', syncSaved);
     window.addEventListener('safarpk_favorites_updated', syncSaved);
     window.addEventListener('safarpk_auth_state_changed', syncSaved);
+
+    // Fetch live Neon DB movers
+    fetch('/api/movers', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.success && Array.isArray(data.movers) && data.movers.length > 0) {
+          const mapped: MoverItem[] = data.movers.map((m: any) => {
+            const base = Number(m.base_rate_pkr || 4500);
+            const km = Number(m.per_km_rate_pkr || 120);
+            const helper = Number(m.per_helper_rate_pkr || 1000);
+            return {
+              id: m.id,
+              name: m.company_name,
+              category: m.category || 'Home Shifting',
+              city: m.city || 'Karachi',
+              trucks: m.trucks || m.truck_type || 'Hyundai Shehzore',
+              base: `Rs. ${base.toLocaleString()}`,
+              baseNum: base,
+              km: `Rs. ${km}/km`,
+              helper: `Rs. ${helper.toLocaleString()}/helper`,
+              tags: Array.isArray(m.features) ? m.features : ['Trained loaders'],
+              phone: m.phone || m.owner_phone || '+92 300 4412987',
+              whatsapp: (m.phone || m.owner_phone || '923004412987').replace(/\D/g, ''),
+              rating: Number(m.rating || 4.8),
+              tint: '#F3E6D3',
+            };
+          });
+          const seenNames = new Set(mapped.map((x) => x.name.toLowerCase()));
+          setMovers([...mapped, ...MOVERS_DATA.filter((d) => !seenNames.has(d.name.toLowerCase()))]);
+        }
+      })
+      .catch(() => {});
+
     return () => {
       window.removeEventListener('safarpk_saved_updated', syncSaved);
       window.removeEventListener('safarpk_favorites_updated', syncSaved);

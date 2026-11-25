@@ -74,6 +74,7 @@ function CarsDirectoryContent() {
   const [selectedTransmission, setSelectedTransmission] = useState(paramTrans || 'All');
   const [sortBy, setSortBy] = useState<'recommended' | 'price_low' | 'price_high' | 'rating'>('recommended');
   const [savedCarIds, setSavedCarIds] = useState<string[]>([]);
+  const [dbCars, setDbCars] = useState<VehicleCardItem[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
 
@@ -94,12 +95,45 @@ function CarsDirectoryContent() {
     syncSaved();
     window.addEventListener('safarpk_saved_updated', syncSaved);
     window.addEventListener('safarpk_favorites_updated', syncSaved);
+    window.addEventListener('safarpk_auth_state_changed', syncSaved);
     window.addEventListener('storage', syncSaved);
     const toast = consumeWishlistToast();
     if (toast) showToast(toast);
+
+    // Fetch live Neon DB vehicle listings
+    fetch('/api/listings', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.success && Array.isArray(data.listings)) {
+          const mapped: VehicleCardItem[] = data.listings.map((l: any) => {
+            const rate = Number(l.daily_rate_pkr || 6500);
+            const img = Array.isArray(l.image_gallery) && l.image_gallery[0] ? l.image_gallery[0] : '';
+            return {
+              id: l.id,
+              name: l.title,
+              category: l.category || 'Sedan',
+              specs: `${l.transmission || 'Automatic'} · ${l.fuel_type || 'Petrol'} · ${l.model_year || 2024}`,
+              city: l.city || 'Karachi',
+              price: `PKR ${rate.toLocaleString()}`,
+              priceNum: rate,
+              rating: 4.8,
+              owner: l.business_name || l.owner_name || 'Verified Host',
+              phone: l.owner_phone || '+92 300 1234567',
+              whatsapp: (l.owner_phone || '923001234567').replace(/\D/g, ''),
+              image: img,
+              img,
+              tint: '#DCEBE3',
+            };
+          });
+          setDbCars(mapped);
+        }
+      })
+      .catch(() => {});
+
     return () => {
       window.removeEventListener('safarpk_saved_updated', syncSaved);
       window.removeEventListener('safarpk_favorites_updated', syncSaved);
+      window.removeEventListener('safarpk_auth_state_changed', syncSaved);
       window.removeEventListener('storage', syncSaved);
     };
   }, []);
@@ -151,9 +185,14 @@ function CarsDirectoryContent() {
     }
   };
 
-  // Filtered & Sorted Cars
+  // Filtered & Sorted Cars (Neon DB + Catalog)
+  const allCars = useMemo(() => {
+    const seen = new Set(dbCars.map((c) => c.id));
+    return [...dbCars, ...CARS_DATA.filter((c) => !seen.has(c.id))];
+  }, [dbCars]);
+
   const filteredCars = useMemo(() => {
-    return CARS_DATA.filter((car) => {
+    return allCars.filter((car) => {
       // Exclude paused listings or inactive host subscriptions
       if (isListingPaused(car.id, car.owner)) return false;
 
@@ -201,7 +240,7 @@ function CarsDirectoryContent() {
       if (sortBy === 'rating') return (b.rating || 4.5) - (a.rating || 4.5);
       return 0; // recommended default
     });
-  }, [selectedCity, selectedCategory, selectedTransmission, searchQuery, sortBy]);
+  }, [allCars, selectedCity, selectedCategory, selectedTransmission, searchQuery, sortBy]);
 
   return (
     <div className="min-h-screen bg-[#F7F8FA] text-[#101828] font-sans flex flex-col antialiased">

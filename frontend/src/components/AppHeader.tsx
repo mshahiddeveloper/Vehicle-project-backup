@@ -592,7 +592,8 @@ export function AppHeader({
 
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
+                      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
                       logoutActiveUser();
                       setActiveUserState(null);
                       setShowUserMenu(false);
@@ -954,7 +955,8 @@ export function MobileNavigationDrawer({
                 </Link>
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
+                    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
                     logoutActiveUser();
                     setActiveUserState(null);
                     onClose();
@@ -1003,12 +1005,12 @@ export function MobileNavigationDrawer({
               <span>Test Accounts (Demo)</span>
             </Link>
             <Link
-              href="/sadmin"
+              href="/admin"
               onClick={onClose}
               className="py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-center font-bold text-xs transition flex items-center justify-center gap-1.5"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>/sadmin</span>
+              <span>Admin Panel</span>
             </Link>
           </div>
 

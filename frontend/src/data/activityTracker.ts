@@ -817,6 +817,26 @@ export function recordLead(inputData: RecordLeadInput): MarketplaceLead {
   // 1. Log deduplicated event in background
   logLeadEvent(canonicalType, targetId, serviceType, inputData.userId);
 
+  // Persist lead to Neon PostgreSQL in background
+  if (typeof window !== 'undefined') {
+    fetch('/api/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
+      body: JSON.stringify({
+        listingId: targetId,
+        listingTitle: leadData.targetTitle,
+        category: String(serviceType).toLowerCase(),
+        providerName: leadData.targetOwnerName,
+        customerName: leadData.customerName,
+        customerPhone: leadData.customerPhone,
+        actionType: canonicalType,
+        city: leadData.city,
+        notes: leadData.notes,
+      }),
+    }).catch(() => {});
+  }
+
   // 2. Maintain legacy MarketplaceLead creation
   const newLead: MarketplaceLead = {
     id: `lead-${Date.now()}-${Math.floor(Math.random() * 900)}`,

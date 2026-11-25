@@ -73,7 +73,7 @@ export default function SavedItemsPage() {
       }
 
       // DB-first: fetch from Neon DB as the primary source
-      fetch('/api/wishlist')
+      fetch('/api/wishlist', { cache: 'no-store', credentials: 'include' })
         .then((r) => (r.ok ? r.json() : null))
         .then((dbData) => {
           if (dbData && dbData.success && Array.isArray(dbData.items) && dbData.items.length > 0) {
@@ -111,15 +111,18 @@ export default function SavedItemsPage() {
         .catch(() => {
           // API call failed — fall back to localStorage
           const savedList = getSavedWishlistItems();
-          const mapped: SavedItem[] = savedList.map((p) => ({
-            id: p.id,
-            category: mapCategory(p.category || ''),
-            name: p.title || p.name || 'Saved Listing',
-            sub: p.specs ? `${p.specs} · ${p.city || 'Karachi'}` : (p.sub || p.city || 'Verified Partner'),
-            price: p.rate || p.price || 'PKR 10,000 / day',
-            href: p.href || (p.id?.startsWith('l-') || p.id?.startsWith('car-') ? `/listing/${p.id}` : `/listing/l-1`),
-            contacted: p.contacted,
-          }));
+          const mapped: SavedItem[] = savedList.map((p) => {
+            const cat = mapCategory(p.category || '');
+            return {
+              id: p.id,
+              category: cat,
+              name: p.title || p.name || 'Saved Listing',
+              sub: p.specs ? `${p.specs} · ${p.city || 'Karachi'}` : (p.sub || p.city || 'Verified Partner'),
+              price: p.rate || p.price || 'PKR 10,000 / day',
+              href: resolveItemHref(cat, p.id, p.href),
+              contacted: p.contacted,
+            };
+          });
           setItems(mapped);
           setIsLoading(false);
         });

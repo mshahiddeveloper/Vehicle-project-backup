@@ -465,6 +465,7 @@ export default function ListingDetailPage() {
   const listingId = (params?.id as string) || '';
 
   const [car, setCar] = useState<VehicleDetail | null>(() => resolveCatalogItem(listingId));
+  const [isResolving, setIsResolving] = useState<boolean>(() => !resolveCatalogItem(listingId));
 
   // Dynamically resolve listing from catalog, custom lister fleet, or Neon DB
   useEffect(() => {
@@ -474,8 +475,11 @@ export default function ListingDetailPage() {
     const resolved = resolveCatalogItem(listingId);
     if (resolved && resolved.id === listingId) {
       setCar(resolved);
+      setIsResolving(false);
       return;
     }
+
+    setIsResolving(true);
 
     // 2. Scan localStorage for custom lister vehicles
     try {
@@ -559,7 +563,7 @@ export default function ListingDetailPage() {
     } catch (e) {}
 
     // 3. Dynamic lookup from Neon DB endpoint if UUID or custom DB listing
-    fetch(`/api/listings/${listingId}`)
+    fetch(`/api/listings/${listingId}`, { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data && data.success && data.listing) {
@@ -601,7 +605,8 @@ export default function ListingDetailPage() {
           });
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setIsResolving(false));
   }, [listingId]);
 
   const [withDriver, setWithDriver] = useState(car?.serviceScope === 'WITH_DRIVER');

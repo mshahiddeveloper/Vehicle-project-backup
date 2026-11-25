@@ -48,9 +48,9 @@ export function getSavedWishlistItems(): WishlistItem[] {
   try {
     let customItems: WishlistItem[] = [];
 
-    // Check both user-scoped items and global fallback items for all authenticated users
+    // Check user-scoped items ONLY (never pollute across users or logged-out sessions)
     const itemsKey = getUserSavedItemsKey(activeUser);
-    const rawKeys = [itemsKey, STORAGE_SAVED_ITEMS_KEY];
+    const rawKeys = [itemsKey];
 
     for (const key of rawKeys) {
       const raw = localStorage.getItem(key);
@@ -83,7 +83,7 @@ export function getSavedWishlistItems(): WishlistItem[] {
                       mappedCat === 'shuttle' || p.id?.startsWith('s-') ? `/shuttles/${p.id}` :
                         mappedCat === 'mover' || p.id?.startsWith('m-') ? `/movers/${p.id}` :
                           mappedCat === 'driver' || p.id?.startsWith('d-') ? `/drivers/${p.id}` :
-                            (p.id?.startsWith('l-') || p.id?.startsWith('car-') ? `/listing/${p.id}` : `/listing/l-1`)
+                            `/listing/${p.id}`
                   ),
                   contacted: p.contacted,
                   savedAt: p.savedAt,
@@ -95,9 +95,9 @@ export function getSavedWishlistItems(): WishlistItem[] {
       }
     }
 
-    // Also resolve any vehicle IDs saved via mobile vehicle cards or lists
+    // Also resolve any vehicle IDs saved via user-scoped mobile vehicle cards
     const vehiclesKey = getUserSavedVehiclesKey(activeUser);
-    const vehicleKeys = [vehiclesKey, STORAGE_SAVED_VEHICLES_KEY];
+    const vehicleKeys = [vehiclesKey];
 
     for (const vKey of vehicleKeys) {
       const rawVehicles = localStorage.getItem(vKey);
@@ -155,9 +155,7 @@ export function isItemInWishlist(id: string): boolean {
   try {
     const keysToCheck = [
       getUserSavedVehiclesKey(activeUser),
-      STORAGE_SAVED_VEHICLES_KEY,
       getUserSavedItemsKey(activeUser),
-      STORAGE_SAVED_ITEMS_KEY,
     ];
 
     for (const key of keysToCheck) {
@@ -214,9 +212,8 @@ export function saveWishlistItem(item: WishlistItem): void {
     };
 
     updateItems(itemsKey);
-    updateItems(STORAGE_SAVED_ITEMS_KEY);
 
-    // 2. If it is a car or vehicle, update user-scoped AND global saved vehicles
+    // 2. Update user-scoped saved vehicles
     const updateVehicles = (vKey: string) => {
       let vIds: string[] = [];
       const rawVehicles = localStorage.getItem(vKey);
@@ -235,7 +232,6 @@ export function saveWishlistItem(item: WishlistItem): void {
     };
 
     updateVehicles(vehiclesKey);
-    updateVehicles(STORAGE_SAVED_VEHICLES_KEY);
 
     // 3. Dispatch events
     window.dispatchEvent(new Event('safarpk_saved_updated'));
@@ -356,6 +352,60 @@ export function clearPendingWishlist(): void {
   try {
     localStorage.removeItem(STORAGE_PENDING_WISHLIST_KEY);
   } catch (e) { }
+}
+
+/**
+ * Clear all client-side wishlist caches on logout so logged-out UI never shows stale red hearts.
+ */
+export function clearWishlistClientCache(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(STORAGE_SAVED_ITEMS_KEY);
+    localStorage.removeItem(STORAGE_SAVED_VEHICLES_KEY);
+    localStorage.removeItem(STORAGE_PENDING_WISHLIST_KEY);
+    window.dispatchEvent(new Event('safarpk_saved_updated'));
+    window.dispatchEvent(new Event('safarpk_favorites_updated'));
+  } catch (e) { }
+}
+
+/**
+ * Sync the authenticated user's Neon DB wishlist into their user-scoped localStorage cache.
+ */
+export async function syncWishlistFromServer(): Promise<WishlistItem[]> {
+  if (typeof window === 'undefined') return [];
+  const activeUser = getActiveUser();
+  if (!activeUser) return [];
+
+  try {
+    const res = await fetch('/api/wishlist', { cache: 'no-store', credentials: 'include' });
+    if (!res.ok) return getSavedWishlistItems();
+    const data = await res.json().catch(() => null);
+    if (data?.success && Array.isArray(data.items)) {
+      const mapped: WishlistItem[] = data.items.map((v: any) => ({
+        id: v.vehicle_id,
+        category: v.category || 'car',
+        name: v.title || 'Saved Listing',
+        title: v.title || 'Saved Listing',
+        specs: v.specs || '',
+        city: v.city || 'Pakistan',
+        rate: v.price || '',
+        price: v.price || '',
+        href: v.href || (
+          v.category === 'driver' ? `/drivers/${v.vehicle_id}` :
+          v.category === 'shuttle' ? `/shuttles/${v.vehicle_id}` :
+          v.category === 'mover' ? `/movers/${v.vehicle_id}` :
+          v.category === 'ride' ? `/city-to-city/${v.vehicle_id}` :
+          `/listing/${v.vehicle_id}`
+        ),
+      }));
+      localStorage.setItem(getUserSavedItemsKey(activeUser), JSON.stringify(mapped));
+      localStorage.setItem(getUserSavedVehiclesKey(activeUser), JSON.stringify(mapped.map((m) => m.id)));
+      window.dispatchEvent(new Event('safarpk_saved_updated'));
+      window.dispatchEvent(new Event('safarpk_favorites_updated'));
+      return mapped;
+    }
+  } catch (e) {}
+  return getSavedWishlistItems();
 }
 
 /**

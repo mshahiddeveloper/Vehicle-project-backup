@@ -159,7 +159,7 @@ export async function POST(req: NextRequest) {
         success: true,
         message: 'Administrative authentication successful',
         user: userPayload,
-        redirectUrl: '/sadmin',
+        redirectUrl: '/admin',
       },
       {
         headers: {

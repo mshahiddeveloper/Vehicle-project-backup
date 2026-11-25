@@ -30,12 +30,14 @@ import { MobilePullToRefresh } from '@/components/MobilePullToRefresh';
 import { OfflineStatusBanner } from '@/components/OfflineStatusBanner';
 import {
   registerNewUser,
+  setActiveUser,
   UserRole,
   ProviderSubtype,
   getUserDashboardPath,
   sanitizePakistaniPhone,
+  RegisteredUser,
 } from '@/data/userAuth';
-import { executePendingWishlistIfAny } from '@/data/wishlist';
+import { executePendingWishlistIfAny, syncWishlistFromServer } from '@/data/wishlist';
 import { fetchSystemSettings, getLocalSystemSettings } from '@/data/systemSettings';
 
 type SupportedLang = 'en' | 'ur' | 'ar' | 'de';
@@ -346,68 +348,87 @@ function RegisterForm() {
           email: email.trim() || undefined,
           password: password,
           role: mappedRole,
+          providerSubtype,
           city: city.trim() || 'Karachi',
           businessName: businessName.trim() || undefined,
         }),
       });
       const apiData = await apiRes.json().catch(() => null);
       if (!apiRes.ok || !apiData?.success) {
-        setLoading(false);
         setError(apiData?.error || 'Registration failed. An account with this phone number is already registered.');
         return;
       }
-      console.log('User persisted into Neon PostgreSQL 16:', apiData.userId);
+
+      // 2. Sync authenticated session directly from DB response (never get stuck on stale localStorage)
+      const createdUser: RegisteredUser = {
+        id: apiData.userId || apiData.user?.id,
+        name: apiData.user?.name || fullName.trim(),
+        businessName:
+          businessName.trim() ||
+          (activeRole === 'LISTER'
+            ? `${fullName.trim()} Fleet`
+            : activeRole === 'PICK_DROP'
+            ? `${fullName.trim()} Commuters`
+            : activeRole === 'SHIFTING'
+            ? `${fullName.trim()} Cargo Logistics`
+            : undefined),
+        phone: apiData.user?.phone || phone.trim(),
+        phoneVerified: waOtpRequired ? phoneVerified : true,
+        phoneLocked: waOtpRequired ? phoneLocked : false,
+        cnicLocked: false,
+        licenseLocked: false,
+        kycStatus: 'UNVERIFIED',
+        email: apiData.user?.email || email.trim() || undefined,
+        city: apiData.user?.city || city.trim() || 'Karachi',
+        countryCode: 'PK',
+        role: mappedRole,
+        providerSubtype,
+        registeredAt: new Date().toISOString(),
+        metrics: { viewCount: 0, leadsCount: 0, clickCount: 0, lastActive: new Date().toISOString() },
+        activities: [],
+        subscription: apiData.user?.subscription || {
+          status: mappedRole === 'CUSTOMER' ? 'ACTIVE' : 'UNSUBSCRIBED',
+          quota: mappedRole === 'CUSTOMER' ? 999 : 0,
+          usedQuota: 0,
+        },
+      };
+
+      try {
+        registerNewUser({
+          name: createdUser.name,
+          businessName: createdUser.businessName,
+          phone: createdUser.phone,
+          phoneVerified: createdUser.phoneVerified,
+          phoneLocked: createdUser.phoneLocked,
+          email: createdUser.email,
+          password,
+          city: createdUser.city,
+          countryCode: 'PK',
+          role: mappedRole,
+          providerSubtype,
+        });
+      } catch {}
+
+      setActiveUser(createdUser);
+      await syncWishlistFromServer().catch(() => {});
+
+      const pending = executePendingWishlistIfAny();
+      let dest: string;
+      if (pending.executed) {
+        dest = pending.returnUrl || (createdUser.role === 'CUSTOMER' ? '/' : getUserDashboardPath(createdUser));
+      } else if (createdUser.role === 'CUSTOMER') {
+        dest = returnUrl || '/';
+      } else {
+        dest = getUserDashboardPath(createdUser);
+      }
+
+      router.replace(dest);
     } catch (e: any) {
       console.warn('Neon DB registration call error:', e);
-      setLoading(false);
       setError(e?.message || 'Database connection error. Please try again.');
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    // 2. Register into client storage
-    const res = registerNewUser({
-      name: fullName.trim(),
-      businessName:
-        businessName.trim() ||
-        (activeRole === 'LISTER'
-          ? `${fullName.trim()} Fleet`
-          : activeRole === 'PICK_DROP'
-          ? `${fullName.trim()} Commuters`
-          : activeRole === 'SHIFTING'
-          ? `${fullName.trim()} Cargo Logistics`
-          : undefined),
-      phone: phone.trim(),
-      phoneVerified: waOtpRequired ? phoneVerified : true,
-      phoneLocked: waOtpRequired ? phoneLocked : false,
-      email: email.trim() || undefined,
-      password: password,
-      city: city.trim() || 'Karachi',
-      countryCode: 'PK',
-      role: mappedRole,
-      providerSubtype,
-    });
-
-    setLoading(false);
-
-    if (!res.success) {
-      setError(res.error || 'Registration failed.');
-      return;
-    }
-
-    // Check if there was an in-progress guest wishlist action
-    const pending = executePendingWishlistIfAny();
-    let dest: string;
-    if (pending.executed) {
-      dest = pending.returnUrl || (res.user.role === 'CUSTOMER' ? '/' : getUserDashboardPath(res.user));
-    } else if (res.user.role === 'CUSTOMER') {
-      dest = returnUrl || '/';
-    } else {
-      dest = getUserDashboardPath(res.user);
-    }
-
-    setTimeout(() => {
-      router.push(dest);
-    }, 200);
   };
 
   return (

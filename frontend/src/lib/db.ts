@@ -56,15 +56,19 @@ export function getDatabaseConnectionInfo(): DatabaseConnectionInfo {
   }
 }
 
+let cachedSqlClient: ReturnType<typeof neon> | null = null;
+
 /**
- * Returns a Neon Serverless HTTP query client
+ * Returns a cached Neon Serverless HTTP query client (optimized for Vercel Fluid Compute)
  */
 export function getNeonSqlClient() {
+  if (cachedSqlClient) return cachedSqlClient;
   const connectionString = process.env.DATABASE_URL || process.env.DATABASE_URL_UNPOOLED;
   if (!connectionString) {
     throw new Error('DATABASE_URL is not set in environment.');
   }
-  return neon(connectionString);
+  cachedSqlClient = neon(connectionString);
+  return cachedSqlClient;
 }
 
 /**

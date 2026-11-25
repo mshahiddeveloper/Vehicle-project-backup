@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Globe, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, UserCheck, AlertCircle } from 'lucide-react';
 import { authenticateUser, getUserDashboardPath, setActiveUser, RegisteredUser } from '@/data/userAuth';
-import { executePendingWishlistIfAny } from '@/data/wishlist';
+import { executePendingWishlistIfAny, syncWishlistFromServer } from '@/data/wishlist';
 import { MobilePullToRefresh } from '@/components/MobilePullToRefresh';
 import { OfflineStatusBanner } from '@/components/OfflineStatusBanner';
 
@@ -77,10 +77,11 @@ function LoginContent() {
           localStorage.setItem('safarpk_registered_users', JSON.stringify(users));
         } catch (e) {}
 
-        // Dispatch auth state change
+        // Dispatch auth state change & hydrate wishlist from Neon DB
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('safarpk_auth_state_changed', { detail: loggedUser }));
         }
+        await syncWishlistFromServer().catch(() => {});
 
         setLoading(false);
 
