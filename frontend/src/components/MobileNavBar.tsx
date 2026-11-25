@@ -381,7 +381,7 @@ function MobileNavBarContent() {
   return (
     <nav
       aria-label="Mobile Navigation"
-      className="md:hidden fixed bottom-2.5 left-3 right-3 z-50 rounded-full bg-[#0B6B4F] text-white px-2 py-1.5 shadow-[0_12px_32px_rgba(11,107,79,0.38)] border border-emerald-700/40 grid grid-cols-5 items-center gap-1"
+      className="md:hidden fixed bottom-2.5 left-3 right-3 z-50 rounded-full bg-[#0B6B4F] text-white px-2 py-1.5 shadow-[0_12px_32px_rgba(11,107,79,0.38)] border border-emerald-700/40 flex items-center justify-between gap-1"
     >
       {tabs.map((tab) => {
         const Icon = tab.icon;
@@ -406,15 +406,15 @@ function MobileNavBarContent() {
                 setRuntimeTab(null);
               }
             }}
-            className={`flex items-center justify-center gap-1 rounded-full transition-colors duration-100 active:scale-95 min-h-[42px] min-w-0 touch-manipulation select-none ${
+            className={`flex items-center justify-center gap-1.5 rounded-full transition-colors duration-100 active:scale-95 min-h-[42px] touch-manipulation select-none ${
               tab.isActive
-                ? 'bg-white text-[#0B6B4F] font-extrabold px-2 py-2 shadow-sm'
-                : 'text-emerald-100/90 hover:text-white hover:bg-white/10 px-1.5 py-2'
+                ? 'bg-white text-[#0B6B4F] font-extrabold px-3.5 py-2 shadow-sm shrink-0 whitespace-nowrap'
+                : 'flex-1 min-w-0 text-emerald-100/90 hover:text-white hover:bg-white/10 px-2 py-2'
             }`}
           >
             <Icon className={`${isAction && !tab.isActive ? 'w-5 h-5 text-emerald-200' : 'w-4 h-4'} stroke-[2.2] shrink-0`} />
             {tab.isActive && (
-              <span className="text-[10.5px] leading-tight tracking-tight font-heading truncate">
+              <span className="text-[11px] leading-tight tracking-tight font-heading whitespace-nowrap">
                 {tab.label}
               </span>
             )}

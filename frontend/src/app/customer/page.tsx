@@ -142,7 +142,7 @@ const DEMO_WISHLIST = [
 
 export default function CustomerDashboardPage() {
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'bookings' | 'rides' | 'drivers' | 'shifting' | 'wishlist' | 'leads' | 'complaints' | 'profile' | 'security'
+    'overview' | 'bookings' | 'city_to_city' | 'shuttles' | 'drivers' | 'shifting' | 'wishlist' | 'leads' | 'complaints' | 'profile' | 'security'
   >('overview');
 
   // Customer State - Initialized clean for real registered users
@@ -243,22 +243,41 @@ export default function CustomerDashboardPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data?.success && Array.isArray(data.bookings) && data.bookings.length > 0) {
-          const dbMapped: CustomerBooking[] = data.bookings.map((b: any) => ({
-            id: b.booking_reference || b.id,
-            vehicleTitle: b.service_type === 'RENT_A_CAR' ? 'Car Rental Booking' : (b.service_type || 'SafarPK Booking'),
-            listerName: b.lister_name || 'Verified Host',
-            listerPhone: b.lister_phone || '+92 300 1234567',
-            city: b.pickup_location || 'Karachi',
-            pickupDate: b.start_date ? String(b.start_date).slice(0, 10) : '',
-            returnDate: b.end_date ? String(b.end_date).slice(0, 10) : '',
-            totalEstimate: Number(b.total_amount_pkr || 0),
-            status: (b.booking_status || 'PENDING') as any,
-            documentsSubmitted: true,
-            requestedAt: b.created_at ? new Date(b.created_at).toLocaleDateString('en-GB') : 'Recent',
-          }));
+          const dbMapped: any[] = data.bookings.map((b: any) => {
+            const ref = b.booking_reference || b.id;
+            const title =
+              b.vehicle_title ||
+              b.listing_title ||
+              (b.service_type === 'CAR_RENTAL' || b.service_type === 'RENT_A_CAR'
+                ? 'Car Rental Booking'
+                : b.service_type || 'SafarPK Booking');
+            const start = b.start_date ? String(b.start_date).slice(0, 10) : 'Flexible';
+            const end = b.end_date ? String(b.end_date).slice(0, 10) : 'On Handover';
+            const area = b.pickup_location || b.city || 'Pakistan';
+            const amt = Number(b.total_amount_pkr || 0);
+            return {
+              id: ref,
+              bookingRef: ref,
+              vehicleName: title,
+              vehicleTitle: title,
+              listerName: b.lister_name || 'Verified Host',
+              listerPhone: b.lister_phone || '+92 300 1234567',
+              city: area,
+              pickupArea: area,
+              pickupDate: start,
+              startDate: start,
+              returnDate: end,
+              endDate: end,
+              totalEstimate: amt,
+              totalAmount: amt,
+              status: (b.booking_status || 'PENDING') as any,
+              documentsSubmitted: true,
+              requestedAt: b.created_at ? new Date(b.created_at).toLocaleDateString('en-GB') : 'Recent',
+            };
+          });
           setBookings((prev) => {
-            const seen = new Set(dbMapped.map((x) => x.id));
-            return [...dbMapped, ...prev.filter((p) => !seen.has(p.id))];
+            const seen = new Set(dbMapped.map((x) => x.bookingRef || x.id));
+            return [...dbMapped, ...prev.filter((p) => !seen.has(p.bookingRef || p.id))];
           });
         }
       })
@@ -428,7 +447,8 @@ export default function CustomerDashboardPage() {
               {[
                 { id: 'overview', label: 'Overview', icon: Car },
                 { id: 'bookings', label: 'Rentals', icon: Calendar, badge: bookings.length },
-                { id: 'rides', label: 'Shuttles', icon: Bus },
+                { id: 'city_to_city', label: 'City to City', icon: Navigation },
+                { id: 'shuttles', label: 'Pick & Drop', icon: Bus },
                 { id: 'drivers', label: 'Drivers', icon: User },
                 { id: 'shifting', label: 'Movers', icon: Truck },
                 { id: 'wishlist', label: 'Saved', icon: Heart, badge: wishlist.length },
@@ -487,7 +507,8 @@ export default function CustomerDashboardPage() {
             {[
               { id: 'overview', label: 'Dashboard Overview', icon: Car },
               { id: 'bookings', label: 'My Rental Bookings', icon: Calendar, badge: bookings.length },
-              { id: 'rides', label: 'Intercity & Shuttle Rides', icon: Bus },
+              { id: 'city_to_city', label: 'City to City Rides', icon: Navigation },
+              { id: 'shuttles', label: 'Pick & Drop Shuttles', icon: Bus },
               { id: 'drivers', label: 'My Hired Drivers', icon: User },
               { id: 'shifting', label: 'Home Shifting Quotes', icon: Truck },
               { id: 'wishlist', label: 'Saved Wishlist', icon: Heart, badge: wishlist.length },
@@ -548,7 +569,7 @@ export default function CustomerDashboardPage() {
                   Welcome Back
                 </span>
                 <h2 className="text-xl sm:text-2xl font-black mt-1 text-white">Hello, {customerName}!</h2>
-                <p className="text-xs sm:text-sm text-white font-medium mt-1.5 max-w-xl leading-relaxed">
+                <p className="text-xs sm:text-sm text-white font-medium mt-1.5 max-w-xl leading-relaxed" style={{ color: '#FFFFFF' }}>
                   Manage all your car rentals, scheduled shuttle routes, intercity rides, and cargo quotes in one centralized dashboard.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -836,58 +857,64 @@ export default function CustomerDashboardPage() {
             </div>
           )}
 
-          {/* TAB 3: RIDES (CITY TO CITY & PICK AND DROP) */}
-          {activeTab === 'rides' && (
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-6">
+          {/* TAB 3A: CITY TO CITY RIDES (SEPARATE FROM PICK & DROP) */}
+          {activeTab === 'city_to_city' && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
                 <div>
-                  <h3 className="font-extrabold text-base text-slate-900">Intercity Rides & Commuter Shuttles</h3>
-                  <p className="text-xs text-slate-500">Fixed daily routes, office pick & drop passes, and motorway city-to-city rides.</p>
+                  <h3 className="font-extrabold text-base text-slate-900">City to City Intercity Rides</h3>
+                  <p className="text-xs text-slate-500">Book dedicated or shared rides on Lahore – Islamabad – Karachi – Peshawar motorways.</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Link
-                    href="/city-to-city"
-                    className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
-                  >
-                    🛣️ City to City
-                  </Link>
-                  <Link
-                    href="/shuttles"
-                    className="px-3.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
-                  >
-                    🚌 Pick & Drop
-                  </Link>
-                </div>
+                <Link
+                  href="/city-to-city"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs self-start sm:self-auto"
+                >
+                  Explore Intercity Routes →
+                </Link>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-6 text-center bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-                  <span className="text-2xl">🛣️</span>
-                  <h4 className="font-bold text-sm text-slate-800">City to City Intercity Rides</h4>
-                  <p className="text-xs text-slate-500">
-                    Book dedicated or shared rides on Lahore – Islamabad – Peshawar motorways with verified fleet drivers.
-                  </p>
-                  <Link
-                    href="/city-to-city"
-                    className="inline-block mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold"
-                  >
-                    Explore Intercity Routes
-                  </Link>
-                </div>
+              <div className="p-6 text-center bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                <span className="text-2xl">🛣️</span>
+                <h4 className="font-bold text-sm text-slate-800">City to City Carpool &amp; Private Rides</h4>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  Compare per-seat carpool fares and private intercity vehicles with verified motorway drivers.
+                </p>
+                <Link
+                  href="/city-to-city"
+                  className="inline-block mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold"
+                >
+                  Browse City to City Routes
+                </Link>
+              </div>
+            </div>
+          )}
 
-                <div className="p-6 text-center bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-                  <span className="text-2xl">🚌</span>
-                  <h4 className="font-bold text-sm text-slate-800">Pick & Drop Commuter Passes</h4>
-                  <p className="text-xs text-slate-500">
-                    Subscribe to monthly office commutes or school routes with reserved seat allocation and chilled AC.
-                  </p>
-                  <Link
-                    href="/shuttles"
-                    className="inline-block mt-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold"
-                  >
-                    Explore Commuter Vans
-                  </Link>
+          {/* TAB 3B: PICK & DROP COMMUTER SHUTTLES (SEPARATE FROM CITY TO CITY) */}
+          {activeTab === 'shuttles' && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900">Pick &amp; Drop Commuter Shuttles</h3>
+                  <p className="text-xs text-slate-500">Monthly office commutes, university &amp; school routes with reserved AC van seats.</p>
                 </div>
+                <Link
+                  href="/shuttles"
+                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition shadow-xs self-start sm:self-auto"
+                >
+                  Explore Commuter Vans →
+                </Link>
+              </div>
+              <div className="p-6 text-center bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                <span className="text-2xl">🚌</span>
+                <h4 className="font-bold text-sm text-slate-800">Daily Pick &amp; Drop Commuter Passes</h4>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  Subscribe to fixed daily office, university, or school van routes with verified shuttle operators.
+                </p>
+                <Link
+                  href="/shuttles"
+                  className="inline-block mt-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold"
+                >
+                  Browse Pick &amp; Drop Shuttles
+                </Link>
               </div>
             </div>
           )}

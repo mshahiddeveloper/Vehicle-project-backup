@@ -68,6 +68,17 @@ export default function CityToCityPage() {
   const [customRides, setCustomRides] = useState<CityRideItem[]>([]);
   const [remoteRides, setRemoteRides] = useState<CityRideItem[]>([]);
   const [savedRideIds, setSavedRideIds] = useState<string[]>([]);
+  const [isCustomerRole, setIsCustomerRole] = useState(false);
+
+  useEffect(() => {
+    const syncRole = () => {
+      const u = getActiveUser();
+      setIsCustomerRole(u?.role === 'CUSTOMER');
+    };
+    syncRole();
+    window.addEventListener('safarpk_auth_state_changed', syncRole);
+    return () => window.removeEventListener('safarpk_auth_state_changed', syncRole);
+  }, []);
 
   useEffect(() => {
     // Support initial URL filters (?from=...&to=...&type=...)
@@ -298,13 +309,15 @@ export default function CityToCityPage() {
             </p>
           </div>
 
-          <Link
-            href="/lister?tab=intercity"
-            className="inline-flex items-center gap-2 self-start sm:self-auto px-4 py-2.5 rounded-xl bg-[#0B6B4F] hover:bg-[#08513C] text-white text-xs sm:text-sm font-bold shadow-xs transition active:scale-98"
-          >
-            <span>+ List Your Route / Share Seats</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+          {!isCustomerRole && (
+            <Link
+              href="/lister?tab=intercity"
+              className="inline-flex items-center gap-2 self-start sm:self-auto px-4 py-2.5 rounded-xl bg-[#0B6B4F] hover:bg-[#08513C] text-white text-xs sm:text-sm font-bold shadow-xs transition active:scale-98"
+            >
+              <span>+ List Your Route / Share Seats</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          )}
         </div>
 
         {/* Dynamic Route Search Box with From, To, Swap, Date and Carpool Filter */}

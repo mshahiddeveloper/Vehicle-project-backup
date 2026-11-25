@@ -994,25 +994,29 @@ export function MobileNavigationDrawer({
             </div>
           )}
 
-          {/* Quick Demo Test Accounts & Super Admin Portal Links */}
-          <div className="flex items-center gap-2">
-            <Link
-              href="/demo-accounts"
-              onClick={onClose}
-              className="flex-1 py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-[#0B6B4F] text-center font-bold text-xs transition flex items-center justify-center gap-1.5"
-            >
-              <KeyRound className="w-3.5 h-3.5" />
-              <span>Test Accounts (Demo)</span>
-            </Link>
-            <Link
-              href="/admin"
-              onClick={onClose}
-              className="py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-center font-bold text-xs transition flex items-center justify-center gap-1.5"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Admin Panel</span>
-            </Link>
-          </div>
+          {/* Quick Demo Test Accounts & Admin Portal Links (Hidden for regular Customers) */}
+          {(!activeUser || activeUser.role === 'SUPER_ADMIN' || activeUser.role === 'ADMIN' || activeUser.role === 'AGENT') && (
+            <div className="flex items-center gap-2">
+              <Link
+                href="/demo-accounts"
+                onClick={onClose}
+                className="flex-1 py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-[#0B6B4F] text-center font-bold text-xs transition flex items-center justify-center gap-1.5"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>Test Accounts (Demo)</span>
+              </Link>
+              {activeUser && (
+                <Link
+                  href={activeUser.role === 'AGENT' ? '/agent' : '/admin'}
+                  onClick={onClose}
+                  className="py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-center font-bold text-xs transition flex items-center justify-center gap-1.5"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>{activeUser.role === 'AGENT' ? 'Agent Desk' : 'Admin Panel'}</span>
+                </Link>
+              )}
+            </div>
+          )}
 
           {/* ACCORDION SECTION 1: SERVICES (Collapsible, Open by default) */}
           <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-slate-50/50">

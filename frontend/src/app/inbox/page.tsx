@@ -85,8 +85,31 @@ function InboxContent() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 1. Initial Load & Auth Sync (with Neon DB cross-device hydration)
+  // 1. Initial Load & Auth Sync (Synchronous local hydration first, then Neon DB sync)
   useEffect(() => {
+    const applyUserConversations = (u: RegisteredUser) => {
+      setActiveUser(u);
+      setAutoReplyState(isListerAutoReplyEnabled(u.id));
+      const localConvs = getUserConversations(u);
+      setConversations(localConvs);
+      if (convParam && localConvs.some((c) => c.id === convParam)) {
+        setActiveConvId(convParam);
+        setMobileView('CHAT');
+        setMessages(getConversationMessages(convParam));
+        if (typeof window !== 'undefined' && window.innerWidth < 768 && !window.history.state?.safarpkInboxChat) {
+          window.history.pushState({ safarpkInboxChat: true, convId: convParam }, '');
+        }
+      } else if (localConvs.length > 0) {
+        setActiveConvId((prev) => prev || localConvs[0].id);
+      }
+    };
+
+    // Hydrate synchronously immediately so there is zero 5-second blank screen
+    const syncUser = getActiveUser();
+    if (syncUser) {
+      applyUserConversations(syncUser);
+    }
+
     const hydrateAndSync = async () => {
       let user = getActiveUser();
       if (!user) {
@@ -104,25 +127,12 @@ function InboxContent() {
         setMessages([]);
         return;
       }
-      setActiveUser(user);
-      setAutoReplyState(isListerAutoReplyEnabled(user.id));
+      applyUserConversations(user);
 
       const purged = purgeExpiredMessages();
       if (purged > 0) {
         setPurgedNotification(purged);
         setTimeout(() => setPurgedNotification(null), 5000);
-      }
-
-      const localConvs = getUserConversations(user);
-      setConversations(localConvs);
-      if (convParam && localConvs.some((c) => c.id === convParam)) {
-        setActiveConvId(convParam);
-        setMobileView('CHAT');
-        if (typeof window !== 'undefined' && window.innerWidth < 768 && !window.history.state?.safarpkInboxChat) {
-          window.history.pushState({ safarpkInboxChat: true, convId: convParam }, '');
-        }
-      } else if (localConvs.length > 0 && !activeConvId) {
-        setActiveConvId(localConvs[0].id);
       }
 
       const dbConvs = await syncConversationsFromServer(user);
