@@ -1179,7 +1179,7 @@ export default function ListingDetailPage() {
       customerPhone: customerPhone.trim() || '+92 300 0000000',
       customerCnic: cnicNumber || 'Pending At Pickup',
       customerLicense: ocrLicenceNumber || (withDriver ? 'Chauffeur Included' : 'Pending At Pickup'),
-      status: 'CONFIRMED',
+      status: 'PENDING',
       paymentStatus: 'PAY_ON_PICKUP',
       serviceType: 'CAR_RENTAL',
       assignedDriver: withDriver ? 'Designated VIP Chauffeur' : 'Self-Drive (Customer Driving)',
@@ -1207,10 +1207,10 @@ export default function ListingDetailPage() {
       listerPhone: car.hostPhone,
       customerCity: car.city,
       type: 'BOOKING_REQUEST',
-      notes: `Confirmed direct booking & chat for ${car.title} (Ref: ${bookingRef})`,
+      notes: `Pending booking request & chat for ${car.title} (Ref: ${bookingRef})`,
     });
     recordClickEvent({
-      clickType: 'BOOKING_CONFIRMED',
+      clickType: 'BOOK_VEHICLE',
       targetId: car.id,
       targetTitle: car.title,
       targetCategory: 'CAR_RENTAL',

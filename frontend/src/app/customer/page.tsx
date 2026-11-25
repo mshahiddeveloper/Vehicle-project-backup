@@ -289,6 +289,8 @@ export default function CustomerDashboardPage() {
       setWishlist(
         savedWishlist.map((it) => ({
           id: it.id,
+          category: it.category || 'car',
+          href: it.href || `/listing/${it.id}`,
           title: it.name || it.title || 'Saved Listing',
           city: it.city || 'Pakistan',
           dailyRate: parseInt((it.rate || it.price || '10000').replace(/[^0-9]/g, '')) || 10000,
@@ -1102,8 +1104,8 @@ export default function CustomerDashboardPage() {
                       </div>
                       <div className="flex gap-2">
                         <Link
-                          href="/"
-                          className="flex-1 text-center py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl shadow-xs"
+                          href={item.href || `/listing/${item.id}`}
+                          className="flex-1 text-center py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl shadow-xs hover:bg-emerald-700 transition"
                         >
                           Book Now
                         </Link>

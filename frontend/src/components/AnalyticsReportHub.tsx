@@ -383,6 +383,28 @@ export function AnalyticsReportHub({
             ))}
           </div>
 
+          {/* Subscription ROI Justification: Off-Platform Direct WhatsApp & Call Handoffs */}
+          <div className="p-3.5 rounded-2xl bg-amber-50/90 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <span className="text-xs font-extrabold text-amber-950 block">
+                📊 Subscription ROI Audit: Direct WhatsApp &amp; Call Handoffs
+              </span>
+              <p className="text-[11px] text-amber-900/90 mt-0.5">
+                Customers moving from SafarPK Chat to Direct WhatsApp ({dbAnalytics.totals.whatsappClicks || 0}) or Call ({dbAnalytics.totals.callClicks || 0}) negotiate off-platform — proving real leads delivered even when on-platform bookings ({dbAnalytics.totals.bookingRequests || 0}) stay unconfirmed.
+              </p>
+            </div>
+            <div className="px-3 py-1.5 rounded-xl bg-white border border-amber-300 text-center shrink-0">
+              <span className="text-[10px] font-bold uppercase text-amber-700 block">Direct Handoff Share</span>
+              <span className="text-sm font-black font-mono text-amber-950">
+                {(() => {
+                  const direct = (dbAnalytics.totals.whatsappClicks || 0) + (dbAnalytics.totals.callClicks || 0);
+                  const totalLeads = direct + (dbAnalytics.totals.inAppChats || 0) + (dbAnalytics.totals.bookingRequests || 0);
+                  return totalLeads > 0 ? `${Math.round((direct / totalLeads) * 100)}%` : '0%';
+                })()}
+              </span>
+            </div>
+          </div>
+
           {Array.isArray(dbAnalytics.series) && dbAnalytics.series.length > 0 && (
             <div className="pt-2 border-t border-slate-100">
               <span className="text-xs font-bold text-slate-700 block mb-2">

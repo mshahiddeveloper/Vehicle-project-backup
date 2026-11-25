@@ -27,7 +27,10 @@ import {
   setListerAutoReplyEnabled,
   syncConversationsFromServer,
   syncMessagesFromServer,
+  recordChatDirectHandoff,
+  acceptChatBooking,
 } from '@/data/chatEngine';
+import { recordClickEvent } from '@/data/activityTracker';
 import {
   MessageSquare,
   Search,
@@ -313,6 +316,54 @@ function InboxContent() {
     }).catch(() => {});
     setMessages([]);
     setShowClearConfirm(false);
+  };
+
+  // Record direct WhatsApp/Call handoff in chat thread + Neon DB analytics for Super Admin & Agent audit
+  const handleDirectHandoff = (channel: 'WHATSAPP' | 'CALL') => {
+    if (!activeConv || !activeUser) return;
+    const sysMsg = recordChatDirectHandoff({
+      conversationId: activeConv.id,
+      channel,
+      actorName: activeUser.name,
+      actorRole: activeUser.role,
+    });
+    if (sysMsg) {
+      setMessages((prev) => [...prev, sysMsg]);
+    }
+    recordClickEvent({
+      clickType: channel,
+      targetId: activeConv.bookingRef || activeConv.id,
+      targetTitle: meta.itemName,
+      targetCategory: 'CAR_RENTAL',
+      targetOwnerName: meta.providerName,
+      city: meta.customerCity || 'Pakistan',
+    });
+    fetch('/api/track-click', {
+      method: 'POST',
+      keepalive: true,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ctaType: channel,
+        listingId: activeConv.bookingRef || activeConv.id,
+        listingTitle: meta.itemName,
+        listerName: meta.providerName,
+        listerPhone: meta.providerPhone,
+        category: 'CAR_RENTAL',
+        city: meta.customerCity || 'Pakistan',
+        userId: activeUser.id,
+        userRole: activeUser.role,
+      }),
+    }).catch(() => {});
+  };
+
+  // Allow lister to explicitly accept/confirm a pending booking
+  const handleAcceptBooking = () => {
+    if (!activeConv || !activeUser) return;
+    const updated = acceptChatBooking(activeConv.id, activeUser.name);
+    if (updated) {
+      setConversations(getUserConversations(activeUser));
+      setMessages(getConversationMessages(activeConv.id));
+    }
   };
 
   // Filter conversations by search query
@@ -604,6 +655,7 @@ function InboxContent() {
                   {/* 1-Tap Direct Call (Right next to WhatsApp) */}
                   <a
                     href={`tel:${targetPhone}`}
+                    onClick={() => handleDirectHandoff('CALL')}
                     className="h-9 px-2.5 sm:px-3.5 rounded-full sm:rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95 shadow-2xs"
                     title={`Call ${targetName} (${targetPhone})`}
                   >
@@ -616,6 +668,7 @@ function InboxContent() {
                     href={followUpWhatsAppUrl}
                     target="_blank"
                     rel="noreferrer"
+                    onClick={() => handleDirectHandoff('WHATSAPP')}
                     className="h-9 px-3 sm:px-4 rounded-full sm:rounded-xl bg-[#25D366] hover:bg-[#1EBE5D] text-white text-xs font-extrabold flex items-center justify-center gap-1.5 transition active:scale-95 shadow-xs"
                     title="Send listing details & calculation on WhatsApp"
                   >
@@ -683,8 +736,14 @@ function InboxContent() {
                           Booking Details & Contact
                         </span>
                       </div>
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        {activeConv.bookingStatus || 'Confirmed'}
+                      <span
+                        className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
+                          activeConv.bookingStatus === 'Confirmed' || activeConv.bookingStatus === 'Completed'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-amber-50 text-amber-800 border-amber-200'
+                        }`}
+                      >
+                        {activeConv.bookingStatus || 'Waiting for owner'}
                       </span>
                     </div>
 
@@ -725,9 +784,21 @@ function InboxContent() {
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-2 pt-1">
+                      <div className="flex items-center gap-2 pt-1 flex-wrap">
+                        {!isViewerCustomer &&
+                          activeConv.bookingStatus !== 'Confirmed' &&
+                          activeConv.bookingStatus !== 'Completed' && (
+                            <button
+                              type="button"
+                              onClick={handleAcceptBooking}
+                              className="w-full h-9 rounded-xl bg-[#0B6B4F] hover:bg-[#08513C] text-white text-xs font-extrabold flex items-center justify-center gap-1.5 transition shadow-xs cursor-pointer"
+                            >
+                              <span>✓ Accept & Confirm Booking</span>
+                            </button>
+                          )}
                         <a
                           href={`tel:${targetPhone}`}
+                          onClick={() => handleDirectHandoff('CALL')}
                           className="flex-1 h-9 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs font-bold text-slate-900 flex items-center justify-center gap-1.5 transition shadow-2xs"
                         >
                           <Phone className="w-3.5 h-3.5 text-[#0B6B4F]" />
@@ -738,9 +809,10 @@ function InboxContent() {
                           href={followUpWhatsAppUrl}
                           target="_blank"
                           rel="noreferrer"
+                          onClick={() => handleDirectHandoff('WHATSAPP')}
                           className="flex-1 h-9 rounded-xl bg-[#25D366] hover:bg-[#1EBE5D] text-white text-xs font-extrabold flex items-center justify-center gap-1.5 transition shadow-xs"
                         >
-                          <MessageSquare className="w-3.5 h-3.5" />
+                          <WhatsAppIcon className="w-3.5 h-3.5 text-white shrink-0" />
                           <span>Direct WhatsApp</span>
                         </a>
                       </div>
@@ -789,6 +861,14 @@ function InboxContent() {
                 </div>
 
                 {messages.map((m) => {
+                  if (m.senderId === 'system') {
+                    return (
+                      <div key={m.id} className="mx-auto max-w-md px-3.5 py-2.5 rounded-2xl bg-amber-50 border border-amber-200 text-[11px] font-semibold text-amber-900 text-center shadow-2xs my-1">
+                        <p>{m.text}</p>
+                        <span className="text-[10px] text-amber-700/80 block mt-0.5">{m.timeStr}</span>
+                      </div>
+                    );
+                  }
                   const isMe = activeUser
                     ? m.senderId === activeUser.id
                     : m.senderRole === 'CUSTOMER';

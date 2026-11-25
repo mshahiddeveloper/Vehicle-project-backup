@@ -853,7 +853,7 @@ export function sendChatMessage({
       },
       about: itemDetails || 'Vehicle Rental Inquiries',
       bookingRef: ref || `SF-${Math.floor(10000 + Math.random() * 90000)}`,
-      bookingStatus: 'Confirmed',
+      bookingStatus: 'Waiting for owner',
       lastMessageText: text.trim(),
       lastMessageTimestamp: now,
       unreadCountFor: { [receiverId]: 1 },
@@ -1162,7 +1162,7 @@ export function startOrOpenConversation({
       },
       about,
       bookingRef: refCode,
-      bookingStatus: 'Confirmed',
+      bookingStatus: 'Waiting for owner',
       bookingMetadata,
       lastMessageText: finalGreeting,
       lastMessageTimestamp: now,
@@ -1289,4 +1289,129 @@ export async function syncMessagesFromServer(conversationId: string): Promise<Ch
     }
   } catch {}
   return getConversationMessages(conversationId);
+}
+
+/**
+ * Record a direct off-platform WhatsApp or Call handoff inside the chat thread
+ * so both parties, Super Admin, and Agents have an explicit audit trail.
+ */
+export function recordChatDirectHandoff({
+  conversationId,
+  channel,
+  actorName,
+  actorRole,
+}: {
+  conversationId: string;
+  channel: 'WHATSAPP' | 'CALL';
+  actorName: string;
+  actorRole: RegisteredUser['role'];
+}): ChatMessage | null {
+  if (!conversationId) return null;
+  const now = Date.now();
+  const text =
+    channel === 'WHATSAPP'
+      ? `📲 Direct WhatsApp Handoff (${actorName}): You are now in direct WhatsApp contact with the provider. SafarPK no longer has records of your off-platform negotiation or booking confirmation until accepted here.`
+      : `📞 Direct Call Handoff (${actorName}): You are now in direct phone contact with the provider. SafarPK cannot track off-platform call negotiations until accepted here.`;
+
+  const sysMsg: ChatMessage = {
+    id: `msg-sys-${now}-${Math.floor(Math.random() * 1000)}`,
+    conversationId,
+    senderId: 'system',
+    senderName: 'SafarPK Audit',
+    senderRole: actorRole,
+    receiverId: 'all',
+    receiverName: 'All Participants',
+    text,
+    timestamp: now,
+    timeStr: formatMessageTime(now),
+    read: true,
+    expiresAt: now + SEVEN_DAYS_MS,
+  };
+
+  const allMsgs = getAllMessages();
+  allMsgs.push(sysMsg);
+  saveAllMessages(allMsgs);
+
+  const allConvs = getAllConversations();
+  const conv = allConvs.find((c) => c.id === conversationId);
+  if (conv) {
+    conv.lastMessageText = channel === 'WHATSAPP' ? '📲 Moved to Direct WhatsApp Contact' : '📞 Moved to Direct Phone Call';
+    conv.lastMessageTimestamp = now;
+    conv.updatedAt = now;
+    saveAllConversations(allConvs);
+  }
+
+  if (typeof window !== 'undefined') {
+    fetch('/api/chat', {
+      method: 'POST',
+      credentials: 'include',
+      keepalive: true,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'send_message',
+        message: sysMsg,
+        conversation: conv,
+      }),
+    }).catch(() => {});
+
+    window.dispatchEvent(
+      new CustomEvent('safarpk_chat_updated', {
+        detail: { message: sysMsg, conversationId },
+      })
+    );
+  }
+
+  return sysMsg;
+}
+
+/**
+ * Explicitly accept and confirm a pending booking inside the chat thread.
+ */
+export function acceptChatBooking(conversationId: string, listerName: string): ChatConversation | null {
+  if (!conversationId) return null;
+  const now = Date.now();
+  const allConvs = getAllConversations();
+  const conv = allConvs.find((c) => c.id === conversationId);
+  if (!conv) return null;
+
+  conv.bookingStatus = 'Confirmed';
+  conv.lastMessageText = `✅ Booking Confirmed by ${listerName}`;
+  conv.lastMessageTimestamp = now;
+  conv.updatedAt = now;
+  saveAllConversations(allConvs);
+
+  const sysMsg: ChatMessage = {
+    id: `msg-conf-${now}-${Math.floor(Math.random() * 1000)}`,
+    conversationId,
+    senderId: 'system',
+    senderName: 'SafarPK Booking',
+    senderRole: 'LISTER',
+    receiverId: 'all',
+    receiverName: 'All Participants',
+    text: `✅ Booking Confirmed by ${listerName} (Ref: ${conv.bookingRef || conversationId}).`,
+    timestamp: now,
+    timeStr: formatMessageTime(now),
+    read: true,
+    expiresAt: now + SEVEN_DAYS_MS,
+  };
+
+  const allMsgs = getAllMessages();
+  allMsgs.push(sysMsg);
+  saveAllMessages(allMsgs);
+
+  if (typeof window !== 'undefined') {
+    fetch('/api/chat', {
+      method: 'POST',
+      credentials: 'include',
+      keepalive: true,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'send_message',
+        message: sysMsg,
+        conversation: conv,
+      }),
+    }).catch(() => {});
+  }
+
+  return conv;
 }
