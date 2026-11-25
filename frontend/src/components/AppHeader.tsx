@@ -41,6 +41,7 @@ import { getSiteBranding, SiteBranding } from '@/data/branding';
 import { checkIsAppInstalled } from '@/data/offlineCache';
 import { MobilePullToRefresh } from '@/components/MobilePullToRefresh';
 import { OfflineStatusBanner } from '@/components/OfflineStatusBanner';
+import { NotificationBellButton } from '@/components/NotificationBellButton';
 
 interface AppHeaderProps {
   currentCountry?: CountryInfo;
@@ -496,6 +497,9 @@ export function AppHeader({
             </Link>
           )}
 
+          {/* Desktop Notification Bell */}
+          <NotificationBellButton activeUser={activeUser} />
+
           {/* User Auth / Profile Dropdown (Desktop) */}
           {activeUser ? (
             <div className="relative" ref={userMenuRef} style={{ zIndex: 1050 }}>
@@ -664,16 +668,7 @@ export function AppHeader({
 
         {/* Right: Notification Bell + User Profile Avatar / Initials */}
         <div className="flex items-center gap-2 shrink-0">
-          <Link
-            href={activeUser ? '/inbox' : '/login?returnUrl=/inbox'}
-            aria-label="Notifications"
-            className="relative w-9 h-9 rounded-full bg-[#F2F4F7] text-[#101828] flex items-center justify-center transition active:scale-95 hover:bg-slate-200"
-          >
-            <Bell className="w-4.5 h-4.5 stroke-[2] text-slate-700" />
-            {activeUser && unreadCount > 0 && (
-              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#D92D20] ring-2 ring-[#F2F4F7]" />
-            )}
-          </Link>
+          <NotificationBellButton activeUser={activeUser} />
 
           <Link
             href={activeUser ? getDashboardHref(activeUser.role, activeUser?.providerSubtype) : '/login'}

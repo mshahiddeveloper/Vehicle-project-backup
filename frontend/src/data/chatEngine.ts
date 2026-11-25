@@ -1445,6 +1445,12 @@ export function acceptChatBooking(conversationId: string, listerName: string): C
         conversation: conv,
       }),
     }).catch(() => {});
+
+    window.dispatchEvent(
+      new CustomEvent('safarpk_chat_updated', {
+        detail: { message: sysMsg, conversationId },
+      })
+    );
   }
 
   return conv;

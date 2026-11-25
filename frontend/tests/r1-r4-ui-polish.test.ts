@@ -39,9 +39,14 @@ describe('Milestone 1: UI Refactoring & Polish (Requirements R1 - R4)', () => {
 
     it('R1.1: Mobile top bar has hamburger icon left, SafarPK logo centered, notification bell and profile right', () => {
       // In AppHeader.tsx
+      const notifBellSource = fs.readFileSync(
+        path.resolve(__dirname, '../src/components/NotificationBellButton.tsx'),
+        'utf-8'
+      );
       expect(appHeaderSource).toContain('aria-label="Open Navigation Drawer"');
       expect(appHeaderSource).toContain('href="/inbox"');
-      expect(appHeaderSource).toContain('aria-label="Notifications"');
+      expect(appHeaderSource).toContain('<NotificationBellButton');
+      expect(notifBellSource).toContain('aria-label="Notifications"');
       expect(appHeaderSource).toContain('aria-label="My account"');
 
       // Top bar layout ordering in AppHeader mobile section:
@@ -54,7 +59,7 @@ describe('Milestone 1: UI Refactoring & Polish (Requirements R1 - R4)', () => {
 
       const hamburgerIdx = appHeaderSection.indexOf('aria-label="Open Navigation Drawer"');
       const logoIdx = appHeaderSection.indexOf('href="/"');
-      const bellIdx = appHeaderSection.indexOf('aria-label="Notifications"');
+      const bellIdx = appHeaderSection.indexOf('<NotificationBellButton');
       const userIdx = appHeaderSection.indexOf('aria-label="My account"');
 
       expect(hamburgerIdx).toBeGreaterThan(-1);
