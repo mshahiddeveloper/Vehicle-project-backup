@@ -545,7 +545,26 @@ export default function PublicDriverProfilePage() {
               </span>
             ) : (
               <>
-            {/* Purple Click-to-Reveal Phone Button */}
+            {/* Priority 1: Book & Chat in App */}
+            <button
+              type="button"
+              onClick={handleDirectChat}
+              className="flex-1 md:flex-initial h-11 px-5 rounded-xl bg-[#0B6B4F] hover:bg-[#08513C] text-white text-xs font-extrabold flex items-center justify-center gap-1.5 transition shadow-sm active:scale-[0.99] cursor-pointer"
+            >
+              <MessageSquare className="w-4 h-4 text-emerald-200 shrink-0" />
+              <span>Book &amp; Chat</span>
+            </button>
+
+            {/* Secondary: WhatsApp & Call */}
+            <button
+              type="button"
+              onClick={handleWhatsApp}
+              className="flex-1 md:flex-initial h-11 px-4 rounded-xl bg-[#25D366]/15 hover:bg-[#25D366]/25 border border-[#25D366]/40 text-[#075E54] text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-[0.99] cursor-pointer"
+            >
+              <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
+              <span>WhatsApp</span>
+            </button>
+
             <button
               type="button"
               onClick={handleCall}
@@ -560,15 +579,6 @@ export default function PublicDriverProfilePage() {
                   'Show Number'
                 )}
               </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleWhatsApp}
-              className="flex-1 md:flex-initial h-11 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-sm active:scale-[0.99] cursor-pointer"
-            >
-              <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
-              <span>WhatsApp</span>
             </button>
               </>
             )}
@@ -883,44 +893,39 @@ export default function PublicDriverProfilePage() {
               </p>
             </div>
 
-            {/* Direct Contact Buttons */}
+            {/* Step-wise Priority Booking & Contact Buttons:
+                1) Primary: Book & Chat with Driver
+                2) Secondary: WhatsApp & Call */}
             <div className="space-y-2 pt-1">
-              {/* Instant WhatsApp Button */}
-              <button
-                type="button"
-                onClick={handleWhatsApp}
-                className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
-              >
-                <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
-                <span>WhatsApp</span>
-              </button>
-
-              {/* In-App Direct Chat Button */}
               <button
                 type="button"
                 onClick={handleDirectChat}
-                className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
+                className="w-full h-11 rounded-xl bg-[#0B6B4F] hover:bg-[#08513C] text-white font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
               >
-                <MessageSquare className="w-3.5 h-3.5 text-blue-200" />
-                <span>Chat with Driver</span>
+                <MessageSquare className="w-4 h-4 text-emerald-200 shrink-0" />
+                <span>Book &amp; Chat with {isPakistan ? 'Driver' : 'Chauffeur'}</span>
               </button>
 
-              {/* Direct Call Button (Click-to-Reveal Pattern) */}
-              <button
-                type="button"
-                onClick={handleCall}
-                className="w-full h-10 rounded-xl border border-purple-200 bg-purple-50/70 hover:bg-purple-100 text-purple-900 font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-2xs active:scale-[0.99]"
-                title={phoneRevealed ? `Call driver directly: ${driver.phone}` : 'Click to show phone number'}
-              >
-                <Phone className="w-3.5 h-3.5 text-purple-600" />
-                <span>
-                  {phoneRevealed ? (
-                    <>Call {isPakistan ? 'Driver' : 'Chauffeur'}: <span className="font-mono font-bold">{driver.phone}</span></>
-                  ) : (
-                    'Show Phone Number'
-                  )}
-                </span>
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleWhatsApp}
+                  className="h-10 rounded-xl bg-[#25D366]/15 hover:bg-[#25D366]/25 border border-[#25D366]/40 text-[#075E54] font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-[0.99]"
+                >
+                  <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
+                  <span>WhatsApp</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCall}
+                  className="h-10 rounded-xl border border-purple-200 bg-purple-50/70 hover:bg-purple-100 text-purple-900 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-[0.99]"
+                  title={phoneRevealed ? `Call driver directly: ${driver.phone}` : 'Click to show phone number'}
+                >
+                  <Phone className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                  <span className="truncate">{phoneRevealed ? driver.phone : 'Call Driver'}</span>
+                </button>
+              </div>
             </div>
 
             {/* Inquiry Form */}

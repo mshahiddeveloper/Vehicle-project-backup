@@ -24,6 +24,8 @@ import {
   BookingMetadata,
   isListerAutoReplyEnabled,
   setListerAutoReplyEnabled,
+  syncConversationsFromServer,
+  syncMessagesFromServer,
 } from '@/data/chatEngine';
 import {
   MessageSquare,
@@ -66,10 +68,19 @@ function InboxContent() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 1. Initial Load & Auth Sync
+  // 1. Initial Load & Auth Sync (with Neon DB cross-device hydration)
   useEffect(() => {
-    const syncInbox = () => {
-      const user = getActiveUser();
+    const hydrateAndSync = async () => {
+      let user = getActiveUser();
+      if (!user) {
+        try {
+          const meRes = await fetch('/api/auth/me', { cache: 'no-store', credentials: 'include' });
+          const meData = await meRes.json().catch(() => null);
+          if (meRes.ok && meData?.authenticated && meData?.user) {
+            user = meData.user;
+          }
+        } catch {}
+      }
       if (!user) {
         setActiveUser(null);
         setConversations([]);
@@ -79,28 +90,35 @@ function InboxContent() {
       setActiveUser(user);
       setAutoReplyState(isListerAutoReplyEnabled(user.id));
 
-      // Auto purge messages older than 7 days
       const purged = purgeExpiredMessages();
       if (purged > 0) {
         setPurgedNotification(purged);
         setTimeout(() => setPurgedNotification(null), 5000);
       }
 
-      const convs = getUserConversations(user);
-      setConversations(convs);
-
-      if (convParam && convs.some((c) => c.id === convParam)) {
+      const localConvs = getUserConversations(user);
+      setConversations(localConvs);
+      if (convParam && localConvs.some((c) => c.id === convParam)) {
         setActiveConvId(convParam);
         setMobileView('CHAT');
-      } else if (convs.length > 0) {
-        setActiveConvId(convs[0].id);
+      } else if (localConvs.length > 0 && !activeConvId) {
+        setActiveConvId(localConvs[0].id);
+      }
+
+      const dbConvs = await syncConversationsFromServer(user);
+      setConversations(dbConvs);
+      if (convParam && dbConvs.some((c) => c.id === convParam)) {
+        setActiveConvId(convParam);
+        setMobileView('CHAT');
+      } else if (dbConvs.length > 0 && !activeConvId) {
+        setActiveConvId(dbConvs[0].id);
       }
     };
 
-    syncInbox();
-    window.addEventListener('safarpk_auth_state_changed', syncInbox);
+    hydrateAndSync();
+    window.addEventListener('safarpk_auth_state_changed', hydrateAndSync);
     return () => {
-      window.removeEventListener('safarpk_auth_state_changed', syncInbox);
+      window.removeEventListener('safarpk_auth_state_changed', hydrateAndSync);
     };
   }, [convParam]);
 
@@ -117,21 +135,40 @@ function InboxContent() {
     };
   }, []);
 
-  // 2. Load Messages when Active Conversation changes
+  // 2. Load Messages when Active Conversation changes + Poll Neon DB every 4s for cross-device messages
   useEffect(() => {
     if (!activeConvId || !activeUser) return;
 
-    markConversationAsRead(activeConvId, activeUser.id);
-    const msgs = getConversationMessages(activeConvId);
-    setMessages(msgs);
+    const loadThread = async () => {
+      markConversationAsRead(activeConvId, activeUser.id);
+      fetch('/api/chat', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId: activeConvId }),
+      }).catch(() => {});
 
-    // Refresh conversation list unread badges
-    setConversations(getUserConversations(activeUser));
+      const localMsgs = getConversationMessages(activeConvId);
+      setMessages(localMsgs);
 
-    // Scroll to bottom
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
+      const dbMsgs = await syncMessagesFromServer(activeConvId);
+      setMessages(dbMsgs);
+      const dbConvs = await syncConversationsFromServer(activeUser);
+      setConversations(dbConvs);
+    };
+
+    loadThread().then(() => {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    });
+
+    const poll = setInterval(() => {
+      syncMessagesFromServer(activeConvId).then(setMessages).catch(() => {});
+      syncConversationsFromServer(activeUser).then(setConversations).catch(() => {});
+    }, 4000);
+
+    return () => clearInterval(poll);
   }, [activeConvId, activeUser]);
 
   // 3. Listen for Live Incoming Messages (Real-Time Bidirectional Chat)
@@ -269,6 +306,10 @@ function InboxContent() {
   const handleClearChat = () => {
     if (!activeConv) return;
     clearConversationHistory(activeConv.id);
+    fetch(`/api/chat?conversationId=${encodeURIComponent(activeConv.id)}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    }).catch(() => {});
     setMessages([]);
     setShowClearConfirm(false);
   };

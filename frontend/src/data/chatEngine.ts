@@ -864,18 +864,17 @@ export function sendChatMessage({
 
   saveAllConversations(allConvs);
 
-  // Sync message with backend database
+  // Sync message with Neon PostgreSQL `/api/chat` for cross-device delivery
   if (typeof window !== 'undefined') {
-    fetch(`${getApiBaseUrl()}/chat/conversations/${conversationId}/messages`, {
+    fetch('/api/chat', {
       method: 'POST',
+      credentials: 'include',
+      keepalive: true,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        senderId: senderUser.id,
-        senderName: senderUser.name,
-        senderRole: senderUser.role,
-        receiverId,
-        receiverName,
-        text,
+        action: 'send_message',
+        message: newMsg,
+        conversation: conv,
       }),
     }).catch(() => {});
 
@@ -886,15 +885,17 @@ export function sendChatMessage({
     );
   }
 
-  // 4. Smart Auto-Reply for Realistic Interaction if recipient is a host
-  triggerSmartHostReply({
-    conversationId,
-    userMessage: text.trim(),
-    senderUser,
-    receiverId,
-    receiverName,
-    ref: conv.bookingRef,
-  });
+  // 4. Smart Auto-Reply only for demo accounts
+  if (receiverId.startsWith('usr-demo-')) {
+    triggerSmartHostReply({
+      conversationId,
+      userMessage: text.trim(),
+      senderUser,
+      receiverId,
+      receiverName,
+      ref: conv.bookingRef,
+    });
+  }
 
   return newMsg;
 }
@@ -1204,32 +1205,88 @@ export function startOrOpenConversation({
   msgs.push(msg);
   saveAllMessages(msgs);
 
-  // Sync conversation & initial message with backend database
+  // Sync conversation & initial message with Neon PostgreSQL `/api/chat`
   if (typeof window !== 'undefined') {
-    fetch(`${getApiBaseUrl()}/chat/conversations`, {
+    fetch('/api/chat', {
       method: 'POST',
+      credentials: 'include',
+      keepalive: true,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        bookingRef: refCode,
-        customerPhone: currentUser.phone,
-        customerName: currentUser.name,
-        listerPhone: partnerPhone,
-        listerName: partnerName,
-        initialMessage: finalGreeting,
-        about,
+        action: 'start_or_open',
+        conversation: conv,
+        initialMessage: msg,
       }),
     }).catch(() => {});
   }
 
-  // Trigger simulated host reply
-  triggerSmartHostReply({
-    conversationId: convId,
-    userMessage: finalGreeting,
-    senderUser: currentUser,
-    receiverId: partnerId,
-    receiverName: partnerName,
-    ref: refCode,
-  });
+  // Trigger simulated host reply only for demo accounts
+  if (partnerId.startsWith('usr-demo-')) {
+    triggerSmartHostReply({
+      conversationId: convId,
+      userMessage: finalGreeting,
+      senderUser: currentUser,
+      receiverId: partnerId,
+      receiverName: partnerName,
+      ref: refCode,
+    });
+  }
 
   return convId;
+}
+
+/**
+ * Fetch live conversations from Neon PostgreSQL for cross-device Inbox sync
+ */
+export async function syncConversationsFromServer(user: RegisteredUser): Promise<ChatConversation[]> {
+  if (typeof window === 'undefined' || !user) return [];
+  try {
+    const res = await fetch('/api/chat', { cache: 'no-store', credentials: 'include' });
+    if (!res.ok) return getUserConversations(user);
+    const data = await res.json().catch(() => null);
+    if (data?.success && Array.isArray(data.conversations)) {
+      const local = getAllConversations();
+      const map = new Map<string, ChatConversation>();
+      for (const c of local) map.set(c.id, c);
+      for (const c of data.conversations) {
+        const prev = map.get(c.id);
+        if (!prev || (c.lastMessageTimestamp || 0) >= (prev.lastMessageTimestamp || 0)) {
+          map.set(c.id, c);
+        }
+      }
+      const merged = Array.from(map.values());
+      saveAllConversations(merged);
+      return merged
+        .filter((c) => c.participantIds.includes(user.id) || data.conversations.some((dc: any) => dc.id === c.id))
+        .sort((a, b) => b.updatedAt - a.updatedAt);
+    }
+  } catch {}
+  return getUserConversations(user);
+}
+
+/**
+ * Fetch live messages for a conversation from Neon PostgreSQL
+ */
+export async function syncMessagesFromServer(conversationId: string): Promise<ChatMessage[]> {
+  if (typeof window === 'undefined' || !conversationId) return [];
+  try {
+    const res = await fetch(`/api/chat?conversationId=${encodeURIComponent(conversationId)}`, {
+      cache: 'no-store',
+      credentials: 'include',
+    });
+    if (!res.ok) return getConversationMessages(conversationId);
+    const data = await res.json().catch(() => null);
+    if (data?.success && Array.isArray(data.messages)) {
+      const all = getAllMessages();
+      const map = new Map<string, ChatMessage>();
+      for (const m of all) map.set(m.id, m);
+      for (const m of data.messages) map.set(m.id, m);
+      const mergedAll = Array.from(map.values());
+      saveAllMessages(mergedAll);
+      return mergedAll
+        .filter((m) => m.conversationId === conversationId && !m.deleted)
+        .sort((a, b) => a.timestamp - b.timestamp);
+    }
+  } catch {}
+  return getConversationMessages(conversationId);
 }

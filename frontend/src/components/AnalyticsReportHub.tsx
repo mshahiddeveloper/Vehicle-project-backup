@@ -57,13 +57,41 @@ export function AnalyticsReportHub({
   allowExport = true,
   allowClaim = false,
 }: AnalyticsReportHubProps) {
-  const [dateRange, setDateRange] = useState<'7D' | '30D' | 'MONTH' | 'ALL'>('30D');
+  const [dateRange, setDateRange] = useState<'TODAY' | '7D' | '30D' | 'MONTH' | 'YEAR' | 'ALL' | 'CUSTOM'>('30D');
+  const [customStartDate, setCustomStartDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().slice(0, 10);
+  });
+  const [customEndDate, setCustomEndDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [dbAnalytics, setDbAnalytics] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('ALL');
   const [leads, setLeads] = useState<MarketplaceLead[]>([]);
   const [ipInquiries, setIpInquiries] = useState<IpInquiryRecord[]>([]);
   const [showIpLogModal, setShowIpLogModal] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // Fetch live Neon DB analytics whenever dateRange / custom dates / category changes
+  useEffect(() => {
+    const params = new URLSearchParams({ range: dateRange });
+    if (dateRange === 'CUSTOM') {
+      params.set('startDate', customStartDate);
+      params.set('endDate', customEndDate);
+    }
+    if (selectedCategoryFilter !== 'ALL') {
+      params.set('category', selectedCategoryFilter);
+    }
+    if (role !== 'SUPER_ADMIN' && role !== 'AGENT' && (viewerPhone || viewerName)) {
+      params.set('listerPhone', viewerPhone || viewerName);
+    }
+    fetch(`/api/analytics?${params.toString()}`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.success) setDbAnalytics(data);
+      })
+      .catch(() => {});
+  }, [dateRange, customStartDate, customEndDate, selectedCategoryFilter, role, viewerPhone, viewerName]);
 
   // Sync leads & IP inquiries from localStorage
   useEffect(() => {
@@ -259,14 +287,17 @@ export function AnalyticsReportHub({
         </div>
 
         {/* Action Buttons & Filters */}
-        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
-          {/* Date Range Selector */}
-          <div className="inline-flex rounded-xl bg-slate-100 p-0.5 sm:p-1 text-[11px] sm:text-xs font-bold text-slate-600">
+        <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 self-start md:self-auto">
+          {/* Date Range Selector (Day, Week, Month, Year, All, Custom) */}
+          <div className="inline-flex flex-wrap rounded-xl bg-slate-100 p-0.5 sm:p-1 text-[11px] sm:text-xs font-bold text-slate-600 gap-0.5">
             {[
+              { id: 'TODAY', label: 'Today' },
               { id: '7D', label: '7 Days' },
               { id: '30D', label: '30 Days' },
-              { id: 'MONTH', label: 'This Month' },
+              { id: 'MONTH', label: 'Month' },
+              { id: 'YEAR', label: 'Full Year' },
               { id: 'ALL', label: 'All Time' },
+              { id: 'CUSTOM', label: 'Custom Date' },
             ].map((d) => (
               <button
                 key={d.id}
@@ -282,6 +313,24 @@ export function AnalyticsReportHub({
               </button>
             ))}
           </div>
+
+          {dateRange === 'CUSTOM' && (
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 text-xs">
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="bg-transparent font-bold text-slate-800 outline-none"
+              />
+              <span className="text-slate-400">to</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="bg-transparent font-bold text-slate-800 outline-none"
+              />
+            </div>
+          )}
 
           {/* Export Button */}
           {allowExport ? (
@@ -301,6 +350,57 @@ export function AnalyticsReportHub({
           )}
         </div>
       </div>
+
+      {/* Live Neon DB Date-Filtered Telemetry Breakdown */}
+      {dbAnalytics?.totals && (
+        <div className="bg-white rounded-2xl sm:rounded-3xl border border-[#EEF0F2] p-4 sm:p-5 shadow-xs space-y-4">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div>
+              <h3 className="font-heading font-extrabold text-sm sm:text-base text-[#101828]">
+                Live Neon DB Action Breakdown ({dateRange === 'YEAR' ? 'Full Year' : dateRange === 'CUSTOM' ? `${customStartDate} to ${customEndDate}` : dateRange})
+              </h3>
+              <p className="text-xs text-slate-500">
+                Real-time server-recorded Views, In-App Chat, WhatsApp, Call, and Booking events.
+              </p>
+            </div>
+            <span className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-800">
+              {dbAnalytics.totals.totalEvents || 0} Total Events
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+            {[
+              { label: 'Listing Views', val: dbAnalytics.totals.views || 0, color: 'text-slate-900 bg-slate-50 border-slate-200' },
+              { label: 'In-App Chat Clicks', val: dbAnalytics.totals.inAppChats || 0, color: 'text-blue-800 bg-blue-50 border-blue-200' },
+              { label: 'WhatsApp Clicks', val: dbAnalytics.totals.whatsappClicks || 0, color: 'text-emerald-800 bg-emerald-50 border-emerald-200' },
+              { label: 'Call Clicks', val: dbAnalytics.totals.callClicks || 0, color: 'text-purple-800 bg-purple-50 border-purple-200' },
+              { label: 'Booking Requests', val: dbAnalytics.totals.bookingRequests || 0, color: 'text-amber-800 bg-amber-50 border-amber-200' },
+            ].map((kpi) => (
+              <div key={kpi.label} className={`p-3 rounded-2xl border ${kpi.color}`}>
+                <span className="text-[11px] font-bold block opacity-80">{kpi.label}</span>
+                <span className="text-xl font-black font-mono mt-0.5 block">{Number(kpi.val).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+
+          {Array.isArray(dbAnalytics.series) && dbAnalytics.series.length > 0 && (
+            <div className="pt-2 border-t border-slate-100">
+              <span className="text-xs font-bold text-slate-700 block mb-2">
+                {dateRange === 'YEAR' || dateRange === 'ALL' ? 'Monthly Activity Trend' : 'Daily Activity Trend'}
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 max-h-44 overflow-y-auto">
+                {dbAnalytics.series.map((pt: any) => (
+                  <div key={pt.dateKey} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px]">
+                    <span className="font-extrabold text-slate-900 block">{pt.label}</span>
+                    <span className="text-slate-600 block">Views: {pt.views} · Chat: {pt.chat}</span>
+                    <span className="text-emerald-700 font-semibold block">WA: {pt.whatsapp} · Call: {pt.call}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Platform & Lister All-Time Inquiries Intelligence Card */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm border border-slate-700/60 flex flex-col md:flex-row md:items-center justify-between gap-4">

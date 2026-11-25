@@ -961,6 +961,31 @@ export function recordClickEvent(
       if (all.length > 200) all.length = 200;
       localStorage.setItem(STORAGE_CLICKS_KEY, JSON.stringify(all));
       window.dispatchEvent(new Event('safarpk_clicks_updated'));
+
+      // Persist every click/view event into Neon PostgreSQL `analytics_events`
+      const ctaMap: Record<string, string> = {
+        WHATSAPP_CLICK: 'WHATSAPP',
+        CALL_CLICK: 'CALL',
+        CHAT_CLICK: 'IN_APP_CHAT',
+        BOOKING_CLICK: 'BOOK_VEHICLE',
+        VIEW_DETAILS: 'VIEW',
+      };
+      const mappedCta = ctaMap[String(cType)] || (String(cType).includes('CHAT') ? 'IN_APP_CHAT' : String(cType).includes('CALL') ? 'CALL' : 'WHATSAPP');
+      fetch('/api/track-click', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+        body: JSON.stringify({
+          ctaType: mappedCta,
+          listingId: eventData.targetId,
+          listingTitle: eventData.targetTitle || 'Listing',
+          listerPhone: eventData.targetOwnerPhone || '',
+          listerName: eventData.targetOwnerName || 'Verified Host',
+          listerId: eventData.targetOwnerId || '',
+          category: eventData.targetCategory || 'CAR_RENTAL',
+          city: eventData.city || 'Pakistan',
+        }),
+      }).catch(() => {});
     } catch (e) {}
   }
 

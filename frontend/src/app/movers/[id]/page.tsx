@@ -831,44 +831,39 @@ export default function MoverDetailPage() {
               </p>
             </div>
 
-            {/* Direct Contact Buttons */}
+            {/* Step-wise Priority Booking & Contact Buttons:
+                1) Primary: Book & Chat with Mover
+                2) Secondary: WhatsApp & Call */}
             <div className="space-y-2 pt-1">
-              {/* Instant WhatsApp Button */}
-              <button
-                type="button"
-                onClick={handleWhatsApp}
-                className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
-              >
-                <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
-                <span>WhatsApp</span>
-              </button>
-
-              {/* In-App Direct Chat Button */}
               <button
                 type="button"
                 onClick={handleDirectChat}
-                className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
+                className="w-full h-11 rounded-xl bg-[#0B6B4F] hover:bg-[#08513C] text-white font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
               >
-                <MessageSquare className="w-3.5 h-3.5 text-blue-200" />
-                <span>Chat with Mover</span>
+                <MessageSquare className="w-4 h-4 text-emerald-200 shrink-0" />
+                <span>Book &amp; Chat with Mover</span>
               </button>
 
-              {/* Direct Call Button (Click-to-Reveal Pattern) */}
-              <button
-                type="button"
-                onClick={handleCall}
-                className="w-full h-10 rounded-xl border border-orange-200 bg-orange-50/70 hover:bg-orange-100 text-[#9A3412] font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-2xs active:scale-[0.99]"
-                title={phoneRevealed ? `Call host directly: ${mover.phone}` : 'Click to show phone number'}
-              >
-                <Phone className="w-3.5 h-3.5 text-[#C2410C]" />
-                <span>
-                  {phoneRevealed ? (
-                    <>Call Host: <span className="font-mono font-bold">{mover.phone}</span></>
-                  ) : (
-                    'Show Phone Number'
-                  )}
-                </span>
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleWhatsApp}
+                  className="h-10 rounded-xl bg-[#25D366]/15 hover:bg-[#25D366]/25 border border-[#25D366]/40 text-[#075E54] font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-[0.99]"
+                >
+                  <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
+                  <span>WhatsApp</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCall}
+                  className="h-10 rounded-xl border border-orange-200 bg-orange-50/70 hover:bg-orange-100 text-[#9A3412] font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-[0.99]"
+                  title={phoneRevealed ? `Call host directly: ${mover.phone}` : 'Click to show phone number'}
+                >
+                  <Phone className="w-3.5 h-3.5 text-[#C2410C] shrink-0" />
+                  <span className="truncate">{phoneRevealed ? mover.phone : 'Call Mover'}</span>
+                </button>
+              </div>
             </div>
 
             {/* Quote Inquiry Form */}

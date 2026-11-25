@@ -313,6 +313,22 @@ export default function CityRideDetailPage() {
       targetOwnerName: ride.op,
       city: ride.fromCity,
     });
+    fetch('/api/track-click', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
+      body: JSON.stringify({
+        ctaType: 'IN_APP_CHAT',
+        listingId: ride.id,
+        listingTitle: `${ride.fromCity} to ${ride.toCity} (${ride.car})`,
+        listerPhone: ride.phone,
+        listerName: ride.op,
+        category: 'CITY_TO_CITY',
+        city: ride.fromCity,
+        userId: user.id,
+        userRole: user.role,
+      }),
+    }).catch(() => {});
 
     const convId = startOrOpenConversation({
       currentUser: user,
@@ -986,44 +1002,39 @@ export default function CityRideDetailPage() {
               </p>
             </div>
 
-            {/* Direct Contact Buttons */}
+            {/* Step-wise Priority Booking & Contact Buttons:
+                1) Primary: Book & Chat with Operator
+                2) Secondary: WhatsApp & Call */}
             <div className="space-y-2 pt-1">
-              {/* Instant WhatsApp Button */}
-              <button
-                type="button"
-                onClick={handleWhatsApp}
-                className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
-              >
-                <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
-                <span>WhatsApp</span>
-              </button>
-
-              {/* In-App Direct Chat Button */}
               <button
                 type="button"
                 onClick={handleDirectChat}
-                className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
+                className="w-full h-11 rounded-xl bg-[#0B6B4F] hover:bg-[#08513C] text-white font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
               >
-                <MessageSquare className="w-3.5 h-3.5 text-blue-200" />
-                <span>Chat with Operator</span>
+                <MessageSquare className="w-4 h-4 text-emerald-200" />
+                <span>Book &amp; Chat with Operator</span>
               </button>
 
-              {/* Direct Call Button (Click to Reveal Pattern) */}
-              <button
-                type="button"
-                onClick={handleCall}
-                className="w-full h-10 rounded-xl border border-purple-200 bg-purple-50/70 hover:bg-purple-100 text-purple-900 font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-2xs active:scale-[0.99]"
-                title={phoneRevealed ? `Call host directly: ${ride.phone}` : 'Click to show phone number'}
-              >
-                <Phone className="w-3.5 h-3.5 text-purple-600" />
-                <span>
-                  {phoneRevealed ? (
-                    <>Call Host: <span className="font-mono font-bold">{ride.phone}</span></>
-                  ) : (
-                    'Show Phone Number'
-                  )}
-                </span>
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleWhatsApp}
+                  className="h-10 rounded-xl bg-[#25D366]/15 hover:bg-[#25D366]/25 border border-[#25D366]/40 text-[#075E54] font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-[0.99]"
+                >
+                  <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
+                  <span>WhatsApp</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCall}
+                  className="h-10 rounded-xl border border-purple-200 bg-purple-50/70 hover:bg-purple-100 text-purple-900 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-[0.99]"
+                  title={phoneRevealed ? `Call host directly: ${ride.phone}` : 'Click to show phone number'}
+                >
+                  <Phone className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                  <span className="truncate">{phoneRevealed ? ride.phone : 'Call Host'}</span>
+                </button>
+              </div>
             </div>
 
             {/* Booking Inquiry Form */}
@@ -1129,11 +1140,11 @@ export default function CityRideDetailPage() {
 
           <button
             type="button"
-            onClick={scrollToBooking}
-            className="flex-1 h-12 rounded-2xl bg-[#101828] hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
+            onClick={handleDirectChat}
+            className="flex-[1.4] h-12 rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] text-white text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition"
           >
-            <Calendar className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>Book Ride</span>
+            <MessageSquare className="w-4 h-4 text-emerald-200 shrink-0" />
+            <span>Book &amp; Chat</span>
           </button>
         </div>
       )}

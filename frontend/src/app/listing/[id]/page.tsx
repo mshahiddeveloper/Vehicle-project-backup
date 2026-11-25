@@ -609,6 +609,26 @@ export default function ListingDetailPage() {
       .finally(() => setIsResolving(false));
   }, [listingId]);
 
+  // Track listing VIEW in Neon DB analytics
+  useEffect(() => {
+    if (!car?.id) return;
+    fetch('/api/track-click', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
+      body: JSON.stringify({
+        ctaType: 'VIEW',
+        listingId: car.id,
+        listingTitle: car.title,
+        listerPhone: car.hostPhone,
+        listerName: car.hostName,
+        listerId: car.ownerId || '',
+        category: 'CAR_RENTAL',
+        city: car.city,
+      }),
+    }).catch(() => {});
+  }, [car?.id]);
+
   const [withDriver, setWithDriver] = useState(car?.serviceScope === 'WITH_DRIVER');
   const [hostPhoneRevealed, setHostPhoneRevealed] = useState(false);
   const [specsOpen, setSpecsOpen] = useState(false);
@@ -963,6 +983,22 @@ export default function ListingDetailPage() {
       ctaType: 'IN_APP_CHAT',
       city: car.city,
     });
+    fetch('/api/bookings', {
+      method: 'POST',
+      credentials: 'include',
+      keepalive: true,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        listerId: car.ownerId,
+        vehicleId: car.id,
+        serviceType: 'RENT_A_CAR',
+        startDate: pickupDate,
+        endDate: returnDate,
+        pickupLocation: car.city,
+        dropoffLocation: car.city,
+        totalAmountPkr: calculateTotal(),
+      }),
+    }).catch(() => {});
     recordClickEvent({
       clickType: 'CHAT_CLICK',
       targetId: car.id,
@@ -2330,48 +2366,41 @@ export default function ListingDetailPage() {
               <span className="font-heading font-extrabold text-sm text-slate-900">{formatPrice(calculateTotal())}</span>
             </div>
 
-            {/* Direct Inquiries & Actions (Book Vehicle, WhatsApp, In-App Chat, Show Phone) */}
+            {/* Step-wise Priority Booking & Contact Actions:
+                1) Primary: Book & Message in App Chat
+                2) Secondary: WhatsApp & Call */}
             <div className="flex flex-col gap-2 pt-1">
-              {/* Option 1: Book Vehicle (Top Priority) */}
-              <button
-                type="button"
-                onClick={handleBookVehicleClick}
-                className="w-full h-11 rounded-xl bg-[#101828] hover:bg-emerald-950 text-white font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm hover:shadow active:scale-[0.99]"
-              >
-                <CalendarCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Book Vehicle</span>
-              </button>
-
-              {/* Option 2: WhatsApp Direct */}
-              <button
-                type="button"
-                onClick={handleInstantWhatsAppChat}
-                className="w-full h-11 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm hover:shadow active:scale-[0.99]"
-              >
-                <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
-                <span>WhatsApp</span>
-              </button>
-
-              {/* Option 3: In-App Direct Chat (Concise single-line button) */}
+              {/* Step 1: Primary Booking via In-App Chat */}
               <button
                 type="button"
                 onClick={handleDirectChat}
-                className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm active:scale-[0.99]"
+                className="w-full h-11 rounded-xl bg-[#0B6B4F] hover:bg-[#08513C] text-white font-heading font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-sm hover:shadow active:scale-[0.99]"
               >
-                <MessageSquare className="w-3.5 h-3.5 text-blue-100 shrink-0" />
-                <span>In-App Chat</span>
+                <MessageSquare className="w-4 h-4 text-emerald-200 shrink-0" />
+                <span>Book &amp; Chat with Host</span>
               </button>
 
-              {/* Option 4: Call Host / Reveal Number on Click */}
-              <button
-                type="button"
-                onClick={handleDirectHostCall}
-                className="w-full h-10 rounded-xl border border-purple-200 bg-purple-50/70 hover:bg-purple-100 text-purple-900 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-2xs active:scale-[0.99]"
-                title={hostPhoneRevealed ? `Call host: ${car.hostPhone}` : 'Click to show phone number'}
-              >
-                <Phone className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                <span>{hostPhoneRevealed ? `Call: ${car.hostPhone}` : 'Show Phone Number'}</span>
-              </button>
+              {/* Step 2: Secondary Direct Options (WhatsApp + Call) */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleInstantWhatsAppChat}
+                  className="h-10 rounded-xl bg-[#25D366]/15 hover:bg-[#25D366]/25 border border-[#25D366]/40 text-[#075E54] font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-[0.99]"
+                >
+                  <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
+                  <span>WhatsApp</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDirectHostCall}
+                  className="h-10 rounded-xl border border-purple-200 bg-purple-50/70 hover:bg-purple-100 text-purple-900 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-[0.99]"
+                  title={hostPhoneRevealed ? `Call host: ${car.hostPhone}` : 'Click to show phone number'}
+                >
+                  <Phone className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                  <span className="truncate">{hostPhoneRevealed ? car.hostPhone : 'Call Host'}</span>
+                </button>
+              </div>
             </div>
 
             {/* Single Trust Badge Line */}
@@ -2567,19 +2596,19 @@ export default function ListingDetailPage() {
             <button
               type="button"
               onClick={handleInstantWhatsAppChat}
-              className="h-10 px-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-extrabold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition"
+              className="w-10 h-10 rounded-2xl bg-[#25D366]/15 border border-[#25D366]/40 text-[#075E54] flex items-center justify-center shadow-2xs active:scale-95 transition"
+              title="WhatsApp Host"
             >
-              <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
-              <span>WhatsApp</span>
+              <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
             </button>
 
             <button
               type="button"
-              onClick={handleBookVehicleClick}
-              className="h-10 px-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-heading font-extrabold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition"
+              onClick={handleDirectChat}
+              className="h-10 px-4 rounded-2xl bg-[#0B6B4F] hover:bg-[#08513C] text-white font-heading font-extrabold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition"
             >
-              <CalendarCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Book Vehicle</span>
+              <MessageSquare className="w-4 h-4 text-emerald-200 shrink-0" />
+              <span>Book &amp; Chat</span>
             </button>
           </div>
         </div>
