@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
+import { ListerAutoReplyPanel } from '@/components/ListerAutoReplyPanel';
 import { useSearchParams } from 'next/navigation';
 import {
   User,
@@ -1736,6 +1737,10 @@ function DriverDashboardContent() {
                     <span>Open Full Screen Inbox</span>
                   </Link>
                 </div>
+              </div>
+
+              <div className="p-4 border-b border-slate-200 bg-slate-50/70">
+                <ListerAutoReplyPanel listerId={currentUser?.id} compact />
               </div>
 
               {/* Chat Workspace: Threads Sidebar + Active Chat Stream */}

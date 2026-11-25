@@ -885,8 +885,8 @@ export function sendChatMessage({
     );
   }
 
-  // 4. Smart Auto-Reply only for demo accounts
-  if (receiverId.startsWith('usr-demo-')) {
+  // 4. Smart Auto-Reply for Listers/Providers/Drivers when enabled
+  if (senderUser.role === 'CUSTOMER' && isListerAutoReplyEnabled(receiverId)) {
     triggerSmartHostReply({
       conversationId,
       userMessage: text.trim(),
@@ -942,6 +942,32 @@ export function setAutoReplyEnabled(enabled: boolean): void {
   );
 }
 
+export const STORAGE_KEY_CUSTOM_AUTO_REPLY_PREFIX = 'safarpk_lister_autoreply_text_';
+
+/**
+ * Get the lister's custom auto-response message (empty string if not customized).
+ */
+export function getListerCustomAutoReply(listerId?: string): string {
+  if (typeof window === 'undefined' || !listerId) return '';
+  return localStorage.getItem(`${STORAGE_KEY_CUSTOM_AUTO_REPLY_PREFIX}${listerId}`) || '';
+}
+
+/**
+ * Save a custom auto-response message for a specific lister/provider/driver.
+ */
+export function setListerCustomAutoReply(listerId: string, customText: string): void {
+  if (typeof window === 'undefined' || !listerId) return;
+  const trimmed = customText.trim();
+  if (trimmed) {
+    localStorage.setItem(`${STORAGE_KEY_CUSTOM_AUTO_REPLY_PREFIX}${listerId}`, trimmed);
+  } else {
+    localStorage.removeItem(`${STORAGE_KEY_CUSTOM_AUTO_REPLY_PREFIX}${listerId}`);
+  }
+  window.dispatchEvent(
+    new CustomEvent('safarpk_autoreply_toggle', { detail: { listerId, customText: trimmed } })
+  );
+}
+
 /**
  * Intelligent Host / Lister Auto-Reply Engine:
  * Strictly for Listers / Providers / Drivers responding to Customer inquiries.
@@ -984,14 +1010,22 @@ export function triggerSmartHostReply({
   const listingName = conv?.bookingMetadata?.itemName || conv?.about || 'this listing';
   const hostPhone = conv?.bookingMetadata?.providerPhone || conv?.participantPhones?.[receiverId] || '+92 300 1234567';
 
+  const customTemplate = getListerCustomAutoReply(receiverId);
   let replyText = '';
 
-  // Turn 1: First message from customer
-  if (customerMsgs.length <= 1) {
+  if (customTemplate && customerMsgs.length <= 1) {
+    replyText = customTemplate
+      .replace(/\{customer\}/gi, firstName)
+      .replace(/\{listing\}/gi, listingName)
+      .replace(/\{phone\}/gi, hostPhone);
+  } else if (customerMsgs.length <= 1) {
+    // Turn 1: First message from customer
     replyText = `Hello ${firstName}! Thank you for your inquiry regarding ${listingName}. We have received your message. If you do not get an immediate response here, you can also reach us directly at our Phone and WhatsApp: ${hostPhone} for urgent booking confirmation. Thanks!`;
   } else {
     // Turn 2+: Customer messages again when lister is busy / not online
-    replyText = `Sorry, we are busy at the moment. Please call or WhatsApp us directly at ${hostPhone} for urgent booking.`;
+    replyText = customTemplate
+      ? `${customTemplate.replace(/\{customer\}/gi, firstName).replace(/\{listing\}/gi, listingName).replace(/\{phone\}/gi, hostPhone)}`
+      : `Sorry, we are busy at the moment. Please call or WhatsApp us directly at ${hostPhone} for urgent booking.`;
   }
 
   const delayMs = 1200 + Math.random() * 600;

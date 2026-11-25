@@ -7,6 +7,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { AppFooter } from '@/components/AppFooter';
 import { MobileNavBar } from '@/components/MobileNavBar';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
+import { ListerAutoReplyPanel } from '@/components/ListerAutoReplyPanel';
 import { getActiveUser, RegisteredUser, DEMO_USERS } from '@/data/userAuth';
 import {
   getUserConversations,
@@ -69,6 +70,7 @@ function InboxContent() {
   const [showDetailsDrawer, setShowDetailsDrawer] = useState(false);
   const [purgedNotification, setPurgedNotification] = useState<number | null>(null);
   const [autoReplyState, setAutoReplyState] = useState<boolean>(true);
+  const [showAutoReplyModal, setShowAutoReplyModal] = useState<boolean>(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -597,10 +599,10 @@ function InboxContent() {
                   </div>
 
                   <div className="flex flex-col min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <h2 className="font-heading font-extrabold text-sm sm:text-base text-slate-900 truncate">
-                        {partnerName.trim().split(/\s+/).slice(0, 2).join(' ')}
-                      </h2>
+                    <h2 className="font-heading font-extrabold text-sm sm:text-base text-slate-900 truncate leading-tight">
+                      {partnerName.trim().split(/\s+/).slice(0, 2).join(' ')}
+                    </h2>
+                    <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E9F3EE] text-[#0B6B4F] shrink-0">
                         {partnerRole === 'CUSTOMER'
                           ? 'Customer'
@@ -620,27 +622,17 @@ function InboxContent() {
 
                 {/* Right: Action Buttons (Auto-Reply, Call right next to WhatsApp, Clear) */}
                 <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                  {/* Auto-Reply Switch: Strictly for Listers / Drivers / Providers ONLY (Hidden for Customers) */}
+                  {/* Auto-Response Button (Only for Listers/Providers — click to toggle or customize message) */}
                   {isListerOrProvider && (
                     <button
                       type="button"
-                      onClick={() => {
-                        const next = !autoReplyState;
-                        if (activeUser) {
-                          setListerAutoReplyEnabled(activeUser.id, next);
-                        }
-                        setAutoReplyState(next);
-                      }}
-                      className={`h-9 px-2.5 sm:px-3 rounded-full sm:rounded-xl border text-[11px] sm:text-xs font-bold flex items-center gap-1 transition cursor-pointer shadow-2xs ${
+                      onClick={() => setShowAutoReplyModal(true)}
+                      className={`h-8 sm:h-9 px-2.5 sm:px-3 rounded-full sm:rounded-xl border text-[11px] sm:text-xs font-bold flex items-center gap-1 transition cursor-pointer shadow-2xs ${
                         autoReplyState
                           ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
-                          : 'border-slate-300 bg-slate-100 text-slate-500 hover:bg-slate-200'
+                          : 'border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
-                      title={
-                        autoReplyState
-                          ? 'Lister Auto-Reply is ON'
-                          : 'Lister Auto-Reply is OFF'
-                      }
+                      title="Configure Auto-Response Message & Toggle"
                     >
                       <Sparkles
                         className={`w-3.5 h-3.5 ${
@@ -985,6 +977,31 @@ function InboxContent() {
       <div className={mobileView === 'CHAT' ? 'hidden' : 'block'}>
         <MobileNavBar />
       </div>
+
+      {/* Lister Auto-Response Configuration Modal */}
+      {showAutoReplyModal && isListerOrProvider && activeUser && (
+        <div className="fixed inset-0 z-50 bg-slate-900/55 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-lg space-y-2">
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowAutoReplyModal(false)}
+                className="w-8 h-8 rounded-full bg-white text-slate-700 hover:bg-slate-100 flex items-center justify-center shadow-md cursor-pointer"
+                aria-label="Close Auto-Response settings"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <ListerAutoReplyPanel
+              listerId={activeUser.id}
+              onSaved={() => {
+                setAutoReplyState(isListerAutoReplyEnabled(activeUser.id));
+                setShowAutoReplyModal(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -50,6 +50,7 @@ import { BillingHistoryManager } from '@/components/BillingHistoryManager';
 import { getActiveUser, RegisteredUser, getUserDashboardPath, syncSubscriptionExpiries } from '@/data/userAuth';
 import { DashboardStoreWidget } from '@/components/DashboardStoreWidget';
 import { AnalyticsReportHub } from '@/components/AnalyticsReportHub';
+import { ListerAutoReplyPanel } from '@/components/ListerAutoReplyPanel';
 import { useCountry } from '@/app/context/CountryContext';
 import {
   isDocActiveForRole,
@@ -3539,6 +3540,7 @@ export default function ListerDashboardPage() {
                   <input type="checkbox" defaultChecked className="w-4 h-4 text-emerald-600 rounded" />
                 </div>
               </div>
+              <ListerAutoReplyPanel listerId={currentUser?.id} />
             </div>
           )}
         </main>
