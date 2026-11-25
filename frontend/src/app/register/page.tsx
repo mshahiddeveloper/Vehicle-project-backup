@@ -467,11 +467,11 @@ function RegisterForm() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] text-[#101828] font-sans flex flex-col">
-      {/* Brand Header with Mobile Back Button */}
-      <header className="bg-white border-b border-[#EEF0F2] sticky top-0 z-20">
-        <div className="max-w-[620px] mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2 sm:gap-3">
+    <div className="min-h-screen bg-[#F4F7F5] text-[#101828] font-sans flex flex-col">
+      {/* V2 Green Curved Header */}
+      <header className="bg-[#0B6B4F] text-white pt-4 pb-12 px-4 sm:px-6 relative overflow-hidden">
+        <div className="max-w-[640px] mx-auto space-y-4 relative z-10">
+          <div className="flex items-center justify-between">
             <button
               type="button"
               onClick={() => {
@@ -481,63 +481,56 @@ function RegisterForm() {
                   router.push('/');
                 }
               }}
-              className="p-1.5 -ml-1 rounded-xl border border-slate-200/90 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 transition flex items-center gap-1 cursor-pointer shadow-2xs"
+              className="w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 text-white transition flex items-center justify-center cursor-pointer"
               title="Go Back"
               aria-label="Back"
             >
-              <ChevronLeft className="w-4 h-4 text-slate-700 shrink-0" />
-              <span className="text-xs font-bold text-slate-700 pr-1">Back</span>
+              <ChevronLeft className="w-4.5 h-4.5 shrink-0" />
             </button>
 
-            <Link href="/" className="flex items-center gap-2 text-[#101828]">
-              <span className="w-8 h-8 rounded-xl bg-[#0B6B4F] text-white flex items-center justify-center font-heading font-extrabold text-base shadow-xs">
-                S
-              </span>
-              <span className="font-heading font-extrabold text-lg sm:text-xl tracking-tight">
-                SafarPK
-              </span>
-            </Link>
+            <label className="flex items-center gap-1.5 h-9 px-3 rounded-full bg-white/15 hover:bg-white/25 text-white text-xs font-semibold cursor-pointer">
+              <Globe className="w-3.5 h-3.5 text-white" />
+              <select
+                aria-label="Language"
+                value={lang}
+                onChange={(e) => setLang(e.target.value as SupportedLang)}
+                className="border-0 outline-none bg-transparent font-semibold text-white cursor-pointer text-xs [&>option]:text-slate-900"
+              >
+                <option value="en">English</option>
+                <option value="ur">English + اردو</option>
+                <option value="ar">English + العربية</option>
+                <option value="de">English + Deutsch</option>
+              </select>
+            </label>
           </div>
 
-          {/* Language Selector */}
-          <label className="flex items-center gap-1.5 h-8 px-2.5 border border-[#E4E7EC] rounded-xl bg-white text-xs font-semibold cursor-pointer">
-            <Globe className="w-3.5 h-3.5 text-[#344054]" />
-            <select
-              aria-label="Language"
-              value={lang}
-              onChange={(e) => setLang(e.target.value as SupportedLang)}
-              className="border-0 outline-none bg-transparent font-semibold text-[#101828] cursor-pointer text-xs"
-            >
-              <option value="en">English</option>
-              <option value="ur">English + اردو</option>
-              <option value="ar">English + العربية</option>
-              <option value="de">English + Deutsch</option>
-            </select>
-          </label>
+          <div className="space-y-1">
+            <Link href="/" className="inline-flex items-center gap-2 text-white">
+              <span className="w-7 h-7 rounded-lg bg-white text-[#0B6B4F] flex items-center justify-center font-heading font-extrabold text-sm shadow-xs">
+                S
+              </span>
+              <span className="font-heading font-extrabold text-base tracking-tight">SafarPK</span>
+            </Link>
+            <h1 className="font-heading font-extrabold text-2xl sm:text-3xl tracking-tight text-white">
+              {accountType === 'customer' ? 'Create your account' : 'Grow with SafarPK'}
+            </h1>
+            <p className="text-xs sm:text-sm text-emerald-100">
+              {accountType === 'customer'
+                ? 'Book cars, drivers & rides in minutes.'
+                : 'List your service. Get leads directly in App Chat & WhatsApp.'}
+            </p>
+          </div>
         </div>
         <MobilePullToRefresh />
         <OfflineStatusBanner />
       </header>
 
-      {/* Main Container */}
-      <main className="flex-1 px-4 py-8 sm:py-12 flex justify-center items-start">
+      {/* Main Overlapping Card */}
+      <main className="flex-1 px-3 sm:px-4 -mt-7 pb-10 flex justify-center items-start relative z-10">
         <form
           onSubmit={handleRegister}
-          className="w-full max-w-[820px] bg-white border border-[#EEF0F2] rounded-3xl p-4 sm:p-10 flex flex-col gap-6 sm:gap-7 shadow-[0_8px_28px_rgba(16,24,40,0.06)]"
+          className="w-full max-w-[640px] bg-white border border-[#E6ECE8] rounded-[28px] p-5 sm:p-8 flex flex-col gap-5 sm:gap-6 shadow-[0_12px_32px_rgba(16,24,40,0.08)]"
         >
-          <div className="flex justify-between items-baseline gap-3">
-            <h1 className="font-heading font-extrabold text-xl sm:text-2xl md:text-3xl tracking-tight">
-              {T.create.en}
-            </h1>
-            {lang !== 'en' && (
-              <span
-                dir={lang === 'ur' || lang === 'ar' ? 'rtl' : 'ltr'}
-                className="text-lg font-bold text-[#0B6B4F]"
-              >
-                {T.create[lang]}
-              </span>
-            )}
-          </div>
 
           {error && (
             <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2">

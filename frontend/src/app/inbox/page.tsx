@@ -782,14 +782,19 @@ function InboxContent() {
               )}
 
               {/* =============================================================== */}
-              {/* 2D. CHAT MESSAGE STREAM                                         */}
+              {/* 2D. CHAT MESSAGE STREAM (V2 Lightweight WhatsApp-Style UI)      */}
               {/* =============================================================== */}
-              <div className="flex-1 overflow-y-auto p-3 sm:p-5 flex flex-col gap-3 bg-[#EFEAE2] sm:bg-[#F4F6F8]">
+              <div className="flex-1 overflow-y-auto p-3 sm:p-5 flex flex-col gap-3 bg-[#EFEAE2]">
                 {/* Date Header Pill */}
-                <div className="flex justify-center my-1">
-                  <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-white/90 text-slate-600 shadow-2xs backdrop-blur-sm border border-slate-200/50">
+                <div className="flex justify-center my-0.5">
+                  <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-white/95 text-slate-600 shadow-2xs border border-slate-200/50">
                     Today
                   </span>
+                </div>
+
+                {/* Direct Handover Safety Banner */}
+                <div className="mx-auto max-w-md px-3.5 py-2 rounded-2xl bg-[#FFF8DB] border border-[#F3E2A9] text-[11px] font-semibold text-[#6E5314] text-center shadow-2xs">
+                  🔒 Direct chat with the host. No online payment — pay at handover.
                 </div>
 
                 {messages.map((m) => {
@@ -805,21 +810,21 @@ function InboxContent() {
                       <div
                         className={`max-w-[85%] sm:max-w-[70%] p-3 sm:p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed shadow-2xs ${
                           isMe
-                            ? 'bg-[#0B6B4F] text-white rounded-br-xs'
+                            ? 'bg-[#D9FDD3] border border-emerald-200/80 text-[#101828] rounded-br-xs'
                             : 'bg-white border border-slate-200/80 text-slate-900 rounded-bl-xs'
                         }`}
                       >
                         <p className="whitespace-pre-wrap">{m.text}</p>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-[10px] text-slate-500 px-1 mt-1">
-                        <span>{m.timeStr}</span>
-                        {isMe && (
-                          <CheckCheck
-                            className={`w-3.5 h-3.5 ${
-                              m.read ? 'text-emerald-500' : 'text-slate-400'
-                            }`}
-                          />
-                        )}
+                        <div className="flex items-center justify-end gap-1 text-[10px] text-slate-500 mt-1">
+                          <span>{m.timeStr}</span>
+                          {isMe && (
+                            <CheckCheck
+                              className={`w-3.5 h-3.5 ${
+                                m.read ? 'text-sky-600' : 'text-slate-400'
+                              }`}
+                            />
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -827,10 +832,29 @@ function InboxContent() {
                 <div ref={messagesEndRef} />
               </div>
 
+              {/* Quick-Reply Suggestion Chips */}
+              <div className="bg-[#F6F4F0] border-t border-slate-200/80 px-3 py-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+                {[
+                  'Pick-up time?',
+                  'Send location',
+                  'Delivery possible?',
+                  'Final price?',
+                ].map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => setInputText(chip)}
+                    className="px-3 py-1 rounded-full bg-white border border-slate-200 text-[11px] font-bold text-[#101828] hover:border-[#0B6B4F] hover:text-[#0B6B4F] transition whitespace-nowrap cursor-pointer shrink-0 shadow-2xs"
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+
               {/* =============================================================== */}
-              {/* 2E. STICKY BOTTOM INPUT BAR                                     */}
+              {/* 2E. STICKY BOTTOM INPUT BAR (Lightweight Text-Only, Zero DB Files) */}
               {/* =============================================================== */}
-              <div className="p-2 sm:p-3 bg-white border-t border-slate-200 flex items-center gap-2 pb-safe shrink-0 shadow-lg">
+              <div className="p-2.5 sm:p-3 bg-white border-t border-slate-200 flex items-center gap-2 pb-safe shrink-0 shadow-lg">
                 <input
                   type="text"
                   value={inputText}
@@ -841,7 +865,7 @@ function InboxContent() {
                       handleSendMessage();
                     }
                   }}
-                  placeholder={`Write a message to ${partnerName}...`}
+                  placeholder={`Message ${partnerName}...`}
                   className="flex-1 h-11 px-4 border border-slate-200 rounded-full font-sans text-xs sm:text-sm text-slate-900 outline-none focus:border-[#0B6B4F] focus:ring-1 focus:ring-[#0B6B4F] bg-slate-50 focus:bg-white transition"
                 />
                 <button

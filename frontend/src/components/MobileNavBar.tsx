@@ -381,8 +381,7 @@ function MobileNavBarContent() {
   return (
     <nav
       aria-label="Mobile Navigation"
-      style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
-      className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-t border-slate-200/80 px-1 sm:px-2 pt-1.5 pb-safe shadow-[0_-8px_32px_rgba(15,23,42,0.08)] grid transition-all"
+      className="md:hidden fixed bottom-2.5 left-3 right-3 z-50 rounded-full bg-[#0B6B4F] text-white px-2 py-1.5 shadow-[0_12px_32px_rgba(11,107,79,0.38)] border border-emerald-700/40 flex items-center justify-between gap-1 transition-all"
     >
       {tabs.map((tab) => {
         const Icon = tab.icon;
@@ -391,6 +390,7 @@ function MobileNavBarContent() {
           <Link
             key={tab.label}
             href={tab.href}
+            title={tab.label}
             onClick={() => {
               if (tab.tabKey) {
                 setRuntimeTab(tab.tabKey);
@@ -401,33 +401,18 @@ function MobileNavBarContent() {
                 }
               }
             }}
-            className={`flex flex-col items-center justify-center gap-0.5 min-h-[46px] rounded-xl transition-all duration-150 active:scale-95 ${
+            className={`flex items-center justify-center gap-1.5 rounded-full transition-all duration-150 active:scale-95 min-h-[42px] ${
               tab.isActive
-                ? 'text-emerald-700 font-extrabold'
-                : 'text-slate-500 hover:text-slate-900 font-medium'
+                ? 'bg-white text-[#0B6B4F] font-extrabold px-3.5 py-2 shadow-sm shrink-0'
+                : 'flex-1 text-emerald-100/90 hover:text-white hover:bg-white/10 px-2 py-2'
             }`}
           >
-            <div
-              className={`relative flex items-center justify-center transition ${
-                isAction
-                  ? 'w-8 h-8 rounded-full bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-100 hover:bg-emerald-700'
-                  : tab.isActive
-                  ? 'p-1 rounded-xl bg-emerald-50 text-emerald-700'
-                  : 'p-1'
-              }`}
-            >
-              <Icon className={`${isAction ? 'w-4 h-4' : 'w-5 h-5'} stroke-[2.2]`} />
-              {tab.isActive && !isAction && (
-                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-              )}
-            </div>
-            <span
-              className={`text-[10px] leading-tight tracking-tight font-heading truncate max-w-[64px] ${
-                isAction ? 'text-emerald-700 font-bold' : ''
-              }`}
-            >
-              {tab.label}
-            </span>
+            <Icon className={`${isAction && !tab.isActive ? 'w-5 h-5 text-emerald-200' : 'w-4.5 h-4.5'} stroke-[2.2] shrink-0`} />
+            {tab.isActive && (
+              <span className="text-[11px] leading-tight tracking-tight font-heading truncate max-w-[76px]">
+                {tab.label}
+              </span>
+            )}
           </Link>
         );
       })}

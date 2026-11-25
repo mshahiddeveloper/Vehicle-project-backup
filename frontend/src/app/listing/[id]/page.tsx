@@ -1508,8 +1508,16 @@ export default function ListingDetailPage() {
                 </span>
               </div>
 
-              {/* Tier Cards Grid (Daily, Weekly, Monthly) */}
-              <div className="grid grid-cols-3 gap-2">
+              {/* Tier Cards Grid (Only show Weekly/Monthly if entered by lister) */}
+              <div
+                className={`grid gap-2 ${
+                  car.weeklyRate && car.weeklyRate > 0 && car.monthlyRate && car.monthlyRate > 0
+                    ? 'grid-cols-3'
+                    : (car.weeklyRate && car.weeklyRate > 0) || (car.monthlyRate && car.monthlyRate > 0)
+                    ? 'grid-cols-2'
+                    : 'grid-cols-1'
+                }`}
+              >
                 {/* Daily Plan */}
                 <div className="p-3 rounded-2xl border-2 border-[#0B6B4F] bg-[#F6FBF8] flex flex-col justify-between gap-1">
                   <div>
@@ -1518,40 +1526,46 @@ export default function ListingDetailPage() {
                       {formatPrice(withDriver ? car.dailyRateWithDriver : car.dailyRate)}
                     </span>
                   </div>
-                  <span className="text-[10px] font-semibold text-[#475467] truncate">
-                    {car.mileageDaily || car.fuelKmAllowance || '200 km / day'}
-                  </span>
+                  {(car.mileageDaily || car.fuelKmAllowance) && (
+                    <span className="text-[10px] font-semibold text-[#475467] truncate">
+                      {car.mileageDaily || car.fuelKmAllowance}
+                    </span>
+                  )}
                 </div>
 
-                {/* Weekly Plan */}
-                <div className="p-3 rounded-2xl border border-[#E4E7EC] bg-white flex flex-col justify-between gap-1">
-                  <div>
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#667085] block">WEEKLY</span>
-                    <span className="font-heading font-black text-sm sm:text-lg text-[#101828] block mt-0.5">
-                      {car.weeklyRate && car.weeklyRate > 0
-                        ? formatPrice(car.weeklyRate)
-                        : formatPrice((withDriver ? car.dailyRateWithDriver : car.dailyRate) * 6)}
-                    </span>
+                {/* Weekly Plan (Only if provided) */}
+                {car.weeklyRate && car.weeklyRate > 0 ? (
+                  <div className="p-3 rounded-2xl border border-[#E4E7EC] bg-white flex flex-col justify-between gap-1">
+                    <div>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#667085] block">WEEKLY</span>
+                      <span className="font-heading font-black text-sm sm:text-lg text-[#101828] block mt-0.5">
+                        {formatPrice(car.weeklyRate)}
+                      </span>
+                    </div>
+                    {car.mileageWeekly && (
+                      <span className="text-[10px] font-semibold text-[#667085] truncate">
+                        {car.mileageWeekly}
+                      </span>
+                    )}
                   </div>
-                  <span className="text-[10px] font-semibold text-[#667085] truncate">
-                    {car.mileageWeekly || '1,400 km / wk'}
-                  </span>
-                </div>
+                ) : null}
 
-                {/* Monthly Plan */}
-                <div className="p-3 rounded-2xl border border-[#E4E7EC] bg-white flex flex-col justify-between gap-1">
-                  <div>
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#667085] block">MONTHLY</span>
-                    <span className="font-heading font-black text-sm sm:text-lg text-[#101828] block mt-0.5">
-                      {car.monthlyRate && car.monthlyRate > 0
-                        ? formatPrice(car.monthlyRate)
-                        : formatPrice((withDriver ? car.dailyRateWithDriver : car.dailyRate) * 22)}
-                    </span>
+                {/* Monthly Plan (Only if provided) */}
+                {car.monthlyRate && car.monthlyRate > 0 ? (
+                  <div className="p-3 rounded-2xl border border-[#E4E7EC] bg-white flex flex-col justify-between gap-1">
+                    <div>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#667085] block">MONTHLY</span>
+                      <span className="font-heading font-black text-sm sm:text-lg text-[#101828] block mt-0.5">
+                        {formatPrice(car.monthlyRate)}
+                      </span>
+                    </div>
+                    {car.mileageMonthly && (
+                      <span className="text-[10px] font-semibold text-[#667085] truncate">
+                        {car.mileageMonthly}
+                      </span>
+                    )}
                   </div>
-                  <span className="text-[10px] font-semibold text-[#667085] truncate">
-                    {car.mileageMonthly || '4,500 km / mo'}
-                  </span>
-                </div>
+                ) : null}
               </div>
 
               {/* Clean Checklist Summary */}
