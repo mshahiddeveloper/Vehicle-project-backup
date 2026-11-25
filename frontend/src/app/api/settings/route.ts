@@ -1,20 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getNeonSqlClient } from '@/lib/db';
 import { logAuditEvent } from '@/lib/auditLogServer';
+import { DEFAULT_PARTNER_CITY_POLICY, PartnerCityPolicy } from '@/data/countries';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// Server-side memory cache fallback
-let memorySettingsCache = {
+let memorySettingsCache: {
+  whatsappVerificationEnabled: boolean;
+  partnerCityPolicy: PartnerCityPolicy;
+  updatedAt: string;
+  updatedBy: string;
+} = {
   whatsappVerificationEnabled: false,
+  partnerCityPolicy: DEFAULT_PARTNER_CITY_POLICY,
   updatedAt: new Date().toISOString(),
   updatedBy: 'system',
 };
 
-/**
- * Ensures system_settings table exists in Neon PostgreSQL
- */
 async function ensureSystemSettingsTable(sql: any) {
   try {
     await sql`
@@ -37,18 +40,23 @@ export async function GET() {
     const rows = await sql`
       SELECT key, value, updated_at 
       FROM system_settings 
-      WHERE key = 'whatsapp_verification' 
-      LIMIT 1;
+      WHERE key IN ('whatsapp_verification', 'partner_city_policy');
     `;
 
-    if (rows.length > 0) {
-      const val = rows[0].value;
-      const enabled = Boolean(val && val.enabled);
-      memorySettingsCache = {
-        whatsappVerificationEnabled: enabled,
-        updatedAt: rows[0].updated_at || new Date().toISOString(),
-        updatedBy: val?.updatedBy || 'superadmin',
-      };
+    for (const r of rows) {
+      if (r.key === 'whatsapp_verification') {
+        memorySettingsCache.whatsappVerificationEnabled = Boolean(r.value?.enabled);
+        memorySettingsCache.updatedAt = r.updated_at || memorySettingsCache.updatedAt;
+      } else if (r.key === 'partner_city_policy' && r.value) {
+        memorySettingsCache.partnerCityPolicy = {
+          activeCountry: r.value.activeCountry || 'PK',
+          partnerCityMode: r.value.partnerCityMode === 'SELECTED' ? 'SELECTED' : 'ALL',
+          allowedPartnerCities: Array.isArray(r.value.allowedPartnerCities)
+            ? r.value.allowedPartnerCities
+            : DEFAULT_PARTNER_CITY_POLICY.allowedPartnerCities,
+          updatedAt: r.updated_at || new Date().toISOString(),
+        };
+      }
     }
 
     return NextResponse.json(
@@ -82,20 +90,15 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { whatsappVerificationEnabled } = body;
-
-    const enabled = Boolean(whatsappVerificationEnabled);
     const nowIso = new Date().toISOString();
 
-    memorySettingsCache = {
-      whatsappVerificationEnabled: enabled,
-      updatedAt: nowIso,
-      updatedBy: 'superadmin',
-    };
+    const sql = getNeonSqlClient();
+    await ensureSystemSettingsTable(sql);
 
-    try {
-      const sql = getNeonSqlClient();
-      await ensureSystemSettingsTable(sql);
+    if (typeof body.whatsappVerificationEnabled === 'boolean') {
+      const enabled = Boolean(body.whatsappVerificationEnabled);
+      memorySettingsCache.whatsappVerificationEnabled = enabled;
+      memorySettingsCache.updatedAt = nowIso;
 
       const jsonPayload = JSON.stringify({
         enabled,
@@ -110,30 +113,46 @@ export async function POST(req: NextRequest) {
         SET value = EXCLUDED.value, updated_at = NOW();
       `;
 
-      // Log to platform audit logs
-      try {
-        await logAuditEvent({
-          action: 'UPDATE_SYSTEM_SETTINGS',
-          targetResource: 'system_settings/whatsapp_verification',
-          actorRole: 'SUPER_ADMIN',
-          details: {
-            whatsappVerificationEnabled: enabled,
-            description: enabled
-              ? 'Super Admin enabled WhatsApp OTP verification for new registrations'
-              : 'Super Admin deactivated WhatsApp OTP verification (direct registration mode active)',
-          },
-        });
-      } catch {}
-    } catch (dbErr: any) {
-      console.warn('Could not persist system settings to Neon DB:', dbErr?.message);
+      logAuditEvent({
+        action: 'UPDATE_SYSTEM_SETTINGS',
+        targetResource: 'system_settings/whatsapp_verification',
+        actorRole: 'SUPER_ADMIN',
+        details: { whatsappVerificationEnabled: enabled },
+      }).catch(() => {});
+    }
+
+    if (body.partnerCityPolicy) {
+      const p = body.partnerCityPolicy;
+      const cleanPolicy: PartnerCityPolicy = {
+        activeCountry: String(p.activeCountry || 'PK').toUpperCase(),
+        partnerCityMode: p.partnerCityMode === 'SELECTED' ? 'SELECTED' : 'ALL',
+        allowedPartnerCities: Array.isArray(p.allowedPartnerCities)
+          ? p.allowedPartnerCities.map((c: any) => String(c).trim()).filter(Boolean)
+          : DEFAULT_PARTNER_CITY_POLICY.allowedPartnerCities,
+        updatedAt: nowIso,
+      };
+      memorySettingsCache.partnerCityPolicy = cleanPolicy;
+      memorySettingsCache.updatedAt = nowIso;
+
+      await sql`
+        INSERT INTO system_settings (key, value, updated_at)
+        VALUES ('partner_city_policy', ${JSON.stringify(cleanPolicy)}::jsonb, NOW())
+        ON CONFLICT (key) DO UPDATE
+        SET value = EXCLUDED.value, updated_at = NOW();
+      `;
+
+      logAuditEvent({
+        action: 'UPDATE_PARTNER_CITY_POLICY',
+        targetResource: 'system_settings/partner_city_policy',
+        actorRole: 'SUPER_ADMIN',
+        details: cleanPolicy,
+      }).catch(() => {});
     }
 
     return NextResponse.json(
       {
         success: true,
-        message: enabled
-          ? 'WhatsApp OTP verification has been ACTIVATED for all registrations.'
-          : 'WhatsApp OTP verification has been DEACTIVATED. Direct registration is active.',
+        message: 'System settings saved to Neon PostgreSQL.',
         settings: memorySettingsCache,
       },
       {
@@ -157,4 +176,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

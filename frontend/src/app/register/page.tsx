@@ -39,6 +39,12 @@ import {
 } from '@/data/userAuth';
 import { executePendingWishlistIfAny, syncWishlistFromServer } from '@/data/wishlist';
 import { fetchSystemSettings, getLocalSystemSettings } from '@/data/systemSettings';
+import {
+  DEFAULT_PARTNER_CITY_POLICY,
+  PartnerCityPolicy,
+  getCountryCitiesList,
+  resolveAllowedPartnerCities,
+} from '@/data/countries';
 
 type SupportedLang = 'en' | 'ur' | 'ar' | 'de';
 type OperationalRole = 'CUSTOMER' | 'LISTER' | 'DRIVER' | 'PICK_DROP' | 'SHIFTING';
@@ -96,17 +102,46 @@ function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(true);
   const [waOtpRequired, setWaOtpRequired] = useState(false);
+  const [cityPolicy, setCityPolicy] = useState<PartnerCityPolicy>(DEFAULT_PARTNER_CITY_POLICY);
+  const [customCustomerCity, setCustomCustomerCity] = useState('');
 
-  // Synchronize dynamic WhatsApp verification requirement from Super Admin system settings
+  // Synchronize dynamic WhatsApp verification & Partner City Policy from Neon DB
   useEffect(() => {
     try {
       const local = getLocalSystemSettings();
       setWaOtpRequired(Boolean(local.whatsappVerificationEnabled));
-      fetchSystemSettings().then((s) => {
-        setWaOtpRequired(Boolean(s.whatsappVerificationEnabled));
-      });
+      fetch('/api/settings', { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data?.settings) {
+            setWaOtpRequired(Boolean(data.settings.whatsappVerificationEnabled));
+            if (data.settings.partnerCityPolicy) {
+              setCityPolicy(data.settings.partnerCityPolicy);
+            }
+          }
+        })
+        .catch(() => {
+          fetchSystemSettings().then((s) => {
+            setWaOtpRequired(Boolean(s.whatsappVerificationEnabled));
+          });
+        });
     } catch {}
   }, []);
+
+  const customerCities = getCountryCitiesList(cityPolicy.activeCountry || 'PK');
+  const partnerAllowedCities = resolveAllowedPartnerCities(cityPolicy);
+  const availableCitiesForRole = accountType === 'customer' ? customerCities : partnerAllowedCities;
+
+  // Keep selected city valid when switching between Customer and Partner or when policy loads
+  useEffect(() => {
+    if (accountType === 'partner') {
+      if (!partnerAllowedCities.some((c) => c.toLowerCase() === city.toLowerCase())) {
+        setCity(partnerAllowedCities[0] || 'Karachi');
+      }
+    } else if (!city) {
+      setCity(customerCities[0] || 'Karachi');
+    }
+  }, [accountType, cityPolicy]);
 
   // Debounced real-time database pre-check to prevent sending OTP to already registered phone numbers
   useEffect(() => {
@@ -349,7 +384,7 @@ function RegisterForm() {
           password: password,
           role: mappedRole,
           providerSubtype,
-          city: city.trim() || 'Karachi',
+          city: (city === '__OTHER__' ? customCustomerCity.trim() : city.trim()) || 'Karachi',
           businessName: businessName.trim() || undefined,
         }),
       });
@@ -771,30 +806,53 @@ function RegisterForm() {
                   />
                 </label>
 
-                {/* City */}
+                {/* City (Full country list for Customers; Admin-enabled cities only for Partners) */}
                 <label className="flex flex-col gap-1">
-                  <span className="text-xs font-bold text-[#344054] flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#344054] flex items-center justify-between gap-2">
                     <span>
                       {selectedRole === 'CUSTOMER' ? T.yourCity.en : T.operatingCity.en}
                     </span>
-                    {lang !== 'en' && (
-                      <span className="text-[11px] font-semibold text-emerald-700" dir={lang === 'ur' || lang === 'ar' ? 'rtl' : 'ltr'}>
-                        {selectedRole === 'CUSTOMER' ? T.yourCity[lang] : T.operatingCity[lang]}
-                      </span>
-                    )}
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E9F3EE] text-[#0B6B4F]">
+                      {selectedRole === 'CUSTOMER'
+                        ? 'All Cities Open'
+                        : cityPolicy.partnerCityMode === 'ALL'
+                        ? 'All Country Cities'
+                        : `${partnerAllowedCities.length} Admin-Allowed`}
+                    </span>
                   </span>
-                  <input
-                    type="text"
+                  <select
                     required
-                    placeholder={
-                      selectedRole === 'CUSTOMER'
-                        ? 'e.g. Karachi / Lahore / Islamabad'
-                        : 'e.g. Lahore / Islamabad / Karachi'
-                    }
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    className="h-11 border border-[#D0D5DD] rounded-xl px-3 text-sm font-semibold outline-none focus:border-[#0B6B4F]"
-                  />
+                    value={city === '__OTHER__' ? '__OTHER__' : (availableCitiesForRole.includes(city) ? city : availableCitiesForRole[0] || '')}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '__OTHER__') {
+                        setCity('__OTHER__');
+                      } else {
+                        setCity(val);
+                        setCustomCustomerCity('');
+                      }
+                    }}
+                    className="h-11 border border-[#D0D5DD] rounded-xl px-3 text-sm font-semibold outline-none focus:border-[#0B6B4F] bg-white"
+                  >
+                    {availableCitiesForRole.map((cName) => (
+                      <option key={cName} value={cName}>
+                        {cName}
+                      </option>
+                    ))}
+                    {selectedRole === 'CUSTOMER' && (
+                      <option value="__OTHER__">Other City (Enter Manually)</option>
+                    )}
+                  </select>
+                  {selectedRole === 'CUSTOMER' && city === '__OTHER__' && (
+                    <input
+                      type="text"
+                      required
+                      placeholder="Enter your city or town name"
+                      value={customCustomerCity}
+                      onChange={(e) => setCustomCustomerCity(e.target.value)}
+                      className="h-11 mt-1 border border-[#D0D5DD] rounded-xl px-3 text-sm font-semibold outline-none focus:border-[#0B6B4F]"
+                    />
+                  )}
                 </label>
 
                 {/* Business Name (for partner roles) */}

@@ -138,7 +138,32 @@ export const COUNTRIES: CountryInfo[] = [
     symbol: 'Rs',
     dialCode: '+92',
     defaultCity: 'All Pakistan',
-    cities: ['All Pakistan', 'Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Peshawar', 'Multan', 'Faisalabad', 'Gujranwala', 'Sialkot'],
+    cities: [
+      'All Pakistan',
+      'Karachi',
+      'Lahore',
+      'Islamabad',
+      'Rawalpindi',
+      'Hyderabad',
+      'Faisalabad',
+      'Multan',
+      'Peshawar',
+      'Quetta',
+      'Sialkot',
+      'Gujranwala',
+      'Abbottabad',
+      'Bahawalpur',
+      'Sukkur',
+      'Sargodha',
+      'Mardan',
+      'Gujrat',
+      'Sahiwal',
+      'Jhelum',
+      'Larkana',
+      'Mirpur',
+      'Muzaffarabad',
+      'Gwadar',
+    ],
     isLive: true,
     comingSoonTitle: '',
     comingSoonMessage: '',
@@ -302,6 +327,34 @@ export const COUNTRIES: CountryInfo[] = [
     licensePlaceholder: '12AA34567',
   },
 ];
+
+export interface PartnerCityPolicy {
+  activeCountry: string;
+  partnerCityMode: 'ALL' | 'SELECTED';
+  allowedPartnerCities: string[];
+  updatedAt?: string;
+}
+
+export const DEFAULT_PARTNER_CITY_POLICY: PartnerCityPolicy = {
+  activeCountry: 'PK',
+  partnerCityMode: 'ALL',
+  allowedPartnerCities: ['Karachi', 'Lahore', 'Islamabad', 'Rawalpindi', 'Faisalabad', 'Multan'],
+};
+
+export function getCountryCitiesList(countryCode: string): string[] {
+  const c = COUNTRIES.find((x) => x.code.toUpperCase() === (countryCode || 'PK').toUpperCase()) || COUNTRIES[0];
+  return c.cities.filter((city) => !city.toLowerCase().startsWith('all '));
+}
+
+export function resolveAllowedPartnerCities(policy?: PartnerCityPolicy | null): string[] {
+  const p = policy || DEFAULT_PARTNER_CITY_POLICY;
+  const allCountryCities = getCountryCitiesList(p.activeCountry || 'PK');
+  if (p.partnerCityMode === 'ALL') {
+    return allCountryCities;
+  }
+  const allowed = Array.isArray(p.allowedPartnerCities) ? p.allowedPartnerCities.filter(Boolean) : [];
+  return allowed.length > 0 ? allowed : allCountryCities;
+}
 
 export function getFlagEmoji(countryCode: string): string {
   try {

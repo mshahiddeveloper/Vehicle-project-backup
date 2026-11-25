@@ -117,6 +117,28 @@ export async function POST(req: NextRequest) {
     }
 
     const sql = getNeonSqlClient();
+    const targetCity = city || session.city || 'Karachi';
+
+    if (session.role !== 'SUPER_ADMIN' && session.role !== 'AGENT') {
+      try {
+        const policyRows = await sql`SELECT value FROM system_settings WHERE key = 'partner_city_policy' LIMIT 1;`;
+        if (policyRows.length > 0 && policyRows[0].value?.partnerCityMode === 'SELECTED') {
+          const allowed: string[] = Array.isArray(policyRows[0].value.allowedPartnerCities)
+            ? policyRows[0].value.allowedPartnerCities
+            : [];
+          if (allowed.length > 0 && !allowed.some((c) => String(c).toLowerCase() === String(targetCity).toLowerCase())) {
+            return NextResponse.json(
+              {
+                success: false,
+                error: `Listing in ${targetCity} is restricted by Admin. Allowed partner cities: ${allowed.join(', ')}.`,
+              },
+              { status: 403, headers: NO_STORE_HEADERS }
+            );
+          }
+        }
+      } catch {}
+    }
+
     const resolvedTitle = title || `${brand} ${model} ${modelYear || 2024}`.trim();
     const images: string[] = Array.isArray(imageGallery) ? imageGallery.filter(Boolean) : [];
 

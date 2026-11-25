@@ -56,6 +56,29 @@ export async function POST(req: NextRequest) {
     const sql = getNeonSqlClient();
     const kmsKey = process.env.KMS_ENCRYPTION_KEY || 'safarpk_master_kms_key_2026';
 
+    // Enforce Admin Partner City Policy on server-side for non-Customer roles
+    if (cleanRole !== 'CUSTOMER' && cleanRole !== 'SUPER_ADMIN' && cleanRole !== 'AGENT') {
+      try {
+        const policyRows = await sql`
+          SELECT value FROM system_settings WHERE key = 'partner_city_policy' LIMIT 1;
+        `;
+        if (policyRows.length > 0 && policyRows[0].value?.partnerCityMode === 'SELECTED') {
+          const allowed: string[] = Array.isArray(policyRows[0].value.allowedPartnerCities)
+            ? policyRows[0].value.allowedPartnerCities
+            : [];
+          if (allowed.length > 0 && !allowed.some((c) => String(c).toLowerCase() === cleanCity.toLowerCase())) {
+            return NextResponse.json(
+              {
+                success: false,
+                error: `Partner registration in ${cleanCity} is currently disabled by Admin. Allowed cities: ${allowed.join(', ')}.`,
+              },
+              { status: 403, headers: { 'Cache-Control': 'no-store' } }
+            );
+          }
+        }
+      } catch {}
+    }
+
     // 1. Strict Registration Duplicate Guard: NEVER OVERWRITE EXISTING ACCOUNTS
     const existing = await sql`
       SELECT id, role, full_name, phone, email 

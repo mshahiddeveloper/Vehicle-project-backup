@@ -18,10 +18,19 @@ import {
 } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/WhatsAppIcon';
 import { fetchSystemSettings, updateSystemSettings } from '@/data/systemSettings';
+import {
+  COUNTRIES,
+  DEFAULT_PARTNER_CITY_POLICY,
+  PartnerCityPolicy,
+  getCountryCitiesList,
+} from '@/data/countries';
 
 export function AdminSystemControlTab() {
   const [waOtpEnabled, setWaOtpEnabled] = useState(false);
   const [isTogglingWa, setIsTogglingWa] = useState(false);
+  const [cityPolicy, setCityPolicy] = useState<PartnerCityPolicy>(DEFAULT_PARTNER_CITY_POLICY);
+  const [customCityInput, setCustomCityInput] = useState('');
+  const [isSavingCities, setIsSavingCities] = useState(false);
   const [dbHealth, setDbHealth] = useState<any>(null);
   const [overview, setOverview] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -31,14 +40,22 @@ export function AdminSystemControlTab() {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [settings, healthRes, ovRes] = await Promise.all([
-        fetchSystemSettings().catch(() => null),
+      const [settingsRes, healthRes, ovRes] = await Promise.all([
+        fetch('/api/settings', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetch('/api/neon-health', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetch('/api/admin/overview', { cache: 'no-store', credentials: 'include' })
           .then((r) => (r.ok ? r.json() : null))
           .catch(() => null),
       ]);
-      if (settings) setWaOtpEnabled(Boolean(settings.whatsappVerificationEnabled));
+      if (settingsRes?.settings) {
+        setWaOtpEnabled(Boolean(settingsRes.settings.whatsappVerificationEnabled));
+        if (settingsRes.settings.partnerCityPolicy) {
+          setCityPolicy(settingsRes.settings.partnerCityPolicy);
+        }
+      } else {
+        const s = await fetchSystemSettings().catch(() => null);
+        if (s) setWaOtpEnabled(Boolean(s.whatsappVerificationEnabled));
+      }
       if (healthRes) setDbHealth(healthRes);
       if (ovRes?.success) setOverview(ovRes);
     } finally {
@@ -73,6 +90,41 @@ export function AdminSystemControlTab() {
     } finally {
       setIsTogglingWa(false);
     }
+  };
+
+  const handleSaveCityPolicy = async (nextPolicy?: PartnerCityPolicy) => {
+    const payload = nextPolicy || cityPolicy;
+    setIsSavingCities(true);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ partnerCityPolicy: payload }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
+        setCityPolicy(data.settings?.partnerCityPolicy || payload);
+        flashNotice(
+          payload.partnerCityMode === 'ALL'
+            ? `Partner cities set to ALL cities in ${payload.activeCountry} (persisted in Neon DB).`
+            : `Partner cities restricted to ${payload.allowedPartnerCities.length} selected cities in ${payload.activeCountry}.`
+        );
+      } else {
+        flashNotice(data?.error || 'Failed to save city policy.');
+      }
+    } finally {
+      setIsSavingCities(false);
+    }
+  };
+
+  const toggleAllowedCity = (cityName: string) => {
+    setCityPolicy((prev) => {
+      const exists = prev.allowedPartnerCities.some((c) => c.toLowerCase() === cityName.toLowerCase());
+      const next = exists
+        ? prev.allowedPartnerCities.filter((c) => c.toLowerCase() !== cityName.toLowerCase())
+        : [...prev.allowedPartnerCities, cityName];
+      return { ...prev, allowedPartnerCities: next };
+    });
   };
 
   const handleAdminAction = async (action: string, targetId: string, value: any, label: string) => {
@@ -169,6 +221,139 @@ export function AdminSystemControlTab() {
         >
           {isTogglingWa ? 'Saving...' : waOtpEnabled ? 'Disable WhatsApp OTP' : 'Enable WhatsApp OTP'}
         </button>
+      </div>
+
+      {/* Partner Operating Cities & Country Control */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-extrabold text-white">
+              Partner Operating Cities &amp; Country Control (Database Synced)
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Customers can register from any city in the country. Partners &amp; Listers can only register and list in the cities you allow below.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleSaveCityPolicy()}
+            disabled={isSavingCities}
+            className="px-4 py-2 rounded-xl bg-[#0B6B4F] hover:bg-emerald-700 text-white text-xs font-extrabold cursor-pointer shrink-0 transition"
+          >
+            {isSavingCities ? 'Saving...' : 'Save City Policy'}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-bold text-slate-400 uppercase">Active Country</span>
+            <select
+              value={cityPolicy.activeCountry}
+              onChange={(e) => {
+                const code = e.target.value;
+                const cCities = getCountryCitiesList(code);
+                setCityPolicy((prev) => ({
+                  ...prev,
+                  activeCountry: code,
+                  allowedPartnerCities: cCities.slice(0, 3),
+                }));
+              }}
+              className="h-10 rounded-xl bg-slate-950 border border-slate-700 px-3 text-xs font-bold text-white outline-none"
+            >
+              {COUNTRIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.flag} {c.name} ({c.code})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-bold text-slate-400 uppercase">Partner City Mode</span>
+            <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setCityPolicy((prev) => ({ ...prev, partnerCityMode: 'ALL' }))}
+                className={`py-1.5 rounded-lg transition cursor-pointer ${
+                  cityPolicy.partnerCityMode === 'ALL'
+                    ? 'bg-[#0B6B4F] text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                All Cities in Country
+              </button>
+              <button
+                type="button"
+                onClick={() => setCityPolicy((prev) => ({ ...prev, partnerCityMode: 'SELECTED' }))}
+                className={`py-1.5 rounded-lg transition cursor-pointer ${
+                  cityPolicy.partnerCityMode === 'SELECTED'
+                    ? 'bg-[#0B6B4F] text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Selected Cities Only
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {cityPolicy.partnerCityMode === 'SELECTED' && (
+          <div className="space-y-2.5 pt-2 border-t border-slate-800">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="text-xs font-bold text-slate-300">
+                Select Allowed Partner Cities ({cityPolicy.allowedPartnerCities.length} selected)
+              </span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={customCityInput}
+                  onChange={(e) => setCustomCityInput(e.target.value)}
+                  placeholder="Add custom city..."
+                  className="h-8 px-2.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-white outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const val = customCityInput.trim();
+                    if (val && !cityPolicy.allowedPartnerCities.includes(val)) {
+                      setCityPolicy((prev) => ({
+                        ...prev,
+                        allowedPartnerCities: [...prev.allowedPartnerCities, val],
+                      }));
+                      setCustomCityInput('');
+                    }
+                  }}
+                  className="h-8 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold cursor-pointer"
+                >
+                  + Add
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5">
+              {Array.from(new Set([...getCountryCitiesList(cityPolicy.activeCountry), ...cityPolicy.allowedPartnerCities])).map((cName) => {
+                const selected = cityPolicy.allowedPartnerCities.some(
+                  (x) => x.toLowerCase() === cName.toLowerCase()
+                );
+                return (
+                  <button
+                    key={cName}
+                    type="button"
+                    onClick={() => toggleAllowedCity(cName)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                      selected
+                        ? 'bg-[#0B6B4F] text-white border border-emerald-400/50'
+                        : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
+                    }`}
+                  >
+                    {selected ? '✓ ' : '+ '}
+                    {cName}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Sub-navigation Pills */}
