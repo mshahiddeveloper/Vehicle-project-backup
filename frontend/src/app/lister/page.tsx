@@ -52,6 +52,7 @@ import { DashboardStoreWidget } from '@/components/DashboardStoreWidget';
 import { AnalyticsReportHub } from '@/components/AnalyticsReportHub';
 import { ListerAutoReplyPanel } from '@/components/ListerAutoReplyPanel';
 import { useCountry } from '@/app/context/CountryContext';
+import { resolveAllowedPartnerCities, persistPartnerCustomCity } from '@/data/countries';
 import {
   isDocActiveForRole,
   isDocMandatoryForRole,
@@ -249,6 +250,23 @@ export default function ListerDashboardPage() {
     }
     if (user.name) setListerName(user.name);
 
+    // Sync Admin-allowed partner cities & custom-city permission from Neon DB
+    fetch('/api/settings', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        const policy = data?.settings?.partnerCityPolicy;
+        if (policy) {
+          const allowed = resolveAllowedPartnerCities(policy);
+          setListerAvailableCities(allowed);
+          setAdminAllowsCustomCity(Boolean(policy.allowCustomCity));
+          if (allowed.length > 0 && !allowed.includes(user.city || '')) {
+            setPersonalCity(allowed[0]);
+            setOperatingCity(allowed[0]);
+          }
+        }
+      })
+      .catch(() => {});
+
     // Load user's personal fleet, driver team & bookings if registered non-demo
     if (user.id !== 'usr-demo-lister') {
       try {
@@ -434,21 +452,11 @@ export default function ListerDashboardPage() {
   const [personalCity, setPersonalCity] = useState('Islamabad');
   const [personalSearchLocation, setPersonalSearchLocation] = useState('Centaurus Mall, F-8, Islamabad');
   const [showGeoBanner, setShowGeoBanner] = useState(true);
-  const [listerAvailableCities, setListerAvailableCities] = useState<string[]>([
-    'Islamabad',
-    'Rawalpindi',
-    'Lahore',
-    'Karachi',
-    'Peshawar',
-    'Multan',
-    'Faisalabad',
-    'Quetta',
-    'Gujranwala',
-    'Sialkot',
-    'Abbottabad',
-  ]);
+  const [listerAvailableCities, setListerAvailableCities] = useState<string[]>(resolveAllowedPartnerCities());
+  const [adminAllowsCustomCity, setAdminAllowsCustomCity] = useState(false);
   const [showCustomCityLister, setShowCustomCityLister] = useState(false);
   const [customCityListerInput, setCustomCityListerInput] = useState('');
+  const canAddCustomCity = adminAllowsCustomCity && currentUser?.subscription?.status === 'ACTIVE';
 
   // Legacy Contact Info Sync
   const [listerName, setListerName] = useState('Muhammad Salman');
@@ -3075,14 +3083,14 @@ export default function ListerDashboardPage() {
                     />
                   </div>
 
-                  {/* City Dropdown with + Custom City Option */}
+                  {/* City Dropdown (Synced with Admin Partner City Policy; Custom City only when Admin allows & Paid Sub Active) */}
                   <div>
-                    {!showCustomCityLister ? (
+                    {!showCustomCityLister || !canAddCustomCity ? (
                       <div className="relative">
                         <select
                           value={personalCity}
                           onChange={(e) => {
-                            if (e.target.value === '__CUSTOM__') {
+                            if (e.target.value === '__CUSTOM__' && canAddCustomCity) {
                               setShowCustomCityLister(true);
                             } else {
                               setPersonalCity(e.target.value);
@@ -3099,7 +3107,9 @@ export default function ListerDashboardPage() {
                               {c}
                             </option>
                           ))}
-                          <option value="__CUSTOM__">+ Custom City (Add Your City)...</option>
+                          {canAddCustomCity && (
+                            <option value="__CUSTOM__">+ Custom City (Add Your City)...</option>
+                          )}
                         </select>
                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
                           <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20">
@@ -3123,6 +3133,9 @@ export default function ListerDashboardPage() {
                                 if (!listerAvailableCities.includes(formatted)) {
                                   setListerAvailableCities([formatted, ...listerAvailableCities]);
                                 }
+                                persistPartnerCustomCity(formatted).then((updated) => {
+                                  if (updated) setListerAvailableCities(updated);
+                                });
                                 setPersonalCity(formatted);
                                 setMapSearchTerm(`${formatted}, Pakistan`);
                                 setCustomCityListerInput('');
@@ -3144,6 +3157,9 @@ export default function ListerDashboardPage() {
                               if (!listerAvailableCities.includes(formatted)) {
                                 setListerAvailableCities([formatted, ...listerAvailableCities]);
                               }
+                              persistPartnerCustomCity(formatted).then((updated) => {
+                                if (updated) setListerAvailableCities(updated);
+                              });
                               setPersonalCity(formatted);
                               setMapSearchTerm(`${formatted}, Pakistan`);
                               setCustomCityListerInput('');
@@ -3163,15 +3179,17 @@ export default function ListerDashboardPage() {
                         </button>
                       </div>
                     )}
-                    <div className="flex justify-end mt-1">
-                      <button
-                        type="button"
-                        onClick={() => setShowCustomCityLister(true)}
-                        className="text-[10px] font-bold text-emerald-700 hover:underline cursor-pointer"
-                      >
-                        + City not listed? Add custom city
-                      </button>
-                    </div>
+                    {canAddCustomCity && !showCustomCityLister && (
+                      <div className="flex justify-end mt-1">
+                        <button
+                          type="button"
+                          onClick={() => setShowCustomCityLister(true)}
+                          className="text-[10px] font-bold text-emerald-700 hover:underline cursor-pointer"
+                        >
+                          + City not listed? Add custom city
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Search Location with Pin Icon on the Right (Matching Image 1) */}
@@ -3365,12 +3383,15 @@ export default function ListerDashboardPage() {
                 </div>
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Operating City</label>
-                  <input
-                    type="text"
+                  <select
                     value={operatingCity}
                     onChange={(e) => setOperatingCity(e.target.value)}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl"
-                  />
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 cursor-pointer"
+                  >
+                    {listerAvailableCities.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

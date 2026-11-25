@@ -54,6 +54,7 @@ export async function GET() {
           allowedPartnerCities: Array.isArray(r.value.allowedPartnerCities)
             ? r.value.allowedPartnerCities
             : DEFAULT_PARTNER_CITY_POLICY.allowedPartnerCities,
+          allowCustomCity: Boolean(r.value.allowCustomCity),
           updatedAt: r.updated_at || new Date().toISOString(),
         };
       }
@@ -129,6 +130,7 @@ export async function POST(req: NextRequest) {
         allowedPartnerCities: Array.isArray(p.allowedPartnerCities)
           ? p.allowedPartnerCities.map((c: any) => String(c).trim()).filter(Boolean)
           : DEFAULT_PARTNER_CITY_POLICY.allowedPartnerCities,
+        allowCustomCity: Boolean(p.allowCustomCity),
         updatedAt: nowIso,
       };
       memorySettingsCache.partnerCityPolicy = cleanPolicy;
@@ -147,6 +149,32 @@ export async function POST(req: NextRequest) {
         actorRole: 'SUPER_ADMIN',
         details: cleanPolicy,
       }).catch(() => {});
+    }
+
+    if (typeof body.addPartnerCustomCity === 'string' && body.addPartnerCustomCity.trim()) {
+      const rawCity = body.addPartnerCustomCity.trim();
+      const formattedCity = rawCity.charAt(0).toUpperCase() + rawCity.slice(1);
+      if (!memorySettingsCache.partnerCityPolicy.allowCustomCity) {
+        return NextResponse.json(
+          { success: false, error: 'Custom city addition is disabled by Super Admin.' },
+          { status: 403, headers: { 'Cache-Control': 'no-store' } }
+        );
+      }
+      const current = memorySettingsCache.partnerCityPolicy;
+      if (!current.allowedPartnerCities.some((c) => c.toLowerCase() === formattedCity.toLowerCase())) {
+        const updatedPolicy: PartnerCityPolicy = {
+          ...current,
+          allowedPartnerCities: [...current.allowedPartnerCities, formattedCity],
+          updatedAt: nowIso,
+        };
+        memorySettingsCache.partnerCityPolicy = updatedPolicy;
+        await sql`
+          INSERT INTO system_settings (key, value, updated_at)
+          VALUES ('partner_city_policy', ${JSON.stringify(updatedPolicy)}::jsonb, NOW())
+          ON CONFLICT (key) DO UPDATE
+          SET value = EXCLUDED.value, updated_at = NOW();
+        `;
+      }
     }
 
     return NextResponse.json(

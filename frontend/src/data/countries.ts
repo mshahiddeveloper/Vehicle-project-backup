@@ -332,6 +332,7 @@ export interface PartnerCityPolicy {
   activeCountry: string;
   partnerCityMode: 'ALL' | 'SELECTED';
   allowedPartnerCities: string[];
+  allowCustomCity?: boolean;
   updatedAt?: string;
 }
 
@@ -339,6 +340,7 @@ export const DEFAULT_PARTNER_CITY_POLICY: PartnerCityPolicy = {
   activeCountry: 'PK',
   partnerCityMode: 'ALL',
   allowedPartnerCities: ['Karachi', 'Lahore', 'Islamabad', 'Rawalpindi', 'Faisalabad', 'Multan'],
+  allowCustomCity: false,
 };
 
 export function getCountryCitiesList(countryCode: string): string[] {
@@ -349,11 +351,33 @@ export function getCountryCitiesList(countryCode: string): string[] {
 export function resolveAllowedPartnerCities(policy?: PartnerCityPolicy | null): string[] {
   const p = policy || DEFAULT_PARTNER_CITY_POLICY;
   const allCountryCities = getCountryCitiesList(p.activeCountry || 'PK');
+  const customExtras = Array.isArray(p.allowedPartnerCities) ? p.allowedPartnerCities.filter(Boolean) : [];
   if (p.partnerCityMode === 'ALL') {
-    return allCountryCities;
+    return Array.from(new Set([...allCountryCities, ...customExtras]));
   }
-  const allowed = Array.isArray(p.allowedPartnerCities) ? p.allowedPartnerCities.filter(Boolean) : [];
-  return allowed.length > 0 ? allowed : allCountryCities;
+  return customExtras.length > 0 ? customExtras : allCountryCities;
+}
+
+/**
+ * Persist a custom city added by a paid partner (when Admin allows custom cities)
+ * into Neon DB system_settings so it appears in every city list across the platform.
+ */
+export async function persistPartnerCustomCity(cityName: string): Promise<string[] | null> {
+  if (typeof window === 'undefined') return null;
+  const formatted = cityName.trim();
+  if (!formatted) return null;
+  try {
+    const res = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ addPartnerCustomCity: formatted }),
+    });
+    const data = await res.json().catch(() => null);
+    if (res.ok && data?.success && data?.settings?.partnerCityPolicy) {
+      return resolveAllowedPartnerCities(data.settings.partnerCityPolicy);
+    }
+  } catch {}
+  return null;
 }
 
 export function getFlagEmoji(countryCode: string): string {

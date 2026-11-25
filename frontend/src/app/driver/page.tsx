@@ -3,6 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { ListerAutoReplyPanel } from '@/components/ListerAutoReplyPanel';
+import { resolveAllowedPartnerCities, persistPartnerCustomCity } from '@/data/countries';
 import { useSearchParams } from 'next/navigation';
 import {
   User,
@@ -179,6 +180,23 @@ function DriverDashboardContent() {
     if (user.city) {
       setDriverCity(user.city);
     }
+
+    // Sync Admin-allowed partner cities & custom-city permission from Neon DB
+    fetch('/api/settings', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        const policy = data?.settings?.partnerCityPolicy;
+        if (policy) {
+          const allowed = resolveAllowedPartnerCities(policy);
+          setDriverAvailableCities(allowed);
+          setAdminAllowsCustomCity(Boolean(policy.allowCustomCity));
+          if (allowed.length > 0 && !allowed.includes(user.city || '')) {
+            setDriverCity(allowed[0]);
+            setDriverOperatingCities([allowed[0]]);
+          }
+        }
+      })
+      .catch(() => {});
     if (user.bio) {
       setDriverBio(user.bio);
       setEditDriverBio(user.bio);
@@ -375,17 +393,10 @@ function DriverDashboardContent() {
   const [newBlockDate, setNewBlockDate] = useState('');
   const [scheduleNotice, setScheduleNotice] = useState<string | null>(null);
 
-  // Operating Coverage Cities & Custom City Autonomy (Matching Image 7)
-  const [driverAvailableCities, setDriverAvailableCities] = useState<string[]>([
-    'Lahore',
-    'Islamabad',
-    'Rawalpindi',
-    'Karachi',
-    'Faisalabad',
-    'Multan',
-    'Peshawar',
-    'Gujranwala',
-  ]);
+  // Operating Coverage Cities (Synced with Admin Partner City Policy)
+  const [driverAvailableCities, setDriverAvailableCities] = useState<string[]>(resolveAllowedPartnerCities());
+  const [adminAllowsCustomCity, setAdminAllowsCustomCity] = useState(false);
+  const canAddCustomCity = adminAllowsCustomCity && currentUser?.subscription?.status === 'ACTIVE';
   const [driverOperatingCities, setDriverOperatingCities] = useState<string[]>([
     'Lahore',
     'Islamabad',
@@ -405,6 +416,7 @@ function DriverDashboardContent() {
   };
 
   const handleAddCustomCityDriver = () => {
+    if (!canAddCustomCity) return;
     const trimmed = customCityDriverInput.trim();
     if (!trimmed) return;
     const formatted = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
@@ -414,6 +426,9 @@ function DriverDashboardContent() {
     if (!driverOperatingCities.includes(formatted)) {
       setDriverOperatingCities([...driverOperatingCities, formatted]);
     }
+    persistPartnerCustomCity(formatted).then((updated) => {
+      if (updated) setDriverAvailableCities(updated);
+    });
     setDriverCity(formatted);
     setCustomCityDriverInput('');
     setShowCustomCityDriver(false);
@@ -1296,8 +1311,8 @@ function DriverDashboardContent() {
                     );
                   })}
 
-                  {/* + Custom City Button & Inline Input */}
-                  {!showCustomCityDriver ? (
+                  {/* + Custom City Button & Inline Input (Only when Admin allows & Paid Sub Active) */}
+                  {canAddCustomCity && (!showCustomCityDriver ? (
                     <button
                       type="button"
                       onClick={() => setShowCustomCityDriver(true)}
@@ -1339,7 +1354,7 @@ function DriverDashboardContent() {
                         ✕
                       </button>
                     </div>
-                  )}
+                  ))}
                 </div>
               </div>
 

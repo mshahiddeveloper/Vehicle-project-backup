@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { ListerAutoReplyPanel } from '@/components/ListerAutoReplyPanel';
+import { resolveAllowedPartnerCities, persistPartnerCustomCity } from '@/data/countries';
 import {
   Bus,
   Truck,
@@ -453,6 +454,22 @@ export default function ServiceProviderDashboardPage() {
         setCityBase(user.city);
         setServiceCoverageCities((prev) => (prev.includes(user.city) ? prev : [user.city, ...prev]));
       }
+
+      // Sync Admin-allowed partner cities & custom-city permission from Neon DB
+      fetch('/api/settings', { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          const policy = data?.settings?.partnerCityPolicy;
+          if (policy) {
+            const allowed = resolveAllowedPartnerCities(policy);
+            setAvailableCoverageCities(allowed);
+            setAdminAllowsCustomCity(Boolean(policy.allowCustomCity));
+            if (allowed.length > 0 && !allowed.includes(user.city || '')) {
+              setCityBase(allowed[0]);
+            }
+          }
+        })
+        .catch(() => {});
       const services = getApprovedServicesForUser(user);
       if (services.includes('PICK_AND_DROP') && !services.includes('HOME_SHIFTING')) {
         setProviderMode('PICK_AND_DROP');
@@ -633,16 +650,9 @@ export default function ServiceProviderDashboardPage() {
     const providerId = currentUser?.id || 'usr-demo-provider';
     return acc + (c.unreadCountFor?.[providerId] || 0);
   }, 0);
-  const [availableCoverageCities, setAvailableCoverageCities] = useState<string[]>([
-    'Lahore',
-    'Islamabad',
-    'Rawalpindi',
-    'Karachi',
-    'Faisalabad',
-    'Multan',
-    'Peshawar',
-    'Gujranwala',
-  ]);
+  const [availableCoverageCities, setAvailableCoverageCities] = useState<string[]>(resolveAllowedPartnerCities());
+  const [adminAllowsCustomCity, setAdminAllowsCustomCity] = useState(false);
+  const canAddCustomCity = adminAllowsCustomCity && currentUser?.subscription?.status === 'ACTIVE';
   const [serviceCoverageCities, setServiceCoverageCities] = useState<string[]>([
     'Lahore',
     'Islamabad',
@@ -654,6 +664,7 @@ export default function ServiceProviderDashboardPage() {
   const [showCustomCityInput, setShowCustomCityInput] = useState(false);
 
   const handleAddCustomCity = () => {
+    if (!canAddCustomCity) return;
     const trimmed = customCityInput.trim();
     if (!trimmed) return;
     const formatted = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
@@ -663,6 +674,9 @@ export default function ServiceProviderDashboardPage() {
     if (!serviceCoverageCities.includes(formatted)) {
       setServiceCoverageCities([...serviceCoverageCities, formatted]);
     }
+    persistPartnerCustomCity(formatted).then((updated) => {
+      if (updated) setAvailableCoverageCities(updated);
+    });
     setCustomCityInput('');
     setShowCustomCityInput(false);
   };
@@ -2170,8 +2184,8 @@ export default function ServiceProviderDashboardPage() {
                       );
                     })}
 
-                    {/* Inline Custom City Input & Button */}
-                    {!showCustomCityInput ? (
+                    {/* Inline Custom City Input & Button (Only when Admin allows & Paid Sub Active) */}
+                    {canAddCustomCity && (!showCustomCityInput ? (
                       <button
                         type="button"
                         onClick={() => setShowCustomCityInput(true)}
@@ -2215,7 +2229,7 @@ export default function ServiceProviderDashboardPage() {
                           ✕
                         </button>
                       </div>
-                    )}
+                    ))}
                   </div>
                 </div>
 

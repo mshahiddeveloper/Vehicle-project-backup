@@ -297,6 +297,31 @@ export function AdminSystemControlTab() {
           </div>
         </div>
 
+        {/* Admin Permission: Allow Paid Partners to Add Custom Cities */}
+        <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-950 border border-slate-800">
+          <div>
+            <span className="text-xs font-bold text-white block">
+              Allow Paid Partners to Add Custom Cities
+            </span>
+            <span className="text-[11px] text-slate-400">
+              When OFF (default), partners can only pick Admin-approved cities. When ON, subscribed partners can add a new city into the global database.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              setCityPolicy((prev) => ({ ...prev, allowCustomCity: !prev.allowCustomCity }))
+            }
+            className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition cursor-pointer shrink-0 ${
+              cityPolicy.allowCustomCity
+                ? 'bg-emerald-600 text-white'
+                : 'bg-slate-800 text-slate-300'
+            }`}
+          >
+            {cityPolicy.allowCustomCity ? 'ALLOWED' : 'RESTRICTED'}
+          </button>
+        </div>
+
         {cityPolicy.partnerCityMode === 'SELECTED' && (
           <div className="space-y-2.5 pt-2 border-t border-slate-800">
             <div className="flex items-center justify-between flex-wrap gap-2">
