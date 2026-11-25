@@ -122,11 +122,12 @@ export default function MoverDetailPage() {
   };
 
   // Calculate dynamic moving quote
-  const kmRateNum = parseInt(mover.km.replace(/\D/g, ''), 10) || 100;
-  const helperRateNum = parseInt(mover.helper.replace(/\D/g, ''), 10) || 1000;
-  const estimatedCost = mover.baseNum + estimatedKm * kmRateNum + helpersCount * helperRateNum;
+  const kmRateNum = mover ? parseInt(mover.km.replace(/\D/g, ''), 10) || 100 : 100;
+  const helperRateNum = mover ? parseInt(mover.helper.replace(/\D/g, ''), 10) || 1000 : 1000;
+  const estimatedCost = mover ? mover.baseNum + estimatedKm * kmRateNum + helpersCount * helperRateNum : 0;
 
   const handleCall = () => {
+    if (!mover) return;
     setPhoneRevealed(true);
     recordClickEvent({
       clickType: 'CALL_CLICK',
@@ -150,6 +151,7 @@ export default function MoverDetailPage() {
   };
 
   const handleWhatsApp = () => {
+    if (!mover) return;
     recordClickEvent({
       clickType: 'WHATSAPP_CLICK',
       targetId: mover.id,
@@ -181,7 +183,7 @@ export default function MoverDetailPage() {
       return;
     }
 
-    if (user.role === 'VENDOR' || user.role === 'LISTER' || user.role === 'DRIVER') {
+    if (user.role === 'LISTER' || user.role === 'DRIVER' || user.role === 'PROVIDER') {
       router.push('/inbox');
       return;
     }
@@ -230,6 +232,7 @@ export default function MoverDetailPage() {
 
   const handleQuoteSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!mover) return;
     recordLead({
       userId: mover.id,
       customerName: 'Formal Moving Quotation Lead',

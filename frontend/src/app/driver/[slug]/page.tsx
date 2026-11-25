@@ -83,8 +83,8 @@ export default function PublicDriverProfilePage() {
         category: 'driver',
         title: `${driver.name} (Professional Chauffeur)`,
         name: `${driver.name} (Professional Chauffeur)`,
-        specs: `${driver.experience} · ${driver.city}`,
-        sub: `${driver.experience} · ${driver.city}`,
+        specs: `${driver.exp} · ${driver.city}`,
+        sub: `${driver.exp} · ${driver.city}`,
         city: driver.city,
         rate: formatPrice(driver.dailyRate12h) + ' / 12h',
         price: formatPrice(driver.dailyRate12h) + ' / 12h',
@@ -107,7 +107,7 @@ export default function PublicDriverProfilePage() {
           id: driver.id,
           category: 'driver',
           name: `${driver.name} (Professional Chauffeur)`,
-          sub: `${driver.experience} · ${driver.city}`,
+          sub: `${driver.exp} · ${driver.city}`,
           price: formatPrice(driver.dailyRate12h) + ' / 12h',
           href: `/driver/${driver.slug}`,
           savedAt: new Date().toISOString(),
@@ -251,7 +251,7 @@ export default function PublicDriverProfilePage() {
     }
 
     // Logged-in Vendor / Driver / Lister: goes to its own inbox / chat room
-    if (user.role === 'VENDOR' || user.role === 'LISTER' || user.role === 'DRIVER') {
+    if (user.role === 'LISTER' || user.role === 'DRIVER' || user.role === 'PROVIDER') {
       router.push('/inbox');
       return;
     }

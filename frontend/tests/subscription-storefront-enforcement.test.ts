@@ -189,7 +189,7 @@ describe('Subscription Enforcement & Zero-Demo Leakage Architecture', () => {
       const source = fs.readFileSync(pagePath, 'utf-8');
 
       expect(source).not.toContain("return VEHICLE_CATALOG['l-1'];");
-      expect(source).toContain('export function resolveCatalogItem(id: string): VehicleDetail | null');
+      expect(source).toContain('function resolveCatalogItem(id: string): VehicleDetail | null');
       expect(source).toContain('return null;');
       expect(source).toContain('Vehicle Listing Not Found');
     });

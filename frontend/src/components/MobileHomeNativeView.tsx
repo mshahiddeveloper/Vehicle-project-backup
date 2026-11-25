@@ -52,9 +52,11 @@ import {
   CityOption,
   FAMOUS_PAKISTAN_CITIES,
   formatShortDate,
+  getCustomCityRides,
 } from '@/data/marketplaceData';
-import { getActiveUser, getAllRegisteredUsers, RegisteredUser, getUserDashboardPath } from '@/data/userAuth';
-import { getUserUnreadMessageCount } from '@/data/chatEngine';
+import { getActiveUser, getAllRegisteredUsers, RegisteredUser, getUserDashboardPath, isListingPaused } from '@/data/userAuth';
+import { getUserUnreadMessageCount, getWhatsAppTargetUrl } from '@/data/chatEngine';
+import { recordLead, recordClickEvent } from '@/data/activityTracker';
 import {
   setPendingWishlist,
   consumeWishlistToast,
@@ -142,9 +144,10 @@ export function MobileHomeNativeView() {
   const [pickupDate, setPickupDate] = useState(() => getTodayDateString());
   const [returnDate, setReturnDate] = useState('');
   const [c2cFromCity, setC2cFromCity] = useState('Karachi');
-  const [c2cToCity, setC2cToCity] = useState('Hyderabad');
+  const [c2cToCity, setC2cToCity] = useState('');
   const [c2cSearchQuery, setC2cSearchQuery] = useState('');
   const [c2cPickerSheetOpen, setC2cPickerSheetOpen] = useState<'from' | 'to' | null>(null);
+  const [customCityRides, setCustomCityRides] = useState<CityRideItem[]>([]);
 
   // Shuttles corridor inputs
   const [shuttleCity, setShuttleCity] = useState('Karachi');
@@ -254,6 +257,12 @@ export function MobileHomeNativeView() {
     window.addEventListener('safarpk_favorites_updated', syncSavedFavorites);
     window.addEventListener('storage', syncSavedFavorites);
 
+    const syncCustomRides = () => {
+      setCustomCityRides(getCustomCityRides());
+    };
+    syncCustomRides();
+    window.addEventListener('safarpk_city_rides_updated', syncCustomRides);
+
     const pendingToast = consumeWishlistToast();
     if (pendingToast) {
       showToast(pendingToast);
@@ -265,6 +274,7 @@ export function MobileHomeNativeView() {
       window.removeEventListener('safarpk_saved_updated', syncSavedFavorites);
       window.removeEventListener('safarpk_favorites_updated', syncSavedFavorites);
       window.removeEventListener('storage', syncSavedFavorites);
+      window.removeEventListener('safarpk_city_rides_updated', syncCustomRides);
     };
   }, []);
 
@@ -274,6 +284,7 @@ export function MobileHomeNativeView() {
       setShuttleCity(city);
     }
     setC2cFromCity(city);
+    setC2cToCity('');
   }, [city]);
 
   const showToast = (msg: string) => {
@@ -326,7 +337,48 @@ export function MobileHomeNativeView() {
     setSavedCarIds(updated);
   };
 
+  const toggleSaveRide = (e: React.MouseEvent, ride: CityRideItem) => {
+    e.stopPropagation();
+    const currentUser = getActiveUser();
+    const rateLabel = ride.pricePerSeat
+      ? `Rs. ${ride.pricePerSeat.toLocaleString()} / seat`
+      : `Rs. ${ride.one.toLocaleString()}`;
+    const item = {
+      id: ride.id,
+      category: 'ride' as const,
+      title: `${ride.fromCity} ➔ ${ride.toCity} (${ride.car})`,
+      name: `${ride.fromCity} ➔ ${ride.toCity}`,
+      specs: `${ride.car} · ${ride.time}`,
+      city: ride.fromCity,
+      rate: rateLabel,
+      price: rateLabel,
+      href: `/city-to-city/${ride.id}`,
+    };
+
+    if (!currentUser) {
+      const currentUrl = typeof window !== 'undefined' ? (window.location.pathname + window.location.search) : '/';
+      setPendingWishlist(item, currentUrl);
+      window.location.href = `/login?returnUrl=${encodeURIComponent(currentUrl)}&pendingWishlist=1`;
+      return;
+    }
+
+    if (savedCarIds.includes(ride.id)) {
+      setSavedCarIds((prev) => prev.filter((id) => id !== ride.id));
+      removeWishlistItem(ride.id);
+      showToast(`Removed "${ride.fromCity} ➔ ${ride.toCity}" from saved`);
+    } else {
+      setSavedCarIds((prev) => [...prev, ride.id]);
+      saveWishlistItem(item);
+      showToast(`Saved "${ride.fromCity} ➔ ${ride.toCity}" to wishlist!`);
+    }
+  };
+
   const handleSwapC2cCities = () => {
+    if (!c2cToCity) {
+      showToast('Select a destination city first');
+      setC2cPickerSheetOpen('to');
+      return;
+    }
     const temp = c2cFromCity;
     setC2cFromCity(c2cToCity);
     setC2cToCity(temp);
@@ -479,8 +531,17 @@ export function MobileHomeNativeView() {
   }, [city, searchWhere, pickupDate, todayDateStr, searchTokens, PAK_CITIES_LOWER]);
 
   const filteredRides = useMemo(() => {
-    let list = [...CITY_RIDES_DATA];
-    const targetCity = searchWhere || city;
+    const merged = [...customCityRides, ...CITY_RIDES_DATA];
+    const seen = new Set<string>();
+    let list = merged.filter((r) => {
+      if (seen.has(r.id)) return false;
+      seen.add(r.id);
+      if (isListingPaused(r.id, r.op) || isListingPaused(r.id, r.phone)) return false;
+      return true;
+    });
+
+    const targetFrom = (c2cFromCity || searchWhere || city || '').trim().toLowerCase();
+    const targetTo = (c2cToCity || '').trim().toLowerCase();
 
     if (searchTokens.length > 0) {
       const explicitCity = searchTokens.find((t) => PAK_CITIES_LOWER.includes(t));
@@ -498,25 +559,32 @@ export function MobileHomeNativeView() {
           });
         }
       } else {
-        list = list.filter(
-          (r) =>
-            r.fromCity.toLowerCase() === targetCity.toLowerCase() ||
-            r.toCity.toLowerCase() === targetCity.toLowerCase()
-        );
         list = list.filter((r) => {
+          const matchesRoute = targetTo
+            ? r.fromCity.toLowerCase() === targetFrom && r.toCity.toLowerCase() === targetTo
+            : !targetFrom ||
+              r.fromCity.toLowerCase() === targetFrom ||
+              r.toCity.toLowerCase() === targetFrom;
+          if (!matchesRoute) return false;
           const searchable = `${r.fromCity} ${r.toCity} ${r.car} ${r.op} ${(r.tags || []).join(' ')}`.toLowerCase();
           return searchTokens.every((tok) => searchable.includes(tok));
         });
       }
-    } else {
+    } else if (targetTo) {
       list = list.filter(
         (r) =>
-          r.fromCity.toLowerCase() === targetCity.toLowerCase() ||
-          r.toCity.toLowerCase() === targetCity.toLowerCase()
+          (!targetFrom || r.fromCity.toLowerCase().includes(targetFrom)) &&
+          r.toCity.toLowerCase().includes(targetTo)
+      );
+    } else if (targetFrom) {
+      list = list.filter(
+        (r) =>
+          r.fromCity.toLowerCase() === targetFrom ||
+          r.toCity.toLowerCase() === targetFrom
       );
     }
     return list;
-  }, [city, searchWhere, searchTokens, PAK_CITIES_LOWER]);
+  }, [customCityRides, city, searchWhere, c2cFromCity, c2cToCity, searchTokens, PAK_CITIES_LOWER]);
 
   const filteredShuttles = useMemo(() => {
     const targetCity = shuttleCity || searchWhere || city;
@@ -1237,15 +1305,20 @@ export function MobileHomeNativeView() {
             {activeServiceIdx === 2 &&
               (filteredRides.length > 0 ? (
                 filteredRides.map((ride) => {
-                const cleanPhone = (ride.phone || '').replace(/[^0-9]/g, '');
+                const isRideSaved = savedCarIds.includes(ride.id);
 
                 return (
                   <div
                     key={ride.id}
-                    className="bg-white rounded-[18px] p-3 flex flex-col gap-2.5 border border-[#EEF0F2] shadow-2xs transition hover:border-slate-300"
+                    onClick={() => router.push(`/city-to-city/${ride.id}`)}
+                    className="bg-white rounded-[18px] p-3 flex flex-col gap-2.5 border border-[#EEF0F2] shadow-2xs transition hover:border-emerald-300 cursor-pointer active:scale-[0.995]"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <Link href={`/city-to-city/${ride.id}`} className="flex-1 min-w-0">
+                      <Link
+                        href={`/city-to-city/${ride.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex-1 min-w-0"
+                      >
                         <div className="flex items-center gap-1.5 font-heading font-extrabold text-[15px] text-[#101828]">
                           <span>{ride.fromCity}</span>
                           <ArrowRight className="w-3.5 h-3.5 text-[#0B6B4F]" />
@@ -1254,11 +1327,27 @@ export function MobileHomeNativeView() {
                         <p className="text-xs text-[#667085] truncate mt-0.5">{ride.car}</p>
                       </Link>
 
-                      {/* Rating Badge */}
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 text-[10px] font-extrabold border border-amber-200/80 shrink-0">
-                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                        <span>{ride.rating ? ride.rating.toFixed(1) : '4.8'}</span>
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {/* Rating Badge */}
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 text-[10px] font-extrabold border border-amber-200/80">
+                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                          <span>{ride.rating ? ride.rating.toFixed(1) : '4.8'}</span>
+                        </span>
+
+                        {/* Wishlist Save Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => toggleSaveRide(e, ride)}
+                          aria-label={isRideSaved ? 'Remove route from wishlist' : 'Save route to wishlist'}
+                          className="w-7 h-7 rounded-full flex items-center justify-center bg-slate-50 hover:bg-rose-50 transition active:scale-90 cursor-pointer border border-slate-200/70"
+                        >
+                          <Heart
+                            className={`w-3.5 h-3.5 ${
+                              isRideSaved ? 'text-[#D92D20] fill-[#D92D20]' : 'text-slate-400'
+                            }`}
+                          />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="flex items-center justify-between text-xs text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded-xl">
@@ -1285,20 +1374,59 @@ export function MobileHomeNativeView() {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                         <a
                           href={`tel:${ride.phone || ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            recordClickEvent({
+                              clickType: 'CALL_CLICK',
+                              targetId: ride.id,
+                              targetTitle: `${ride.fromCity} to ${ride.toCity}`,
+                              targetCategory: 'CITY_TO_CITY',
+                              targetOwnerName: ride.op,
+                              city: ride.fromCity,
+                            });
+                            recordLead({
+                              userId: ride.id,
+                              customerName: 'Mobile Quick Caller',
+                              customerPhone: 'Phone Dial',
+                              customerCity: ride.fromCity,
+                              serviceType: 'City to City',
+                              notes: `Mobile call click for ${ride.fromCity} ➔ ${ride.toCity}`,
+                            });
+                          }}
                           className="w-9 h-9 rounded-xl bg-[#F2F4F7] hover:bg-slate-200 text-[#101828] flex items-center justify-center transition active:scale-95"
                           title="Call Operator"
                         >
                           <Phone className="w-3.5 h-3.5 stroke-[2]" />
                         </a>
                         <a
-                          href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
+                          href={getWhatsAppTargetUrl(
+                            ride.whatsapp || ride.phone,
                             `Assalam o Alaikum, inquiring about City-to-City ride from ${ride.fromCity} to ${ride.toCity} on SafarPK.`
-                          )}`}
+                          )}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            recordClickEvent({
+                              clickType: 'WHATSAPP_CLICK',
+                              targetId: ride.id,
+                              targetTitle: `${ride.fromCity} to ${ride.toCity}`,
+                              targetCategory: 'CITY_TO_CITY',
+                              targetOwnerName: ride.op,
+                              city: ride.fromCity,
+                            });
+                            recordLead({
+                              userId: ride.id,
+                              customerName: 'Mobile WhatsApp Inquirer',
+                              customerPhone: 'WhatsApp Chat',
+                              customerCity: ride.fromCity,
+                              serviceType: 'City to City',
+                              notes: `Mobile WhatsApp click for ${ride.fromCity} ➔ ${ride.toCity}`,
+                            });
+                          }}
                           className="w-9 h-9 rounded-xl bg-[#E9F3EE] hover:bg-emerald-100 text-[#0B6B4F] flex items-center justify-center transition active:scale-95"
                           title="WhatsApp Operator"
                         >
@@ -1530,6 +1658,8 @@ export function MobileHomeNativeView() {
                   ? `/drivers?city=${encodeURIComponent(city)}`
                   : curService.id === 'pick_and_drop'
                   ? `/shuttles?city=${encodeURIComponent(city)}`
+                  : curService.id === 'city_to_city'
+                  ? `/city-to-city?from=${encodeURIComponent(c2cFromCity || city)}${c2cToCity ? `&to=${encodeURIComponent(c2cToCity)}` : ''}`
                   : curService.id === 'movers'
                   ? `/movers?city=${encodeURIComponent(city)}`
                   : curService.href
@@ -1843,8 +1973,8 @@ export function MobileHomeNativeView() {
                         <span className="text-[10px] font-bold text-[#667085] uppercase tracking-wide block leading-none mb-0.5">
                           Going to (Destination City)
                         </span>
-                        <span className="text-xs font-bold text-[#101828]">
-                          {c2cToCity}
+                        <span className={`text-xs font-bold ${c2cToCity ? 'text-[#101828]' : 'text-slate-500'}`}>
+                          {c2cToCity || 'All destinations'}
                         </span>
                       </div>
                       <ChevronDown className="w-4 h-4 text-slate-400" />
@@ -2199,6 +2329,8 @@ export function MobileHomeNativeView() {
                   setIsSelfDrive(true);
                   setShuttlePickupArea('');
                   setShuttleDropArea('');
+                  setC2cFromCity(city);
+                  setC2cToCity('');
                   setMoverFromArea('');
                   setMoverToArea('');
                   showToast('Search & filters reset');
@@ -2478,7 +2610,27 @@ export function MobileHomeNativeView() {
             </div>
 
             <div className="divide-y divide-slate-100 py-1">
-              {MAJOR_HUBS
+              {c2cPickerSheetOpen === 'to' && !c2cSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setC2cToCity('');
+                    setC2cPickerSheetOpen(null);
+                    setC2cSearchQuery('');
+                    showToast('Showing all destination cities');
+                  }}
+                  className={`w-full flex items-center justify-between py-3 px-2 text-left hover:bg-slate-50 transition cursor-pointer font-semibold text-[15px] rounded-lg ${
+                    !c2cToCity ? 'bg-emerald-50 text-[#0B6B4F] font-bold' : 'text-[#101828]'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Flag className={`w-4 h-4 ${!c2cToCity ? 'text-[#0B6B4F]' : 'text-slate-400'}`} />
+                    <span>All Destinations (Any City)</span>
+                  </span>
+                  {!c2cToCity && <Check className="w-5 h-5 text-[#0B6B4F] stroke-[2.6]" />}
+                </button>
+              )}
+              {INTERCITY_CITIES
                 .filter((hub) => !c2cSearchQuery || hub.toLowerCase().includes(c2cSearchQuery.toLowerCase()))
                 .map((hub) => {
                   const isSelected = (c2cPickerSheetOpen === 'from' ? c2cFromCity : c2cToCity) === hub;

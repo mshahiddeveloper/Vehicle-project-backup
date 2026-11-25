@@ -177,6 +177,7 @@ export default function ListerDashboardPage() {
       departureTime: newC2cTime,
       pickupPoint: newC2cPickup,
       dropPoint: newC2cDrop,
+      rating: 4.8,
     };
     saveCustomCityRide(newRide);
     setShowAddIntercityModal(false);

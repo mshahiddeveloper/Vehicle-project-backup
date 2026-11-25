@@ -39,8 +39,8 @@ describe('Detail Page Actions & In-App Direct Chat Standardization', () => {
     it('implements role-aware handleDirectChat routing', () => {
       // Unauthenticated -> /login?redirect=...
       expect(driverSource).toContain('router.push(`/login?redirect=');
-      // Vendor/Lister/Driver -> /inbox
-      expect(driverSource).toContain("user.role === 'VENDOR' || user.role === 'LISTER' || user.role === 'DRIVER'");
+      // Lister/Driver/Provider -> /inbox
+      expect(driverSource).toContain("user.role === 'LISTER' || user.role === 'DRIVER' || user.role === 'PROVIDER'");
       expect(driverSource).toContain("router.push('/inbox')");
       // Customer -> startOrOpenConversation -> /inbox?conv=...
       expect(driverSource).toContain('startOrOpenConversation');
@@ -65,7 +65,7 @@ describe('Detail Page Actions & In-App Direct Chat Standardization', () => {
       expect(carSource).toContain('<span>Chat</span>');
       expect(carSource).toContain('<span>WhatsApp</span>');
       expect(carSource).toContain('handleDirectChat');
-      expect(carSource).toContain("user.role === 'VENDOR' || user.role === 'LISTER' || user.role === 'DRIVER'");
+      expect(carSource).toContain("user.role === 'LISTER' || user.role === 'DRIVER' || user.role === 'PROVIDER'");
     });
 
     it('City-to-city detail page has Book Ride, Chat, WhatsApp and handleDirectChat', () => {
@@ -73,7 +73,7 @@ describe('Detail Page Actions & In-App Direct Chat Standardization', () => {
       expect(c2cSource).toContain('<span>Chat</span>');
       expect(c2cSource).toContain('<span>WhatsApp</span>');
       expect(c2cSource).toContain('handleDirectChat');
-      expect(c2cSource).toContain("user.role === 'VENDOR' || user.role === 'LISTER' || user.role === 'DRIVER'");
+      expect(c2cSource).toContain("user.role === 'LISTER' || user.role === 'DRIVER' || user.role === 'PROVIDER'");
     });
 
     it('Movers detail page has Book Mover, Chat, WhatsApp and handleDirectChat', () => {
@@ -81,7 +81,7 @@ describe('Detail Page Actions & In-App Direct Chat Standardization', () => {
       expect(moversSource).toContain('<span>Chat</span>');
       expect(moversSource).toContain('<span>WhatsApp</span>');
       expect(moversSource).toContain('handleDirectChat');
-      expect(moversSource).toContain("user.role === 'VENDOR' || user.role === 'LISTER' || user.role === 'DRIVER'");
+      expect(moversSource).toContain("user.role === 'LISTER' || user.role === 'DRIVER' || user.role === 'PROVIDER'");
     });
 
     it('Shuttles detail page has Reserve Seat, Chat, WhatsApp and handleDirectChat', () => {
@@ -89,7 +89,7 @@ describe('Detail Page Actions & In-App Direct Chat Standardization', () => {
       expect(shuttlesSource).toContain('<span>Chat</span>');
       expect(shuttlesSource).toContain('<span>WhatsApp</span>');
       expect(shuttlesSource).toContain('handleDirectChat');
-      expect(shuttlesSource).toContain("user.role === 'VENDOR' || user.role === 'LISTER' || user.role === 'DRIVER'");
+      expect(shuttlesSource).toContain("user.role === 'LISTER' || user.role === 'DRIVER' || user.role === 'PROVIDER'");
     });
   });
 

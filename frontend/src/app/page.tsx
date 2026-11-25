@@ -31,7 +31,7 @@ import {
   ArrowLeftRight,
 } from 'lucide-react';
 import { AppHeader } from '@/components/AppHeader';
-import { getActiveUser } from '@/data/userAuth';
+import { getActiveUser, isListingPaused } from '@/data/userAuth';
 import {
   setPendingWishlist,
   consumeWishlistToast,
@@ -653,6 +653,42 @@ export default function HomePage() {
     } catch (e) {}
   };
 
+  const toggleSaveRide = (e: React.MouseEvent, ride: CityRideItem) => {
+    e.stopPropagation();
+    const user = getActiveUser();
+    const rateLabel = ride.pricePerSeat
+      ? `Rs. ${ride.pricePerSeat.toLocaleString()} / seat`
+      : formatPrice(ride.one);
+    const rideItem = {
+      id: ride.id,
+      category: 'ride' as const,
+      title: `${ride.fromCity} ➔ ${ride.toCity} (${ride.car})`,
+      name: `${ride.fromCity} ➔ ${ride.toCity}`,
+      specs: `${ride.car} · ${ride.time}`,
+      city: ride.fromCity,
+      rate: rateLabel,
+      price: rateLabel,
+      href: `/city-to-city/${ride.id}`,
+    };
+
+    if (!user) {
+      const currentUrl = typeof window !== 'undefined' ? (window.location.pathname + window.location.search) : '/';
+      setPendingWishlist(rideItem, currentUrl);
+      window.location.href = `/login?returnUrl=${encodeURIComponent(currentUrl)}&pendingWishlist=1`;
+      return;
+    }
+
+    try {
+      if (savedIds.includes(ride.id)) {
+        removeWishlistItem(ride.id);
+        setSavedIds((prev) => prev.filter((id) => id !== ride.id));
+      } else {
+        saveWishlistItem(rideItem);
+        setSavedIds((prev) => [...prev, ride.id]);
+      }
+    } catch (e) {}
+  };
+
   const serviceDefs = useMemo(() => [
     {
       label: 'Rent a car',
@@ -772,6 +808,7 @@ export default function HomePage() {
   // 3. Real-time city rides filter (supports From City, To City, Seat Sharing vs Full Car, and Date)
   const filteredRides = useMemo(() => {
     return allCityRides.filter((ride) => {
+      if (isListingPaused(ride.id, ride.op) || isListingPaused(ride.id, ride.phone)) return false;
       // 1. From City filter
       if (c2cFromCity.trim()) {
         const qFrom = c2cFromCity.toLowerCase().trim();
@@ -2436,15 +2473,29 @@ export default function HomePage() {
                       )}
 
                       <div className="flex flex-col gap-3">
-                        {/* Route Header with Booking Type Badge */}
+                        {/* Route Header with Booking Type Badge & Save Heart */}
                         <div className="flex items-center justify-between gap-2 flex-wrap">
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-[#E0EAFF] text-[#1D3A8A]">
                             <Navigation className="w-3.5 h-3.5" />
                             <span>{ride.fromCity} ➔ {ride.toCity}</span>
                           </span>
-                          <span className="text-xs font-semibold text-slate-500">
-                            {ride.duration}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-slate-500">
+                              {ride.duration}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label="Save route"
+                              onClick={(e) => toggleSaveRide(e, ride)}
+                              className={`w-8 h-8 rounded-full border flex items-center justify-center shadow-2xs transition hover:scale-110 cursor-pointer ${
+                                savedIds.includes(ride.id)
+                                  ? 'bg-rose-50 border-rose-200 text-rose-500'
+                                  : 'bg-slate-50 border-slate-200 text-[#101828]'
+                              }`}
+                            >
+                              <Heart className={`w-4 h-4 ${savedIds.includes(ride.id) ? 'fill-rose-500 text-rose-500' : ''}`} />
+                            </button>
+                          </div>
                         </div>
 
                         {/* Booking Model Badge (Seat Sharing vs Full Private Car) */}
@@ -2470,7 +2521,11 @@ export default function HomePage() {
                         </div>
 
                         {/* Vehicle Model & Operator - Links to Route Details */}
-                        <Link href={`/city-to-city/${ride.id}`} className="block group/c2c cursor-pointer">
+                        <Link
+                          href={`/city-to-city/${ride.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="block group/c2c cursor-pointer"
+                        >
                           <h3 className="font-heading font-extrabold text-base text-[#101828] group-hover/c2c:text-blue-700 transition">
                             {ride.car}
                           </h3>
@@ -2923,6 +2978,9 @@ export default function HomePage() {
                 onClick={() => {
                   setSelectedCategory(currentCategories[0]);
                   setSearchWhere('');
+                  setC2cFromCity('');
+                  setC2cToCity('');
+                  setC2cRideType('ALL');
                   setVisibleCount(60);
                 }}
                 className="mt-2 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0B6B4F] text-white font-bold text-xs hover:bg-[#08513C] transition cursor-pointer"

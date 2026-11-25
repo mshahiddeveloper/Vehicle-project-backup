@@ -410,7 +410,7 @@ const VEHICLE_CATALOG: Record<string, VehicleDetail> = {
   },
 };
 
-export function resolveCatalogItem(id: string): VehicleDetail | null {
+function resolveCatalogItem(id: string): VehicleDetail | null {
   if (VEHICLE_CATALOG[id]) {
     return VEHICLE_CATALOG[id];
   }
@@ -690,6 +690,7 @@ export default function ListingDetailPage() {
   }, [car?.id]);
 
   const handleToggleSave = () => {
+    if (!car) return;
     const user = getActiveUser();
     if (!user) {
       const currentUrl = typeof window !== 'undefined' ? (window.location.pathname + window.location.search) : `/listing/${car.id}`;
@@ -733,6 +734,7 @@ export default function ListingDetailPage() {
   };
 
   const handleShareListing = async () => {
+    if (!car) return;
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://safar.pk';
     const shareUrl = `${origin}/listing/${car.id}`;
     if (typeof navigator !== 'undefined' && (navigator as any).share) {
@@ -868,6 +870,7 @@ export default function ListingDetailPage() {
   };
 
   const handleBookVehicleClick = () => {
+    if (!car) return;
     recordIpInquiry({
       listingId: car.id,
       listingTitle: car.title,
@@ -890,6 +893,7 @@ export default function ListingDetailPage() {
   };
 
   const handleDirectHostCall = () => {
+    if (!car) return;
     recordIpInquiry({
       listingId: car.id,
       listingTitle: car.title,
@@ -932,6 +936,7 @@ export default function ListingDetailPage() {
   };
 
   const handleDirectChat = () => {
+    if (!car) return;
     const user = getActiveUser();
     if (!user) {
       const currentPath = typeof window !== 'undefined' ? window.location.pathname : `/listing/${car.id}`;
@@ -939,7 +944,7 @@ export default function ListingDetailPage() {
       return;
     }
 
-    if (user.role === 'VENDOR' || user.role === 'LISTER' || user.role === 'DRIVER') {
+    if (user.role === 'LISTER' || user.role === 'DRIVER' || user.role === 'PROVIDER') {
       router.push('/inbox');
       return;
     }
@@ -994,6 +999,7 @@ export default function ListingDetailPage() {
   };
 
   const handleInstantWhatsAppChat = () => {
+    if (!car) return;
     recordIpInquiry({
       listingId: car.id,
       listingTitle: car.title,
@@ -1033,6 +1039,7 @@ export default function ListingDetailPage() {
   };
 
   const handleConfirmBookingAndChat = (openWhatsAppAlso: boolean = false) => {
+    if (!car) return;
     if (!customerName.trim()) {
       setValidationError('Please enter your full name');
       return;

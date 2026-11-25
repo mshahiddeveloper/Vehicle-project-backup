@@ -9,6 +9,7 @@ import {
   CityRideItem,
   ShuttleItem,
   MoverItem,
+  getCustomCityRides,
 } from './marketplaceData';
 import {
   getAllRegisteredUsers,
@@ -256,6 +257,8 @@ export function getStoreDataBySlug(slugOrId: string): StoreData | null {
     if (matchedUser.role === 'PROVIDER') {
       if (matchedUser.providerSubtype === 'COMMERCIAL_CARGO' || approvedServices.includes('HOME_SHIFTING')) {
         primaryService = 'HOME_SHIFTING';
+      } else if (matchedUser.providerSubtype === 'CITY_TO_CITY' || approvedServices.includes('CITY_TO_CITY')) {
+        primaryService = 'CITY_TO_CITY';
       } else {
         primaryService = 'PICK_AND_DROP';
       }
@@ -334,7 +337,8 @@ export function getStoreDataBySlug(slugOrId: string): StoreData | null {
                   phone,
                   whatsapp,
                   image: c.images?.[0] || c.image || 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=800&auto=format&fit=crop&q=80',
-                  featured: false,
+                  tint: c.tint || '#E9F3EE',
+                  rating: Number(c.rating) || 4.8,
                 }));
             }
           }
@@ -352,7 +356,11 @@ export function getStoreDataBySlug(slugOrId: string): StoreData | null {
         }
       }
     } else if (primaryService === 'CITY_TO_CITY') {
-      rides = CITY_RIDES_DATA.filter((r) => {
+      const mergedRides = [...getCustomCityRides(), ...CITY_RIDES_DATA];
+      const seenRides = new Set<string>();
+      rides = mergedRides.filter((r) => {
+        if (seenRides.has(r.id)) return false;
+        seenRides.add(r.id);
         const rSlug = slugify(r.op);
         return (rSlug === normTarget || normTarget.includes(rSlug) || rSlug.includes(normTarget)) && !isListingPaused(r.id, matchedUser.id);
       });
@@ -672,9 +680,9 @@ function buildDriverProfile(d: DriverCardItem, slug: string): DriverProfileData 
     servicesOffered: ['12-Hour City Duty', 'Outstation Touring', 'Airport Transfer', 'Intercity Drive'],
     workPreference: 'Direct Customer Chauffeur',
     driverOnlyService: true,
-    dailyRate12h: d.dailyRate,
-    outstationDailyRate: Math.round(d.dailyRate * 1.4),
-    monthlySalaryEstimate: Math.round(d.dailyRate * 18),
+    dailyRate12h: d.city12Num || 2500,
+    outstationDailyRate: Math.round((d.city12Num || 2500) * 1.4),
+    monthlySalaryEstimate: Math.round((d.city12Num || 2500) * 18),
     tags,
     policeVerified: true,
     joinedDate: 'Verified 2023',

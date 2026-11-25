@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/AppHeader';
 import { AppFooter } from '@/components/AppFooter';
 import { MobileNavBar } from '@/components/MobileNavBar';
-import { CITY_RIDES_DATA, CityRideItem } from '@/data/marketplaceData';
+import { CITY_RIDES_DATA, CityRideItem, getCustomCityRides } from '@/data/marketplaceData';
 import { getStoreSlugForOwner } from '@/data/storefrontEngine';
 import { recordLead, recordClickEvent } from '@/data/activityTracker';
 import { getWhatsAppTargetUrl, startOrOpenConversation } from '@/data/chatEngine';
@@ -37,6 +37,8 @@ import {
   Check,
   Car,
   Heart,
+  Navigation,
+  Sparkles,
 } from 'lucide-react';
 
 export default function CityRideDetailPage() {
@@ -46,15 +48,95 @@ export default function CityRideDetailPage() {
   const { country, formatPrice } = useCountry();
   const isPakistan = !country || country.code === 'PK';
 
-  const ride: CityRideItem | undefined = useMemo(() => {
+  const staticRide = useMemo(() => {
     return (
       CITY_RIDES_DATA.find((r) => r.id === id) ||
       CITY_RIDES_DATA.find((r) => r.id.toLowerCase() === id.toLowerCase())
     );
   }, [id]);
 
+  const [customRides, setCustomRides] = useState<CityRideItem[]>([]);
+  const [remoteRide, setRemoteRide] = useState<CityRideItem | null>(null);
+  const [dynamicChecked, setDynamicChecked] = useState<boolean>(false);
+
+  useEffect(() => {
+    const syncCustom = () => {
+      setCustomRides(getCustomCityRides());
+    };
+    syncCustom();
+    window.addEventListener('safarpk_city_rides_updated', syncCustom);
+
+    const localCustom = getCustomCityRides().find(
+      (r) => r.id === id || r.id.toLowerCase() === id.toLowerCase()
+    );
+
+    if (staticRide || localCustom || !id) {
+      setDynamicChecked(true);
+    } else {
+      fetch('/api/intercity', { cache: 'no-store' })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.success && Array.isArray(data.trips)) {
+            const trip = data.trips.find(
+              (t: any) => String(t.id).toLowerCase() === id.toLowerCase()
+            );
+            if (trip) {
+              const seatFare = Number(trip.per_seat_fare_pkr) || 1500;
+              const totalSeats = Number(trip.total_seats) || 4;
+              const fullFare = seatFare * totalSeats;
+              setRemoteRide({
+                id: String(trip.id),
+                op: trip.provider_name || 'Verified Intercity Host',
+                car: trip.vehicle_type || 'AC Motorway Vehicle',
+                fromCity: trip.origin_city || 'Origin',
+                toCity: trip.destination_city || 'Destination',
+                bag: '1 medium bag / passenger',
+                time: trip.departure_time || 'Scheduled Departure',
+                duration: trip.route_via || 'Direct Highway / Motorway',
+                one: fullFare,
+                ret: Math.round(fullFare * 1.8),
+                ver: true,
+                tags: ['Verified Schedule', trip.route_via || 'Motorway'].filter(Boolean),
+                category: 'Seat Sharing (Carpool)',
+                phone: trip.provider_phone || '+92 300 1234567',
+                whatsapp: (trip.provider_phone || '923001234567').replace(/\D/g, ''),
+                rideType: 'SEAT_SHARING',
+                pricePerSeat: seatFare,
+                availableSeats: Number(trip.available_seats) || 1,
+                totalSeats,
+                departureTime: trip.departure_time || 'Daily Schedule',
+                departureDate: 'Scheduled',
+                pickupPoint: `${trip.origin_city} Main Interchange`,
+                dropPoint: `${trip.destination_city} Main Terminal`,
+                rating: 4.8,
+              });
+            }
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          setDynamicChecked(true);
+        });
+    }
+
+    return () => {
+      window.removeEventListener('safarpk_city_rides_updated', syncCustom);
+    };
+  }, [id, staticRide]);
+
+  const ride: CityRideItem | undefined = useMemo(() => {
+    if (staticRide) return staticRide;
+    const customMatch =
+      customRides.find((r) => r.id === id) ||
+      customRides.find((r) => r.id.toLowerCase() === id.toLowerCase());
+    if (customMatch) return customMatch;
+    return remoteRide || undefined;
+  }, [id, staticRide, customRides, remoteRide]);
+
   const [tripType, setTripType] = useState<'oneway' | 'return'>('oneway');
-  const [selectedDate, setSelectedDate] = useState('2026-11-20');
+  const [bookingMode, setBookingMode] = useState<'seat' | 'full_car'>('full_car');
+  const [seatsRequested, setSeatsRequested] = useState<number>(1);
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [returnDate, setReturnDate] = useState('2026-11-23');
   const [passengerCount, setPassengerCount] = useState(2);
   const [pickupAddress, setPickupAddress] = useState('');
@@ -65,6 +147,21 @@ export default function CityRideDetailPage() {
   const [featuresOpen, setFeaturesOpen] = useState(false);
   const [policiesOpen, setPoliciesOpen] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+
+  useEffect(() => {
+    if (!ride) return;
+    if (ride.rideType === 'SEAT_SHARING' && ride.pricePerSeat) {
+      setBookingMode('seat');
+      setSeatsRequested(1);
+    } else if (ride.rideType === 'FULL_CAR') {
+      setBookingMode('full_car');
+    } else if (ride.pricePerSeat && (ride.availableSeats ?? 0) > 0) {
+      setBookingMode('seat');
+      setSeatsRequested(1);
+    } else {
+      setBookingMode('full_car');
+    }
+  }, [ride?.id]);
 
   useEffect(() => {
     if (!ride) return;
@@ -82,6 +179,22 @@ export default function CityRideDetailPage() {
       window.removeEventListener('safarpk_auth_state_changed', checkSaved);
     };
   }, [ride]);
+
+  const supportsSeatSharing = Boolean(
+    ride &&
+      ride.rideType !== 'FULL_CAR' &&
+      ride.pricePerSeat &&
+      (ride.availableSeats === undefined || ride.availableSeats > 0)
+  );
+  const supportsFullCar = Boolean(ride && ride.rideType !== 'SEAT_SHARING');
+
+  const currentFare = !ride
+    ? 0
+    : bookingMode === 'seat' && ride.pricePerSeat
+    ? ride.pricePerSeat * (tripType === 'return' ? 2 : 1) * seatsRequested
+    : tripType === 'return'
+    ? ride.ret
+    : ride.one;
 
   const handleToggleSaveRide = () => {
     if (!ride) return;
@@ -123,9 +236,8 @@ export default function CityRideDetailPage() {
     }
   };
 
-  const currentFare = tripType === 'return' ? (ride?.ret || 0) : (ride?.one || 0);
-
   const handleCall = () => {
+    if (!ride) return;
     setPhoneRevealed(true);
     recordClickEvent({
       clickType: 'CALL_CLICK',
@@ -149,6 +261,7 @@ export default function CityRideDetailPage() {
   };
 
   const handleWhatsApp = () => {
+    if (!ride) return;
     recordClickEvent({
       clickType: 'WHATSAPP_CLICK',
       targetId: ride.id,
@@ -166,7 +279,14 @@ export default function CityRideDetailPage() {
       notes: `Direct WhatsApp inquiry for ride ${ride.fromCity} ➔ ${ride.toCity}`,
     });
 
-    const text = `Assalam-o-Alaikum ${ride.op},\n\nI am contacting you from SafarPK regarding your City to City ride:\n• Route: ${ride.fromCity} ➔ ${ride.toCity}\n• Vehicle: ${ride.car}\n• Trip Type: ${tripType === 'return' ? 'Return Trip' : 'One Way'}\n• Travel Date: ${selectedDate}\n• Fare: ${formatPrice(currentFare)}\n\nPlease confirm availability and pickup details.`;
+    const bookingLabel =
+      bookingMode === 'seat'
+        ? `Seat Sharing (${seatsRequested} ${seatsRequested === 1 ? 'seat' : 'seats'} · ${tripType === 'return' ? 'Return' : 'One Way'})`
+        : tripType === 'return'
+        ? 'Full Private Car (Return Trip)'
+        : 'Full Private Car (One Way)';
+
+    const text = `Assalam-o-Alaikum ${ride.op},\n\nI am contacting you from SafarPK regarding your City to City ride:\n• Route: ${ride.fromCity} ➔ ${ride.toCity}\n• Vehicle: ${ride.car}\n• Booking Option: ${bookingLabel}\n• Travel Date: ${selectedDate}\n• Fare: ${formatPrice(currentFare)}\n\nPlease confirm availability and pickup details.`;
     const waUrl = getWhatsAppTargetUrl(ride.whatsapp || ride.phone, text);
     window.open(waUrl, '_blank');
   };
@@ -180,7 +300,7 @@ export default function CityRideDetailPage() {
       return;
     }
 
-    if (user.role === 'VENDOR' || user.role === 'LISTER' || user.role === 'DRIVER') {
+    if (user.role === 'LISTER' || user.role === 'DRIVER' || user.role === 'PROVIDER') {
       router.push('/inbox');
       return;
     }
@@ -211,7 +331,12 @@ export default function CityRideDetailPage() {
         itemName: `${ride.fromCity} to ${ride.toCity} (${ride.car})`,
         pickupDate: selectedDate,
         totalEstimate: formatPrice(currentFare),
-        serviceMode: tripType === 'return' ? 'Return Trip' : 'One Way',
+        serviceMode:
+          bookingMode === 'seat'
+            ? `Carpool Seat (${seatsRequested})`
+            : tripType === 'return'
+            ? 'Return Trip'
+            : 'One Way',
         bookingRef: `C2C-${Math.floor(10000 + Math.random() * 90000)}`,
       },
       initialGreeting: `Assalam-o-Alaikum ${ride.op}! I am interested in your City to City ride from ${ride.fromCity} to ${ride.toCity} on ${selectedDate}. Are seats/car available?`,
@@ -230,16 +355,38 @@ export default function CityRideDetailPage() {
 
   const handleBookingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!ride) return;
     recordLead({
       userId: ride.id,
       customerName: 'Booking Requester',
       customerPhone: 'Online Request',
       customerCity: ride.fromCity,
       serviceType: 'City to City',
-      notes: `Request for ${ride.fromCity} to ${ride.toCity} on ${selectedDate} (${tripType})`,
+      notes: `Request for ${ride.fromCity} to ${ride.toCity} on ${selectedDate} (${bookingMode === 'seat' ? `${seatsRequested} seat(s)` : 'Full Car'} · ${tripType}) · Pickup: ${pickupAddress}`,
     });
     setBookingSuccess(true);
   };
+
+  if (!ride && !dynamicChecked) {
+    return (
+      <div className="min-h-screen bg-[#F7F8FA] flex flex-col justify-between font-sans">
+        <AppHeader />
+        <main className="max-w-xl mx-auto px-4 py-24 text-center space-y-3">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-[#0B6B4F] flex items-center justify-center mx-auto animate-pulse">
+            <Navigation className="w-7 h-7" />
+          </div>
+          <h1 className="font-heading font-bold text-lg text-slate-900">
+            Loading Intercity Route...
+          </h1>
+          <p className="text-xs text-slate-500">
+            Fetching route timings, pickup points, and seat availability.
+          </p>
+        </main>
+        <AppFooter />
+        <MobileNavBar />
+      </div>
+    );
+  }
 
   if (!ride) {
     return (
@@ -270,7 +417,7 @@ export default function CityRideDetailPage() {
     );
   }
 
-  const isPaused = isListingPaused(ride.id, ride.op);
+  const isPaused = isListingPaused(ride.id, ride.op) || isListingPaused(ride.id, ride.phone);
   const storeSlug = getStoreSlugForOwner(ride.op);
 
   return (
@@ -421,25 +568,47 @@ export default function CityRideDetailPage() {
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="space-y-3">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-xs font-bold text-blue-200 border border-white/20">
-                <Car className="w-3.5 h-3.5" />
-                <span>Private Intercity Motorway Service</span>
+                {ride.rideType === 'SEAT_SHARING' ? (
+                  <Users className="w-3.5 h-3.5 text-emerald-300" />
+                ) : ride.rideType === 'BOTH' ? (
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                ) : (
+                  <Car className="w-3.5 h-3.5" />
+                )}
+                <span>
+                  {ride.rideType === 'SEAT_SHARING'
+                    ? `Carpool Seat Sharing · ${ride.availableSeats || 1} Seat Available`
+                    : ride.rideType === 'BOTH'
+                    ? 'Seat Sharing & Private Car Service'
+                    : 'Private Intercity Motorway Service'}
+                </span>
               </div>
               <h1 className="font-heading font-black text-lg sm:text-2xl md:text-3xl lg:text-4xl tracking-tight leading-tight">
                 {ride.fromCity} <span className="text-blue-400">➔</span> {ride.toCity}
               </h1>
               <p className="text-slate-300 text-sm sm:text-base max-w-xl">
-                {ride.car} · {ride.duration} · {ride.time}
+                {ride.car} · {ride.duration} · {ride.departureTime || ride.time}
               </p>
             </div>
 
             <div className="flex flex-col items-start md:items-end bg-white/10 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-white/15">
               <span className="text-xs text-blue-200 font-bold uppercase tracking-wider">
-                Starting from
+                {ride.rideType === 'SEAT_SHARING' && ride.pricePerSeat
+                  ? 'Per Seat Rate'
+                  : 'Starting from'}
               </span>
               <div className="font-heading font-black text-2xl sm:text-3xl text-white">
-                {formatPrice(ride.one)}
+                {ride.rideType === 'SEAT_SHARING' && ride.pricePerSeat
+                  ? formatPrice(ride.pricePerSeat)
+                  : formatPrice(ride.one)}
               </div>
-              <span className="text-xs text-slate-300">One-way private hire</span>
+              <span className="text-xs text-slate-300">
+                {ride.rideType === 'SEAT_SHARING' && ride.pricePerSeat
+                  ? `${ride.availableSeats || 1} of ${ride.totalSeats || 4} seats open`
+                  : ride.pricePerSeat
+                  ? `Private car · or ${formatPrice(ride.pricePerSeat)}/seat`
+                  : 'One-way private hire'}
+              </span>
             </div>
           </div>
         </div>
@@ -509,7 +678,9 @@ export default function CityRideDetailPage() {
                 <Users className="w-4 h-4 text-blue-600" />
                 <span className="text-[11px] text-slate-500">Seating</span>
                 <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate">
-                  Up to 4 Passengers
+                  {ride.rideType === 'SEAT_SHARING'
+                    ? `${ride.availableSeats || 1} of ${ride.totalSeats || 4} Open`
+                    : `Up to ${ride.totalSeats || 4} Passengers`}
                 </span>
               </div>
               <div className="p-3.5 border border-slate-200/80 rounded-2xl flex flex-col gap-1 bg-white">
@@ -521,12 +692,29 @@ export default function CityRideDetailPage() {
               </div>
               <div className="p-3.5 border border-slate-200/80 rounded-2xl flex flex-col gap-1 bg-white">
                 <MapPin className="w-4 h-4 text-blue-600" />
-                <span className="text-[11px] text-slate-500">Pickup</span>
-                <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate">
-                  Doorstep in {ride.fromCity}
+                <span className="text-[11px] text-slate-500">Pickup Point</span>
+                <span className="font-heading font-bold text-xs sm:text-sm text-slate-900 truncate" title={ride.pickupPoint || `Doorstep in ${ride.fromCity}`}>
+                  {ride.pickupPoint || `Doorstep in ${ride.fromCity}`}
                 </span>
               </div>
             </div>
+
+            {(ride.pickupPoint || ride.dropPoint || ride.departureTime) && (
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Boarding / Pickup</span>
+                  <span className="font-bold text-slate-900">{ride.pickupPoint || `Flexible in ${ride.fromCity}`}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Drop-off Terminal / Area</span>
+                  <span className="font-bold text-slate-900">{ride.dropPoint || `Flexible in ${ride.toCity}`}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Schedule & Timing</span>
+                  <span className="font-bold text-emerald-800">{ride.departureDate || 'Daily'} · {ride.departureTime || ride.time}</span>
+                </div>
+              </div>
+            )}
 
             {/* Route Highlights & Inclusions (Mobile Accordion) */}
             <div className="rounded-2xl border border-slate-200 bg-white shadow-2xs overflow-hidden transition">
@@ -686,6 +874,71 @@ export default function CityRideDetailPage() {
               </div>
             ) : (
               <>
+            {/* Booking Mode Selector (Seat Sharing vs Full Private Car) */}
+            {supportsSeatSharing && supportsFullCar && (
+              <div className="grid grid-cols-2 gap-1.5 p-1 bg-emerald-50/70 border border-emerald-200/70 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setBookingMode('seat')}
+                  className={`h-9 rounded-lg text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1 ${
+                    bookingMode === 'seat'
+                      ? 'bg-[#0B6B4F] text-white shadow-xs'
+                      : 'text-emerald-900 hover:bg-emerald-100/70'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Seat Sharing</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBookingMode('full_car')}
+                  className={`h-9 rounded-lg text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1 ${
+                    bookingMode === 'full_car'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <Car className="w-3.5 h-3.5" />
+                  <span>Full Car</span>
+                </button>
+              </div>
+            )}
+
+            {/* Seat Quantity Selector when booking shared seat */}
+            {bookingMode === 'seat' && supportsSeatSharing && (
+              <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-emerald-50/80 border border-emerald-200 text-xs">
+                <div>
+                  <span className="font-bold text-emerald-950 block">Seats Required</span>
+                  <span className="text-[10px] text-emerald-700">
+                    {ride.availableSeats || 1} seat(s) open at {formatPrice(ride.pricePerSeat || 1500)}/seat
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSeatsRequested((prev) => Math.max(1, prev - 1))}
+                    className="w-7 h-7 rounded-lg bg-white border border-emerald-300 font-bold text-slate-800 hover:bg-emerald-100 cursor-pointer"
+                  >
+                    −
+                  </button>
+                  <span className="font-heading font-extrabold text-sm text-emerald-950 w-4 text-center">
+                    {seatsRequested}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSeatsRequested((prev) =>
+                        Math.min(ride.availableSeats || 3, prev + 1)
+                      )
+                    }
+                    className="w-7 h-7 rounded-lg bg-white border border-emerald-300 font-bold text-slate-800 hover:bg-emerald-100 cursor-pointer"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Trip Type Selector */}
             <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl">
               <button
@@ -715,13 +968,19 @@ export default function CityRideDetailPage() {
             {/* Pricing Display */}
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-center space-y-1">
               <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-                {tripType === 'return' ? 'Round Trip Fare' : 'One Way Direct Fare'}
+                {bookingMode === 'seat' && supportsSeatSharing
+                  ? `${seatsRequested} ${seatsRequested === 1 ? 'Shared Seat' : 'Shared Seats'} (${tripType === 'return' ? 'Return' : 'One Way'})`
+                  : tripType === 'return'
+                  ? 'Round Trip Fare'
+                  : 'One Way Direct Fare'}
               </span>
               <div className="font-heading font-black text-3xl text-slate-900">
                 {formatPrice(currentFare)}
               </div>
               <p className="text-xs text-slate-500">
-                {tripType === 'return'
+                {bookingMode === 'seat' && supportsSeatSharing
+                  ? `Carpool shared rate · Verified highway vehicle`
+                  : tripType === 'return'
                   ? 'Includes same day or designated return'
                   : 'Total vehicle rate for entire car'}
               </p>

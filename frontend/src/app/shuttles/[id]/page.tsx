@@ -138,6 +138,7 @@ export default function ShuttleDetailPage() {
   };
 
   const handleCall = () => {
+    if (!shuttle) return;
     setPhoneRevealed(true);
     recordClickEvent({
       clickType: 'CALL_CLICK',
@@ -161,6 +162,7 @@ export default function ShuttleDetailPage() {
   };
 
   const handleWhatsApp = () => {
+    if (!shuttle) return;
     recordClickEvent({
       clickType: 'WHATSAPP_CLICK',
       targetId: shuttle.id,
@@ -192,7 +194,7 @@ export default function ShuttleDetailPage() {
       return;
     }
 
-    if (user.role === 'VENDOR' || user.role === 'LISTER' || user.role === 'DRIVER') {
+    if (user.role === 'LISTER' || user.role === 'DRIVER' || user.role === 'PROVIDER') {
       router.push('/inbox');
       return;
     }
@@ -241,6 +243,7 @@ export default function ShuttleDetailPage() {
 
   const handleInquirySubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!shuttle) return;
     recordLead({
       userId: shuttle.id,
       customerName: `${passengerGender} Commuter (${passengerCategory})`,

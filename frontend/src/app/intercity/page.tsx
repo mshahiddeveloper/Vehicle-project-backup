@@ -225,6 +225,7 @@ function IntercityPortalContent() {
       departureDate: departureDate,
       pickupPoint: pickupPoint,
       dropPoint: dropPoint,
+      rating: 4.8,
     };
 
     saveCustomCityRide(newRoute);

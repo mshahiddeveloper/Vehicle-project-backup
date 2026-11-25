@@ -66,12 +66,67 @@ export default function CityToCityPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [revealedPhones, setRevealedPhones] = useState<Record<string, boolean>>({});
   const [customRides, setCustomRides] = useState<CityRideItem[]>([]);
+  const [remoteRides, setRemoteRides] = useState<CityRideItem[]>([]);
   const [savedRideIds, setSavedRideIds] = useState<string[]>([]);
 
   useEffect(() => {
+    // Support initial URL filters (?from=...&to=...&type=...)
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      const qFrom = sp.get('from');
+      const qTo = sp.get('to');
+      const qType = sp.get('type');
+      if (qFrom) setFromCity(qFrom);
+      if (qTo) setToCity(qTo);
+      if (qType === 'SEAT_SHARING' || qType === 'FULL_CAR' || qType === 'ALL') {
+        setRideTypeFilter(qType);
+      }
+    } catch {}
+
     setCustomRides(getCustomCityRides());
     const onUpdated = () => setCustomRides(getCustomCityRides());
     window.addEventListener('safarpk_city_rides_updated', onUpdated);
+
+    // Also load any Neon DB scheduled intercity trips
+    fetch('/api/intercity', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.success && Array.isArray(data.trips)) {
+          const mapped: CityRideItem[] = data.trips.map((trip: any) => {
+            const seatFare = Number(trip.per_seat_fare_pkr) || 1500;
+            const totalSeats = Number(trip.total_seats) || 4;
+            const fullFare = seatFare * totalSeats;
+            return {
+              id: String(trip.id),
+              op: trip.provider_name || 'Verified Intercity Host',
+              car: trip.vehicle_type || 'AC Motorway Vehicle',
+              fromCity: trip.origin_city || 'Origin',
+              toCity: trip.destination_city || 'Destination',
+              bag: '1 medium bag / passenger',
+              time: trip.departure_time || 'Scheduled Departure',
+              duration: trip.route_via || 'Direct Highway / Motorway',
+              one: fullFare,
+              ret: Math.round(fullFare * 1.8),
+              ver: true,
+              tags: ['Verified Schedule', trip.route_via || 'Motorway'].filter(Boolean),
+              category: 'Seat Sharing (Carpool)',
+              phone: trip.provider_phone || '+92 300 1234567',
+              whatsapp: (trip.provider_phone || '923001234567').replace(/\D/g, ''),
+              rideType: 'SEAT_SHARING',
+              pricePerSeat: seatFare,
+              availableSeats: Number(trip.available_seats) || 1,
+              totalSeats,
+              departureTime: trip.departure_time || 'Daily Schedule',
+              departureDate: 'Scheduled',
+              pickupPoint: `${trip.origin_city} Main Interchange`,
+              dropPoint: `${trip.destination_city} Main Terminal`,
+              rating: 4.8,
+            };
+          });
+          setRemoteRides(mapped);
+        }
+      })
+      .catch(() => {});
 
     const syncSaved = () => {
       const items = getSavedWishlistItems();
@@ -125,7 +180,15 @@ export default function CityToCityPage() {
     }
   };
 
-  const allRides: CityRideItem[] = [...customRides, ...CITY_RIDES_DATA];
+  const allRides: CityRideItem[] = React.useMemo(() => {
+    const merged = [...customRides, ...remoteRides, ...CITY_RIDES_DATA];
+    const seen = new Set<string>();
+    return merged.filter((item) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+  }, [customRides, remoteRides]);
 
   const formatPKR = (v: number) => `Rs. ${v.toLocaleString('en-US')}`;
 
@@ -136,7 +199,7 @@ export default function CityToCityPage() {
   };
 
   const filteredRides = allRides.filter((r) => {
-    if (isListingPaused(r.id, r.phone)) return false;
+    if (isListingPaused(r.id, r.op) || isListingPaused(r.id, r.phone)) return false;
     // City match
     if (fromCity.trim()) {
       const qFrom = fromCity.toLowerCase().trim();
