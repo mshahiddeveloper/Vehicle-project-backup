@@ -918,14 +918,23 @@ function InboxContent() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Quick-Reply Suggestion Chips */}
+              {/* Quick-Reply Suggestion Chips (Role-Aware: Customer vs Lister/Provider) */}
               <div className="bg-[#F6F4F0] border-t border-slate-200/80 px-3 py-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
-                {[
-                  'Pick-up time?',
-                  'Send location',
-                  'Delivery possible?',
-                  'Final price?',
-                ].map((chip) => (
+                {(isViewerCustomer
+                  ? [
+                      'Pick-up time?',
+                      'Send location',
+                      'Delivery possible?',
+                      'Final price?',
+                    ]
+                  : [
+                      'Do you have National ID card?',
+                      'Do you have valid Driving Licence?',
+                      'Yes, available for your dates!',
+                      'Please share pickup location & time.',
+                      'Self-drive or with chauffeur?',
+                    ]
+                ).map((chip) => (
                   <button
                     key={chip}
                     type="button"
